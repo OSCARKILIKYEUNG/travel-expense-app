@@ -34,10 +34,11 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     return items.filter((i) => (i.assignedTo || expense.assignedTo || '共同') === filterPerson);
   }, [expense, filterPerson, isPartialMatch]);
 
-  const itemsGrossSum = useMemo(
-    () => visibleItems.reduce((s, i) => s + (parseFloat(i.price) || 0), 0),
-    [visibleItems],
-  );
+  /** 畫面上「退稅 1844」用正數；資料 taxRefund 仍為負數（實付比原價少付） */
+  const refundDisplayAmount = useMemo(() => {
+    const tr = expense.taxRefund ?? 0;
+    return Math.abs(tr);
+  }, [expense.taxRefund]);
 
   const showRefundRow = useMemo(() => {
     if (isPartialMatch) return false;
@@ -110,7 +111,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       <div className="bg-slate-50/80 px-4 py-3 border-t border-slate-100">
         {visibleItems.length > 0 && (
           <>
-            <p className="text-[10px] text-slate-400 mb-1.5">品項（收據標價）</p>
+            <p className="text-[10px] text-slate-400 mb-1.5">原價</p>
             <ul className="space-y-0.5 mb-2">
               {visibleItems.map((item, idx) => (
                 <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
@@ -130,17 +131,9 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
               ))}
             </ul>
             {showRefundRow && (
-              <div className="space-y-1 mb-2 pt-1 border-t border-slate-200/80">
-                <div className="flex justify-between items-center text-xs text-slate-500">
-                  <span>標價小計</span>
-                  <span className="font-mono tabular-nums">{itemsGrossSum.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
-                  <span>免稅／退稅調整</span>
-                  <span className="font-mono tabular-nums">
-                    {(expense.taxRefund ?? 0).toLocaleString()}
-                  </span>
-                </div>
+              <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
+                <span>退稅</span>
+                <span className="font-mono tabular-nums">{refundDisplayAmount.toLocaleString()}</span>
               </div>
             )}
           </>
