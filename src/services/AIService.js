@@ -3,6 +3,8 @@
  * API 金鑰僅存 GEMINI_API_KEY，不經前端。
  */
 
+import { inferFixedFeeFromName } from '../utils/personShare';
+
 function resizeImage(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -105,10 +107,19 @@ export function alignItemPricesToTotal(items, targetTotal, currency) {
 
 export function buildExpenseFromAI(result, index, currency, rate) {
   const items = Array.isArray(result.items)
-    ? result.items.map((item) => ({
-        ...item,
-        name: (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤'),
-      }))
+    ? result.items.map((item) => {
+        const name = (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤');
+        const exRaw = item.exclude_from_refund_split ?? item.excludeFromRefundSplit;
+        let excludeFromRefundSplit;
+        if (exRaw === true) excludeFromRefundSplit = true;
+        else if (exRaw === false) excludeFromRefundSplit = false;
+        else if (inferFixedFeeFromName(name)) excludeFromRefundSplit = true;
+        return {
+          ...item,
+          name,
+          excludeFromRefundSplit,
+        };
+      })
     : [];
 
   const grossSum = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);

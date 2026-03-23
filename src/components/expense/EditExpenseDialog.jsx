@@ -4,6 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { CATEGORIES, CURRENCY_NAMES } from '../../utils/constants';
 import { formatDateToInput, formatDateToDisplay } from '../../utils/date';
 import { Edit, Check } from '../ui/Icons';
+import { inferFixedFeeFromName } from '../../utils/personShare';
 
 export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
   const { people } = useApp();
@@ -108,15 +109,32 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
 
         <div>
           <p className="text-sm font-medium text-slate-700 mb-0.5">細項</p>
-          <p className="text-[10px] text-slate-400 mb-2">每行金額為標價（含稅），與收據一致</p>
+          <p className="text-[10px] text-slate-400 mb-2">
+            每行金額為標價（含稅）。日本免稅等：手續費／佣金請勾「固定」，該行實付＝標價，其餘行再按比例攤退稅。
+          </p>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {(form.items || []).map((item, idx) => (
-              <div key={idx} className="flex gap-1.5 items-center bg-white p-1.5 rounded-lg border border-slate-200">
-                <input type="text" value={item.name || ''} onChange={(e) => patchItem(idx, { name: e.target.value })} placeholder="品名…" className="input-field flex-1 !py-1.5 text-xs" />
+              <div key={idx} className="flex flex-wrap gap-1.5 items-center bg-white p-1.5 rounded-lg border border-slate-200">
+                <input type="text" value={item.name || ''} onChange={(e) => patchItem(idx, { name: e.target.value })} placeholder="品名…" className="input-field flex-1 min-w-[120px] !py-1.5 text-xs" />
                 <input type="number" value={item.price || ''} onChange={(e) => patchItem(idx, { price: parseFloat(e.target.value) || 0 })} className="input-field w-20 !py-1.5 text-xs" />
-                <select value={item.assignedTo || form.assignedTo || '共同'} onChange={(e) => patchItem(idx, { assignedTo: e.target.value })} className="input-field w-20 !py-1.5 text-xs">
+                <select value={item.assignedTo || form.assignedTo || '共同'} onChange={(e) => patchItem(idx, { assignedTo: e.target.value })} className="input-field w-24 !py-1.5 text-xs">
                   {people.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
+                <label
+                  className="flex items-center gap-0.5 text-[9px] text-slate-500 shrink-0 cursor-pointer"
+                  title="此行不退稅分攤：實付＝標價（如 GB 佣金、代辦費）"
+                >
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300"
+                    checked={
+                      item.excludeFromRefundSplit === true ||
+                      (item.excludeFromRefundSplit !== false && inferFixedFeeFromName(item.name))
+                    }
+                    onChange={(e) => patchItem(idx, { excludeFromRefundSplit: e.target.checked })}
+                  />
+                  固定
+                </label>
                 <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600 px-1.5 font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded" aria-label="刪除此細項">×</button>
               </div>
             ))}
