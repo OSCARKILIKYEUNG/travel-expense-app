@@ -10,8 +10,18 @@
 | 項目 | 說明 |
 |------|------|
 | **主題** | 多人分帳時「實付」與「原價行」不一致（免稅／退稅／固定費）；分人篩選時金額與退稅顯示正確；跨國單據長期策略。 |
-| **狀態** | 功能已 **上線並 push**（見下方 Commit 習慣）；**工作暫停**，後續以本檔「待辦與優化」追蹤。 |
+| **狀態** | 功能已 **上線並 push**；**協作規則**已寫入 Cursor rule（見 §九）；後續以本檔 backlog 追蹤。 |
 | **核心程式** | `src/utils/personShare.js`、`ExpenseCard.jsx`、圖表／Dashboard、`AIService.js`、`api/receipt-prompt.js`、編輯表單。 |
+
+### 進度快照（Progress · 2025-03-24 更新）
+
+| 區塊 | 狀態 | 備註 |
+|------|------|------|
+| 分帳／免稅／固定費／收據免稅額顯示 | 已上線 | 多個 commit 已 push |
+| 上傳單據幣別採 AI `currency`、HKD 匯率 | 已上線 | `resolveReceiptCurrency` + `UploadArea` |
+| 編輯細項說明文案 | 已上線 | 免稅後單價 vs 固定費分離 |
+| Cursor：**意見→先對齊再改** | 已建立 rule | `.cursor/rules/feedback-before-implement.mdc` |
+| Backlog B-01～B-07 | 未做 | 見 §五 |
 
 ---
 
@@ -57,6 +67,7 @@
 | L4 | 助手「能否 deploy」說法不一 | 預設不自動跑 git，需使用者明確要求 | 流程：使用者說「push / deploy」→ 執行 `npm run deploy`。 |
 | L5 | 日本免稅兩種單據 | ① 標價≠實付；② 細項已免稅後價 | ① 差額 + 固定費行；② **收據免稅額僅顯示** 欄位。 |
 | L6 | AI 與公式假設衝突 | Prompt 一度強調「標價」與實付分離 | Prompt 已加 `receipt_tax_exemption_amount`；維持與 `README` 同步。 |
+| L7 | 使用者提意見後未先對齊就改碼 | 助手預設直接實作 | **已立規則**：先說明理解與方案，經同意或明確「執行」再動手（見 §九）。 |
 
 ---
 
@@ -102,7 +113,8 @@
 2. **發版前**：更新 `PRODUCT_MANAGEMENT.md` →「發布紀錄」+ 路線圖勾選。  
 3. **踩坑** 只寫 **一處**（本檔或 PRODUCT_MANAGEMENT 技術債表），不重複貼兩份長文。  
 4. **跨國策略**：記錄在 `PRODUCT_MANAGEMENT` 或本檔「決策」，**不**在 README 堆長篇。  
-5. **部署**：約定觸發詞（「請 push / deploy」）與責任（誰執行 `npm run deploy`）。
+5. **部署**：約定觸發詞（「請 push / deploy」）與責任（誰執行 `npm run deploy`）。  
+6. **與 AI 協作**：使用者提**意見／優化／問題**時，助手應**先**說明理解與改法，**不**立即改碼；見 **§九** 與 `.cursor/rules/feedback-before-implement.mdc`。
 
 ---
 
@@ -116,6 +128,7 @@
 | `api/receipt-prompt.js` | Gemini JSON 規格 |
 | `README.md` | 免稅／固定費／收據免稅額說明 |
 | `docs/PRODUCT_MANAGEMENT.md` | 滾動路線圖與技術債 |
+| `.cursor/rules/feedback-before-implement.mdc` | 意見先對齊再改之協作規則 |
 
 ---
 
@@ -124,5 +137,24 @@
 | 日期 | 動作 |
 |------|------|
 | 2025-03-23 | 建立本檔；收錄本輪需求、交付、踩坑、backlog、PM 流程。 |
+| 2025-03-24 | 新增 §進度快照、§九協作規則、L7；連結 Cursor rule。 |
+
+---
+
+## 九、協作規則（意見 → 對齊 → 再實作）
+
+**目的**：減少未對齊就改程式、方便產品決策與交接。
+
+| 步驟 | 內容 |
+|------|------|
+| 1 | 使用者提出意見或修改需求時，助手**不**立刻改 code。 |
+| 2 | 助手先說明：**我如何理解問題**、**預計怎麼改**（含檔案／風險）。 |
+| 3 | 使用者確認、或明確說「同意／改吧／執行／幫我做」後，再實作。 |
+
+**實作位置**：`.cursor/rules/feedback-before-implement.mdc`（`alwaysApply: true`）。
+
+**例外**：純解釋概念、讀檔說明現況，可直接回答。
+
+---
 
 *維護：下一輪大改分帳／免稅邏輯時，更新「已交付」或開新月份迭代檔，並在 `PRODUCT_MANAGEMENT.md` 發布紀錄對應一行。*

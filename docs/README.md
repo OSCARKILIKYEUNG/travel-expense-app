@@ -12,6 +12,7 @@
 | 安裝、跑專案、部署到 Vercel | [README.md](../README.md)（**專案門面**） |
 | 排優先級、路線圖、技術債、發版紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md)（**產品主控**） |
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
+| Cursor 規則（意見→先對齊再改） | [../.cursor/rules/feedback-before-implement.mdc](../.cursor/rules/feedback-before-implement.mdc) |
 | 畫面/品牌/無障礙等 **UI 規格** | [DESIGN_SPEC.md](../DESIGN_SPEC.md) |
 | 為什麼用 Vite、遷移史、目錄對照 | [HANDOFF.md](../HANDOFF.md)（**歷史與決策**） |
 | Pencil 檔、色票、mockup 資產 | [designs/README.md](../designs/README.md) |
