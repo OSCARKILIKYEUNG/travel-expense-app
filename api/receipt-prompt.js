@@ -19,6 +19,7 @@ export const SYSTEM_PROMPT = `
 - subtotal：若單據有「小計」且為「標價／含稅品項加總」，請填該數字；若無則可省略（後端會用 items 加總）。
 - tax_refund：因免稅／退稅導致「實付少於標價小計」時，填負數，數值 = total_amount − subtotal（或 total_amount − 各品項標價和）。一般單據無則填 0。
 - receipt_tax_exemption_amount（選填，正數）：收據上單獨印出之「免稅額／免税額／Tax exemption amount」等**僅供記錄與顯示**；若店家已用免稅後單價列在細項、細項加總＝實付，仍請從收據讀出此數字。與 tax_refund 可並存；無則 0 或省略。
+- 日本唐吉訶德、藥妝等「免稅額 609」印在合計旁時，**必須**填 receipt_tax_exemption_amount（正數），即使細項已是免稅後價、加總等於實付。
 - 不要為了讓「細項加總 = total_amount」而改寫標價；細項加總應等於標價小計，實付由 total_amount 表達，差額由 tax_refund 表達。
 - 歐洲等「先付含稅、機場退稅」：total_amount 以店內實付為準；若退稅不在本張小票上，tax_refund 可填 0。
 

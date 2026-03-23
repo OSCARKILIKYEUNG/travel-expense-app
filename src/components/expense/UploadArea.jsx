@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../../store/AppContext';
 import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
-import { getExchangeRate } from '../../utils/currency';
+import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { settings, exchangeRates, addExpenses, notify } = useApp();
-  const { defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
+  const { customCurrencyCode, customCurrencyRate } = settings;
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
@@ -26,8 +26,11 @@ export default function UploadArea() {
       setStep(`正在處理第 ${i + 1}/${files.length} 張\u2026`);
       try {
         const parsed = await parseReceipt(files[i]);
-        const currency = defaultCurrency === 'OTHER' ? customCurrencyCode : defaultCurrency;
-        const rate = defaultCurrency === 'OTHER' ? customCurrencyRate : getExchangeRate(currency, exchangeRates);
+        const currency = resolveReceiptCurrency(parsed, settings);
+        const rate =
+          settings.defaultCurrency === 'OTHER' && currency === customCurrencyCode
+            ? customCurrencyRate
+            : getExchangeRate(currency, exchangeRates);
         results.push(buildExpenseFromAI(parsed, i, currency, rate));
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);

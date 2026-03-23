@@ -149,7 +149,9 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     result.receipt_tax_exemption_amount ??
     result.receiptTaxExemptionAmount ??
     result.tax_exemption_amount ??
-    result.duty_free_amount;
+    result.duty_free_amount ??
+    result.exemption_amount ??
+    result.tax_exemption_display;
   const receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
 
   return {

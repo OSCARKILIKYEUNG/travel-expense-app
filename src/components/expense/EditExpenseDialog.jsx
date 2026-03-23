@@ -131,8 +131,9 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
 
         <div>
           <p className="text-sm font-medium text-slate-700 mb-0.5">細項</p>
-          <p className="text-[10px] text-slate-400 mb-2">
-            每行金額為標價（含稅）。日本免稅等：手續費／佣金請勾「固定」，該行實付＝標價，其餘行再按比例攤退稅。
+          <p className="text-[10px] text-slate-400 mb-2 leading-snug">
+            每行填收據上與該品對齊的金額（多為店內標示主價；日本免稅店常已是<strong>免稅後單價</strong>，加總與實付一致屬正常）。
+            含佣金／GB／手續費等、不參與退稅比例攤分的行請勾「<strong>固定</strong>」。
           </p>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {(form.items || []).map((item, idx) => (

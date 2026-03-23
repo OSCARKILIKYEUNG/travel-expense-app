@@ -39,6 +39,8 @@ AI 驅動的旅遊記帳與分帳助手 — 支援多旅程、多人分帳、多
 4. 勾選 **Production**（與需要時 **Preview**）  
 5. **Save** 後到 **Deployments → 最新一筆 → Redeploy**（或 Push 本 repo 觸發部署），變數才會套用到新 build。
 
+**幣別**：上傳單據時會**優先採用 AI 辨識的 `currency`**（例如 JPY），再依設定匯率換算 HKD；若以前曾出現「日圓金額卻當港幣」，請更新程式或於編輯中改幣別。
+
 本機要測單據上傳：複製 `.env.example` 為 `.env.local`，填入 `GEMINI_API_KEY`，然後：
 
 ```bash
