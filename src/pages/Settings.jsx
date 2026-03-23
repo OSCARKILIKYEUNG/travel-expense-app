@@ -9,7 +9,7 @@ import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify } = useApp();
-  const { apiKey, modelName, exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
+  const { exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
@@ -43,8 +43,6 @@ export default function Settings() {
       setExpenses(data.expenses);
       if (data.settings) {
         updateSettings({
-          apiKey: data.settings.apiKey || apiKey,
-          modelName: data.settings.modelName || modelName,
           exchangeRates: data.settings.exchangeRates || exchangeRates,
         });
       }
@@ -59,33 +57,13 @@ export default function Settings() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">設定</h1>
 
-      {/* API */}
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">AI 設定</h2>
-        <div>
-          <label htmlFor="s-apikey" className="block text-xs font-medium text-slate-600 mb-1">API Key</label>
-          <input
-            id="s-apikey"
-            type="password"
-            value={apiKey}
-            onChange={(e) => updateSettings({ apiKey: e.target.value })}
-            className="input-field"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
-        <div>
-          <label htmlFor="s-model" className="block text-xs font-medium text-slate-600 mb-1">AI 模型</label>
-          <input
-            id="s-model"
-            type="text"
-            value={modelName}
-            onChange={(e) => updateSettings({ modelName: e.target.value })}
-            className="input-field"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
+      {/* 單據辨識：雲端處理，不暴露模型／金鑰（細節見 README） */}
+      <section className="card p-4 space-y-2">
+        <h2 className="text-sm font-bold text-slate-700">收據辨識</h2>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          在首頁上傳收據照片後，會由<strong className="text-slate-800">雲端自動辨識</strong>
+          店家、日期、金額與品項，無須自行輸入金鑰或設定。
+        </p>
       </section>
 
       {/* Currency */}

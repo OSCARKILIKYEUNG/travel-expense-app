@@ -9,6 +9,25 @@ AI 驅動的旅遊記帳與分帳助手 — 支援多旅程、多人分帳、多
 - **React Router v7** — 路由
 - **PWA** — 可安裝到手機主螢幕
 - **localStorage** — 資料儲存（未來可換 Supabase）
+- **單據 AI** — **Google Gemini 2.5 Flash**（經 **Vercel Serverless** `api/parse-receipt`，`GEMINI_API_KEY` 僅在伺服器，**不可放前端**）
+
+### 單據辨識：環境變數（必做）
+
+1. 到 [Google AI Studio](https://aistudio.google.com/apikey) 建立 **Gemini API Key**（Google AI API，非 OpenRouter）。
+2. **Vercel** → 你的專案 → **Settings → Environment Variables**：
+   - Name: `GEMINI_API_KEY`
+   - Value: 貼上金鑰
+   - 勾選 **Production**（及需要時 **Preview**）
+3. 重新部署一次（或 Push 觸發部署）。
+
+本機要測單據上傳：複製 `.env.example` 為 `.env.local`，填入 `GEMINI_API_KEY`，然後：
+
+```bash
+npm install
+npx vercel dev
+```
+
+（`npm run dev` 只會跑 Vite，**沒有** `/api`，上傳單據會失敗；需用 `vercel dev` 或已部署的網址測試。）
 
 ## 在新電腦上設定
 
@@ -76,12 +95,9 @@ vercel
 # 按提示操作即可，會自動偵測 Vite 專案
 ```
 
-### 方法 C：拖放部署
+### 方法 C：拖放 `dist/`（不建議）
 
-1. 執行 `npm run build`
-2. 前往 https://vercel.com/new
-3. 直接把 `dist/` 資料夾拖進去
-4. 完成！
+只拖 `dist/` **不會**帶上 `api/` 後端，**單據 AI 將無法使用**。請用 GitHub 連線部署整份 repo。
 
 ---
 
@@ -98,6 +114,9 @@ vercel
 ## 專案結構
 
 ```
+api/                 # Vercel Serverless（Gemini，讀 GEMINI_API_KEY）
+├── parse-receipt.js
+├── receipt-prompt.js
 src/
 ├── components/
 │   ├── chart/        # DailyChart, PersonChart

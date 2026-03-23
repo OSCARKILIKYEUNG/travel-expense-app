@@ -8,7 +8,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   // ── Settings ──
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
-  const { apiKey, modelName, exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
+  const { exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
 
   const updateSettings = useCallback((patch) => {
     setSettingsState((prev) => {

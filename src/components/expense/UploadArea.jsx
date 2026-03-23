@@ -6,7 +6,7 @@ import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { settings, exchangeRates, addExpenses, notify } = useApp();
-  const { apiKey, modelName, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
+  const { defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
@@ -16,8 +16,6 @@ export default function UploadArea() {
   const handleFiles = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    if (!apiKey) { notify('請先在設定中填入 API Key', 'warning'); return; }
-
     setLoading(true);
     setProgress({ current: 0, total: files.length });
     const results = [];
@@ -26,7 +24,7 @@ export default function UploadArea() {
       setProgress({ current: i + 1, total: files.length });
       setStep(`正在處理第 ${i + 1}/${files.length} 張\u2026`);
       try {
-        const parsed = await parseReceipt(files[i], apiKey, modelName);
+        const parsed = await parseReceipt(files[i]);
         const currency = defaultCurrency === 'OTHER' ? customCurrencyCode : defaultCurrency;
         const rate = defaultCurrency === 'OTHER' ? customCurrencyRate : getExchangeRate(currency, exchangeRates);
         results.push(buildExpenseFromAI(parsed, i, currency, rate));

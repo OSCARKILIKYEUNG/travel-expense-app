@@ -65,8 +65,6 @@ export const PRESET_TRIPS_DATA = {
       createdAt: new Date().toISOString(),
       expenses: [],
       settings: {
-        apiKey: '',
-        modelName: 'google/gemini-2.5-flash',
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
         people: ['共同', '人物A', '人物B'],
         defaultCurrency: 'HKD',

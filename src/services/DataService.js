@@ -103,8 +103,9 @@ const DataService = {
   loadSettings() {
     const saved = read(KEYS.SETTINGS);
     if (saved) {
+      const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
       return {
-        ...saved,
+        ...rest,
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(saved.exchangeRates || {}) },
         defaultCurrency: saved.defaultCurrency || 'HKD',
         customCurrencyCode: saved.customCurrencyCode || '',
@@ -114,8 +115,6 @@ const DataService = {
     const preset = PRESET_TRIPS_DATA.trips[0]?.settings;
     if (preset) {
       return {
-        apiKey: preset.apiKey || '',
-        modelName: preset.modelName || 'google/gemini-2.5-flash',
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(preset.exchangeRates || {}) },
         defaultCurrency: preset.defaultCurrency || 'HKD',
         customCurrencyCode: preset.customCurrencyCode || '',
@@ -123,8 +122,6 @@ const DataService = {
       };
     }
     return {
-      apiKey: '',
-      modelName: 'google/gemini-2.5-flash',
       exchangeRates: DEFAULT_EXCHANGE_RATES,
       defaultCurrency: 'HKD',
       customCurrencyCode: '',
