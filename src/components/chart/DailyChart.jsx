@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store/AppContext';
 import { CATEGORY_COLORS } from '../../utils/constants';
-import { getExchangeRate } from '../../utils/currency';
+import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 
 export default function DailyChart() {
   const { expenses, filterPerson, exchangeRates } = useApp();
@@ -16,14 +16,10 @@ export default function DailyChart() {
           const cat = e.category || '未分類';
           map[e.date][cat] = (map[e.date][cat] || 0) + e.hkdAmount;
         } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson)) {
-          for (const item of e.items) {
-            if ((item.assignedTo || e.assignedTo || '共同') === filterPerson) {
-              if (!map[e.date]) map[e.date] = {};
-              const cat = e.category || '未分類';
-              const rate = getExchangeRate(e.currency || 'HKD', exchangeRates);
-              map[e.date][cat] = (map[e.date][cat] || 0) + (item.price || 0) * rate;
-            }
-          }
+          if (!map[e.date]) map[e.date] = {};
+          const cat = e.category || '未分類';
+          const share = getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
+          map[e.date][cat] = (map[e.date][cat] || 0) + share;
         }
       } else {
         if (!map[e.date]) map[e.date] = {};

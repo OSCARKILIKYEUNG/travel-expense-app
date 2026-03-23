@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import PersonFilter from '../components/expense/PersonFilter';
 import DailyChart from '../components/chart/DailyChart';
 import PersonChart from '../components/chart/PersonChart';
-import { getExchangeRate } from '../utils/currency';
+import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 
 export default function Charts() {
   const { expenses, filterPerson, exchangeRates } = useApp();
@@ -18,10 +18,7 @@ export default function Charts() {
         if (!whole && !hasItems) continue;
         if (whole) { total += e.hkdAmount; }
         else {
-          for (const item of e.items) {
-            if ((item.assignedTo || e.assignedTo || '共同') === filterPerson)
-              total += (item.price || 0) * getExchangeRate(e.currency || 'HKD', exchangeRates);
-          }
+          total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
         }
       } else {
         total += e.hkdAmount;

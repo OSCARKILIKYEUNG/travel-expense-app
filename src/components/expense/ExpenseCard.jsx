@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store/AppContext';
 import { CATEGORY_COLORS } from '../../utils/constants';
-import { getExchangeRate } from '../../utils/currency';
+import {
+  getPartialMatchPersonShareHKD,
+  getPartialMatchPersonShareOriginal,
+  getPartialRefundShareOriginal,
+  sumAssignedItemPrices,
+} from '../../utils/personShare';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
 
 function refundEpsilon(currency) {
@@ -17,14 +22,9 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
 
   const displayAmount = useMemo(() => {
     if (!isPartialMatch) return { hkd: expense.hkdAmount, orig: expense.originalAmount, currency: expense.currency };
-    let total = 0;
-    (expense.items || []).forEach((item) => {
-      if ((item.assignedTo || expense.assignedTo || '共同') === filterPerson) {
-        total += item.price || 0;
-      }
-    });
-    const rate = getExchangeRate(expense.currency || 'HKD', exchangeRates);
-    return { hkd: total * rate, orig: total, currency: expense.currency };
+    const hkd = getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates);
+    const orig = getPartialMatchPersonShareOriginal(expense, filterPerson);
+    return { hkd, orig, currency: expense.currency };
   }, [expense, filterPerson, isPartialMatch, exchangeRates]);
 
   const visibleItems = useMemo(() => {
@@ -46,6 +46,22 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     return Math.abs(tr) > refundEpsilon(expense.currency);
   }, [expense.taxRefund, expense.currency, isPartialMatch]);
 
+  /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
+  const partialBreakdown = useMemo(() => {
+    if (!isPartialMatch || !filterPerson) return null;
+    const tr = expense.taxRefund ?? 0;
+    if (Math.abs(tr) <= refundEpsilon(expense.currency)) return null;
+    const subtotalGross = sumAssignedItemPrices(expense, filterPerson);
+    if (subtotalGross <= 0) return null;
+    const refundShare = getPartialRefundShareOriginal(expense, filterPerson);
+    const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson);
+    return {
+      subtotalGross,
+      refundShare,
+      netOrig,
+    };
+  }, [expense, filterPerson, isPartialMatch]);
+
   return (
     <article className="card overflow-hidden">
       {isDuplicate && (
@@ -59,8 +75,11 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       )}
 
       {isPartialMatch && (
-        <div className="bg-violet-50 border-b border-violet-200 px-4 py-1.5">
+        <div className="bg-violet-50 border-b border-violet-200 px-4 py-1.5 space-y-0.5">
           <span className="text-violet-700 text-xs font-medium">僅顯示「{filterPerson}」的部分</span>
+          {Math.abs(expense.taxRefund ?? 0) > refundEpsilon(expense.currency) && (
+            <p className="text-violet-500 text-[10px] leading-tight">下方附「比例退稅」與實攤明細（與全單實付一致）</p>
+          )}
         </div>
       )}
 
@@ -92,7 +111,9 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 <span className="text-[10px] text-violet-400 font-normal mr-0.5">HKD</span>
                 {Math.round(displayAmount.hkd).toLocaleString()}
               </p>
-              <p className="text-[10px] text-violet-400">{displayAmount.orig} {displayAmount.currency}</p>
+              <p className="text-[10px] text-violet-400">
+                {Math.round(displayAmount.orig).toLocaleString()} {displayAmount.currency}
+              </p>
             </>
           ) : (
             <>
@@ -134,6 +155,29 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>退稅</span>
                 <span className="font-mono tabular-nums">{refundDisplayAmount.toLocaleString()}</span>
+              </div>
+            )}
+
+            {partialBreakdown && (
+              <div className="space-y-1.5 mb-2 pt-1.5 border-t border-violet-200/80">
+                <div className="flex justify-between items-center text-xs text-slate-600">
+                  <span>原價小計</span>
+                  <span className="font-mono tabular-nums">
+                    {Math.round(partialBreakdown.subtotalGross).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
+                  <span>退稅（依全單原價比例）</span>
+                  <span className="font-mono tabular-nums">
+                    {Math.round(partialBreakdown.refundShare).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-semibold text-violet-800 pt-1 border-t border-violet-100">
+                  <span>實攤</span>
+                  <span className="font-mono tabular-nums">
+                    {Math.round(partialBreakdown.netOrig).toLocaleString()} {expense.currency}
+                  </span>
+                </div>
               </div>
             )}
           </>

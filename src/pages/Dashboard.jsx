@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { CURRENCY_NAMES } from '../utils/constants';
-import { getExchangeRate } from '../utils/currency';
+import { getPartialMatchPersonShareHKD, getPartialMatchPersonShareOriginal } from '../utils/personShare';
 import { Save, FileText, Copy, BarChart, Plus } from '../components/ui/Icons';
 import { exportFullBackup, copyReport } from '../services/ExportService';
 import PersonFilter from '../components/expense/PersonFilter';
@@ -20,11 +20,7 @@ export default function Dashboard() {
       if (whole) {
         total += e.hkdAmount;
       } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson)) {
-        for (const item of e.items) {
-          if ((item.assignedTo || e.assignedTo || '共同') === filterPerson) {
-            total += (item.price || 0) * getExchangeRate(e.currency || 'HKD', exchangeRates);
-          }
-        }
+        total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
       }
     }
     return total;
@@ -46,12 +42,8 @@ export default function Dashboard() {
         const hasItems = e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson);
         if (!whole && !hasItems) continue;
         if (!whole && hasItems) {
-          for (const item of e.items) {
-            if ((item.assignedTo || e.assignedTo || '共同') === filterPerson) {
-              const c = e.originalCurrency || e.currency || 'HKD';
-              map[c] = (map[c] || 0) + (item.price || 0);
-            }
-          }
+          const c = e.originalCurrency || e.currency || 'HKD';
+          map[c] = (map[c] || 0) + getPartialMatchPersonShareOriginal(e, filterPerson);
           continue;
         }
       }

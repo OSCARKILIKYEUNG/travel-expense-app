@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store/AppContext';
 import { PERSON_COLORS, PERSON_BG_CLASSES } from '../../utils/constants';
-import { getExchangeRate } from '../../utils/currency';
+import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 
 export default function PersonChart() {
   const { expenses, people, filterPerson, exchangeRates } = useApp();
@@ -16,11 +16,7 @@ export default function PersonChart() {
         if (whole) {
           sum += e.hkdAmount;
         } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === person)) {
-          for (const item of e.items) {
-            if ((item.assignedTo || e.assignedTo || '共同') === person) {
-              sum += (item.price || 0) * getExchangeRate(e.currency || 'HKD', exchangeRates);
-            }
-          }
+          sum += getPartialMatchPersonShareHKD(e, person, exchangeRates);
         }
       }
       totals[person] = sum;
