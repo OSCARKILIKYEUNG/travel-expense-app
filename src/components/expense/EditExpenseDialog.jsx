@@ -105,6 +105,28 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
               <input id="edit-discount" type="number" value={form.discount || ''} onChange={(e) => patch({ discount: parseFloat(e.target.value) || 0 })} placeholder="-200" className="input-field text-xs" />
             </div>
           </div>
+          <div className="mt-2 pt-2 border-t border-slate-200/80">
+            <label htmlFor="edit-receipt-exemption" className="block text-[10px] text-slate-500 mb-0.5">
+              收據免稅額（僅顯示，可選）
+            </label>
+            <input
+              id="edit-receipt-exemption"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.receiptTaxExemptionAmount ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '') patch({ receiptTaxExemptionAmount: undefined });
+                else patch({ receiptTaxExemptionAmount: Math.max(0, parseFloat(v) || 0) });
+              }}
+              placeholder="如收據印 免税額 609"
+              className="input-field text-xs"
+            />
+            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+              若收據印有「免稅額」但細項已是免稅後價、加總與實付一致，請填此欄，卡片會顯示以免誤以為無免稅；不影響實付與分帳計算。
+            </p>
+          </div>
         </div>
 
         <div>

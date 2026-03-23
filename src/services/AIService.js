@@ -145,6 +145,12 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   }
 
   const receiptType = result.receipt_type || '';
+  const rawExemption =
+    result.receipt_tax_exemption_amount ??
+    result.receiptTaxExemptionAmount ??
+    result.tax_exemption_amount ??
+    result.duty_free_amount;
+  const receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
 
   return {
     id: Date.now() + index,
@@ -162,5 +168,6 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     hkdAmount: finalAmount * rate,
     paymentMethod: result.payment_method || '',
     receiptType,
+    ...(receiptTaxExemptionAmount > eps ? { receiptTaxExemptionAmount } : {}),
   };
 }

@@ -50,7 +50,7 @@ export function generateReport(expenses) {
   const details = expenses
     .map(
       (e) =>
-        `\n📍 ${e.date}\n🏪 店舖: ${e.store}\n📌 地點: ${e.location}\n🏷️ 種類: ${e.category}\n📝 細項: ${e.items.map((i) => i.name).join(', ')}\n💵 花費: ${e.originalAmount} ${e.currency} = HKD $${Math.round(e.hkdAmount)}\n------------------------`
+        `\n📍 ${e.date}\n🏪 店舖: ${e.store}\n📌 地點: ${e.location}\n🏷️ 種類: ${e.category}\n📝 細項: ${e.items.map((i) => i.name).join(', ')}\n💵 花費: ${e.originalAmount} ${e.currency} = HKD $${Math.round(e.hkdAmount)}${e.receiptTaxExemptionAmount ? `\n📋 收據免稅額: ${e.receiptTaxExemptionAmount}` : ''}\n------------------------`
     )
     .join('\n');
 

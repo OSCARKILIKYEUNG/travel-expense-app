@@ -18,6 +18,7 @@ export const SYSTEM_PROMPT = `
 - total_amount：顧客「實際支付」的合計（「合計」「Total」「AMOUNT DUE」等最終應付）。
 - subtotal：若單據有「小計」且為「標價／含稅品項加總」，請填該數字；若無則可省略（後端會用 items 加總）。
 - tax_refund：因免稅／退稅導致「實付少於標價小計」時，填負數，數值 = total_amount − subtotal（或 total_amount − 各品項標價和）。一般單據無則填 0。
+- receipt_tax_exemption_amount（選填，正數）：收據上單獨印出之「免稅額／免税額／Tax exemption amount」等**僅供記錄與顯示**；若店家已用免稅後單價列在細項、細項加總＝實付，仍請從收據讀出此數字。與 tax_refund 可並存；無則 0 或省略。
 - 不要為了讓「細項加總 = total_amount」而改寫標價；細項加總應等於標價小計，實付由 total_amount 表達，差額由 tax_refund 表達。
 - 歐洲等「先付含稅、機場退稅」：total_amount 以店內實付為準；若退稅不在本張小票上，tax_refund 可填 0。
 
@@ -36,6 +37,7 @@ receipt_type（選填，字串）：
 - subtotal: 標價小計（選填，與 items 加總應一致或極接近）
 - tax: 消費稅金額（如果有單獨列出）
 - tax_refund: 免稅／退稅造成的差額，負數表示少付；無則 0
+- receipt_tax_exemption_amount: 收據印製之免稅額（正數，僅顯示用）；無則 0 或省略
 - discount: 一般折扣（割引、Discount），負數
 - total_amount: 實付總金額
 - receipt_type: 見上（選填）
@@ -44,4 +46,4 @@ receipt_type（選填，字串）：
 `;
 
 export const USER_TEXT =
-  '請分析這張單據，輸出 JSON。細項 price 一律用收據上的「標價／含稅主價」；total_amount 用實付合計；若有免稅差額請填 tax_refund（負數）。';
+  '請分析這張單據，輸出 JSON。細項 price 用收據主價；total_amount 用實付合計；若有標價與實付差額填 tax_refund（負數）。若收據印有「免稅額／免税額」等數字，請填 receipt_tax_exemption_amount（正數），即使細項已是免稅後價格。';

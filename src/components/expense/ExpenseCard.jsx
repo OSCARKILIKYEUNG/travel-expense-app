@@ -35,15 +35,26 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     return items.filter((i) => (i.assignedTo || expense.assignedTo || '共同') === filterPerson);
   }, [expense, filterPerson, isPartialMatch]);
 
-  /** 畫面上「退稅」用正數；含 taxRefund，亦含原價−實付推算 */
-  const refundDisplayAmount = useMemo(() => {
-    return getEffectiveRefundPositive(expense);
-  }, [expense]);
+  /** 收據印製之免稅額（細項可能已是免稅後價，與差額推算無關） */
+  const receiptTaxExemptionAmount = useMemo(() => {
+    return Math.max(0, Number(expense.receiptTaxExemptionAmount) || 0);
+  }, [expense.receiptTaxExemptionAmount]);
 
-  const showRefundRow = useMemo(() => {
-    if (isPartialMatch) return false;
-    return getEffectiveRefundPositive(expense) > refundEpsilon(expense.currency);
-  }, [expense, isPartialMatch]);
+  const refundRowsMeta = useMemo(() => {
+    const eps = refundEpsilon(expense.currency);
+    const eff = getEffectiveRefundPositive(expense);
+    const rec = receiptTaxExemptionAmount;
+    const closeEnough =
+      rec > eps && eff > eps && Math.abs(rec - eff) <= Math.max(eps * 3, 1.5);
+    return {
+      eff,
+      rec,
+      eps,
+      showComputedRefundRow: !isPartialMatch && eff > eps,
+      showReceiptOnlyRow: !isPartialMatch && rec > eps && eff <= eps,
+      showReceiptSecondaryRow: !isPartialMatch && rec > eps && eff > eps && !closeEnough,
+    };
+  }, [expense, isPartialMatch, receiptTaxExemptionAmount]);
 
   /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
   const partialBreakdown = useMemo(() => {
@@ -151,10 +162,27 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 </li>
               ))}
             </ul>
-            {showRefundRow && (
+            {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
-                <span>退稅</span>
-                <span className="font-mono tabular-nums">{refundDisplayAmount.toLocaleString()}</span>
+                <span>退稅（標價與實付差額）</span>
+                <span className="font-mono tabular-nums">{refundRowsMeta.eff.toLocaleString()}</span>
+              </div>
+            )}
+            {refundRowsMeta.showReceiptOnlyRow && (
+              <div className="mb-2 pt-1.5 border-t border-teal-200/80 space-y-1">
+                <div className="flex justify-between items-center text-xs text-teal-800 font-medium">
+                  <span>免稅額（收據）</span>
+                  <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  收據上記載之免稅／退稅金額。若細項已是免稅後單價、加總與實付一致，屬正常；不影響上方實付合計。
+                </p>
+              </div>
+            )}
+            {refundRowsMeta.showReceiptSecondaryRow && (
+              <div className="flex justify-between items-center text-[10px] text-slate-600 mb-2 pt-1 border-t border-slate-100">
+                <span>收據另載免稅額</span>
+                <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
               </div>
             )}
 
