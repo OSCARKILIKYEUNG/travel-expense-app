@@ -119,13 +119,28 @@ travel-expense-app/
 ├── vite.config.js
 ├── tailwind.config.js
 ├── postcss.config.js
+├── docs/
+│   ├── README.md              文件導覽（建議先讀）
+│   ├── PRODUCT_MANAGEMENT.md  產品路線與技術債
+│   └── archive/
+│       └── BACKUP_BRANCH_v1.md
+├── designs/                   Pencil mockup（見 designs/README.md）
 ├── README.md
+├── BACKUP_README.md           備份說明捷徑 → docs/archive/
 └── HANDOFF.md   （本檔案）
 ```
 
 ---
 
-## 六、之後若要做的事（備忘）
+## 六、產品與架構管理（必讀）
+
+- 已新增 **`docs/PRODUCT_MANAGEMENT.md`**：路線圖（P0/P1/P2）、版本建議、架構優先級、技術債登記、發布紀錄表。  
+- 已新增 **`docs/README.md`**：以產品經理視角整理「哪份文件負責什麼、有無重疊」，避免 README / HANDOFF / 設計稿混淆。  
+- 目標是做好 **產品管理** 與 **可追蹤優化**，與本 HANDOFF（歷史脈絡）分工：HANDOFF 偏「為什麼這樣做」；PRODUCT_MANAGEMENT 偏「接下來做什麼、怎麼管」。
+
+---
+
+## 七、之後若要做的事（備忘）
 
 - 把 ZIP 重新壓一次（可包含本 HANDOFF.md，若當初壓縮時尚未加入）。
 - 在可安裝的電腦上完成 GitHub + Vercel 部署後，可刪除公司電腦上的 ZIP 或專案副本（依公司規定）。

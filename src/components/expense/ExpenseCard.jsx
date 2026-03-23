@@ -105,10 +105,17 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                     </span>
                   )}
                 </span>
-                <span className="font-mono text-slate-400 ml-2 shrink-0">{item.price}</span>
+                <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
+                  {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                </span>
               </li>
             ))}
           </ul>
+        )}
+        {expense.aiAlignedItemPrices && (
+          <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">
+            細項已依實付總額比例對齊（例如免稅單據含稅標價與合計不一致時），加總會與上方金額一致。
+          </p>
         )}
 
         <div className="flex justify-end gap-2 pt-1">
