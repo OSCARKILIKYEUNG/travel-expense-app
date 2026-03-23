@@ -1,7 +1,38 @@
+import { buffer } from 'node:stream/consumers';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { SYSTEM_PROMPT, USER_TEXT } from './receipt-prompt.js';
 
 const MODEL_ID = 'gemini-2.5-flash';
+
+/** Vercel 有時未注入 req.body，僅在 body 為 null/undefined 時讀 raw stream（避免重複讀流） */
+async function readJsonBody(req) {
+  const b = req.body;
+  if (b && typeof b === 'object' && !Buffer.isBuffer(b)) return b;
+  if (Buffer.isBuffer(b)) {
+    try {
+      return JSON.parse(b.toString('utf8'));
+    } catch {
+      return null;
+    }
+  }
+  if (typeof b === 'string') {
+    try {
+      return JSON.parse(b);
+    } catch {
+      return null;
+    }
+  }
+  if (b === undefined || b === null) {
+    try {
+      const buf = await buffer(req);
+      const s = buf.toString('utf8');
+      return s ? JSON.parse(s) : {};
+    } catch {
+      return null;
+    }
+  }
+  return {};
+}
 
 function stripDataUrl(base64) {
   if (!base64 || typeof base64 !== 'string') return '';
@@ -38,12 +69,10 @@ export default async function handler(req, res) {
     );
   }
 
-  let body;
-  try {
-    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  } catch {
+  const body = await readJsonBody(req);
+  if (!body || typeof body !== 'object') {
     res.statusCode = 400;
-    return res.end(JSON.stringify({ error: '無效的 JSON 內容' }));
+    return res.end(JSON.stringify({ error: '無法讀取請求內容（JSON）' }));
   }
 
   const imageBase64 = body?.imageBase64;

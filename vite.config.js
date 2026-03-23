@@ -8,6 +8,16 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
+      // 避免 Service Worker 攔截 /api，導致 POST 收據辨識回傳 HTML 或失敗
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api'),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
       manifest: {
         name: '旅遊記帳助手 Pro',
         short_name: '旅遊記帳',

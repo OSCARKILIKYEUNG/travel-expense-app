@@ -19,6 +19,7 @@ export default function UploadArea() {
     setLoading(true);
     setProgress({ current: 0, total: files.length });
     const results = [];
+    let lastError = '';
 
     for (let i = 0; i < files.length; i++) {
       setProgress({ current: i + 1, total: files.length });
@@ -30,6 +31,7 @@ export default function UploadArea() {
         results.push(buildExpenseFromAI(parsed, i, currency, rate));
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);
+        lastError = err?.message || String(err);
       }
     }
 
@@ -38,7 +40,7 @@ export default function UploadArea() {
       setStep(`成功處理 ${results.length}/${files.length} 張單據`);
       setTimeout(() => { setLoading(false); setStep(''); }, 1500);
     } else {
-      notify('所有單據處理失敗，請檢查圖片或 API 設定', 'error');
+      notify(lastError || '所有單據處理失敗，請檢查圖片或稍後再試', 'error');
       setLoading(false);
       setStep('');
     }

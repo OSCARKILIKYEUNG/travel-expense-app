@@ -41,7 +41,15 @@ export async function parseReceipt(file) {
     body: JSON.stringify({ imageBase64: base64 }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(
+      `伺服器回傳異常（${res.status}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。`,
+    );
+  }
   if (!res.ok) {
     throw new Error(data.error || `API 請求失敗: ${res.status}`);
   }
