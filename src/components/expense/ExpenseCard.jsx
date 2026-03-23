@@ -4,6 +4,11 @@ import { CATEGORY_COLORS } from '../../utils/constants';
 import { getExchangeRate } from '../../utils/currency';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
 
+function refundEpsilon(currency) {
+  const c = (currency || 'HKD').toUpperCase();
+  return ['JPY', 'KRW', 'VND', 'CLP'].includes(c) ? 1 : 0.01;
+}
+
 export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
   const { filterPerson, exchangeRates } = useApp();
   const cat = expense.category || '未分類';
@@ -28,6 +33,17 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     if (!isPartialMatch) return items;
     return items.filter((i) => (i.assignedTo || expense.assignedTo || '共同') === filterPerson);
   }, [expense, filterPerson, isPartialMatch]);
+
+  const itemsGrossSum = useMemo(
+    () => visibleItems.reduce((s, i) => s + (parseFloat(i.price) || 0), 0),
+    [visibleItems],
+  );
+
+  const showRefundRow = useMemo(() => {
+    if (isPartialMatch) return false;
+    const tr = expense.taxRefund ?? 0;
+    return Math.abs(tr) > refundEpsilon(expense.currency);
+  }, [expense.taxRefund, expense.currency, isPartialMatch]);
 
   return (
     <article className="card overflow-hidden">
@@ -93,29 +109,41 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
 
       <div className="bg-slate-50/80 px-4 py-3 border-t border-slate-100">
         {visibleItems.length > 0 && (
-          <ul className="space-y-0.5 mb-2">
-            {visibleItems.map((item, idx) => (
-              <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
-                <span className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                  {item.assignedTo && item.assignedTo !== expense.assignedTo && (
-                    <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
-                      {item.assignedTo}
-                    </span>
-                  )}
-                </span>
-                <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
-                  {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {expense.aiAlignedItemPrices && (
-          <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">
-            細項已依實付總額比例對齊（例如免稅單據含稅標價與合計不一致時），加總會與上方金額一致。
-          </p>
+          <>
+            <p className="text-[10px] text-slate-400 mb-1.5">品項（收據標價）</p>
+            <ul className="space-y-0.5 mb-2">
+              {visibleItems.map((item, idx) => (
+                <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
+                    <span className="truncate">{item.name}</span>
+                    {item.assignedTo && item.assignedTo !== expense.assignedTo && (
+                      <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                        {item.assignedTo}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
+                    {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {showRefundRow && (
+              <div className="space-y-1 mb-2 pt-1 border-t border-slate-200/80">
+                <div className="flex justify-between items-center text-xs text-slate-500">
+                  <span>標價小計</span>
+                  <span className="font-mono tabular-nums">{itemsGrossSum.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
+                  <span>免稅／退稅調整</span>
+                  <span className="font-mono tabular-nums">
+                    {(expense.taxRefund ?? 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div className="flex justify-end gap-2 pt-1">

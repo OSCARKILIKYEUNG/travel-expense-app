@@ -89,14 +89,15 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
 
         <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
           <p className="text-xs font-bold text-slate-500 mb-1">稅務 / 折扣（選填）</p>
+          <p className="text-[10px] text-slate-400 mb-2">細項金額建議填收據標價；免稅時「退稅」為負數（實付 − 標價小計）。</p>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label htmlFor="edit-subtotal" className="block text-[10px] text-slate-500 mb-0.5">商品小計</label>
+              <label htmlFor="edit-subtotal" className="block text-[10px] text-slate-500 mb-0.5">標價小計</label>
               <input id="edit-subtotal" type="number" value={form.subtotal || ''} onChange={(e) => patch({ subtotal: parseFloat(e.target.value) || 0 })} className="input-field text-xs" />
             </div>
             <div>
-              <label htmlFor="edit-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">退稅</label>
-              <input id="edit-taxrefund" type="number" value={form.taxRefund || ''} onChange={(e) => patch({ taxRefund: parseFloat(e.target.value) || 0 })} placeholder="-2557" className="input-field text-xs" />
+              <label htmlFor="edit-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">免稅／退稅</label>
+              <input id="edit-taxrefund" type="number" value={form.taxRefund || ''} onChange={(e) => patch({ taxRefund: parseFloat(e.target.value) || 0 })} placeholder="-1844" className="input-field text-xs" />
             </div>
             <div>
               <label htmlFor="edit-discount" className="block text-[10px] text-slate-500 mb-0.5">折扣</label>
@@ -106,7 +107,8 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-slate-700 mb-2">細項</p>
+          <p className="text-sm font-medium text-slate-700 mb-0.5">細項</p>
+          <p className="text-[10px] text-slate-400 mb-2">每行金額為標價（含稅），與收據一致</p>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {(form.items || []).map((item, idx) => (
               <div key={idx} className="flex gap-1.5 items-center bg-white p-1.5 rounded-lg border border-slate-200">

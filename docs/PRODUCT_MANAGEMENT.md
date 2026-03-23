@@ -40,7 +40,7 @@
 
 | 項目 | 狀態 | 說明 |
 |------|------|------|
-| 單據 AI：細項金額與合計一致（含日本免稅 / 多國） | [x] | `AIService.js`：prompt 金額一致性 + `alignItemPricesToTotal` 比例對齊；卡片提示 `aiAlignedItemPrices` |
+| 單據 AI：標價細項 + 免稅列 + 實付（含日本免稅 / 多國） | [x] | prompt：`items.price` 標價、`tax_refund` 差額；卡片顯示標價小計／退稅調整 |
 | 資料雙軌（`travel_expenses_data` vs 旅程內 `expenses`）文件化或收斂 | [ ] | 見「架構：技術債」 |
 
 ### P1 — 體驗與成長

@@ -104,7 +104,7 @@ export function alignItemPricesToTotal(items, targetTotal, currency) {
 }
 
 export function buildExpenseFromAI(result, index, currency, rate) {
-  let items = Array.isArray(result.items)
+  const items = Array.isArray(result.items)
     ? result.items.map((item) => ({
         ...item,
         name: (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤'),
@@ -117,27 +117,20 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   let tax = parseFloat(result.tax) || 0;
   let taxRefund = parseFloat(result.tax_refund) || 0;
   const discount = parseFloat(result.discount) || 0;
-
   const eps = moneyEpsilon(currency);
-  const targetPaid = totalAmount > 0 ? totalAmount : grossSum;
 
-  let aiAlignedItemPrices = false;
-  if (targetPaid > 0 && items.length > 0) {
-    const { items: aligned, adjusted } = alignItemPricesToTotal(items, targetPaid, currency);
-    items = aligned;
-    aiAlignedItemPrices = adjusted;
-  }
+  // 標價小計：細項加總優先，否則用 AI subtotal
+  let subtotal = grossSum > 0 ? grossSum : subFromAI;
 
-  const itemsTotal = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-  const finalAmount = totalAmount > 0 ? totalAmount : itemsTotal > 0 ? itemsTotal : 0;
+  const finalAmount =
+    totalAmount > 0 ? totalAmount : subtotal > 0 ? subtotal : grossSum > 0 ? grossSum : 0;
 
-  let subtotal = subFromAI > 0 ? subFromAI : 0;
-  if (!subtotal) {
-    subtotal = aiAlignedItemPrices ? grossSum : itemsTotal;
-  }
-
-  if (finalAmount > 0 && subtotal > finalAmount + eps && Math.abs(taxRefund) < eps) {
-    taxRefund = finalAmount - subtotal;
+  // 實付低於標價時，免稅／退稅差額（負數）；若 AI 數字與計算差太多則以計算為準
+  if (finalAmount > 0 && subtotal > finalAmount + eps) {
+    const computed = finalAmount - subtotal;
+    if (Math.abs(taxRefund) < eps || Math.abs(taxRefund - computed) > Math.max(eps * 2, 1)) {
+      taxRefund = computed;
+    }
   }
 
   const receiptType = result.receipt_type || '';
@@ -149,7 +142,7 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     store: result.store || '未知店舖',
     category: result.category || '未分類',
     items,
-    subtotal: subtotal || itemsTotal,
+    subtotal: subtotal || 0,
     tax,
     taxRefund,
     discount,
@@ -158,6 +151,5 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     hkdAmount: finalAmount * rate,
     paymentMethod: result.payment_method || '',
     receiptType,
-    aiAlignedItemPrices,
   };
 }

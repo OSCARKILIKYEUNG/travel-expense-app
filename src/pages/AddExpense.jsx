@@ -121,7 +121,7 @@ export default function AddExpense() {
             <div className="border-t border-slate-200 pt-3 space-y-2">
               <p className="text-[10px] text-slate-500 font-medium">或分項填寫</p>
               <div>
-                <label htmlFor="add-subtotal" className="block text-[10px] text-slate-500 mb-0.5">商品小計</label>
+                <label htmlFor="add-subtotal" className="block text-[10px] text-slate-500 mb-0.5">標價小計</label>
                 <input id="add-subtotal" type="number" step="0.01" value={form.subtotal} onChange={(e) => patch({ subtotal: e.target.value })} className="input-field text-xs" />
               </div>
               <div>
@@ -129,7 +129,7 @@ export default function AddExpense() {
                 <input id="add-tax" type="number" step="0.01" value={form.tax} onChange={(e) => patch({ tax: e.target.value })} className="input-field text-xs" />
               </div>
               <div>
-                <label htmlFor="add-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">退稅（負數）</label>
+                <label htmlFor="add-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">免稅／退稅（負數）</label>
                 <input id="add-taxrefund" type="number" step="0.01" value={form.taxRefund} onChange={(e) => patch({ taxRefund: e.target.value })} className="input-field text-xs" placeholder="-2557" />
               </div>
               <div>
