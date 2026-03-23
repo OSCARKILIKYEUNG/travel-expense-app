@@ -1,10 +1,35 @@
 import { getExchangeRate } from './currency';
 
+function refundEpsilon(currency) {
+  const c = (currency || 'HKD').toUpperCase();
+  return ['JPY', 'KRW', 'VND', 'CLP'].includes(c) ? 1 : 0.01;
+}
+
 /**
  * 全單行項目「原價」加總（與實付可能因退稅等不一致）
  */
 export function sumAllItemPrices(items) {
   return (items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
+}
+
+/**
+ * 全單「退稅／折讓」金額（正數）：優先 |taxRefund|，否則用 原價加總(或標價小計) − 實付。
+ * 舊資料或未存 taxRefund 時仍可顯示分人比例退稅。
+ */
+export function getEffectiveRefundPositive(expense) {
+  const eps = refundEpsilon(expense.currency);
+  const tr = Number(expense.taxRefund) || 0;
+  if (Math.abs(tr) > eps) {
+    return Math.abs(tr);
+  }
+  const fromItems = sumAllItemPrices(expense.items);
+  const sub = Number(expense.subtotal) || 0;
+  const gross = fromItems > 0 ? fromItems : sub;
+  const paid = Number(expense.originalAmount) || Number(expense.hkdAmount) || 0;
+  if (gross > paid + eps) {
+    return gross - paid;
+  }
+  return 0;
 }
 
 /**
@@ -50,16 +75,15 @@ export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
 }
 
 /**
- * 全單退稅依「原價比例」分攤到該人：|taxRefund| × (S ÷ G)
+ * 全單退稅依「原價比例」分攤到該人：有效退稅 × (S ÷ G)
  * （畫面上退稅為正數，與 ExpenseCard 全單退稅列一致）
  */
 export function getPartialRefundShareOriginal(expense, filterPerson) {
   const G = sumAllItemPrices(expense.items);
   const S = sumAssignedItemPrices(expense, filterPerson);
-  const tr = expense.taxRefund ?? 0;
-  const absRefund = Math.abs(tr);
-  if (G <= 0 || S <= 0 || absRefund <= 0) {
+  const refundTotal = getEffectiveRefundPositive(expense);
+  if (G <= 0 || S <= 0 || refundTotal <= 0) {
     return 0;
   }
-  return absRefund * (S / G);
+  return refundTotal * (S / G);
 }

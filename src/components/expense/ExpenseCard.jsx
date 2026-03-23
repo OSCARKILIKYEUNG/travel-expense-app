@@ -5,6 +5,7 @@ import {
   getPartialMatchPersonShareHKD,
   getPartialMatchPersonShareOriginal,
   getPartialRefundShareOriginal,
+  getEffectiveRefundPositive,
   sumAssignedItemPrices,
 } from '../../utils/personShare';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
@@ -34,23 +35,22 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     return items.filter((i) => (i.assignedTo || expense.assignedTo || '共同') === filterPerson);
   }, [expense, filterPerson, isPartialMatch]);
 
-  /** 畫面上「退稅 1844」用正數；資料 taxRefund 仍為負數（實付比原價少付） */
+  /** 畫面上「退稅」用正數；含 taxRefund，亦含原價−實付推算 */
   const refundDisplayAmount = useMemo(() => {
-    const tr = expense.taxRefund ?? 0;
-    return Math.abs(tr);
-  }, [expense.taxRefund]);
+    return getEffectiveRefundPositive(expense);
+  }, [expense]);
 
   const showRefundRow = useMemo(() => {
     if (isPartialMatch) return false;
-    const tr = expense.taxRefund ?? 0;
-    return Math.abs(tr) > refundEpsilon(expense.currency);
-  }, [expense.taxRefund, expense.currency, isPartialMatch]);
+    return getEffectiveRefundPositive(expense) > refundEpsilon(expense.currency);
+  }, [expense, isPartialMatch]);
 
   /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
   const partialBreakdown = useMemo(() => {
     if (!isPartialMatch || !filterPerson) return null;
-    const tr = expense.taxRefund ?? 0;
-    if (Math.abs(tr) <= refundEpsilon(expense.currency)) return null;
+    /** 含 taxRefund，亦含「原價加總 − 實付」推算（舊資料常缺 taxRefund） */
+    const refundTotal = getEffectiveRefundPositive(expense);
+    if (refundTotal <= refundEpsilon(expense.currency)) return null;
     const subtotalGross = sumAssignedItemPrices(expense, filterPerson);
     if (subtotalGross <= 0) return null;
     const refundShare = getPartialRefundShareOriginal(expense, filterPerson);
@@ -77,7 +77,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       {isPartialMatch && (
         <div className="bg-violet-50 border-b border-violet-200 px-4 py-1.5 space-y-0.5">
           <span className="text-violet-700 text-xs font-medium">僅顯示「{filterPerson}」的部分</span>
-          {Math.abs(expense.taxRefund ?? 0) > refundEpsilon(expense.currency) && (
+          {getEffectiveRefundPositive(expense) > refundEpsilon(expense.currency) && (
             <p className="text-violet-500 text-[10px] leading-tight">下方附「比例退稅」與實攤明細（與全單實付一致）</p>
           )}
         </div>
