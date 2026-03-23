@@ -124,6 +124,7 @@ vercel
 
 - **[docs/README.md](./docs/README.md)** — **文件導覽（建議先讀）**：釐清各份 MD 分工、是否重疊、程式目錄地圖
 - **[docs/PRODUCT_MANAGEMENT.md](./docs/PRODUCT_MANAGEMENT.md)** — 產品路線圖、版本節奏、架構輕量優化優先級、技術債登記（**建議與程式一併維護**）
+- **[docs/PRODUCT_ITERATION_2025-03.md](./docs/PRODUCT_ITERATION_2025-03.md)** — **本輪（分帳／免稅／收據）交付、踩坑、待辦、PM 跟進流程**（單一書面 log）
 - [HANDOFF.md](./HANDOFF.md) — 專案歷史與技術決策
 - [DESIGN_SPEC.md](./DESIGN_SPEC.md) — 設計規格
 - [docs/archive/BACKUP_BRANCH_v1.md](./docs/archive/BACKUP_BRANCH_v1.md) — Git 備份分支 `backup/v1-original` 操作說明（根目錄 [BACKUP_README.md](./BACKUP_README.md) 為捷徑）
@@ -146,7 +147,7 @@ src/
 ├── pages/            # Dashboard, AddExpense, Charts, Settings
 ├── services/         # DataService (資料層抽象), AIService, ExportService
 ├── store/            # AppContext (全局狀態)
-└── utils/            # constants, currency, date, duplicates
+└── utils/            # constants, currency, date, duplicates, personShare（分帳／免稅比例）
 ```
 
 ## DataService 抽象層

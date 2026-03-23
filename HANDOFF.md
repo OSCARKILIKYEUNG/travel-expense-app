@@ -136,7 +136,8 @@ travel-expense-app/
 
 - 已新增 **`docs/PRODUCT_MANAGEMENT.md`**：路線圖（P0/P1/P2）、版本建議、架構優先級、技術債登記、發布紀錄表。  
 - 已新增 **`docs/README.md`**：以產品經理視角整理「哪份文件負責什麼、有無重疊」，避免 README / HANDOFF / 設計稿混淆。  
-- 目標是做好 **產品管理** 與 **可追蹤優化**，與本 HANDOFF（歷史脈絡）分工：HANDOFF 偏「為什麼這樣做」；PRODUCT_MANAGEMENT 偏「接下來做什麼、怎麼管」。
+- 已新增 **`docs/PRODUCT_ITERATION_2025-03.md`**：單次迭代之 **交付、踩坑、待辦、PM 跟進流程**（與滾動路線圖分離，避免對話散失）。  
+- 目標是做好 **產品管理** 與 **可追蹤優化**，與本 HANDOFF（歷史脈絡）分工：HANDOFF 偏「為什麼這樣做」；PRODUCT_MANAGEMENT 偏「接下來做什麼、怎麼管」；ITERATION 檔偏「這一輪做了什麼、下次接什麼」。
 
 ---
 
