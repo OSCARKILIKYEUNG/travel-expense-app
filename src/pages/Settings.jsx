@@ -57,15 +57,6 @@ export default function Settings() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">設定</h1>
 
-      {/* 單據辨識：雲端處理，不暴露模型／金鑰（細節見 README） */}
-      <section className="card p-4 space-y-2">
-        <h2 className="text-sm font-bold text-slate-700">收據辨識</h2>
-        <p className="text-xs text-slate-600 leading-relaxed">
-          在首頁上傳收據照片後，會由<strong className="text-slate-800">雲端自動辨識</strong>
-          店家、日期、金額與品項，無須自行輸入金鑰或設定。
-        </p>
-      </section>
-
       {/* Currency */}
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">記帳貨幣</h2>
