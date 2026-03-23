@@ -13,12 +13,22 @@ AI 驅動的旅遊記帳與分帳助手 — 支援多旅程、多人分帳、多
 
 ### 單據辨識：環境變數（必做）
 
-1. 到 [Google AI Studio](https://aistudio.google.com/apikey) 建立 **Gemini API Key**（Google AI API，非 OpenRouter）。
-2. **Vercel** → 你的專案 → **Settings → Environment Variables**：
-   - Name: `GEMINI_API_KEY`
-   - Value: 貼上金鑰
-   - 勾選 **Production**（及需要時 **Preview**）
-3. 重新部署一次（或 Push 觸發部署）。
+金鑰**只**放在 **Vercel 環境變數**，勿寫進程式碼或提交 Git。變數名稱必須是 **`GEMINI_API_KEY`**（與 `api/parse-receipt.js` 一致）。
+
+**取得 API Key（擇一）：**
+
+| 方式 | 說明 |
+|------|------|
+| [Google AI Studio](https://aistudio.google.com/apikey) | 最簡單，一鍵建立 Gemini 用金鑰 |
+| [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 同一 GCP 專案內：**API 程式庫** 啟用 **「Generative Language API」**（`generativelanguage.googleapis.com`），**不要**只開 Vision API；再到憑證建立 **API 金鑰**，必要時在「API 限制」中允許 Generative Language API |
+
+**在 Vercel 設定：**
+
+1. 專案 → **Settings → Environment Variables**
+2. **Name:** `GEMINI_API_KEY`  
+3. **Value:** 貼上金鑰（字串，勿加引號）  
+4. 勾選 **Production**（與需要時 **Preview**）  
+5. **Save** 後到 **Deployments → 最新一筆 → Redeploy**（或 Push 本 repo 觸發部署），變數才會套用到新 build。
 
 本機要測單據上傳：複製 `.env.example` 為 `.env.local`，填入 `GEMINI_API_KEY`，然後：
 
