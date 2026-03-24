@@ -21,6 +21,7 @@
 | 上傳單據幣別採 AI `currency`、HKD 匯率 | 已上線 | `resolveReceiptCurrency` + `UploadArea` |
 | 編輯細項說明文案 | 已上線 | 免稅後單價 vs 固定費分離 |
 | Cursor：**意見→先對齊再改** | 已建立 rule | `.cursor/rules/feedback-before-implement.mdc` |
+| **SAVE** → 寫入 §十 快照 | 已約定 | 見 Cursor rule 與 §十 |
 | Backlog B-01～B-07 | 未做 | 見 §五 |
 
 ---
@@ -138,6 +139,7 @@
 |------|------|
 | 2025-03-23 | 建立本檔；收錄本輪需求、交付、踩坑、backlog、PM 流程。 |
 | 2025-03-24 | 新增 §進度快照、§九協作規則、L7；連結 Cursor rule。 |
+| 2025-03-24 | 新增 §十 SAVE 快照表與觸發詞約定；擴充 Cursor rule。 |
 
 ---
 
@@ -154,6 +156,17 @@
 **實作位置**：`.cursor/rules/feedback-before-implement.mdc`（`alwaysApply: true`）。
 
 **例外**：純解釋概念、讀檔說明現況，可直接回答。
+
+---
+
+## 十、SAVE 快照（對話存檔 · PM 用）
+
+> 當使用者在對話中輸入 **`SAVE`**（作為主要指令）時，助手應在本表 **新增一列**，並遵守 `.cursor/rules/feedback-before-implement.mdc` 之「SAVE」段落。  
+> 跨月可新建 `docs/PRODUCT_ITERATION_YYYY-MM.md` 並複製本節表頭。
+
+| 日期 | 摘要 | 待辦／跟進 |
+|------|------|------------|
+| 2025-03-24 | 約定觸發詞 **SAVE**＝寫入本表 + 更新規則；與「意見先對齊再改」並存於同一 Cursor rule。 | 之後每次工作段結束可打 SAVE 存檔；跨月新建迭代檔。 |
 
 ---
 
