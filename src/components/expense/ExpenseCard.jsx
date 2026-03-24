@@ -40,6 +40,9 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     return Math.max(0, Number(expense.receiptTaxExemptionAmount) || 0);
   }, [expense.receiptTaxExemptionAmount]);
 
+  const isTaxExclusive = expense.receiptType === 'tax_exclusive';
+  const taxAmount = useMemo(() => Number(expense.tax) || 0, [expense.tax]);
+
   const refundRowsMeta = useMemo(() => {
     const eps = refundEpsilon(expense.currency);
     const eff = getEffectiveRefundPositive(expense);
@@ -50,11 +53,12 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       eff,
       rec,
       eps,
+      showTaxRow: !isPartialMatch && isTaxExclusive && taxAmount > 0,
       showComputedRefundRow: !isPartialMatch && eff > eps,
       showReceiptOnlyRow: !isPartialMatch && rec > eps && eff <= eps,
       showReceiptSecondaryRow: !isPartialMatch && rec > eps && eff > eps && !closeEnough,
     };
-  }, [expense, isPartialMatch, receiptTaxExemptionAmount]);
+  }, [expense, isPartialMatch, receiptTaxExemptionAmount, isTaxExclusive, taxAmount]);
 
   /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
   const partialBreakdown = useMemo(() => {
@@ -156,7 +160,9 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
         )}
         {visibleItems.length > 0 && (
           <>
-            <p className="text-[10px] text-slate-400 mb-1.5">原價</p>
+            <p className="text-[10px] text-slate-400 mb-1.5">
+              {isTaxExclusive ? '原價（未稅）' : '原價'}
+            </p>
             <ul className="space-y-0.5 mb-2">
               {visibleItems.map((item, idx) => (
                 <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
@@ -182,6 +188,12 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 </li>
               ))}
             </ul>
+            {refundRowsMeta.showTaxRow && (
+              <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
+                <span>消費稅</span>
+                <span className="font-mono tabular-nums">+ {taxAmount.toLocaleString()}</span>
+              </div>
+            )}
             {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>退稅（標價與實付差額）</span>

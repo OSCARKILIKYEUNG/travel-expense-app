@@ -72,7 +72,53 @@ JSON 欄位清單
 - total_amount: 實付
 - currency: 貨幣代碼
 - payment_method: 支付方式
+
+═══════════════════════════════════════════
+自我檢查（輸出前必做）
+═══════════════════════════════════════════
+1. receipt_type 是否已填？必填！
+2. items[].price 加總與 subtotal 是否接近？若差距 > 收據上最便宜品項的金額，很可能多列或少列了品項，請修正 items。
+3. 套裝：セット金額/SET 內的個別品項**不要**再單獨列出；只保留合併後的一個品項。
+4. 外稅單：tax 是否 = 合計 − 小計？
+5. 即時免稅 + 雙欄（如收據同時印含稅價和非課稅價）：每個 item 是否都填了 price_actual？
+
+═══════════════════════════════════════════
+具體範例（請嚴格遵循格式）
+═══════════════════════════════════════════
+
+【範例 A — 外稅單（行標「外」）】
+收據：品項 ¥850外、¥1800外、¥30外 → 小計 ¥2,680、外税10% ¥268、合計 ¥2,948
+正確輸出：
+  receipt_type: "tax_exclusive"
+  items: [{price:850},{price:1800},{price:30}]
+  subtotal: 2680, tax: 268, total_amount: 2948, tax_refund: 0
+
+【範例 B — 即時免稅 + 雙欄定價（如 ZARA「非課稅」欄）】
+收據：BLAZER ¥6590→非課税¥5991、JACKET ¥7690→非課税¥6991、GB Commis ¥286→非課税¥286
+小計 ¥20,576、合計 ¥18,732
+正確輸出：
+  receipt_type: "instant_tax_free"
+  items: [
+    {name:"西裝外套", price:6590, price_actual:5991},
+    {name:"外套", price:7690, price_actual:6991},
+    {name:"GB 佣金", price:286, price_actual:286, exclude_from_refund_split:true}
+  ]
+  subtotal: 20576, total_amount: 18732, tax_refund: -1844
+
+【範例 C — 套裝/セット】
+收據：12件 Wショーツ各@590，但セット金額 ¥5,940。另有其他品項。小計 ¥28,130。
+正確輸出：
+  has_bundle: true
+  items: [{name:"女士內褲 セット×12", price:5940}, ...其他品項照常]
+  ⚠ セット內的 12 件 @590 不要各自列出！items 加總應 ≈ 28,130。
+
+【範例 D — 淨價免稅（品項已扣稅）】
+收據：免税取引、品項金額已是免稅後價、消費税等 ¥0、免税 ¥1,034
+正確輸出：
+  receipt_type: "net_tax_free"
+  tax: 0, tax_refund: 0
+  receipt_tax_exemption_amount: 1034
 `;
 
 export const USER_TEXT =
-  '請分析這張單據並輸出 JSON。receipt_type 必填；subtotal 與 total_amount 以收據印字為準。若品項有套裝/セット，將套裝歸為一個合併品項。若有「非課稅」雙欄，price 填含稅、price_actual 填非課稅。若收據印有「免稅額」，填 receipt_tax_exemption_amount。';
+  '請分析這張單據並輸出 JSON。receipt_type 必填（tax_inclusive/tax_exclusive/instant_tax_free/net_tax_free/vat_refund_later/unknown 擇一）。subtotal 與 total_amount 以收據印字為準。套裝/セット 合併為一個品項，內部個別品項不要重複列出。雙欄定價（如「非課稅」）必須填 price_actual。輸出前檢查 items 加總 ≈ subtotal。';

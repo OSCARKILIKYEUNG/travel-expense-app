@@ -112,13 +112,16 @@ const KNOWN_RECEIPT_TYPES = [
 
 function normalizeReceiptType(raw) {
   if (!raw) return '';
-  const v = String(raw).toLowerCase().trim();
+  const v = String(raw).toLowerCase().trim().replace(/[\s-]+/g, '_');
   if (KNOWN_RECEIPT_TYPES.includes(v)) return v;
-  if (v === 'standard' || v === 'tax_included') return 'tax_inclusive';
-  if (v === 'tax_excluded') return 'tax_exclusive';
-  if (/instant.*(free|exempt)/i.test(v)) return 'instant_tax_free';
-  if (/net.*(free|exempt)/i.test(v)) return 'net_tax_free';
-  if (/vat.*refund|refund.*later/i.test(v)) return 'vat_refund_later';
+  if (/^(standard|tax_included|tax_inc)$/.test(v)) return 'tax_inclusive';
+  if (/^(tax_excluded|tax_exc)$/.test(v)) return 'tax_exclusive';
+  if (/instant.*(free|exempt)|即時免稅/.test(v)) return 'instant_tax_free';
+  if (/net.*(free|exempt)|淨價免稅/.test(v)) return 'net_tax_free';
+  if (/vat.*refund|refund.*later|離境/.test(v)) return 'vat_refund_later';
+  if (/inclusive|内税|內稅/.test(v)) return 'tax_inclusive';
+  if (/exclusive|外税|外稅/.test(v)) return 'tax_exclusive';
+  if (/free|exempt|免稅|免税/.test(v)) return 'instant_tax_free';
   return v;
 }
 
@@ -152,8 +155,7 @@ export function buildExpenseFromAI(result, index, currency, rate) {
       })
     : [];
 
-  const grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
-  const actualSum = items.reduce((s, i) => s + (i.priceActual ?? (i.price || 0)), 0);
+  let grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
   const totalAmount = parseFloat(result.total_amount) || 0;
   const subFromAI = parseFloat(result.subtotal) || 0;
   let tax = parseFloat(result.tax) || 0;
@@ -161,8 +163,41 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   const discount = parseFloat(result.discount) || 0;
   const eps = moneyEpsilon(currency);
 
+  // --- 品項加總 vs 收據小計 交叉驗證 ---
+  // 若 AI 多列了重複品項（如套裝內的個別行又多列了），嘗試刪除多餘行
+  if (subFromAI > 0 && grossSum > subFromAI + eps) {
+    const excess = Math.round(grossSum - subFromAI);
+    if (excess > 0) {
+      const candidates = items
+        .map((it, idx) => ({ idx, price: it.price || 0 }))
+        .filter((c) => Math.abs(c.price - excess) <= Math.max(eps, 1))
+        .sort((a, b) => b.idx - a.idx);
+      if (candidates.length > 0) {
+        items.splice(candidates[0].idx, 1);
+        grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
+      } else {
+        const combo2 = [];
+        for (let i = items.length - 1; i >= 1; i--) {
+          for (let j = i - 1; j >= 0; j--) {
+            const sum2 = (items[i].price || 0) + (items[j].price || 0);
+            if (Math.abs(sum2 - excess) <= Math.max(eps, 1)) {
+              combo2.push([j, i]);
+            }
+          }
+        }
+        if (combo2.length > 0) {
+          const [a, b] = combo2[0];
+          items.splice(b, 1);
+          items.splice(a, 1);
+          grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
+        }
+      }
+    }
+  }
+
+  const actualSum = items.reduce((s, i) => s + (i.priceActual ?? (i.price || 0)), 0);
+
   // --- 小計：收據印字 (subFromAI) 優先於 items 加總 ---
-  // 套裝/組合價、或 AI 小計與品項加總明顯不同時，信任 AI subtotal（= 收據印字）
   let subtotal;
   const subDrift = subFromAI > 0 && grossSum > 0 ? Math.abs(subFromAI - grossSum) : 0;
   if (subFromAI > 0 && (hasBundlePricing || subDrift > Math.max(eps * 5, 3))) {
