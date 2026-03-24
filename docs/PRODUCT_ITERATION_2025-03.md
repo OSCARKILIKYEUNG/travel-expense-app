@@ -171,6 +171,8 @@
 | 2025-03-24 | 約定觸發詞 **SAVE**＝寫入本表 + 更新規則；與「意見先對齊再改」並存於同一 Cursor rule。 | 之後每次工作段結束可打 SAVE 存檔；跨月新建迭代檔。 |
 | 2025-03-24 | 使用者確認將「單據情境 A～H」寫入 repo；新增 `docs/RECEIPT_TYPES.md`，並入文件索引。 | 逐類對解法時以該檔為準迭代。 |
 | 2025-03-24 | **三項架構升級**落地：① prompt 輸出 `receipt_type`（必填）+ `has_bundle` + `price_actual`；② `personShare.js` 新增 `getItemActualPrice` / `sumAllItemActualPrices`，分帳用 actual price；③ `buildExpenseFromAI` 依類型驗證 + `needsReview` 標記；④ UI 加類型 badge、需檢查警示、雙價格顯示、編輯可改類型。| 以 8 張東京真實小票驗證覆蓋 A–F；下一步：韓國/歐洲小票加入驗證表；持續優化 prompt 對セット的合併準確度。 |
+| 2025-03-24 | **第二輪修正**（3 commits）：① prompt 加 4 個具體範例 + 自我檢查清單，強制 AI 回 `receipt_type`；② `buildExpenseFromAI` 品項去重（items sum > subtotal 時自動刪多餘行）；③ ExpenseCard 外稅加「消費稅 +N」列 + 標題改「原價（未稅）」；④ `normalizeReceiptType` 容錯加寬（中文、各種變體）。| 實測 8 張東京小票：badge✅、ZARA 雙價格✅、UNIQLO セット合併✅、退稅 2,557✅。 |
+| 2025-03-24 | **第三輪修正**：① 外稅 `tax` fallback（AI 沒回 tax 時自動算 total−subtotal）；② `instant_tax_free` 加 needsReview 驗證（items vs subtotal 差 >5%）；③ 套裝 needsReview 門檻從 5 JPY 放寬到 max(小計×1%, 300)。| 待驗：清 PWA 快取後重新上傳 DORAEMON（消費稅列）、ZARA（needsReview 觸發）；UNIQLO 黃條應消失。AI 品項遺漏（ZARA BLAZER）/ 品名誤辨（UNIQLO 短襪→內褲）為 Gemini 準確度問題，持續觀察。 |
 
 ---
 
