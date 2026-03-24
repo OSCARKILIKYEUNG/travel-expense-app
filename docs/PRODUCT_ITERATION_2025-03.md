@@ -22,7 +22,8 @@
 | 編輯細項說明文案 | 已上線 | 免稅後單價 vs 固定費分離 |
 | Cursor：**意見→先對齊再改** | 已建立 rule | `.cursor/rules/feedback-before-implement.mdc` |
 | **SAVE** → 寫入 §十 快照 | 已約定 | 見 Cursor rule 與 §十 |
-| Backlog B-01～B-07 | 未做 | 見 §五 |
+| 單據類型系統（receipt_type + 雙價格 + 驗證） | 已上線 | 3 輪迭代；8 張東京小票驗收 |
+| Backlog B-01～B-15 | 部分完成 | 見 §五（B-05 已完成、B-03 進行中）|
 
 ---
 
@@ -69,6 +70,16 @@
 | L5 | 日本免稅兩種單據 | ① 標價≠實付；② 細項已免稅後價 | ① 差額 + 固定費行；② **收據免稅額僅顯示** 欄位。 |
 | L6 | AI 與公式假設衝突 | Prompt 一度強調「標價」與實付分離 | Prompt 已加 `receipt_tax_exemption_amount`；維持與 `README` 同步。 |
 | L7 | 使用者提意見後未先對齊就改碼 | 助手預設直接實作 | **已立規則**：先說明理解與方案，經同意或明確「執行」再動手（見 §九）。 |
+| L8 | **Gemini 漏品項**：ZARA 4 件只辨到 3 件（BLAZER 整件消失） | 圖片壓縮到 1024px 後小字模糊；或 Gemini 對雙欄格式解析不穩定 | prompt 已加具體範例；可考慮提高 `resizeImage` MAX 到 1536/2048；加 `instant_tax_free` 的 items vs subtotal >5% 驗證 → needsReview。 |
+| L9 | **Gemini 品名誤辨**：UNIQLO 把 Wボーイズソックス ¥990 認成 女士內褲 ¥790 | 長收據上同類品名反覆出現，AI 混淆 | 目前無好的程式碼修正；subtotal 交叉驗證可抓差額但不能糾正品名。持續觀察。 |
+| L10 | **Gemini 套裝重複列品**：セット 合併行 + 個別行都列出，items sum > subtotal | prompt 指令不夠強或 AI 忽略 | prompt 加了「セット內品項不要重複列出」+ 自我檢查清單；`buildExpenseFromAI` 加品項去重（excess = sum − subtotal → 找 price 匹配行刪除）。 |
+| L11 | **AI 不回 `receipt_type`**（或回舊值 `"standard"`） | prompt 改了但 Gemini 不一定遵守 | `normalizeReceiptType` 加超寬容錯（中文、帶橫線、各種別名）；`USER_TEXT` 列出所有合法值。 |
+| L12 | **外稅 `tax` 未回傳** → 消費稅列不出現 | AI 認為 tax 是 optional 就省略了 | `buildExpenseFromAI` 加 fallback：`tax_exclusive` 且 `tax ≤ 0` 時自動算 `total − subtotal`。 |
+| L13 | **Vercel 部署時序**：push 後立即測試看到舊版 | Vercel build 需 1-2 分鐘 | 測試前確認 Vercel Dashboard 顯示 **Ready**；或用 `vercel --prod` CLI 等部署完才回報。 |
+| L14 | **PWA Service Worker 快取** → 新 JS bundle 已部署但瀏覽器仍用舊版 | SW 的 precache 策略 | 重大改版後提醒使用者 `Ctrl+Shift+R` 或清網站資料；可考慮 `skipWaiting` / `clientsClaim` 策略。 |
+| L15 | **needsReview 門檻過敏**：套裝 5 JPY 門檻對 AI 微小品名/金額誤差太敏感 | 門檻固定值不適合所有金額量級 | 已改為 `max(subtotal × 1%, 300)` 相對門檻。 |
+| L16 | **Rollup 運算子優先順序**：`i.priceActual ?? i.price \|\| 0` build 失敗 | `??` 與 `\|\|` 混用需加括號（ES 規範要求） | 改為 `i.priceActual ?? (i.price \|\| 0)`；日後混用 nullish coalescing 時注意。 |
+| L17 | **PowerShell heredoc 不支援**：git commit 用 `$(cat <<'EOF' ...)` 在 PowerShell 失敗 | Windows PowerShell 不支援 bash heredoc | 在 Windows 環境一律用單行 `-m "..."` 提交。 |
 
 ---
 
@@ -88,23 +99,31 @@
 
 | ID | 項目 | 備註 |
 |----|------|------|
-| B-01 | [ ] 分人篩選 + **收據免稅額** 的說明是否要在 partial 區塊加一句（僅參考） | 可選；避免資訊只在全單模式出現。 |
-| B-02 | [ ] `price_basis` / `countryHint` 預留欄位（資料層） | 跨國長期，不必急著做規則引擎。 |
-| B-03 | [ ] Prompt 抽免稅額 **命中率** 抽樣複盤 | 依實際單據調整關鍵字與 `receipt_type`。 |
+| B-01 | [ ] 分人篩選 + **收據免稅額** 的說明是否要在 partial 區塊加一句（僅參考） | 可選。 |
+| B-02 | [ ] `price_basis` / `countryHint` 預留欄位（資料層） | 跨國長期。 |
+| B-03 | [~] Prompt 抽免稅額 **命中率** 複盤 | 已加 4 範例 + 自我檢查；ZARA/UNIQLO 仍有漏品項和品名誤辨（L8/L9），持續觀察。 |
+| B-08 | [ ] **提高圖片解析度**：`resizeImage` MAX 1024 → 1536 或 2048 | L8 漏品項可能因壓縮後小字模糊；需測 API 成本與延遲。 |
+| B-09 | [ ] **品項去重更智慧**：名稱＋價格組合匹配 | 目前只做精確 price match excess，兩行組合或不精確匹配會失效。 |
+| B-10 | [ ] **subtotal 強制錨定**：items sum 偏差大時直接用 subtotal 覆蓋比例 | 避免退稅被行加總拉偏。 |
 
 ### P1 — 體驗
 
 | ID | 項目 | 備註 |
 |----|------|------|
 | B-04 | [ ] 卡片小標「免稅」當 `receiptTaxExemptionAmount > 0` | 列表一眼辨識。 |
-| B-05 | [ ] 細項加總 ≠ 實付時的引導文案（已部分存在） | 統一語氣。 |
+| B-05 | [x] 細項加總 ≠ 實付時的引導文案 | 已有 `needsReview` 黃條。 |
+| B-11 | [ ] **needsReview 加「檢查」按鈕** → 直接開 EditExpenseDialog | 使用者看到警示後能快速修正。 |
+| B-12 | [ ] **外稅卡片底部含稅小計行**：消費稅列下加「含稅合計 = ¥N」 | 讓數學自洽一目了然，目前使用者要自己算。 |
 
 ### P2 — 工程
 
 | ID | 項目 | 備註 |
 |----|------|------|
-| B-06 | [ ] `personShare` 單元測試（Vitest） | 固定費 + 收據免稅顯示邏輯。 |
+| B-06 | [ ] `personShare` 單元測試（Vitest） | 新增 `getItemActualPrice` / `sumAllItemActualPrices` 更需測試。 |
 | B-07 | [ ] README 專案結構補 `utils/personShare.js` | 與現況同步。 |
+| B-13 | [ ] **PWA 快取策略優化**：`skipWaiting` + `clientsClaim` 或版本提示 | L14：部署後使用者可能一直看舊版。 |
+| B-14 | [ ] **Vercel 部署等待**：`vercel --prod` CLI 等完成再回報 URL | L13：push 後立即測常看到舊版。 |
+| B-15 | [ ] **receipt-prompt fixture 測試**：8 張小票 JSON snapshot 測試 `buildExpenseFromAI` | 任何 prompt/AIService 改動後可快速回歸。 |
 
 ---
 
@@ -142,6 +161,7 @@
 | 2025-03-24 | 新增 §進度快照、§九協作規則、L7；連結 Cursor rule。 |
 | 2025-03-24 | 新增 §十 SAVE 快照表與觸發詞約定；擴充 Cursor rule。 |
 | 2025-03-24 | 新增 `docs/RECEIPT_TYPES.md`（單據 A～H）；索引與 README 連結。 |
+| 2025-03-24 | §三 踩坑擴充 L8～L17（AI 漏品項、品名誤辨、套裝重複、部署時序、PWA 快取、運算子優先順序等）；§五 Backlog 擴充到 B-15。 |
 
 ---
 
