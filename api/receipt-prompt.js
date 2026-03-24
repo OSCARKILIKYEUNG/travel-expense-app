@@ -13,38 +13,66 @@ export const SYSTEM_PROMPT = `
    - Tシャツ → T恤
    - ワイヤレスブラ/Wireless Bra → 無鋼圈胸罩
 
-【金額語意 — 最重要】
-- items[].price：一律填「原價／收據上與該品項對齊的主金額」。日本免稅單據請填「含消費稅標價」（較大的那個），與小票上每行主要數字一致；不要填免稅後單價當 price。
-- total_amount：顧客「實際支付」的合計（「合計」「Total」「AMOUNT DUE」等最終應付）。
-- subtotal：若單據有「小計」且為「標價／含稅品項加總」，請填該數字；若無則可省略（後端會用 items 加總）。
-- tax_refund：因免稅／退稅導致「實付少於標價小計」時，填負數，數值 = total_amount − subtotal（或 total_amount − 各品項標價和）。一般單據無則填 0。
-- receipt_tax_exemption_amount（選填，正數）：收據上單獨印出之「免稅額／免税額／Tax exemption amount」等**僅供記錄與顯示**；若店家已用免稅後單價列在細項、細項加總＝實付，仍請從收據讀出此數字。與 tax_refund 可並存；無則 0 或省略。
-- 日本唐吉訶德、藥妝等「免稅額 609」印在合計旁時，**必須**填 receipt_tax_exemption_amount（正數），即使細項已是免稅後價、加總等於實付。
-- 不要為了讓「細項加總 = total_amount」而改寫標價；細項加總應等於標價小計，實付由 total_amount 表達，差額由 tax_refund 表達。
-- 歐洲等「先付含稅、機場退稅」：total_amount 以店內實付為準；若退稅不在本張小票上，tax_refund 可填 0。
+═══════════════════════════════════════════
+receipt_type — 必填，從以下選一個：
+═══════════════════════════════════════════
+• "tax_inclusive"   — 內稅／一口價（行標「内」或無標、行加總 ≈ 合計）。含多稅率（日本 8% 軽＋10%）也選此。
+• "tax_exclusive"   — 外稅（行標「外」，小計 = 行加總（未稅），合計 = 小計 + 稅）。
+• "instant_tax_free" — 店內即時免稅（小計含稅 > 合計；差額 = 免稅額；日本 UNIQLO、ZARA、藥妝等常見）。
+• "net_tax_free"    — 品項已是免稅後淨價（消費稅 = 0，免稅額僅資訊用；日本唐吉訶德、部分藥妝）。
+• "vat_refund_later" — 實付含稅，退稅另辦（歐洲常見）。
+• "unknown"         — 無法判斷。
 
-receipt_type（選填，字串）：
-- "instant_tax_free"：店內即時免稅/退稅（常見日本免稅櫃）
-- "standard"：一般單據，標價加總通常等於實付
-- "vat_refund_later"：實付為含稅總額，退稅另辦
-- "unknown"：無法判斷時
+═══════════════════════════════════════════
+has_bundle — 是否有套裝/組合價
+═══════════════════════════════════════════
+若收據有「セット金額」「SET」或任何組合折扣使『個別品項標價加總 ≠ 小計』，設為 true。
+處理方式：將套裝歸為 **一個合併品項**（品名如「女裝短褲 セット×12」），price = 套裝金額。其餘個別品項照常。這樣 items 加總 ≈ 小計。
 
-需要的 JSON 欄位：
-- date: 格式 YYYY年MM月DD日
-- location: 地點 (城市/區域，繁中)
+═══════════════════════════════════════════
+金額語意（最重要）
+═══════════════════════════════════════════
+■ items[].price — 收據上與該品項對齊的「主金額」。
+  - 內稅單：含稅標價。
+  - 外稅單：行旁的未稅價。
+  - 免稅單（即時）：含稅標價（較大的數字）。
+  - 淨價免稅單：免稅後淨價（收據上唯一的數字）。
+
+■ items[].price_actual（選填）— 僅當該品項「實際計入合計的金額」與 price 不同時才填。
+  典型場景：
+  - ZARA 等有「非課稅」欄位：price = 含稅標價，price_actual = 非課稅金額。
+  - 不需要時省略（大多數收據不需要）。
+
+■ items[].exclude_from_refund_split — 佣金/手續費行（如 GB Commis）設為 true。
+
+■ subtotal — 收據上的「小計」（必填，以收據印字為準）。若收據沒印，可省略。
+■ tax — 收據上獨立列出的消費稅金額（外稅時 = 合計 − 小計；內稅/免稅則為參考數字）。
+■ total_amount — 顧客「實際支付」的合計（合計 / Total / AMOUNT DUE）。
+■ tax_refund — 因免稅/退稅導致「實付 < 標價小計」：填負數 = total_amount − subtotal。無則 0。
+■ receipt_tax_exemption_amount（選填，正數）— 收據上印的「免稅額 / 免税額 / Tax exemption」。
+  即使細項已是免稅後價、加總 = 實付（如唐吉訶德 609），**仍必須填**。與 tax_refund 可並存。
+■ discount — 一般折扣（割引 / Coupon），負數。與免稅分開。
+■ 不要為了讓 items 加總 = total_amount 而改寫 price。
+
+═══════════════════════════════════════════
+JSON 欄位清單
+═══════════════════════════════════════════
+- date: YYYY年MM月DD日
+- location: 地點（繁中）
 - store: 店舖名稱
-- category: 種類 (如: 飲食, 交通, 購物, 住宿)
-- items: 陣列，包含 { "name": "商品名(繁中)", "price": 數值（標價／含稅主價）, "original_name": "原文(選填)" }
-- subtotal: 標價小計（選填，與 items 加總應一致或極接近）
-- tax: 消費稅金額（如果有單獨列出）
-- tax_refund: 免稅／退稅造成的差額，負數表示少付；無則 0
-- receipt_tax_exemption_amount: 收據印製之免稅額（正數，僅顯示用）；無則 0 或省略
-- discount: 一般折扣（割引、Discount），負數
-- total_amount: 實付總金額
-- receipt_type: 見上（選填）
-- currency: 貨幣代碼 (如 JPY, USD, CNY, EUR 等)
-- payment_method: 支付方式（如：現金、信用卡、電子支付等）
+- category: 飲食 / 交通 / 購物 / 住宿 / 娛樂 / 其他
+- receipt_type: 見上（必填）
+- has_bundle: true/false（選填，預設 false）
+- items: [{ "name": "繁中品名", "price": 數值, "price_actual": 數值(選填), "original_name": "原文(選填)", "exclude_from_refund_split": bool(選填) }]
+- subtotal: 小計（收據印字）
+- tax: 消費稅
+- tax_refund: 退稅差額（負數）
+- receipt_tax_exemption_amount: 收據免稅額（正數）
+- discount: 折扣（負數）
+- total_amount: 實付
+- currency: 貨幣代碼
+- payment_method: 支付方式
 `;
 
 export const USER_TEXT =
-  '請分析這張單據，輸出 JSON。細項 price 用收據主價；total_amount 用實付合計；若有標價與實付差額填 tax_refund（負數）。若收據印有「免稅額／免税額」等數字，請填 receipt_tax_exemption_amount（正數），即使細項已是免稅後價格。';
+  '請分析這張單據並輸出 JSON。receipt_type 必填；subtotal 與 total_amount 以收據印字為準。若品項有套裝/セット，將套裝歸為一個合併品項。若有「非課稅」雙欄，price 填含稅、price_actual 填非課稅。若收據印有「免稅額」，填 receipt_tax_exemption_amount。';

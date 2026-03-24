@@ -46,6 +46,27 @@ export const CATEGORY_COLORS = {
 
 export const CATEGORIES = ['飲食', '交通', '購物', '住宿', '娛樂', '其他'];
 
+export const RECEIPT_TYPES = {
+  tax_inclusive: '內稅',
+  tax_exclusive: '外稅',
+  instant_tax_free: '即時免稅',
+  net_tax_free: '淨價免稅',
+  vat_refund_later: '離境退稅',
+  unknown: '未知',
+  standard: '一般',
+  '': '未分類',
+};
+
+export const RECEIPT_TYPE_OPTIONS = [
+  { value: '', label: '未分類（自動）' },
+  { value: 'tax_inclusive', label: '內稅（行價含稅＝實付）' },
+  { value: 'tax_exclusive', label: '外稅（行價未稅，另加稅）' },
+  { value: 'instant_tax_free', label: '即時免稅（標價含稅＞實付）' },
+  { value: 'net_tax_free', label: '淨價免稅（品項已扣稅＝實付）' },
+  { value: 'vat_refund_later', label: '離境退稅（實付含稅）' },
+  { value: 'unknown', label: '未知' },
+];
+
 export const PERSON_COLORS = [
   '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
   '#3B82F6', '#EF4444', '#6366F1', '#14B8A6',

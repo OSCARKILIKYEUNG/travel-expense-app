@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store/AppContext';
-import { CATEGORY_COLORS } from '../../utils/constants';
+import { CATEGORY_COLORS, RECEIPT_TYPES } from '../../utils/constants';
 import {
   getPartialMatchPersonShareHKD,
   getPartialMatchPersonShareOriginal,
@@ -106,6 +106,11 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-100">
               {expense.assignedTo || '共同'}
             </span>
+            {expense.receiptType && RECEIPT_TYPES[expense.receiptType] && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600 border border-sky-100">
+                {RECEIPT_TYPES[expense.receiptType]}
+              </span>
+            )}
             <span className="text-slate-400 text-[10px]">{expense.date}</span>
           </div>
           <h3 className="font-bold text-slate-800 truncate">{expense.store}</h3>
@@ -141,6 +146,14 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       </div>
 
       <div className="bg-slate-50/80 px-4 py-3 border-t border-slate-100">
+        {expense.needsReview && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex items-start gap-2">
+            <span className="text-amber-500 text-sm leading-none mt-0.5">⚠</span>
+            <p className="text-[10px] text-amber-700 leading-snug">
+              明細加總與合計有落差，可能含套裝價或稅額差異，建議檢查。
+            </p>
+          </div>
+        )}
         {visibleItems.length > 0 && (
           <>
             <p className="text-[10px] text-slate-400 mb-1.5">原價</p>
@@ -157,7 +170,14 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                     )}
                   </span>
                   <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
-                    {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                    {item.priceActual != null && Math.abs(item.priceActual - item.price) > 0.5 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="line-through text-slate-400 text-[10px]">{typeof item.price === 'number' ? item.price.toLocaleString() : item.price}</span>
+                        <span>{item.priceActual.toLocaleString()}</span>
+                      </span>
+                    ) : (
+                      typeof item.price === 'number' ? item.price.toLocaleString() : item.price
+                    )}
                   </span>
                 </li>
               ))}

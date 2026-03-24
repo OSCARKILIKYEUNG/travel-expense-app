@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Dialog from '../ui/Dialog';
 import { useApp } from '../../store/AppContext';
-import { CATEGORIES, CURRENCY_NAMES } from '../../utils/constants';
+import { CATEGORIES, CURRENCY_NAMES, RECEIPT_TYPE_OPTIONS } from '../../utils/constants';
 import { formatDateToInput, formatDateToDisplay } from '../../utils/date';
 import { Edit, Check } from '../ui/Icons';
 import { inferFixedFeeFromName } from '../../utils/personShare';
@@ -67,6 +67,20 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
               {people.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="edit-receipt-type" className="block text-sm font-medium text-slate-700 mb-1">單據類型</label>
+          <select
+            id="edit-receipt-type"
+            value={form.receiptType || ''}
+            onChange={(e) => patch({ receiptType: e.target.value })}
+            className="input-field"
+          >
+            {RECEIPT_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

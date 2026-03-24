@@ -105,7 +105,27 @@ export function alignItemPricesToTotal(items, targetTotal, currency) {
   return { items: scaled, adjusted: true };
 }
 
+const KNOWN_RECEIPT_TYPES = [
+  'tax_inclusive', 'tax_exclusive', 'instant_tax_free',
+  'net_tax_free', 'vat_refund_later', 'unknown',
+];
+
+function normalizeReceiptType(raw) {
+  if (!raw) return '';
+  const v = String(raw).toLowerCase().trim();
+  if (KNOWN_RECEIPT_TYPES.includes(v)) return v;
+  if (v === 'standard' || v === 'tax_included') return 'tax_inclusive';
+  if (v === 'tax_excluded') return 'tax_exclusive';
+  if (/instant.*(free|exempt)/i.test(v)) return 'instant_tax_free';
+  if (/net.*(free|exempt)/i.test(v)) return 'net_tax_free';
+  if (/vat.*refund|refund.*later/i.test(v)) return 'vat_refund_later';
+  return v;
+}
+
 export function buildExpenseFromAI(result, index, currency, rate) {
+  const receiptType = normalizeReceiptType(result.receipt_type);
+  const hasBundlePricing = !!(result.has_bundle ?? result.hasBundle);
+
   const items = Array.isArray(result.items)
     ? result.items.map((item) => {
         const name = (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤');
@@ -114,15 +134,26 @@ export function buildExpenseFromAI(result, index, currency, rate) {
         if (exRaw === true) excludeFromRefundSplit = true;
         else if (exRaw === false) excludeFromRefundSplit = false;
         else if (inferFixedFeeFromName(name)) excludeFromRefundSplit = true;
+
+        const price = parseFloat(item.price) || 0;
+        const rawActual = parseFloat(item.price_actual ?? item.priceActual);
+        const priceActual =
+          !isNaN(rawActual) && rawActual > 0 && Math.abs(rawActual - price) > moneyEpsilon(currency)
+            ? rawActual
+            : undefined;
+
         return {
           ...item,
           name,
+          price,
+          ...(priceActual !== undefined ? { priceActual } : {}),
           excludeFromRefundSplit,
         };
       })
     : [];
 
-  const grossSum = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+  const grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
+  const actualSum = items.reduce((s, i) => s + (i.priceActual ?? (i.price || 0)), 0);
   const totalAmount = parseFloat(result.total_amount) || 0;
   const subFromAI = parseFloat(result.subtotal) || 0;
   let tax = parseFloat(result.tax) || 0;
@@ -130,21 +161,35 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   const discount = parseFloat(result.discount) || 0;
   const eps = moneyEpsilon(currency);
 
-  // 標價小計：細項加總優先，否則用 AI subtotal
-  let subtotal = grossSum > 0 ? grossSum : subFromAI;
+  // --- 小計：收據印字 (subFromAI) 優先於 items 加總 ---
+  // 套裝/組合價、或 AI 小計與品項加總明顯不同時，信任 AI subtotal（= 收據印字）
+  let subtotal;
+  const subDrift = subFromAI > 0 && grossSum > 0 ? Math.abs(subFromAI - grossSum) : 0;
+  if (subFromAI > 0 && (hasBundlePricing || subDrift > Math.max(eps * 5, 3))) {
+    subtotal = subFromAI;
+  } else {
+    subtotal = grossSum > 0 ? grossSum : subFromAI;
+  }
 
   const finalAmount =
     totalAmount > 0 ? totalAmount : subtotal > 0 ? subtotal : grossSum > 0 ? grossSum : 0;
 
-  // 實付低於標價時，免稅／退稅差額（負數）；若 AI 數字與計算差太多則以計算為準
-  if (finalAmount > 0 && subtotal > finalAmount + eps) {
+  // --- 依類型計算 taxRefund ---
+  if (receiptType === 'net_tax_free') {
+    // 品項已是淨價，行加總 ≈ 實付；不需要 taxRefund
+    if (Math.abs(taxRefund) < eps) taxRefund = 0;
+  } else if (receiptType === 'tax_exclusive') {
+    // 外稅：實付 = 小計 + 稅；taxRefund 通常為 0
+    if (tax > 0 && Math.abs(taxRefund) < eps) taxRefund = 0;
+  } else if (finalAmount > 0 && subtotal > finalAmount + eps) {
+    // instant_tax_free 或其他差額場景
     const computed = finalAmount - subtotal;
     if (Math.abs(taxRefund) < eps || Math.abs(taxRefund - computed) > Math.max(eps * 2, 1)) {
       taxRefund = computed;
     }
   }
 
-  const receiptType = result.receipt_type || '';
+  // --- 收據免稅額 ---
   const rawExemption =
     result.receipt_tax_exemption_amount ??
     result.receiptTaxExemptionAmount ??
@@ -153,6 +198,18 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     result.exemption_amount ??
     result.tax_exemption_display;
   const receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
+
+  // --- 驗證：數字是否依類型自洽 ---
+  let needsReview = false;
+  if (receiptType === 'tax_inclusive' && grossSum > 0 && Math.abs(grossSum - finalAmount) > Math.max(eps * 5, 5)) {
+    needsReview = true;
+  }
+  if (receiptType === 'tax_exclusive' && subFromAI > 0 && tax > 0 && Math.abs(subFromAI + tax - finalAmount) > Math.max(eps * 5, 5)) {
+    needsReview = true;
+  }
+  if (hasBundlePricing && subFromAI > 0 && grossSum > 0 && subDrift > Math.max(eps * 5, 3) && !items.some((i) => i.priceActual !== undefined)) {
+    needsReview = true;
+  }
 
   return {
     id: Date.now() + index,
@@ -170,6 +227,8 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     hkdAmount: finalAmount * rate,
     paymentMethod: result.payment_method || '',
     receiptType,
+    ...(hasBundlePricing ? { hasBundlePricing: true } : {}),
     ...(receiptTaxExemptionAmount > eps ? { receiptTaxExemptionAmount } : {}),
+    ...(needsReview ? { needsReview: true } : {}),
   };
 }

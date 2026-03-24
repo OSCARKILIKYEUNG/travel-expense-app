@@ -129,6 +129,7 @@
 | `api/receipt-prompt.js` | Gemini JSON 規格 |
 | `README.md` | 免稅／固定費／收據免稅額說明 |
 | `docs/PRODUCT_MANAGEMENT.md` | 滾動路線圖與技術債 |
+| `docs/RECEIPT_TYPES.md` | **單據類型 A～H**、收據印字優先之共識 |
 | `.cursor/rules/feedback-before-implement.mdc` | 意見先對齊再改之協作規則 |
 
 ---
@@ -140,6 +141,7 @@
 | 2025-03-23 | 建立本檔；收錄本輪需求、交付、踩坑、backlog、PM 流程。 |
 | 2025-03-24 | 新增 §進度快照、§九協作規則、L7；連結 Cursor rule。 |
 | 2025-03-24 | 新增 §十 SAVE 快照表與觸發詞約定；擴充 Cursor rule。 |
+| 2025-03-24 | 新增 `docs/RECEIPT_TYPES.md`（單據 A～H）；索引與 README 連結。 |
 
 ---
 
@@ -167,6 +169,8 @@
 | 日期 | 摘要 | 待辦／跟進 |
 |------|------|------------|
 | 2025-03-24 | 約定觸發詞 **SAVE**＝寫入本表 + 更新規則；與「意見先對齊再改」並存於同一 Cursor rule。 | 之後每次工作段結束可打 SAVE 存檔；跨月新建迭代檔。 |
+| 2025-03-24 | 使用者確認將「單據情境 A～H」寫入 repo；新增 `docs/RECEIPT_TYPES.md`，並入文件索引。 | 逐類對解法時以該檔為準迭代。 |
+| 2025-03-24 | **三項架構升級**落地：① prompt 輸出 `receipt_type`（必填）+ `has_bundle` + `price_actual`；② `personShare.js` 新增 `getItemActualPrice` / `sumAllItemActualPrices`，分帳用 actual price；③ `buildExpenseFromAI` 依類型驗證 + `needsReview` 標記；④ UI 加類型 badge、需檢查警示、雙價格顯示、編輯可改類型。| 以 8 張東京真實小票驗證覆蓋 A–F；下一步：韓國/歐洲小票加入驗證表；持續優化 prompt 對セット的合併準確度。 |
 
 ---
 

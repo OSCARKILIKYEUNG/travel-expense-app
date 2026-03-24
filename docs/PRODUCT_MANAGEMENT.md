@@ -4,7 +4,8 @@
 > **維護原則**：每次重大功能上線、架構調整或發布前，更新本文件對應章節；與 `HANDOFF.md`、`DESIGN_SPEC.md` 互補，不互相重複貼長文。  
 > **迭代詳錄**：分帳／免稅／收據顯示等 **單次迭代的需求、踩坑、backlog、進度快照** → **[PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md)**（PM 級書面 log）。  
 > **人機協作**：使用者提意見時 **先對齊理解與方案再改碼** → `.cursor/rules/feedback-before-implement.mdc`（與迭代檔 §九一致）。  
-> **SAVE**：使用者輸入 **`SAVE`** 時，助手應將本次要點寫入當期 **`docs/PRODUCT_ITERATION_YYYY-MM.md` §十**（SAVE 快照表）；規則見同檔 Cursor rule。
+> **SAVE**：使用者輸入 **`SAVE`** 時，助手應將本次要點寫入當期 **`docs/PRODUCT_ITERATION_YYYY-MM.md` §十**（SAVE 快照表）；規則見同檔 Cursor rule。  
+> **單據類型**：情境 A～H 規格 → **[RECEIPT_TYPES.md](./RECEIPT_TYPES.md)**（收據印字優先、與程式對照表）。
 
 ---
 
@@ -134,6 +135,7 @@
 | 2025-03 | `d3628d4` 等 | 上傳單據採 AI 幣別 + HKD 匯率；細項說明與免稅額 prompt |
 | 2025-03-24 | docs | Cursor rule「意見先對齊再改」；迭代檔進度快照與 §九 |
 | 2025-03-24 | docs | **SAVE** 觸發寫入迭代檔 §十；規則擴充 |
+| 2025-03-24 | docs | 新增 `RECEIPT_TYPES.md`（單據類型 A～H） |
 | （歷史） | — | 初建立本管理文件 |
 
 ---

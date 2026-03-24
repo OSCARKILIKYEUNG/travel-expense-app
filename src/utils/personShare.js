@@ -6,10 +6,28 @@ function refundEpsilon(currency) {
 }
 
 /**
- * 全單行項目「原價」加總（與實付可能因退稅等不一致）
+ * 取得品項用於分帳的實際金額：有 priceActual 時用之，否則 fallback 到 price。
+ * priceActual 來自 ZARA 非課稅欄、套裝均攤等場景。
+ */
+export function getItemActualPrice(item) {
+  const pa = Number(item.priceActual);
+  if (!isNaN(pa) && pa > 0) return pa;
+  return Number(item.price) || 0;
+}
+
+/**
+ * 全單行項目「原價/標價」加總（display price）
  */
 export function sumAllItemPrices(items) {
   return (items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
+}
+
+/**
+ * 全單行項目「實際計入合計的金額」加總（用於分帳比例）。
+ * 大部分情況 = sumAllItemPrices；ZARA 非課稅、套裝均攤時不同。
+ */
+export function sumAllItemActualPrices(items) {
+  return (items || []).reduce((s, i) => s + getItemActualPrice(i), 0);
 }
 
 /**
@@ -33,7 +51,7 @@ export function getEffectiveRefundPositive(expense) {
 }
 
 /**
- * 指定人物在行項目上的原價小計
+ * 指定人物在行項目上的原價（display price）小計
  */
 export function sumAssignedItemPrices(expense, filterPerson) {
   const items = expense.items || [];
@@ -41,6 +59,20 @@ export function sumAssignedItemPrices(expense, filterPerson) {
   for (const item of items) {
     if ((item.assignedTo || expense.assignedTo || '共同') === filterPerson) {
       S += Number(item.price) || 0;
+    }
+  }
+  return S;
+}
+
+/**
+ * 指定人物在行項目上的 actual price 小計（用於分帳）
+ */
+export function sumAssignedItemActualPrices(expense, filterPerson) {
+  const items = expense.items || [];
+  let S = 0;
+  for (const item of items) {
+    if ((item.assignedTo || expense.assignedTo || '共同') === filterPerson) {
+      S += getItemActualPrice(item);
     }
   }
   return S;
@@ -62,25 +94,36 @@ export function isItemExcludeFromRefundSplit(item) {
   return inferFixedFeeFromName(item.name);
 }
 
-/** 標價中屬於固定費用、不隨退稅比例縮減的金額加總 */
+/** 固定費用行的 actual price 加總（佣金等不隨退稅比例縮減） */
+export function sumFixedFeeActual(items) {
+  return (items || []).reduce(
+    (s, i) => s + (isItemExcludeFromRefundSplit(i) ? getItemActualPrice(i) : 0), 0,
+  );
+}
+
+/** @deprecated 保留向後相容；新代碼請用 sumFixedFeeActual */
 export function sumFixedFeeGross(items) {
-  return (items || []).reduce((s, i) => s + (isItemExcludeFromRefundSplit(i) ? Number(i.price) || 0 : 0), 0);
+  return sumFixedFeeActual(items);
 }
 
 /**
- * 可退稅（可比例分攤）之標價池：G_elig = 全單標價 − 固定費行
- * 實付中對應池：P_elig = 實付 − 固定費標價（該部分實付＝標價）
- * 比例 r = P_elig / G_elig；無固定費時 r = P/G（與舊版一致）
+ * 可退稅（可比例分攤）之品項池。
+ * G = 全單 actual price 加總；F = 固定費行 actual；gElig = G − F。
+ * P = 實付；pElig = P − F。
+ * r = pElig / gElig；無固定費時 r = P/G（與舊版一致）。
+ *
+ * 當品項有 priceActual（如 ZARA 非課稅）時，G 已等於實付級金額，
+ * r ≈ 1，分帳直接以 priceActual 為準。
  */
 function getEligiblePoolRatio(expense) {
   const items = expense.items || [];
   const P = Number(expense.originalAmount) || Number(expense.hkdAmount) || 0;
-  const G = sumAllItemPrices(items);
+  const G = sumAllItemActualPrices(items);
   const eps = refundEpsilon(expense.currency);
   if (G <= eps) {
     return { r: 1, gElig: 0, f: 0, pElig: P, legacyUniform: true };
   }
-  const F = sumFixedFeeGross(items);
+  const F = sumFixedFeeActual(items);
   const gElig = G - F;
   const pElig = P - F;
   if (gElig <= eps) {
@@ -98,13 +141,13 @@ function getEligiblePoolRatio(expense) {
 
 /**
  * 分人篩選且整卡 assignee ≠ 該人、僅部分行屬於該人時：
- * 實攤原幣：固定費行照標價；其餘行 × r；再與 hkdAmount 同步比例。
+ * 實攤原幣：固定費行照 actual price；其餘行 × r。
  */
 export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
   const items = expense.items || [];
   const P = Number(expense.originalAmount) || Number(expense.hkdAmount) || 0;
-  const G = sumAllItemPrices(items);
-  const S = sumAssignedItemPrices(expense, filterPerson);
+  const G = sumAllItemActualPrices(items);
+  const S = sumAssignedItemActualPrices(expense, filterPerson);
   const eps = refundEpsilon(expense.currency);
   if (G <= 0) {
     return S;
@@ -116,7 +159,7 @@ export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
   let share = 0;
   for (const item of items) {
     if ((item.assignedTo || expense.assignedTo || '共同') !== filterPerson) continue;
-    const p = Number(item.price) || 0;
+    const p = getItemActualPrice(item);
     share += isItemExcludeFromRefundSplit(item) ? p : p * r;
   }
   return share;
@@ -126,10 +169,10 @@ export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
  * 分人篩選：實攤 HKD
  */
 export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates) {
-  const G = sumAllItemPrices(expense.items);
+  const G = sumAllItemActualPrices(expense.items);
   const rate = getExchangeRate(expense.currency || 'HKD', exchangeRates);
   if (G <= 0) {
-    return sumAssignedItemPrices(expense, filterPerson) * rate;
+    return sumAssignedItemActualPrices(expense, filterPerson) * rate;
   }
   const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson);
   const P = Number(expense.originalAmount) || 0;
@@ -140,29 +183,28 @@ export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRat
 }
 
 /**
- * 該人分攤到的退稅額（正數）：可退稅池內依該人「可退稅標價」比例，不含固定費行。
+ * 該人分攤到的退稅額（正數）：可退稅池內依該人「可退稅 actual price」比例，不含固定費行。
  */
 export function getPartialRefundShareOriginal(expense, filterPerson) {
   const refundTotal = getEffectiveRefundPositive(expense);
   const items = expense.items || [];
-  const G = sumAllItemPrices(items);
+  const G = sumAllItemActualPrices(items);
   const eps = refundEpsilon(expense.currency);
   if (refundTotal <= 0 || G <= eps) {
     return 0;
   }
-  const P = Number(expense.originalAmount) || 0;
   const { r, gElig, legacyUniform } = getEligiblePoolRatio(expense);
   let sRef = 0;
   for (const item of items) {
     if ((item.assignedTo || expense.assignedTo || '共同') !== filterPerson) continue;
     if (isItemExcludeFromRefundSplit(item)) continue;
-    sRef += Number(item.price) || 0;
+    sRef += getItemActualPrice(item);
   }
   if (sRef <= 0) {
     return 0;
   }
   if (legacyUniform || gElig <= eps) {
-    const S = sumAssignedItemPrices(expense, filterPerson);
+    const S = sumAssignedItemActualPrices(expense, filterPerson);
     return refundTotal * (S / G);
   }
   return sRef * (1 - r);

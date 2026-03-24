@@ -127,6 +127,7 @@ vercel
 - **[docs/README.md](./docs/README.md)** — **文件導覽（建議先讀）**：釐清各份 MD 分工、是否重疊、程式目錄地圖
 - **[docs/PRODUCT_MANAGEMENT.md](./docs/PRODUCT_MANAGEMENT.md)** — 產品路線圖、版本節奏、架構輕量優化優先級、技術債登記（**建議與程式一併維護**）
 - **[docs/PRODUCT_ITERATION_2025-03.md](./docs/PRODUCT_ITERATION_2025-03.md)** — **本輪（分帳／免稅／收據）交付、踩坑、待辦、進度快照、PM 跟進流程**（單一書面 log）
+- **[docs/RECEIPT_TYPES.md](./docs/RECEIPT_TYPES.md)** — **單據類型 A～H**（外稅、免稅、套裝、收據印字優先等）
 - **[.cursor/rules/feedback-before-implement.mdc](./.cursor/rules/feedback-before-implement.mdc)** — 使用者提意見時：**先說明理解與改法，再實作**；輸入 **`SAVE`** 時：**寫入** `docs/PRODUCT_ITERATION_YYYY-MM.md` **§十** 快照表（Cursor 全專案套用）
 - [HANDOFF.md](./HANDOFF.md) — 專案歷史與技術決策
 - [DESIGN_SPEC.md](./DESIGN_SPEC.md) — 設計規格
