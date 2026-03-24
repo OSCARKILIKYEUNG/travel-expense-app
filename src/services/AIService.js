@@ -209,15 +209,16 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   const finalAmount =
     totalAmount > 0 ? totalAmount : subtotal > 0 ? subtotal : grossSum > 0 ? grossSum : 0;
 
-  // --- 依類型計算 taxRefund ---
+  // --- 依類型計算 taxRefund / tax ---
   if (receiptType === 'net_tax_free') {
-    // 品項已是淨價，行加總 ≈ 實付；不需要 taxRefund
     if (Math.abs(taxRefund) < eps) taxRefund = 0;
   } else if (receiptType === 'tax_exclusive') {
-    // 外稅：實付 = 小計 + 稅；taxRefund 通常為 0
+    // 外稅：若 AI 沒回 tax，從 total − subtotal 推算
+    if (tax <= 0 && finalAmount > subtotal + eps) {
+      tax = Math.round(finalAmount - subtotal);
+    }
     if (tax > 0 && Math.abs(taxRefund) < eps) taxRefund = 0;
   } else if (finalAmount > 0 && subtotal > finalAmount + eps) {
-    // instant_tax_free 或其他差額場景
     const computed = finalAmount - subtotal;
     if (Math.abs(taxRefund) < eps || Math.abs(taxRefund - computed) > Math.max(eps * 2, 1)) {
       taxRefund = computed;
@@ -236,14 +237,26 @@ export function buildExpenseFromAI(result, index, currency, rate) {
 
   // --- 驗證：數字是否依類型自洽 ---
   let needsReview = false;
-  if (receiptType === 'tax_inclusive' && grossSum > 0 && Math.abs(grossSum - finalAmount) > Math.max(eps * 5, 5)) {
+  const driftThreshold = Math.max(eps * 5, 5);
+  if (receiptType === 'tax_inclusive' && grossSum > 0 && Math.abs(grossSum - finalAmount) > driftThreshold) {
     needsReview = true;
   }
-  if (receiptType === 'tax_exclusive' && subFromAI > 0 && tax > 0 && Math.abs(subFromAI + tax - finalAmount) > Math.max(eps * 5, 5)) {
+  if (receiptType === 'tax_exclusive' && subFromAI > 0 && tax > 0 && Math.abs(subFromAI + tax - finalAmount) > driftThreshold) {
     needsReview = true;
   }
-  if (hasBundlePricing && subFromAI > 0 && grossSum > 0 && subDrift > Math.max(eps * 5, 3) && !items.some((i) => i.priceActual !== undefined)) {
-    needsReview = true;
+  if (receiptType === 'instant_tax_free' && subFromAI > 0 && grossSum > 0) {
+    // 品項加總應接近 subtotal（含稅小計）；差太大表示 AI 漏列或多列
+    const itemVsSub = Math.abs(grossSum - subFromAI);
+    if (itemVsSub > subFromAI * 0.05 && itemVsSub > driftThreshold) {
+      needsReview = true;
+    }
+  }
+  // 套裝/bundle：容忍 1% 或 300 以內的漂移（AI 品名/金額小誤差常見）
+  if (hasBundlePricing && subFromAI > 0 && grossSum > 0) {
+    const bundleTolerance = Math.max(subFromAI * 0.01, 300);
+    if (subDrift > bundleTolerance && !items.some((i) => i.priceActual !== undefined)) {
+      needsReview = true;
+    }
   }
 
   return {
