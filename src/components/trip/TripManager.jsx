@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { CURRENCY_NAMES } from '../../utils/constants';
-import { accountingCurrencyOptions, getAccountingCode } from '../../utils/tripMoney';
+import { accountingCurrencyOptions, getAccountingCode, tripCurrencyOptions } from '../../utils/tripMoney';
 import Dialog from '../ui/Dialog';
 import { Globe, Edit, Trash2 } from '../ui/Icons';
 
@@ -18,7 +18,12 @@ export default function TripManager() {
     switchTrip,
     notify,
     tripCurrency: currentTripCurrency,
+    settings,
   } = useApp();
+
+  const savedAccountingCodes = settings?.savedAccountingCodes || [];
+  const savedTripCurrencies = settings?.savedTripCurrencies || [];
+  const tripCurrencySelectCodes = tripCurrencyOptions(savedTripCurrencies);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -111,6 +116,17 @@ export default function TripManager() {
     }
   };
 
+  const handleRemoveCustomAccountingCode = (trip, code) => {
+    const c = String(code).toUpperCase().slice(0, 3);
+    if (getAccountingCode(trip) === c && trip.accountingIsCustom) {
+      notify(t('trip.removeCustomAccountingBlocked'), 'warning');
+      return;
+    }
+    const next = (trip.customAccountingCodes || []).filter((x) => String(x).toUpperCase() !== c);
+    updateTrip(trip.id, { customAccountingCodes: next });
+    notify(t('trip.removeCustomAccountingOk', { code: c }));
+  };
+
   const handleSaveEdit = () => {
     if (!editName.trim()) {
       notify(t('trip.nameEmpty'), 'warning');
@@ -149,7 +165,8 @@ export default function TripManager() {
 
   const tripToDelete = trips.find((tr) => tr.id === deleteId);
 
-  const accountingOptionsFor = (trip) => accountingCurrencyOptions(trip || currentTrip);
+  const accountingOptionsFor = (trip) =>
+    accountingCurrencyOptions(trip || currentTrip, savedAccountingCodes);
 
   return (
     <section className="space-y-3">
@@ -247,6 +264,30 @@ export default function TripManager() {
                     </div>
                   )}
                   <p className="text-[9px] text-slate-500 mt-1">{t('trip.accountingCurrencyHint')}</p>
+                  {(trip.customAccountingCodes || []).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[9px] text-slate-600 mb-1">{t('trip.savedCustomAccounting')}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(trip.customAccountingCodes || []).map((code) => (
+                          <span
+                            key={code}
+                            className="inline-flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-0.5"
+                          >
+                            {code}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomAccountingCode(trip, code)}
+                              className="text-slate-400 hover:text-red-600 font-bold leading-none"
+                              aria-label={t('trip.removeCustomAccountingAria', { code })}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1">{t('trip.removeCustomAccountingHint')}</p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor={`trip-edit-currency-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripCurrency')}</label>
@@ -256,9 +297,9 @@ export default function TripManager() {
                     onChange={(e) => setEditCurrency(e.target.value)}
                     className="input-field w-full text-xs"
                   >
-                    {Object.keys(CURRENCY_NAMES).map((code) => (
+                    {tripCurrencySelectCodes.map((code) => (
                       <option key={code} value={code}>
-                        {code} — {t(`currency.${code}`)}
+                        {CURRENCY_NAMES[code] ? `${code} — ${t(`currency.${code}`)}` : code}
                       </option>
                     ))}
                   </select>
@@ -327,9 +368,9 @@ export default function TripManager() {
               onChange={(e) => setNewTripCurrency(e.target.value)}
               className="input-field"
             >
-              {Object.keys(CURRENCY_NAMES).map((code) => (
+              {tripCurrencySelectCodes.map((code) => (
                 <option key={code} value={code}>
-                  {code} — {t(`currency.${code}`)}
+                  {CURRENCY_NAMES[code] ? `${code} — ${t(`currency.${code}`)}` : code}
                 </option>
               ))}
             </select>

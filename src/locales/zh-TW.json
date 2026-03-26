@@ -281,7 +281,12 @@
     "accountingCurrencyHint": "報表與總額換算以此幣為準。選「其他」時請輸入 ISO 三字碼；此類匯率僅能手動填寫。",
     "accountingOtherCode": "自訂貨幣代碼（ISO）",
     "accountingOtherInvalid": "請輸入有效的三字貨幣代碼（如 CHF）。",
-    "accountingShort": "記帳 {{ac}}"
+    "accountingShort": "記帳 {{ac}}",
+    "savedCustomAccounting": "已儲存的自訂代碼（下拉可重選）",
+    "removeCustomAccountingHint": "點 × 可從清單移除。若目前記帳幣仍為該自訂代碼，請先改選其他幣別再移除。",
+    "removeCustomAccountingBlocked": "請先將記帳貨幣改為內建幣別或其他代碼，再移除此自訂代碼。",
+    "removeCustomAccountingOk": "已從清單移除 {{code}}",
+    "removeCustomAccountingAria": "從清單移除 {{code}}"
   },
   "toast": {
     "ratesUpdated": "匯率已更新，金額已重算",

@@ -23,6 +23,33 @@ function write(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+/** 從所有旅程掃描曾用記帳幣／旅程幣，供首次填入全域重用清單 */
+function buildSavedCurrencyListsFromTrips() {
+  const data = read(KEYS.TRIPS);
+  const acc = new Set();
+  const tripC = new Set();
+  for (const t of data?.trips || []) {
+    const a = String(t.accountingCurrency || '')
+      .toUpperCase()
+      .slice(0, 3);
+    if (/^[A-Z]{3}$/.test(a)) acc.add(a);
+    (t.customAccountingCodes || []).forEach((c) => {
+      const x = String(c)
+        .toUpperCase()
+        .slice(0, 3);
+      if (/^[A-Z]{3}$/.test(x)) acc.add(x);
+    });
+    const tc = String(t.tripCurrency || '')
+      .toUpperCase()
+      .slice(0, 3);
+    if (/^[A-Z]{3}$/.test(tc)) tripC.add(tc);
+  }
+  return {
+    savedAccountingCodes: [...acc].sort(),
+    savedTripCurrencies: [...tripC].sort(),
+  };
+}
+
 function stripLegacyCurrencyFromSettings() {
   const settings = read(KEYS.SETTINGS);
   if (!settings) return;
@@ -345,14 +372,33 @@ const DataService = {
       stripLegacyCurrencyFromSettings();
 
       const latest = read(KEYS.SETTINGS);
-      return {
+      const fromTrips = buildSavedCurrencyListsFromTrips();
+      const savedAccountingCodes = Array.isArray(latest?.savedAccountingCodes)
+        ? latest.savedAccountingCodes
+        : fromTrips.savedAccountingCodes;
+      const savedTripCurrencies = Array.isArray(latest?.savedTripCurrencies)
+        ? latest.savedTripCurrencies
+        : fromTrips.savedTripCurrencies;
+      const out = {
         uiLanguage: normalizeUiLanguage(latest?.uiLanguage ?? 'zh-TW'),
+        savedAccountingCodes,
+        savedTripCurrencies,
         ...(latest?.apiKey != null ? { apiKey: latest.apiKey } : {}),
         ...(latest?.modelName != null ? { modelName: latest.modelName } : {}),
       };
+      if (
+        !Array.isArray(latest?.savedAccountingCodes) ||
+        !Array.isArray(latest?.savedTripCurrencies)
+      ) {
+        write(KEYS.SETTINGS, { ...latest, savedAccountingCodes, savedTripCurrencies });
+      }
+      return out;
     }
+    const fromTrips = buildSavedCurrencyListsFromTrips();
     return {
       uiLanguage: 'zh-TW',
+      savedAccountingCodes: fromTrips.savedAccountingCodes,
+      savedTripCurrencies: fromTrips.savedTripCurrencies,
     };
   },
 

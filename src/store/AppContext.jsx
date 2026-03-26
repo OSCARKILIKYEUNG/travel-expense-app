@@ -2,7 +2,6 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import DataService from '../services/DataService';
 import { sortExpenses } from '../utils/date';
 import { getExchangeRate } from '../utils/currency';
-import { CURRENCY_NAMES } from '../utils/constants';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 import { getDefaultAssignee } from '../utils/people';
@@ -108,16 +107,49 @@ export function AppProvider({ children }) {
     }
   }, [exchangeRates]);
 
+  const mergeSavedCurrencyListsFromTrip = useCallback((trip) => {
+    if (!trip) return;
+    const acc = new Set();
+    const ac = getAccountingCode(trip);
+    if (/^[A-Z]{3}$/.test(ac)) acc.add(ac);
+    (trip.customAccountingCodes || []).forEach((c) => {
+      const x = String(c).toUpperCase().slice(0, 3);
+      if (/^[A-Z]{3}$/.test(x)) acc.add(x);
+    });
+    const tc = String(trip.tripCurrency || '')
+      .toUpperCase()
+      .slice(0, 3);
+
+    setSettingsState((prev) => {
+      const mergeArr = (base, additions) => {
+        const s = new Set([...(base || [])]);
+        additions.forEach((x) => {
+          const c = String(x).toUpperCase().slice(0, 3);
+          if (/^[A-Z]{3}$/.test(c)) s.add(c);
+        });
+        return [...s].sort();
+      };
+      const next = {
+        ...prev,
+        savedAccountingCodes: mergeArr(prev.savedAccountingCodes, [...acc]),
+        savedTripCurrencies: mergeArr(prev.savedTripCurrencies, tc && /^[A-Z]{3}$/.test(tc) ? [tc] : []),
+      };
+      DataService.saveSettings(next);
+      return next;
+    });
+  }, []);
+
   const createTrip = useCallback((name, startDate, tripCurrency, options) => {
     DataService.updateCurrentTripExpenses(expenses);
     const newTrip = DataService.createTrip(name, startDate, tripCurrency, options);
+    mergeSavedCurrencyListsFromTrip(newTrip);
     const data = DataService.loadTripsData();
     setTrips(data.trips);
     setCurrentTripId(newTrip.id);
     setExpensesState([]);
     setPeopleState(newTrip.settings.people || ['共同']);
     notify(i18n.t('toast.tripCreated'));
-  }, [expenses, notify]);
+  }, [expenses, notify, mergeSavedCurrencyListsFromTrip]);
 
   const switchTrip = useCallback((tripId) => {
     if (tripId === currentTripId) return;
@@ -199,12 +231,15 @@ export function AppProvider({ children }) {
     if (!trip) return;
     if (patch.tripCurrency != null) {
       const code = String(patch.tripCurrency).toUpperCase();
-      if (!CURRENCY_NAMES[code]) return;
+      if (!/^[A-Z]{3}$/.test(code)) return;
     }
     DataService.patchTrip(tripId, patch);
+    const nextData = DataService.loadTripsData();
+    const updated = nextData.trips.find((t) => t.id === tripId);
+    if (updated) mergeSavedCurrencyListsFromTrip(updated);
     setTrips(DataService.loadTripsData().trips);
     notify(i18n.t('toast.tripUpdated'));
-  }, [notify]);
+  }, [notify, mergeSavedCurrencyListsFromTrip]);
 
   const addExpense = useCallback((expense) => {
     setExpenses((prev) => sortExpenses([...prev, expense]));

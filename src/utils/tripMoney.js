@@ -32,12 +32,22 @@ export function blankRatesForAccounting(accountingCode) {
   return { [code]: 1 };
 }
 
-/** 下拉選項：內建 + 自訂代碼（去重） */
-export function accountingCurrencyOptions(trip) {
+/** 下拉選項：內建 + 跨旅程已儲存 + 本旅程自訂（去重） */
+export function accountingCurrencyOptions(trip, globalSaved = []) {
   const preset = Object.keys(CURRENCY_NAMES);
-  const extra = Array.isArray(trip?.customAccountingCodes) ? trip.customAccountingCodes : [];
+  const extra = [
+    ...(Array.isArray(trip?.customAccountingCodes) ? trip.customAccountingCodes : []),
+    ...(Array.isArray(globalSaved) ? globalSaved : []),
+  ];
   const cur = getAccountingCode(trip);
   const set = new Set([...preset, ...extra]);
   if (cur && cur.length === 3) set.add(cur);
+  return [...set].sort();
+}
+
+/** 旅程主要外幣下拉：內建 + 跨旅程曾用過的代碼（去重） */
+export function tripCurrencyOptions(globalSaved = []) {
+  const preset = Object.keys(CURRENCY_NAMES);
+  const set = new Set([...preset, ...(Array.isArray(globalSaved) ? globalSaved : [])]);
   return [...set].sort();
 }

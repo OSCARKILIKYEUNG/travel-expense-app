@@ -281,7 +281,12 @@
     "accountingCurrencyHint": "Reports and totals use this currency. For “Other”, enter a 3-letter ISO code; rates are manual only.",
     "accountingOtherCode": "Custom ISO code",
     "accountingOtherInvalid": "Enter a valid 3-letter code (e.g. CHF).",
-    "accountingShort": "Base {{ac}}"
+    "accountingShort": "Base {{ac}}",
+    "savedCustomAccounting": "Saved custom codes (available in the dropdown)",
+    "removeCustomAccountingHint": "Click × to remove from the list. If this code is still your base currency, switch base currency first.",
+    "removeCustomAccountingBlocked": "Switch base currency to a preset or another code before removing this one.",
+    "removeCustomAccountingOk": "Removed {{code}} from the list",
+    "removeCustomAccountingAria": "Remove {{code}} from list"
   },
   "toast": {
     "ratesUpdated": "Rates updated; amounts recalculated",
