@@ -95,6 +95,9 @@
     "peopleTitle": "People",
     "newPersonPlaceholder": "New person…",
     "addPerson": "Add",
+    "editPersonTitle": "Rename person",
+    "editPersonNameLabel": "Name",
+    "savePersonName": "Save",
     "dataTitle": "Data",
     "dataHint": "Copy report: copies the current expense list as plain text. Export and full backup are JSON files.",
     "copyReport": "Copy report",
@@ -269,6 +272,7 @@
     "importOk": "Import successful",
     "personExists": "Person already exists",
     "personAdded": "Person added",
-    "personDeleted": "Person removed"
+    "personDeleted": "Person removed",
+    "personRenamed": "Person renamed"
   }
 }

@@ -5,17 +5,19 @@ import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
 import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
 import TripManager from '../components/trip/TripManager';
-import { Copy, Download, FileText, Upload, Trash2 } from '../components/ui/Icons';
+import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { t } = useTranslation();
-  const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify } = useApp();
+  const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify, renamePerson } = useApp();
   const { exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate, uiLanguage } = settings;
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
   const [deletePerson, setDeletePerson] = useState(null);
+  const [editPerson, setEditPerson] = useState(null);
+  const [editPersonName, setEditPersonName] = useState('');
 
   const handleAddPerson = () => {
     const name = newPerson.trim();
@@ -24,6 +26,22 @@ export default function Settings() {
     setPeople((p) => [...p, name]);
     setNewPerson('');
     notify(t('toast.personAdded'));
+  };
+
+  const openEditPerson = (name) => {
+    setEditPerson(name);
+    setEditPersonName(name);
+  };
+
+  const saveEditPerson = () => {
+    if (!editPerson) return;
+    const r = renamePerson(editPerson, editPersonName);
+    if (r.ok) {
+      setEditPerson(null);
+      return;
+    }
+    if (r.reason === 'exists') notify(t('toast.personExists'), 'warning');
+    else if (r.reason === 'empty') notify(t('trip.nameEmpty'), 'warning');
   };
 
   const confirmDeletePerson = () => {
@@ -144,16 +162,26 @@ export default function Settings() {
           {people.map((person) => (
             <div key={person} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
               <span className="flex-1 text-sm">{person}</span>
-              {people.length > 1 && (
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setDeletePerson(person)}
-                  className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                  aria-label={`${t('settings.confirmDelete')} ${person}`}
+                  onClick={() => openEditPerson(person)}
+                  className="text-slate-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                  aria-label={`${t('settings.editPersonTitle')}: ${person}`}
                 >
-                  <Trash2 size={14} />
+                  <Edit size={14} />
                 </button>
-              )}
+                {people.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setDeletePerson(person)}
+                    className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                    aria-label={`${t('settings.confirmDelete')} ${person}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -206,6 +234,28 @@ export default function Settings() {
           <FileText size={16} /> {t('settings.printPage')}
         </button>
       </section>
+
+      <Dialog open={!!editPerson} onClose={() => setEditPerson(null)} size="sm">
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-900">{t('settings.editPersonTitle')}</h3>
+          <div>
+            <label htmlFor="edit-person-name" className="block text-sm font-medium text-slate-700 mb-1">{t('settings.editPersonNameLabel')}</label>
+            <input
+              id="edit-person-name"
+              type="text"
+              value={editPersonName}
+              onChange={(e) => setEditPersonName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveEditPerson(); }}
+              className="input-field"
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button type="button" onClick={() => setEditPerson(null)} className="btn-secondary flex-1">{t('settings.cancel')}</button>
+          <button type="button" onClick={saveEditPerson} className="btn-primary flex-1">{t('settings.savePersonName')}</button>
+        </div>
+      </Dialog>
 
       <Dialog open={!!deletePerson} onClose={() => setDeletePerson(null)} size="sm">
         <div className="text-center mb-4">

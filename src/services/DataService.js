@@ -148,6 +148,20 @@ const DataService = {
   savePeople(people) {
     write(KEYS.PEOPLE, people);
   },
+
+  /** 將所有旅程內 `settings.people` 中的舊名替換為新名（與 `travel_people_list` 一併維護時使用） */
+  syncPersonNameInAllTrips(oldName, newName) {
+    const tripsData = this.loadTripsData();
+    for (const trip of tripsData.trips) {
+      const list = trip.settings?.people;
+      if (!Array.isArray(list) || !list.some((p) => p === oldName)) continue;
+      trip.settings = {
+        ...trip.settings,
+        people: list.map((p) => (p === oldName ? newName : p)),
+      };
+    }
+    this.saveTripsData(tripsData);
+  },
 };
 
 export default DataService;

@@ -95,6 +95,9 @@
     "peopleTitle": "人物管理",
     "newPersonPlaceholder": "新人物名稱…",
     "addPerson": "新增",
+    "editPersonTitle": "編輯人物名稱",
+    "editPersonNameLabel": "名稱",
+    "savePersonName": "儲存",
     "dataTitle": "資料管理",
     "dataHint": "複製報告：將目前記帳清單以文字複製到剪貼簿。匯出／完整備份為 JSON 檔。",
     "copyReport": "複製報告",
@@ -269,6 +272,7 @@
     "importOk": "匯入成功",
     "personExists": "此人物已存在",
     "personAdded": "已新增人物",
-    "personDeleted": "已刪除人物"
+    "personDeleted": "已刪除人物",
+    "personRenamed": "人物名稱已更新"
   }
 }

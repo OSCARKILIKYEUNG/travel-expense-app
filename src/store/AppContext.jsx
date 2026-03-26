@@ -139,6 +139,39 @@ export function AppProvider({ children }) {
     notify(i18n.t('toast.tripSwitched'));
   }, [currentTripId, expenses]);
 
+  const renamePerson = useCallback((oldName, newName) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return { ok: false, reason: 'empty' };
+    if (trimmed === oldName) return { ok: true };
+    if (people.includes(trimmed)) return { ok: false, reason: 'exists' };
+
+    const nextPeople = people.map((p) => (p === oldName ? trimmed : p));
+    setPeople(nextPeople);
+    DataService.syncPersonNameInAllTrips(oldName, trimmed);
+
+    setExpenses((prev) =>
+      sortExpenses(
+        prev.map((e) => {
+          const next = { ...e };
+          if (next.assignedTo === oldName) next.assignedTo = trimmed;
+          if (next.items?.length) {
+            next.items = next.items.map((it) =>
+              it.assignedTo === oldName ? { ...it, assignedTo: trimmed } : it
+            );
+          }
+          return next;
+        })
+      )
+    );
+
+    if (filterPerson === oldName) setFilterPerson(trimmed);
+
+    const data = DataService.loadTripsData();
+    setTrips(data.trips);
+    notify(i18n.t('toast.personRenamed'));
+    return { ok: true };
+  }, [people, filterPerson, notify, setExpenses, setPeople]);
+
   const deleteTrip = useCallback((tripId) => {
     if (tripId === currentTripId) return { ok: false, msg: i18n.t('toast.cannotDeleteTrip') };
     const ok = DataService.deleteTrip(tripId);
@@ -195,7 +228,7 @@ export function AppProvider({ children }) {
     settings, updateSettings,
     people, setPeople,
     trips, currentTripId, currentTrip,
-    createTrip, switchTrip, deleteTrip, updateTripName,
+    createTrip, switchTrip, deleteTrip, updateTripName, renamePerson,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     filterPerson, setFilterPerson,
     toast, notify,
@@ -203,7 +236,7 @@ export function AppProvider({ children }) {
   }), [
     settings, people, trips, currentTripId, currentTrip,
     expenses, filterPerson, toast, exchangeRates,
-    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTripName,
+    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTripName, renamePerson,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     setFilterPerson, notify,
   ]);
