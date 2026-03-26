@@ -2,8 +2,9 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Plus, BarChart, Settings } from '../ui/Icons';
 
+/** 四主項：首頁／新增／圖表／設定（與 BottomNav 一致） */
 const NAV_KEYS = [
-  { to: '/', icon: Home, labelKey: 'nav.dashboard' },
+  { to: '/', icon: Home, labelKey: 'nav.home' },
   { to: '/add', icon: Plus, labelKey: 'nav.addRecord' },
   { to: '/charts', icon: BarChart, labelKey: 'nav.charts' },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings' },

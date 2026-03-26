@@ -27,7 +27,7 @@
   },
   "nav": {
     "sidebarTitle": "Navigation",
-    "dashboard": "Dashboard",
+    "dashboard": "Home",
     "addRecord": "Add expense",
     "charts": "Charts",
     "settings": "Settings",
@@ -96,6 +96,9 @@
     "newPersonPlaceholder": "New person…",
     "addPerson": "Add",
     "dataTitle": "Data",
+    "dataHint": "Copy report: copies the current expense list as plain text. Export and full backup are JSON files.",
+    "copyReport": "Copy report",
+    "printPage": "Print page",
     "export": "Export",
     "import": "Import",
     "fullBackup": "Full backup",

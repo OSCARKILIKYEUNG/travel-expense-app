@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../store/AppContext';
 import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
-import { exportExpenses, exportFullBackup, importData } from '../services/ExportService';
+import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
 import TripManager from '../components/trip/TripManager';
-import { Download, Upload, Trash2 } from '../components/ui/Icons';
+import { Copy, Download, FileText, Upload, Trash2 } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
@@ -56,6 +56,16 @@ export default function Settings() {
       notify(err.message, 'error');
     }
     e.target.value = '';
+  };
+
+  const handleCopyReport = async () => {
+    if (!expenses.length) return;
+    try {
+      await copyReport(expenses);
+      notify(t('dashboard.copied'));
+    } catch {
+      notify(t('dashboard.copyFailed'), 'error');
+    }
   };
 
   return (
@@ -163,18 +173,38 @@ export default function Settings() {
 
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.dataTitle')}</h2>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => exportExpenses(expenses)} className="btn-ghost flex-1 flex items-center justify-center gap-2 border border-slate-200 text-sm">
+        <p className="text-[10px] text-slate-500 leading-snug">
+          {t('settings.dataHint')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => exportExpenses(expenses)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm">
             <Download size={16} /> {t('settings.export')}
           </button>
-          <label className="btn-ghost flex-1 flex items-center justify-center gap-2 border border-slate-200 text-sm cursor-pointer">
+          <label className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm cursor-pointer">
             <Upload size={16} /> {t('settings.import')}
             <input type="file" accept=".json" ref={importRef} onChange={handleImport} className="hidden" />
           </label>
-          <button type="button" onClick={() => exportFullBackup(expenses, settings)} className="btn-ghost flex-1 flex items-center justify-center gap-2 border border-slate-200 text-sm">
+          <button type="button" onClick={() => exportFullBackup(expenses, settings)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm">
             <Download size={16} /> {t('settings.fullBackup')}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={handleCopyReport}
+          disabled={!expenses.length}
+          className="btn-ghost w-full flex items-center justify-center gap-2 border border-slate-200 text-sm disabled:opacity-50"
+        >
+          <Copy size={16} /> {t('settings.copyReport')}
+        </button>
+        {/* 列印：與舊版首頁相同，預設隱藏；移除 button 的 className「hidden」即可顯示 */}
+        <button
+          type="button"
+          className="hidden w-full flex items-center justify-center gap-2 border border-slate-200 text-sm rounded-xl py-2.5 text-slate-600 hover:bg-slate-50"
+          onClick={() => window.print()}
+          disabled={!expenses.length}
+        >
+          <FileText size={16} /> {t('settings.printPage')}
+        </button>
       </section>
 
       <Dialog open={!!deletePerson} onClose={() => setDeletePerson(null)} size="sm">

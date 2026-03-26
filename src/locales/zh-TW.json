@@ -27,7 +27,7 @@
   },
   "nav": {
     "sidebarTitle": "導航",
-    "dashboard": "儀表板",
+    "dashboard": "首頁",
     "addRecord": "新增記錄",
     "charts": "統計圖表",
     "settings": "設定",
@@ -96,6 +96,9 @@
     "newPersonPlaceholder": "新人物名稱…",
     "addPerson": "新增",
     "dataTitle": "資料管理",
+    "dataHint": "複製報告：將目前記帳清單以文字複製到剪貼簿。匯出／完整備份為 JSON 檔。",
+    "copyReport": "複製報告",
+    "printPage": "列印頁面",
     "export": "匯出",
     "import": "匯入",
     "fullBackup": "完整備份",
