@@ -269,6 +269,7 @@
     "cannotDeleteTrip": "Cannot delete current trip",
     "tripDeleted": "Trip deleted",
     "tripNameUpdated": "Trip name updated",
+    "tripUpdated": "Trip updated",
     "expenseAdded": "Expense added",
     "expensesAdded": "Added {{count}} expenses",
     "expenseUpdated": "Expense updated",

@@ -269,6 +269,7 @@
     "cannotDeleteTrip": "無法刪除當前旅程",
     "tripDeleted": "旅程已刪除",
     "tripNameUpdated": "旅程名稱已更新",
+    "tripUpdated": "旅程已更新",
     "expenseAdded": "記錄已新增",
     "expensesAdded": "成功新增 {{count}} 筆記錄",
     "expenseUpdated": "記錄已更新",

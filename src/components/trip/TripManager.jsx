@@ -7,10 +7,11 @@ import { Globe, Edit, Trash2 } from '../ui/Icons';
 
 export default function TripManager() {
   const { t } = useTranslation();
-  const { trips, currentTripId, createTrip, deleteTrip, updateTripName, switchTrip, notify, tripCurrency: currentTripCurrency } = useApp();
+  const { trips, currentTripId, createTrip, deleteTrip, updateTrip, switchTrip, notify, tripCurrency: currentTripCurrency } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState('');
+  const [editCurrency, setEditCurrency] = useState('JPY');
   const [deleteId, setDeleteId] = useState(null);
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
@@ -38,7 +39,7 @@ export default function TripManager() {
 
   const handleSaveEdit = () => {
     if (!editName.trim()) { notify(t('trip.nameEmpty'), 'warning'); return; }
-    updateTripName(editId, editName.trim());
+    updateTrip(editId, { name: editName.trim(), tripCurrency: editCurrency });
     setEditId(null);
   };
 
@@ -81,7 +82,11 @@ export default function TripManager() {
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditId(trip.id); setEditName(trip.name); }}
+                  onClick={() => {
+                    setEditId(trip.id);
+                    setEditName(trip.name);
+                    setEditCurrency(trip.tripCurrency || 'JPY');
+                  }}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
                   aria-label={`${t('expenseCard.edit')} ${trip.name}`}
                 >
@@ -99,10 +104,37 @@ export default function TripManager() {
             </div>
 
             {editId === trip.id && (
-              <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-200 flex gap-2">
-                <input value={editName} onChange={(e) => setEditName(e.target.value)} className="input-field flex-1 text-xs" autoFocus />
-                <button type="button" onClick={handleSaveEdit} className="btn-primary !py-1.5 !px-3 text-xs">{t('editExpense.save')}</button>
-                <button type="button" onClick={() => setEditId(null)} className="btn-secondary !py-1.5 !px-3 text-xs">{t('editExpense.cancel')}</button>
+              <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
+                <div>
+                  <label htmlFor={`trip-edit-name-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripName')}</label>
+                  <input
+                    id={`trip-edit-name-${trip.id}`}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="input-field w-full text-xs"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`trip-edit-currency-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripCurrency')}</label>
+                  <select
+                    id={`trip-edit-currency-${trip.id}`}
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                    className="input-field w-full text-xs"
+                  >
+                    {Object.keys(CURRENCY_NAMES).map((code) => (
+                      <option key={code} value={code}>
+                        {code} — {t(`currency.${code}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[9px] text-slate-500 mt-1">{t('trip.tripCurrencyHint')}</p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={handleSaveEdit} className="btn-primary !py-1.5 !px-3 text-xs flex-1">{t('editExpense.save')}</button>
+                  <button type="button" onClick={() => setEditId(null)} className="btn-secondary !py-1.5 !px-3 text-xs flex-1">{t('editExpense.cancel')}</button>
+                </div>
               </div>
             )}
           </div>

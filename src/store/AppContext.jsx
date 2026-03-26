@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import DataService from '../services/DataService';
 import { sortExpenses } from '../utils/date';
 import { getExchangeRate } from '../utils/currency';
+import { CURRENCY_NAMES } from '../utils/constants';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 
@@ -189,15 +190,32 @@ export function AppProvider({ children }) {
     return { ok };
   }, [currentTripId]);
 
-  const updateTripName = useCallback((tripId, name) => {
+  /** 更新旅程名稱與／或旅程幣（設定 → 旅程管理） */
+  const updateTrip = useCallback((tripId, { name, tripCurrency } = {}) => {
     const data = DataService.loadTripsData();
     const idx = data.trips.findIndex((t) => t.id === tripId);
-    if (idx !== -1) {
-      data.trips[idx].name = name;
-      DataService.saveTripsData(data);
-      setTrips(data.trips);
-      notify(i18n.t('toast.tripNameUpdated'));
+    if (idx === -1) return;
+    const trip = data.trips[idx];
+    let changed = false;
+    if (name != null) {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (trip.name !== trimmed) {
+        trip.name = trimmed;
+        changed = true;
+      }
     }
+    if (tripCurrency != null) {
+      const code = String(tripCurrency).toUpperCase();
+      if (CURRENCY_NAMES[code] && trip.tripCurrency !== code) {
+        trip.tripCurrency = code;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    DataService.saveTripsData(data);
+    setTrips(data.trips);
+    notify(i18n.t('toast.tripUpdated'));
   }, []);
 
   // ── Expense actions ──
@@ -238,7 +256,7 @@ export function AppProvider({ children }) {
     settings, updateSettings,
     people, setPeople,
     trips, currentTripId, currentTrip,
-    createTrip, switchTrip, deleteTrip, updateTripName, renamePerson,
+    createTrip, switchTrip, deleteTrip, updateTrip, renamePerson,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     filterPerson, setFilterPerson,
     toast, notify,
@@ -249,7 +267,7 @@ export function AppProvider({ children }) {
   }), [
     settings, people, trips, currentTripId, currentTrip,
     expenses, filterPerson, toast, exchangeRates, homeCurrency, homeCurrencyCode, tripCurrency,
-    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTripName, renamePerson,
+    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     setFilterPerson, notify,
   ]);
