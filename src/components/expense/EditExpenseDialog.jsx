@@ -9,7 +9,7 @@ import { inferFixedFeeFromName } from '../../utils/personShare';
 
 export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
   const { t } = useTranslation();
-  const { people } = useApp();
+  const { people, defaultAssignee } = useApp();
   const [form, setForm] = useState(null);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
   const removeItem = (idx) => patch({ items: form.items.filter((_, i) => i !== idx) });
 
   const addItem = (name, price) => {
-    patch({ items: [...(form.items || []), { name, price: parseFloat(price) || 0, assignedTo: form.assignedTo || '共同' }] });
+    patch({ items: [...(form.items || []), { name, price: parseFloat(price) || 0, assignedTo: form.assignedTo || defaultAssignee }] });
   };
 
   return (
@@ -67,7 +67,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
           </div>
           <div>
             <label htmlFor="edit-person" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.assignTo')}</label>
-            <select id="edit-person" value={form.assignedTo || '共同'} onChange={(e) => patch({ assignedTo: e.target.value })} className="input-field">
+            <select id="edit-person" value={form.assignedTo || defaultAssignee} onChange={(e) => patch({ assignedTo: e.target.value })} className="input-field">
               {people.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -161,7 +161,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
               <div key={idx} className="flex flex-wrap gap-1.5 items-center bg-white p-1.5 rounded-lg border border-slate-200">
                 <input type="text" value={item.name || ''} onChange={(e) => patchItem(idx, { name: e.target.value })} placeholder={t('editExpense.itemNamePlaceholder')} className="input-field flex-1 min-w-[120px] !py-1.5 text-xs" />
                 <input type="number" value={item.price || ''} onChange={(e) => patchItem(idx, { price: parseFloat(e.target.value) || 0 })} className="input-field w-20 !py-1.5 text-xs" />
-                <select value={item.assignedTo || form.assignedTo || '共同'} onChange={(e) => patchItem(idx, { assignedTo: e.target.value })} className="input-field w-24 !py-1.5 text-xs">
+                <select value={item.assignedTo || form.assignedTo || defaultAssignee} onChange={(e) => patchItem(idx, { assignedTo: e.target.value })} className="input-field w-24 !py-1.5 text-xs">
                   {people.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <label

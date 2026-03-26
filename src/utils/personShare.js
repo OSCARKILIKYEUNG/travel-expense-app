@@ -53,11 +53,12 @@ export function getEffectiveRefundPositive(expense) {
 /**
  * 指定人物在行項目上的原價（display price）小計
  */
-export function sumAssignedItemPrices(expense, filterPerson) {
+export function sumAssignedItemPrices(expense, filterPerson, defaultAssignee = '共同') {
   const items = expense.items || [];
   let S = 0;
+  const d = defaultAssignee;
   for (const item of items) {
-    if ((item.assignedTo || expense.assignedTo || '共同') === filterPerson) {
+    if ((item.assignedTo || expense.assignedTo || d) === filterPerson) {
       S += Number(item.price) || 0;
     }
   }
@@ -67,11 +68,12 @@ export function sumAssignedItemPrices(expense, filterPerson) {
 /**
  * 指定人物在行項目上的 actual price 小計（用於分帳）
  */
-export function sumAssignedItemActualPrices(expense, filterPerson) {
+export function sumAssignedItemActualPrices(expense, filterPerson, defaultAssignee = '共同') {
   const items = expense.items || [];
   let S = 0;
+  const d = defaultAssignee;
   for (const item of items) {
-    if ((item.assignedTo || expense.assignedTo || '共同') === filterPerson) {
+    if ((item.assignedTo || expense.assignedTo || d) === filterPerson) {
       S += getItemActualPrice(item);
     }
   }
@@ -143,11 +145,12 @@ function getEligiblePoolRatio(expense) {
  * 分人篩選且整卡 assignee ≠ 該人、僅部分行屬於該人時：
  * 實攤原幣：固定費行照 actual price；其餘行 × r。
  */
-export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
+export function getPartialMatchPersonShareOriginal(expense, filterPerson, defaultAssignee = '共同') {
+  const d = defaultAssignee;
   const items = expense.items || [];
   const P = Number(expense.originalAmount) || Number(expense.hkdAmount) || 0;
   const G = sumAllItemActualPrices(items);
-  const S = sumAssignedItemActualPrices(expense, filterPerson);
+  const S = sumAssignedItemActualPrices(expense, filterPerson, d);
   const eps = refundEpsilon(expense.currency);
   if (G <= 0) {
     return S;
@@ -158,7 +161,7 @@ export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
   }
   let share = 0;
   for (const item of items) {
-    if ((item.assignedTo || expense.assignedTo || '共同') !== filterPerson) continue;
+    if ((item.assignedTo || expense.assignedTo || d) !== filterPerson) continue;
     const p = getItemActualPrice(item);
     share += isItemExcludeFromRefundSplit(item) ? p : p * r;
   }
@@ -168,13 +171,14 @@ export function getPartialMatchPersonShareOriginal(expense, filterPerson) {
 /**
  * 分人篩選：實攤 HKD
  */
-export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates) {
+export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates, defaultAssignee = '共同') {
+  const d = defaultAssignee;
   const G = sumAllItemActualPrices(expense.items);
   const rate = getExchangeRate(expense.currency || 'HKD', exchangeRates);
   if (G <= 0) {
-    return rate > 0 ? sumAssignedItemActualPrices(expense, filterPerson) / rate : 0;
+    return rate > 0 ? sumAssignedItemActualPrices(expense, filterPerson, d) / rate : 0;
   }
-  const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson);
+  const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson, d);
   const P = Number(expense.originalAmount) || 0;
   if (P > 0) {
     return expense.hkdAmount * (netOrig / P);
@@ -185,7 +189,8 @@ export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRat
 /**
  * 該人分攤到的退稅額（正數）：可退稅池內依該人「可退稅 actual price」比例，不含固定費行。
  */
-export function getPartialRefundShareOriginal(expense, filterPerson) {
+export function getPartialRefundShareOriginal(expense, filterPerson, defaultAssignee = '共同') {
+  const d = defaultAssignee;
   const refundTotal = getEffectiveRefundPositive(expense);
   const items = expense.items || [];
   const G = sumAllItemActualPrices(items);
@@ -196,7 +201,7 @@ export function getPartialRefundShareOriginal(expense, filterPerson) {
   const { r, gElig, legacyUniform } = getEligiblePoolRatio(expense);
   let sRef = 0;
   for (const item of items) {
-    if ((item.assignedTo || expense.assignedTo || '共同') !== filterPerson) continue;
+    if ((item.assignedTo || expense.assignedTo || d) !== filterPerson) continue;
     if (isItemExcludeFromRefundSplit(item)) continue;
     sRef += getItemActualPrice(item);
   }
@@ -204,7 +209,7 @@ export function getPartialRefundShareOriginal(expense, filterPerson) {
     return 0;
   }
   if (legacyUniform || gElig <= eps) {
-    const S = sumAssignedItemActualPrices(expense, filterPerson);
+    const S = sumAssignedItemActualPrices(expense, filterPerson, d);
     return refundTotal * (S / G);
   }
   return sRef * (1 - r);

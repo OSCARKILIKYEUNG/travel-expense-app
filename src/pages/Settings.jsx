@@ -11,12 +11,13 @@ import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
-  const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify, renamePerson, homeCurrencyCode } = useApp();
+  const { settings, updateSettings, people, expenses, notify, renamePerson, homeCurrencyCode, removePersonWithReassign } = useApp();
   const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate, uiLanguage, exchangeRatesUpdatedAt } = settings;
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
   const [deletePerson, setDeletePerson] = useState(null);
+  const [deleteReassignTo, setDeleteReassignTo] = useState('');
   const [editPerson, setEditPerson] = useState(null);
   const [editPersonName, setEditPersonName] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
@@ -98,15 +99,17 @@ export default function Settings() {
     else if (r.reason === 'empty') notify(t('trip.nameEmpty'), 'warning');
   };
 
+  const openDeletePerson = (name) => {
+    const others = people.filter((x) => x !== name);
+    setDeletePerson(name);
+    setDeleteReassignTo(others[0] ?? '');
+  };
+
   const confirmDeletePerson = () => {
-    const name = deletePerson;
-    setPeople((p) => p.filter((x) => x !== name));
-    const count = expenses.filter((e) => e.assignedTo === name).length;
-    if (count > 0) {
-      setExpenses((prev) => prev.map((e) => (e.assignedTo === name ? { ...e, assignedTo: '共同' } : e)));
-    }
+    if (!deletePerson || !deleteReassignTo) return;
+    removePersonWithReassign(deletePerson, deleteReassignTo);
     setDeletePerson(null);
-    notify(t('toast.personDeleted'));
+    setDeleteReassignTo('');
   };
 
   const handleImport = async (e) => {
@@ -247,7 +250,7 @@ export default function Settings() {
                 {people.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => setDeletePerson(person)}
+                    onClick={() => openDeletePerson(person)}
                     className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
                     aria-label={`${t('settings.confirmDelete')} ${person}`}
                   >
@@ -330,7 +333,7 @@ export default function Settings() {
         </div>
       </Dialog>
 
-      <Dialog open={!!deletePerson} onClose={() => setDeletePerson(null)} size="sm">
+      <Dialog open={!!deletePerson} onClose={() => { setDeletePerson(null); setDeleteReassignTo(''); }} size="sm">
         <div className="text-center mb-4">
           <div className="mx-auto w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-3">
             <span className="text-2xl">⚠️</span>
@@ -338,9 +341,22 @@ export default function Settings() {
           <h3 className="text-lg font-bold text-slate-900 mb-1">{t('settings.deletePersonTitle', { name: deletePerson })}</h3>
           <p className="text-sm text-slate-600">{t('settings.deletePersonHint')}</p>
         </div>
+        <div className="mb-4">
+          <label htmlFor="delete-reassign" className="block text-sm font-medium text-slate-700 mb-1 text-left">{t('settings.deletePersonReassignLabel')}</label>
+          <select
+            id="delete-reassign"
+            value={deleteReassignTo}
+            onChange={(e) => setDeleteReassignTo(e.target.value)}
+            className="input-field w-full"
+          >
+            {people.filter((p) => p !== deletePerson).map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex gap-3">
-          <button type="button" onClick={() => setDeletePerson(null)} className="btn-secondary flex-1">{t('settings.cancel')}</button>
-          <button type="button" onClick={confirmDeletePerson} className="btn-danger flex-1">{t('settings.confirmDelete')}</button>
+          <button type="button" onClick={() => { setDeletePerson(null); setDeleteReassignTo(''); }} className="btn-secondary flex-1">{t('settings.cancel')}</button>
+          <button type="button" onClick={confirmDeletePerson} disabled={!deleteReassignTo} className="btn-danger flex-1 disabled:opacity-50">{t('settings.confirmDelete')}</button>
         </div>
       </Dialog>
     </div>

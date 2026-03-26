@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
+import { resolveAssigneeDisplay } from '../../utils/people';
 
 export default function PersonFilter() {
   const { t } = useTranslation();
@@ -10,8 +11,8 @@ export default function PersonFilter() {
     const map = {};
     for (const person of people) {
       map[person] = expenses.filter((e) => {
-        if ((e.assignedTo || '共同') === person) return true;
-        return e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === person);
+        if (resolveAssigneeDisplay(e.assignedTo, people) === person) return true;
+        return e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === person);
       }).length;
     }
     return map;

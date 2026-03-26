@@ -7,7 +7,7 @@ import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { t } = useTranslation();
-  const { settings, exchangeRates, addExpenses, notify, tripCurrency } = useApp();
+  const { settings, exchangeRates, addExpenses, notify, tripCurrency, defaultAssignee } = useApp();
   const { customCurrencyCode, customCurrencyRate } = settings;
 
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export default function UploadArea() {
           settings.homeCurrency === 'OTHER' && currency === customCurrencyCode
             ? customCurrencyRate
             : getExchangeRate(currency, exchangeRates);
-        results.push(buildExpenseFromAI(parsed, i, currency, rate, tripCurrency));
+        results.push(buildExpenseFromAI(parsed, i, currency, rate, tripCurrency, defaultAssignee));
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);
         lastError = err?.message || String(err);

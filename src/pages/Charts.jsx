@@ -5,22 +5,23 @@ import PersonFilter from '../components/expense/PersonFilter';
 import DailyChart from '../components/chart/DailyChart';
 import PersonChart from '../components/chart/PersonChart';
 import { getPartialMatchPersonShareHKD } from '../utils/personShare';
+import { resolveAssigneeDisplay } from '../utils/people';
 
 export default function Charts() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee } = useApp();
 
   const stats = useMemo(() => {
     let total = 0;
     const dates = new Set();
     for (const e of expenses) {
       if (filterPerson) {
-        const whole = (e.assignedTo || '共同') === filterPerson;
-        const hasItems = e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson);
+        const whole = resolveAssigneeDisplay(e.assignedTo, people) === filterPerson;
+        const hasItems = e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson);
         if (!whole && !hasItems) continue;
         if (whole) { total += e.hkdAmount; }
         else {
-          total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
+          total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates, defaultAssignee);
         }
       } else {
         total += e.hkdAmount;
@@ -29,7 +30,7 @@ export default function Charts() {
     }
     const days = dates.size;
     return { total, days, avg: days > 0 ? total / days : 0 };
-  }, [expenses, filterPerson, exchangeRates]);
+  }, [expenses, filterPerson, exchangeRates, people, defaultAssignee]);
 
   return (
     <div className="space-y-5">

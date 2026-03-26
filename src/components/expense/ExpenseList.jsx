@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { sortExpenses } from '../../utils/date';
+import { resolveAssigneeDisplay } from '../../utils/people';
 import { detectDuplicates } from '../../utils/duplicates';
 import ExpenseCard from './ExpenseCard';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
@@ -9,7 +10,7 @@ import EditExpenseDialog from './EditExpenseDialog';
 
 export default function ExpenseList() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, removeExpense, updateExpense } = useApp();
+  const { expenses, filterPerson, removeExpense, updateExpense, people } = useApp();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
@@ -19,12 +20,12 @@ export default function ExpenseList() {
   const filtered = useMemo(() => {
     const list = filterPerson
       ? expenses.filter((e) => {
-          if ((e.assignedTo || '共同') === filterPerson) return true;
-          return e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson);
+          if (resolveAssigneeDisplay(e.assignedTo, people) === filterPerson) return true;
+          return e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson);
         })
       : expenses;
     return sortExpenses(list);
-  }, [expenses, filterPerson]);
+  }, [expenses, filterPerson, people]);
 
   if (filtered.length === 0) {
     return (

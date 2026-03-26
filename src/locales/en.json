@@ -112,7 +112,8 @@
     "import": "Import",
     "fullBackup": "Full backup",
     "deletePersonTitle": "Delete “{{name}}”?",
-    "deletePersonHint": "Related expenses will switch to “Shared”.",
+    "deletePersonHint": "Whole expenses and line items assigned to this person will be reassigned to the person you select below.",
+    "deletePersonReassignLabel": "Reassign to",
     "cancel": "Cancel",
     "confirmDelete": "Delete"
   },

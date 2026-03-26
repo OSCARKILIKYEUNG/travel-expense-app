@@ -2,6 +2,12 @@
 
 本文是與 AI 助手對話的書面備份，供在另一台電腦繼續工作時參考。
 
+**與 `docs/PRODUCT_ITERATION_2025-03.md` 分工（避免重疊）**  
+| 檔案 | 放什麼 |
+|------|--------|
+| **本 HANDOFF** | 為何從單檔遷 Vite、架構決策、**換機步驟**、目錄對照、**備份／tag／凍結分支**；不展開每項功能的交付清單。 |
+| **PRODUCT_ITERATION_2025-03.md** | 本輪 **功能交付、踩坑 Lx、多幣 §十一、SAVE 表、backlog**；接棒改程式請優先讀該檔。 |
+
 ---
 
 ## 一、對話脈絡與目標
@@ -64,6 +70,11 @@
 - 說明：當時只備份了專案與 README，**對話沒有匯出成檔案**。  
 - 你回覆需要對話備份 → 故撰寫本 **HANDOFF.md** 作為對話的書面備份。
 
+### 8. Vite 專案上線後（不分條列，避免與迭代檔重複）
+
+- 遷移完成後，功能迭代改以 **`docs/PRODUCT_ITERATION_2025-03.md`** 為單一書面來源（分帳／免稅／單據類型、i18n、**多幣別與 Frankfurter**、設定 UX 等）。  
+- **技術交付、坑點、commit 對照、待辦** 請讀該檔 §二～§五、§十、**§十一**；本 HANDOFF 不再複製長表。
+
 ---
 
 ## 三、重要決策與原因（方便日後維護）
@@ -101,6 +112,7 @@
 travel-expense-app/
 ├── public/
 │   └── icons/
+├── api/               Vercel serverless（parse-receipt、receipt-prompt、**exchange-rates** 代理 Frankfurter）
 ├── src/
 │   ├── components/
 │   │   ├── chart/     DailyChart, PersonChart
@@ -108,8 +120,9 @@ travel-expense-app/
 │   │   ├── layout/    Header, BottomNav, Sidebar, AppLayout
 │   │   ├── trip/      TripManager
 │   │   └── ui/        Icons, Dialog, Toast
+│   ├── locales/       zh-TW.json、en.json（i18n）
 │   ├── pages/         Dashboard, AddExpense, Charts, Settings
-│   ├── services/      DataService, AIService, ExportService
+│   ├── services/      DataService, AIService, ExportService、**ExchangeRateService**（Frankfurter／rebase）
 │   ├── store/         AppContext
 │   └── utils/         constants, currency, date, duplicates
 ├── .env.example
@@ -132,18 +145,36 @@ travel-expense-app/
 
 ---
 
-## 六、產品與架構管理（必讀）
+## 六、文件與程式碼：讀哪裡（不重複貼交付細節）
 
-- 已新增 **`docs/PRODUCT_MANAGEMENT.md`**：路線圖（P0/P1/P2）、版本建議、架構優先級、技術債登記、發布紀錄表。  
-- 已新增 **`docs/README.md`**：以產品經理視角整理「哪份文件負責什麼、有無重疊」，避免 README / HANDOFF / 設計稿混淆。  
-- 已新增 **`docs/PRODUCT_ITERATION_2025-03.md`**：單次迭代之 **交付、踩坑、待辦、PM 跟進流程**（與滾動路線圖分離，避免對話散失）。  
-- 目標是做好 **產品管理** 與 **可追蹤優化**，與本 HANDOFF（歷史脈絡）分工：HANDOFF 偏「為什麼這樣做」；PRODUCT_MANAGEMENT 偏「接下來做什麼、怎麼管」；ITERATION 檔偏「這一輪做了什麼、下次接什麼」。
+| 檔案 | 用途 |
+|------|------|
+| **`HANDOFF.md`（本檔）** | 遷移背景、架構決策、換機步驟、目錄、**備份／tag** |
+| **`docs/PRODUCT_ITERATION_2025-03.md`** | **交付清單、踩坑 Lx、多幣 §十一、§十二（匯率／稅／分帳公式）、SAVE、backlog** |
+| **`docs/PRODUCT_MANAGEMENT.md`** | 滾動路線圖、技術債、發布紀錄簡表、與 AI 協作 SOP |
+| **`docs/README.md`** | 文件導覽索引 |
 
 ---
 
-## 七、之後若要做的事（備忘）
+## 七、本版備份與凍結（務必執行）
 
-- 把 ZIP 重新壓一次（可包含本 HANDOFF.md，若當初壓縮時尚未加入）。
+多幣別、匯率、Frankfurter 等**功能細節與坑點**見 **`docs/PRODUCT_ITERATION_2025-03.md` §十一**；此處只列 **如何留一份「跑得的程式 + 資料」**。
+
+1. **程式碼（GitHub 遠端）**  
+   - 重要節點打 tag：`git tag -a v2025.03-multicurrency -m "多幣別+Frankfurter+設定修正"` → `git push origin v2025.03-multicurrency`。  
+   - 需與 **`backup/v1-original`** 並存時，可另推凍結分支（例：`backup/v2025-03-multicurrency`），流程見 **`docs/archive/BACKUP_BRANCH_v1.md`**。
+
+2. **使用者資料（localStorage）**  
+   - App **設定 → 資料管理 → 完整備份／匯出**，JSON 存雲端或外接碟；升級／換機／大改設定前務必匯出。
+
+3. **可選**  
+   - 專案資料夾 ZIP（不含 `node_modules`），與 `git clone` 互補。
+
+---
+
+## 八、之後若要做的事（備忘）
+
+- 把 ZIP 重新壓一次（可包含本 HANDOFF.md）。
 - 在可安裝的電腦上完成 GitHub + Vercel 部署後，可刪除公司電腦上的 ZIP 或專案副本（依公司規定）。
 - 未來若要加會員／收款：改 DataService + 加 Supabase；若要上架 app：加 Capacitor 並建 iOS/Android 專案。
 

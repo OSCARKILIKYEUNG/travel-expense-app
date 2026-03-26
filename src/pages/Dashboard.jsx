@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { getPartialMatchPersonShareHKD, getPartialMatchPersonShareOriginal } from '../utils/personShare';
+import { resolveAssigneeDisplay } from '../utils/people';
 import { Plus } from '../components/ui/Icons';
 import PersonFilter from '../components/expense/PersonFilter';
 import ExpenseList from '../components/expense/ExpenseList';
@@ -15,40 +16,40 @@ import UploadArea from '../components/expense/UploadArea';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee } = useApp();
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
     let total = 0;
     for (const e of expenses) {
-      const whole = (e.assignedTo || '共同') === filterPerson;
+      const whole = resolveAssigneeDisplay(e.assignedTo, people) === filterPerson;
       if (whole) {
         total += e.hkdAmount;
-      } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson)) {
-        total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
+      } else if (e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson)) {
+        total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates, defaultAssignee);
       }
     }
     return total;
-  }, [expenses, filterPerson, exchangeRates]);
+  }, [expenses, filterPerson, exchangeRates, people, defaultAssignee]);
 
   const recordCount = useMemo(() => {
     if (!filterPerson) return expenses.length;
     return expenses.filter((e) => {
-      if ((e.assignedTo || '共同') === filterPerson) return true;
-      return e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson);
+      if (resolveAssigneeDisplay(e.assignedTo, people) === filterPerson) return true;
+      return e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson);
     }).length;
-  }, [expenses, filterPerson]);
+  }, [expenses, filterPerson, people]);
 
   const currencySums = useMemo(() => {
     const map = {};
     for (const e of expenses) {
       if (filterPerson) {
-        const whole = (e.assignedTo || '共同') === filterPerson;
-        const hasItems = e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson);
+        const whole = resolveAssigneeDisplay(e.assignedTo, people) === filterPerson;
+        const hasItems = e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson);
         if (!whole && !hasItems) continue;
         if (!whole && hasItems) {
           const c = e.originalCurrency || e.currency || 'HKD';
-          map[c] = (map[c] || 0) + getPartialMatchPersonShareOriginal(e, filterPerson);
+          map[c] = (map[c] || 0) + getPartialMatchPersonShareOriginal(e, filterPerson, defaultAssignee);
           continue;
         }
       }
@@ -57,7 +58,7 @@ export default function Dashboard() {
       if (amt > 0) map[c] = (map[c] || 0) + amt;
     }
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [expenses, filterPerson]);
+  }, [expenses, filterPerson, people, defaultAssignee]);
 
   return (
     <div className="space-y-5">

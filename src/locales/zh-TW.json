@@ -112,7 +112,8 @@
     "import": "匯入",
     "fullBackup": "完整備份",
     "deletePersonTitle": "刪除「{{name}}」？",
-    "deletePersonHint": "相關記錄會改為「共同」",
+    "deletePersonHint": "刪除後，該人物負責的整筆與品項支出將改為由下方所選人物負責。",
+    "deletePersonReassignLabel": "改派至",
     "cancel": "取消",
     "confirmDelete": "確定刪除"
   },

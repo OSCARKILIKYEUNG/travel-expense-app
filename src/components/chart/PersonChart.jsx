@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { PERSON_COLORS, PERSON_BG_CLASSES } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
+import { resolveAssigneeDisplay } from '../../utils/people';
 
 export default function PersonChart() {
   const { t } = useTranslation();
-  const { expenses, people, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
+  const { expenses, people, filterPerson, exchangeRates, homeCurrencyCode, defaultAssignee } = useApp();
 
   const { totals, totalAll } = useMemo(() => {
     const totals = {};
@@ -14,17 +15,17 @@ export default function PersonChart() {
       let sum = 0;
       for (const e of expenses) {
         if (filterPerson && filterPerson !== person) continue;
-        const whole = (e.assignedTo || '共同') === person;
+        const whole = resolveAssigneeDisplay(e.assignedTo, people) === person;
         if (whole) {
           sum += e.hkdAmount;
-        } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === person)) {
-          sum += getPartialMatchPersonShareHKD(e, person, exchangeRates);
+        } else if (e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === person)) {
+          sum += getPartialMatchPersonShareHKD(e, person, exchangeRates, defaultAssignee);
         }
       }
       totals[person] = sum;
     }
     return { totals, totalAll: Object.values(totals).reduce((a, b) => a + b, 0) };
-  }, [expenses, people, filterPerson, exchangeRates]);
+  }, [expenses, people, filterPerson, exchangeRates, defaultAssignee]);
 
   const entries = Object.entries(totals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0 || totalAll === 0) {

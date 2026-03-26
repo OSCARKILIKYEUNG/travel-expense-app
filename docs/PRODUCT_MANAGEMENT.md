@@ -184,7 +184,8 @@
 | 2025-03-24 | feat | 單據類型系統上線：receipt_type 必填、雙價格、外稅消費稅列、套裝合併、依類型驗證；3 輪迭代以 8 張東京真實小票驗收 |
 | 2025-03-26 | feat | 介面 i18n（繁中／英）、收據雙語欄位、外稅分人比例稅列、設定僅兩語言；見 `PRODUCT_ITERATION_2025-03.md` §十 SAVE |
 | 2025-03-26 | docs | 與 AI 協作 SOP **併入本檔專節**（不另開檔）；見 [與 AI 協作 SOP](#與-ai-協作-sop) |
-| 2025-03-26 | `c43c9cb` 等 | **多幣別 Phase 1+2**：匯率方向「1 記帳幣 = X 外幣」、`homeCurrency`／`tripCurrency`、遷移、動態幣別 UI、新建旅程選幣；詳見 [`PRODUCT_ITERATION_2025-03.md` §十一](./PRODUCT_ITERATION_2025-03.md#十一多幣別系統2025-03-26--計劃--交付--坑--後續) |
+| 2025-03-26 | `c43c9cb` 等 | **多幣別 Phase 1+2**：匯率方向「1 記帳幣 = X 外幣」、`homeCurrency`／`tripCurrency`、遷移、動態幣別 UI、新建旅程選幣；詳見 [`PRODUCT_ITERATION_2025-03.md` §十一](./PRODUCT_ITERATION_2025-03.md#十一多幣別系統2025-03-26-起--計劃--交付--坑--後續) |
+| 2025-03-27 | `f60c664`／`b3da7df`／`1916cbb` 等 | **多幣 Phase 3 延伸**：Frankfurter、`/api/exchange-rates`、Vite proxy、`FRANKFURTER_SUPPORTED` + `rebaseRates`、設定匯率格 `key`、fetch 10s、`currencyMismatch`、Toast 去重；**`HANDOFF.md`** 改為備份/tag 專職；詳見 **§十一**、**§2.7** |
 | （歷史） | — | 初建立本管理文件 |
 
 ---
@@ -198,4 +199,4 @@
 
 ---
 
-*最後更新：多幣別 Phase 1+2 已入迭代檔 §十一；與 AI 協作 SOP 併入本檔；2025-03 分帳／免稅、i18n、發布列。*
+*最後更新：多幣 Phase 3 延伸已入迭代檔 §十一／§2.7；HANDOFF 與迭代檔分工；2025-03 分帳／免稅、i18n、發布列。*

@@ -1,7 +1,9 @@
 # 產品迭代紀錄 · 2025-03（分帳／免稅／顯示邏輯）
 
 > **定位**：本檔為 **2025-03 這一輪** 需求、交付、踩坑與後續跟進的 **單一書面來源**（Session 級）。  
-> **不與** `HANDOFF.md`（歷史遷移）或 `PRODUCT_MANAGEMENT.md`（滾動路線圖）重複貼公式長文；後兩者以 **連結 + 狀態更新** 為主。
+> **不與** `HANDOFF.md`（歷史遷移、換機、備份/tag）或 `PRODUCT_MANAGEMENT.md`（滾動路線圖）重複貼公式長文；後兩者以 **連結 + 狀態更新** 為主。  
+> **HANDOFF** 不複製本檔的交付表；**本檔** 不複製 HANDOFF 的遷移史與備份步驟。  
+> **現版匯率／稅項／分帳公式** 以 **§十二** 為準（與程式 `currency.js`、`personShare.js` 對齊）。
 
 ---
 
@@ -9,17 +11,20 @@
 
 | 項目 | 說明 |
 |------|------|
-| **主題** | 多人分帳時「實付」與「原價行」不一致（免稅／退稅／固定費）；分人篩選時金額與退稅顯示正確；跨國單據長期策略。 |
+| **主題** | 多人分帳時「實付」與「原價行」不一致（免稅／退稅／固定費）；分人篩選時金額與退稅顯示正確；跨國單據長期策略；延伸 **多幣別／記帳幣／旅程幣／即時匯率**。 |
 | **狀態** | 功能已 **上線並 push**；**協作規則**已寫入 Cursor rule（見 §九）；後續以本檔 backlog 追蹤。 |
-| **核心程式** | `src/utils/personShare.js`、`ExpenseCard.jsx`、圖表／Dashboard、`AIService.js`、`api/receipt-prompt.js`、編輯表單。 |
+| **核心程式** | `personShare.js`、`ExpenseCard.jsx`、圖表／Dashboard、`AIService.js`、`receipt-prompt.js`、編輯表單；多幣時加 **`AppContext`**、`currency.js`、**`ExchangeRateService.js`**、`api/exchange-rates.js`。 |
 
-### 進度快照（Progress · 2025-03-24 更新）
+### 進度快照（Progress · 2025-03-27 更新）
 
 | 區塊 | 狀態 | 備註 |
 |------|------|------|
 | 分帳／免稅／固定費／收據免稅額顯示 | 已上線 | 多個 commit 已 push |
-| 上傳單據幣別採 AI `currency`、HKD 匯率 | 已上線 | `resolveReceiptCurrency` + `UploadArea` |
-| 編輯細項說明文案 | 已上線 | 免稅後單價 vs 固定費分離 |
+| 上傳單據幣別 | 已上線 | AI `currency` + **`settings` 匯率表**；**記帳幣**語意見 §十一（非固定 HKD） |
+| 介面 i18n（繁中／英） | 已上線 | `locales/*`、收據雙語欄位 |
+| 多幣別 Phase 1+2 + 延伸 | 已上線 | `homeCurrency`／`tripCurrency`、遷移、動態顯示；延伸見 §十一 **Phase 3 已交付** |
+| 編輯細項說明文案 | 已上線 | 免稅後單價 vs 固定費分離；**placeholder 無範例數字**（見 §2.6） |
+| 設定：人物改名 | 已上線 | `renamePerson` + 持久化 |
 | Cursor：**意見→先對齊再改** | 已建立 rule | `.cursor/rules/feedback-before-implement.mdc` |
 | **SAVE** → 寫入 §十 快照 | 已約定 | 見 Cursor rule 與 §十 |
 | 單據類型系統（receipt_type + 雙價格 + 驗證） | 已上線 | 3 輪迭代；8 張東京小票驗收 |
@@ -57,6 +62,24 @@
 - **Vercel**：`GEMINI_API_KEY` 僅伺服器；本機單據需 `vercel dev` 或已部署網址。
 - **推送**：專案內 `npm run deploy` = `git add` + `commit` + `push`（見 `scripts/deploy.js`）。
 
+### 2.6 小 UX 與表單（曾漏錄，補登）
+
+- **編輯支出／免稅相關輸入**：`taxRefund`、`discount`、`receiptExemption` 等 placeholder **移除範例數字**（如「-2557」），避免誤導為必填格式；見 `EditExpenseDialog`、`locales`。
+- **設定 → 人物管理**：**編輯人物名稱**（按鈕 + Dialog），`renamePerson` 同步所有旅程與支出指派人；曾踩坑：須走 **`setExpenses`** 寫入 localStorage（見 §11.3 **M6**）。
+
+### 2.7 多幣別 Phase 3 延伸（2025-03～，與 §十一對齊）
+
+> 接在 Phase 1+2 之後；**完整檔案與坑**見 **§十一**。
+
+- **Frankfurter 即時匯率**：`ExchangeRateService.fetchFrankfurterRates`；**同源代理** `api/exchange-rates.js`；**Vite dev** `vite.config.js` proxy `→ api.frankfurter.app`，避免 CORS。
+- **不支援作為 ECB 基準的幣別**（如 **TWD、VND**）：`FRANKFURTER_SUPPORTED`；改為 **`rebaseRates` 數學換算** + info toast；不切換失敗。
+- **切換記帳幣**：先 `rebaseRates` 再嘗試拉牌；API 失敗仍套用換算結果並提示。
+- **設定頁匯率格**：`defaultValue` 不隨 state 更新 → 以 **`key=`** 強制重掛（見 §11.3 M3）。
+- **`fetch` 無 timeout** → 下拉長時間 disabled → **AbortController 10 s**（§三 L18）。
+- **AI 幣別 vs 旅程幣**：`AIService.buildExpenseFromAI` 標 **`currencyMismatch`**，`ExpenseCard` 警示（與 `needsReview` 分開處理）。
+- **旅程幣**：新建／編輯／**設定內 TripManager** 可改 `tripCurrency`（`updateTrip`）。
+- **「更新匯率」雙重 Toast**：有支出時 **只**依 `AppContext` `exchangeRates` effect 提示 `ratesUpdated`；無支出時 Settings 才 `fetchRatesOk`（§三 L19）。
+
 ---
 
 ## 三、踩坑與教訓（Lessons Learned）
@@ -80,6 +103,8 @@
 | L15 | **needsReview 門檻過敏**：套裝 5 JPY 門檻對 AI 微小品名/金額誤差太敏感 | 門檻固定值不適合所有金額量級 | 已改為 `max(subtotal × 1%, 300)` 相對門檻。 |
 | L16 | **Rollup 運算子優先順序**：`i.priceActual ?? i.price \|\| 0` build 失敗 | `??` 與 `\|\|` 混用需加括號（ES 規範要求） | 改為 `i.priceActual ?? (i.price \|\| 0)`；日後混用 nullish coalescing 時注意。 |
 | L17 | **PowerShell heredoc 不支援**：git commit 用 `$(cat <<'EOF' ...)` 在 PowerShell 失敗 | Windows PowerShell 不支援 bash heredoc | 在 Windows 環境一律用單行 `-m "..."` 提交。 |
+| L18 | **Frankfurter `fetch` 無 timeout** | 瀏覽器預設不逾時；代理慢或掛起時下拉 **長時間「更新中」** | `fetchFrankfurterRates` 使用 **AbortController + 10 s**；逾時進 catch，仍保留 rebase 換算。 |
+| L19 | **「更新匯率」成功時 Toast 重複** | `settings` 更新匯率 + `AppContext` 依 `exchangeRates` 重算支出 **各 notify 一次** | 有支出時只讓 **AppContext** 顯示 `ratesUpdated`；**無支出**時 Settings 才 `fetchRatesOk`。 |
 
 ---
 
@@ -151,6 +176,10 @@
 | `docs/RECEIPT_TYPES.md` | **單據類型 A～H**、收據印字優先之共識 |
 | `src/i18n.js`、`src/locales/zh-TW.json`、`src/locales/en.json` | 介面 i18n（繁中／英） |
 | `src/utils/locale.js`、`src/utils/displayNames.js` | 語言正規化、收據欄位雙語顯示 |
+| `src/services/ExchangeRateService.js` | Frankfurter 拉牌、`mergeExchangeRates`、`rebaseRates`、`FRANKFURTER_SUPPORTED` |
+| `api/exchange-rates.js` | Vercel serverless 代理 Frankfurter（同源、`GET ?from=`） |
+| `vite.config.js` | dev 時 `/api/exchange-rates` proxy 至 `api.frankfurter.app` |
+| `src/store/AppContext.jsx` | 記帳幣、`exchangeRates`、支出依匯率重算、Toast 觸發 |
 | `.cursor/rules/feedback-before-implement.mdc` | 意見先對齊再改之協作規則 |
 
 ---
@@ -167,6 +196,7 @@
 | 2025-03-26 | 與 AI 協作書面 SOP **併入** `PRODUCT_MANAGEMENT.md` 專節（不另開檔）；§九 加連結；`docs/README.md`、根 `README.md` 已索引。 |
 | 2025-03-26 | SAVE：i18n（繁中／英）、收據雙語、語言僅兩選與 `normalizeUiLanguage`；詳見 §十。 |
 | 2025-03-26 | **SAVE 多幣別**：新增 **§十一**（計劃／交付／坑／後續）；§十 增列；`PRODUCT_MANAGEMENT` 發布紀錄補一行。 |
+| 2025-03-27 | **整理與補漏**：§一 進度快照／主題更新；新增 **§2.6、§2.7**；§三 **L18、L19**；§十一 **Phase 3 狀態與交付**（含 Frankfurter、proxy、rebase、key、timeout、雙 Toast、currencyMismatch）；§十 SAVE 新列；§七 索引補匯率相關檔；與 `HANDOFF.md` 分工、避免重複長表。 |
 
 ---
 
@@ -201,31 +231,44 @@
 | 2025-03-26 | **SAVE — i18n 與語言設定**：① `react-i18next` + `zh-TW.json`／`en.json`，全站文案（含 `Header`、導航、圖表、設定、Toast 等）；② 收據 **雙語欄位**（`name`／`name_en`、`store`／`store_en`、`location`／`location_en`）由 `receipt-prompt` + `buildExpenseFromAI` 寫入，`displayNames` 依語系顯示；③ **外稅 + 分人**時加「消費稅（按比例）」列；④ 刪除確認用本地化店名；⑤ **設定僅繁中／英**（移除「跟隨系統」），`normalizeUiLanguage` + `DataService` 統一、舊 `system`→繁中，`PRESET_TRIPS_DATA` 補 `uiLanguage`，匯入備份可帶語言。 | 舊資料無 `name_en` 時英文介面先顯示繁中；可選 backlog：編輯表單加英文品名欄。 |
 | 2025-03-26 | **書面 SOP**：併入 `PRODUCT_MANAGEMENT.md`（與 §九、Cursor rule 對照）；明定「細節規格≠已授權實作」。 | 規則變更時同步：Cursor rule、`PRODUCT_MANAGEMENT.md` 該節、§九。 |
 | 2025-03-26 | **歸檔**：獨立 `SOP_AI_COLLABORATION.md` 已刪除，全文併入產品管理檔專節，減少重複檔案。 | — |
-| 2025-03-26 | **多幣別 Phase 1+2**（`c43c9cb` 已 push）：匯率語意反轉、home/trip 幣、遷移、UI 動態記帳幣、旅程幣選擇、匯出／圖表標籤；詳見 **§十一**。 | **Phase 3（未做）**：即時匯率 API、切換記帳幣全量重算、AI 幣別誤判警示、旅程內編輯幣別、與 `PRODUCT_MANAGEMENT` 路線對齊。 |
+| 2025-03-26 | **多幣別 Phase 1+2**（`c43c9cb` 已 push）：匯率語意反轉、home/trip 幣、遷移、UI 動態記帳幣、旅程幣選擇、匯出／圖表標籤；詳見 **§十一**。 | 延伸見 **§十一 Phase 3**；`PRODUCT_MANAGEMENT` 發布表另補 Frankfurter 等列。 |
+| 2025-03-27 | **多幣 Phase 3 延伸**（已 push `main`，例：`f60c664`／`b3da7df`／`1916cbb`）：Frankfurter + **`/api/exchange-rates`** + Vite proxy、`FRANKFURTER_SUPPORTED` + **`rebaseRates`**、設定頁 **`key`**、**fetch 10s**、AI **`currencyMismatch`**、設定內改旅程幣、雙 Toast 處理；**`HANDOFF.md`** 改為備份/tag 專職、不重複本表。 | UX 微調、改名 `hkdAmount`、**OTHER** 自訂幣精準牌價等見 §11.4。 |
 
 ---
 
-## 十一、多幣別系統（2025-03-26）— 計劃 · 交付 · 坑 · 後續
+## 十一、多幣別系統（2025-03-26 起）— 計劃 · 交付 · 坑 · 後續
 
-> 本節為 **SAVE** 存檔：與使用者對齊「先單一旅程幣、原幣 + 記帳幣為真實來源」後，分階段實作；**此處為接棒用單一來源**。
+> 與使用者對齊「先單一旅程幣、原幣 + 記帳幣為真實來源」後分階段實作；**本節為技術與產品交付單一來源**。備份與換機步驟見 **`HANDOFF.md`**。
 
-### 11.1 更新計劃（當時對齊）
+### 11.1 計劃對照（Phase 1～3 狀態）
 
-| 階段 | 內容 |
-|------|------|
-| **Phase 1 · 基礎** | 匯率方向改為 **「1 記帳幣（home）= X 外幣」**；換算 **記帳幣金額 = 原幣 ÷ X**（`hkdAmount` 欄位仍表示「記帳幣金額」，未全面改名）。**`settings.homeCurrency`**（原 `defaultCurrency` 遷移）、**`trip.tripCurrency`**；舊資料一次性反轉匯率並存回。 |
-| **Phase 2 · UI** | 畫面顯示 **記帳幣代碼**（含 OTHER + 自訂碼）、設定頁匯率說明與「記帳幣列鎖 1」、**新建旅程選旅程幣**、複製報告／圖表／卡片標籤一致。 |
-| **Phase 3 · 後續（未做）** | 免費穩定匯率 API（例如 Frankfurter）、手動覆寫；切換「記帳幣」時依 `originalAmount`+`currency` 重算；掃描時 **AI 幣別與旅程幣不符** 之警示；儀表板「1 記帳幣 = X 外幣」展示與專業 UX 細節。 |
+| 階段 | 內容 | 狀態 |
+|------|------|------|
+| **Phase 1 · 基礎** | 匯率 **「1 記帳幣（home）= X 外幣」**；**記帳幣金額 = 原幣 ÷ X**（`hkdAmount` 欄位仍表記帳幣金額，未改名）。**`homeCurrency`**、`trip.tripCurrency`、舊資料遷移。 | **已交付** |
+| **Phase 2 · UI** | 記帳幣代碼、設定匯率說明、新建旅程選旅程幣、**設定內 TripManager 編輯旅程幣**、複製報告／圖表／卡片一致。 | **已交付** |
+| **Phase 3 · 即時匯率與防呆** | 免費 API（**Frankfurter**）、同源代理；切換記帳幣 **rebase** + 失敗仍換算；**TWD/VND** 等不支援 `from` 時改數學換算 + 提示；**fetch timeout**；設定匯率格 **key** 刷新顯示；掃描 **AI 幣別 ≠ 旅程幣** → `currencyMismatch` 卡片提示；**更新匯率** 與 **AppContext** Toast 去重（§三 L19）。 | **已交付**（細節 §2.7、下表） |
+| **Phase 3 · 未做／可選** | 儀表板「1 記帳幣 = X 外幣」**更完整 UX**、欄位 **`hkdAmount` 改名**、OTHER 自訂幣若無 ECB 的精準即時匯率等 | **Backlog** |
 
-### 11.2 已交付（實作與推送）
+### 11.2 已交付（實作與推送 · 彙總）
 
-- **常數**：`DEFAULT_EXCHANGE_RATES` 改為「1 HKD = X 外幣」等預設；`PRESET_TRIPS_DATA` 含 `tripCurrency`、`homeCurrency`。
-- **DataService**：`loadSettings` 遷移（無 `homeCurrency` → 反轉 `exchangeRates`、`defaultCurrency`→`homeCurrency`、自訂匯率反轉）；`loadTripsData` 補 `tripCurrency`；`createTrip(name, date, tripCurrency)`，新旅程 **僅複製 people**（不再整包複製 settings 匯率）。
-- **currency.js**：`toHome` 語意；`resolveReceiptCurrency(parsed, settings, tripCurrency)`。
-- **AppContext**：匯率重算與 `updateExpense` 用 **÷**；暴露 `homeCurrency`、`homeCurrencyCode`、`tripCurrency`。
-- **AIService / AddExpense / UploadArea / personShare**：計算與分人攤分與主邏輯一致（**÷ rate**）。
-- **UI**：`Settings` 匯率標題、hint、每格「1 home =」、記帳幣列 disabled；`TripManager` 新建旅程幣下拉、列表顯示幣別；`Dashboard`、`ExpenseCard`、`Charts`、`DailyChart`、`PersonChart`、`ExportService` 動態幣別。
-- **Git**：`main` 已 push（例：`c43c9cb`），可觸發 Vercel 部署。
+**Phase 1+2（基礎）**
+
+- **常數**：`DEFAULT_EXCHANGE_RATES`「1 基準 = X 外幣」；`PRESET_TRIPS_DATA` 含 `tripCurrency`、`homeCurrency`。
+- **DataService**：`loadSettings` 遷移；`loadTripsData` 補 `tripCurrency`；`createTrip(name, date, tripCurrency)`，新旅程 **僅複製 people**。
+- **currency.js**：`toHome`；`resolveReceiptCurrency(parsed, settings, tripCurrency)`。
+- **AppContext**：`exchangeRates` 變更時重算支出；`updateExpense` **÷ rate**；`homeCurrency`、`homeCurrencyCode`、`tripCurrency`。
+- **AIService / AddExpense / UploadArea / personShare**：**÷ rate** 與分攤一致。
+- **UI**：`Settings` 匯率區、`TripManager`（旅程幣）；`Dashboard`、`ExpenseCard`、`Charts`、`DailyChart`、`PersonChart`、`ExportService` 動態記帳幣。
+- **Git**：`main` 已 push（例：`c43c9cb`）。
+
+**Phase 3 延伸（2025-03～）**
+
+- **`api/exchange-rates.js`** + **`ExchangeRateService.js`**：`fetchFrankfurterRates`、`mergeExchangeRates`、`rebaseRates`、**`FRANKFURTER_SUPPORTED`**（ECB 未涵蓋 **TWD、VND** 等作為 `from` 時改 rebase + 提示）。
+- **`vite.config.js`**：`/api/exchange-rates` **dev proxy**。
+- **`Settings.jsx`**：切換記帳幣先 **rebase**；支援 Frankfurter 時拉牌；匯率輸入 **`key`** 避免 `defaultValue` 卡舊畫面；**fetch 10 s** 逾時；**「更新匯率」** 按鈕在不支援幣別／OTHER 時停用或提示；Toast 邏輯見 **§三 L19**。
+- **AIService / ExpenseCard**：**`currencyMismatch`**（AI 幣別 vs 旅程幣）。
+- **Header.jsx**：`trips.map` 參數勿名 **`t`**（避免遮蔽 i18n）**— 白屏已修**。
+- **Git**：`main` 例：`f60c664`（proxy 等）、`b3da7df`（TWD/VND／rebase）、`1916cbb`（key / timeout）。
 
 ### 11.3 坑點與注意（接棒必讀）
 
@@ -233,17 +276,67 @@
 |---|------|
 | **M1** | 欄位名 **`hkdAmount`** 語意已是「記帳幣金額」，**勿**望文生義當成僅 HKD；未來若改名需遷移 localStorage。 |
 | **M2** | **舊匯率遷移** 為 `1/r`；自訂幣 `customCurrencyRate` 一併反轉；若使用者曾手動改錯，遷移後仍繼承該錯誤（需人工對帳）。 |
-| **M3** | 設定頁匯率 **uncontrolled `defaultValue`**（`onBlur` 寫入）：若程式碼改 `exchangeRates` 不經由 input，**輸入框顯示可能不更新**（已知限制；可改 controlled 或 `key` 強制重掛）。 |
+| **M3** | 設定頁匯率為 **uncontrolled**（`defaultValue` + `onBlur`）。程式更新 `exchangeRates` 時，**已用 `key` 強制重掛** 使顯示與 state 一致；若移除 `key` 會回到「畫面不更新」問題。 |
 | **M4** | `getPartialMatchPersonShareHKD` 等函式名仍含 HKD，**與記帳幣語意不一致**；重構時一併改名。 |
-| **M5** | **Header** 曾發生 **map 回呼參數 `t` 遮蔽 `useTranslation` 的 `t`** → 第二個旅程起白屏；**已修**；日後避免 `map((t)=>` 等遮蔽 i18n。 |
+| **M5** | **Header** `map` 回呼參數 **`t` 遮蔽 `useTranslation` 的 `t`** → 白屏；**已修**。 |
 | **M6** | `renamePerson` 必須走 **`setExpenses`** 持久化，勿用僅更新 state 的 setter。 |
-| **M7** | 部署後若見舊版：**Vercel build 完成前**、**PWA Service Worker 快取**（見 §三 L13/L14）。 |
+| **M7** | 部署後若見舊版：**Vercel build**、**PWA Service Worker**（§三 L13/L14）。 |
+| **M8** | **OTHER**：不向網路拉牌價；**雙 Toast**（`fetchRates` + `ratesUpdated`）已依 **L19** 處理。 |
 
-### 11.4 後續跟進（Backlog 對齊）
+### 11.4 後續跟進（Backlog）
 
-- 與 `PRODUCT_MANAGEMENT.md` 路線圖中「多幣／匯率」項併檢；**Phase 3** 實作前再與使用者 **對齊方案再改碼**（§九）。
-- 建議下一個 SAVE 時補：**API 選型**、**是否改名 `hkdAmount`**、**旅程內改 `tripCurrency` 對既有費用的影響**。
+- 欄位 **`hkdAmount` 改名**、儀表板匯率 **UX 微調**、**旅程幣變更對既有支出**是否需一鍵重標（產品決策）。
+- 與 `PRODUCT_MANAGEMENT.md`「多幣／匯率」路線併檢；大改前依 **§九** 先對齊再動手。
 
 ---
 
-*維護：下一輪大改分帳／免稅邏輯時，更新「已交付」或開新月份迭代檔，並在 `PRODUCT_MANAGEMENT.md` 發布紀錄對應一行。*
+## 十二、現版邏輯速查（匯率 · 稅／退稅 · 分帳）
+
+> 本節描述 **目前程式實作**（非各國稅法）；程式來源：`src/utils/currency.js`、`src/utils/personShare.js`、`src/store/AppContext.jsx`、`src/components/expense/ExpenseCard.jsx`、`src/pages/AddExpense.jsx`。欄位 **`hkdAmount`** 實際為 **記帳幣金額**（見 §11.3 M1）。
+
+### 12.1 匯率與記帳幣金額
+
+| 項目 | 說明 |
+|------|------|
+| **匯率表** | `settings.exchangeRates[currency]`：**數字 X 表示「1 記帳幣（home）= X 單位該外幣 c」**；記帳幣本身對應列為 **1**。 |
+| **單筆支出換算** | `originalAmount` = 該筆 **原幣實付（或使用者確認之總額）**；**記帳幣金額**（存於欄位 `hkdAmount`）= **`originalAmount ÷ exchangeRates[currency]`**（`currency.js` 的 `toHome`）。 |
+| **匯率變更後** | `AppContext` 依目前 `exchangeRates` **重算所有支出**的 `hkdAmount` 與 `rate`（`originalAmount`、`currency` 不變）。 |
+| **旅程幣 `tripCurrency`** | 新建／手動記帳 **預設原幣**、AI 未辨識幣別時之 **fallback**（`resolveReceiptCurrency`）；**不**等於自動換算公式——換算永遠用 **記帳幣 + 匯率表**。 |
+
+### 12.2 稅項、退稅、實付（資料欄位與顯示）
+
+| 項目 | 說明 |
+|------|------|
+| **手動新增支出**（`AddExpense`） | 若 **`subtotal + taxRefund + discount > 0`**，則 **`originalAmount` = 該三者之和**；否則用使用者填的 **總額 `amount`**。其中 **`tax`** 另存，供外稅單據顯示，**不**自動加進上述 `calculated`（與欄位分工有關：實付總額以你確認的公式為準）。 |
+| **消費稅額 `tax`** | 常與 **`receiptType === 'tax_exclusive'`**（外稅）並用：卡片顯示「原價（未稅）+ 消費稅」列；**不**單獨重算 `originalAmount`（實付仍以帳上 `originalAmount` 為準）。 |
+| **有效退稅額（推算）** | `getEffectiveRefundPositive(expense)`：優先 **`|taxRefund|`**；若幾乎為 0，則用 **max(0, 標價加總或 subtotal − 實付)**，讓舊資料仍能顯示退稅感。 |
+| **收據免稅額 `receiptTaxExemptionAmount`** | **僅展示**（例：細項已是免稅後單價）；**不參與**分帳公式。 |
+| **分人篩選 + 外稅** | 該人分攤到的 **消費稅顯示** ≈ **`tax × (該人標價小計 ÷ 全單標價小計)`**（`ExpenseCard` `partialTaxShare`，以 **display `price`** 比例）。 |
+
+### 12.3 分帳：整單可退稅比例 r 與「固定費」行
+
+記號（皆 **原幣**，與 `personShare.js` 一致）：
+
+- **P** = `originalAmount`（實付）
+- **G** = 全單品項 **actual price** 加總（`sumAllItemActualPrices`；有 `priceActual` 時優先，供 ZARA 非課稅欄等）
+- **F** = **固定費行** actual 加總（佣金／手續費等，`excludeFromRefundSplit` 或品名推斷 `inferFixedFeeFromName`）— **不**隨退稅比例縮水
+- **gElig** = G − F（可退稅池標價）
+- **pElig** = P − F（可退稅池實付）
+- **r** = pElig ÷ gElig（當池合理時）；否則 **fallback** 為 **P÷G**（`legacyUniform`）
+
+**篩選某人且該人僅佔部分品項（partial match）時：**
+
+1. **該人實攤原幣** `getPartialMatchPersonShareOriginal`：固定費行 → 該行 **照 actual 全額**；其餘行 → **該行 actual × r**（或整單比例 P×S/G 若走 legacy）。
+2. **該人實攤記帳幣** `getPartialMatchPersonShareHKD`：**`hkdAmount × (該人實攤原幣 ÷ P)`**（若 P>0）；與 **記帳幣** 欄位語意一致（函式名仍含 HKD 為歷史名稱，見 §11.3 M4）。
+3. **該人分到的退稅額（顯示用）** `getPartialRefundShareOriginal`：在可退稅池內依該人可退稅標價與 **r** 分配；固定費行不參與退稅池分配。
+
+**未做分人篩選**：卡片顯示整單 `originalAmount` / `hkdAmount` 與全單退稅／外稅列。
+
+### 12.4 與 README／免稅長文的分工
+
+- 使用者可讀 **`README.md`** 的免稅／固定費概念說明。  
+- **可執行的公式與變數名** 以 **本節 + 原始碼** 為準；若兩處不一致，以程式為準。
+
+---
+
+*維護：下一輪大改分帳／免稅／匯率邏輯時，**同步更新 §十二** 與「已交付」或新迭代檔，並在 `PRODUCT_MANAGEMENT.md` 發布紀錄對應一行。*

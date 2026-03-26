@@ -127,7 +127,7 @@ function normalizeReceiptType(raw) {
   return v;
 }
 
-export function buildExpenseFromAI(result, index, currency, rate, tripCurrency) {
+export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, defaultAssignee = '共同') {
   const receiptType = normalizeReceiptType(result.receipt_type);
   const hasBundlePricing = !!(result.has_bundle ?? result.hasBundle);
 
@@ -277,6 +277,7 @@ export function buildExpenseFromAI(result, index, currency, rate, tripCurrency) 
 
   return {
     id: Date.now() + index,
+    assignedTo: defaultAssignee,
     date: result.date || new Date().toLocaleDateString('zh-TW'),
     location: result.location || '未知地點',
     ...(locationEn ? { locationEn } : {}),

@@ -5,6 +5,7 @@ import { getExchangeRate } from '../utils/currency';
 import { CURRENCY_NAMES } from '../utils/constants';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
+import { getDefaultAssignee } from '../utils/people';
 
 const AppContext = createContext(null);
 
@@ -173,6 +174,18 @@ export function AppProvider({ children }) {
     return { ok: true };
   }, [people, filterPerson, notify, setExpenses, setPeople]);
 
+  /** 設定頁刪除人物：各旅程 people 移除、支出改派，並同步 state */
+  const removePersonWithReassign = useCallback((deletedName, reassignTo) => {
+    if (!deletedName || !reassignTo) return;
+    DataService.removePersonAndReassignAll(deletedName, reassignTo);
+    setPeople((p) => p.filter((x) => x !== deletedName));
+    setExpenses(sortExpenses(DataService.loadExpenses()));
+    const data = DataService.loadTripsData();
+    setTrips(data.trips);
+    if (filterPerson === deletedName) setFilterPerson(reassignTo);
+    notify(i18n.t('toast.personDeleted'));
+  }, [filterPerson, notify, setExpenses, setPeople, setFilterPerson]);
+
   const deleteTrip = useCallback((tripId) => {
     if (tripId === currentTripId) return { ok: false, msg: i18n.t('toast.cannotDeleteTrip') };
     const ok = DataService.deleteTrip(tripId);
@@ -252,11 +265,13 @@ export function AppProvider({ children }) {
     return 'HKD';
   }, [homeCurrency, customCurrencyCode]);
 
+  const defaultAssignee = useMemo(() => getDefaultAssignee(people), [people]);
+
   const value = useMemo(() => ({
     settings, updateSettings,
     people, setPeople,
     trips, currentTripId, currentTrip,
-    createTrip, switchTrip, deleteTrip, updateTrip, renamePerson,
+    createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     filterPerson, setFilterPerson,
     toast, notify,
@@ -264,10 +279,12 @@ export function AppProvider({ children }) {
     homeCurrency: homeCurrency || 'HKD',
     homeCurrencyCode,
     tripCurrency,
+    defaultAssignee,
   }), [
     settings, people, trips, currentTripId, currentTrip,
     expenses, filterPerson, toast, exchangeRates, homeCurrency, homeCurrencyCode, tripCurrency,
-    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson,
+    defaultAssignee,
+    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     setFilterPerson, notify,
   ]);

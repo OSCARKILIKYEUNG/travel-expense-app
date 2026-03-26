@@ -210,6 +210,33 @@ const DataService = {
     }
     this.saveTripsData(tripsData);
   },
+
+  /** 刪除人物：從各旅程 people 移除，並將支出／品項上的舊名改為 `reassignTo`；同步目前旅程的 flat expenses */
+  removePersonAndReassignAll(deletedName, reassignTo) {
+    const tripsData = this.loadTripsData();
+    const mapExp = (e) => {
+      let next = { ...e };
+      if (next.assignedTo === deletedName) next.assignedTo = reassignTo;
+      if (next.items?.length) {
+        next.items = next.items.map((it) =>
+          it.assignedTo === deletedName ? { ...it, assignedTo: reassignTo } : it
+        );
+      }
+      return next;
+    };
+    for (const trip of tripsData.trips) {
+      const pl = trip.settings?.people;
+      if (Array.isArray(pl)) {
+        trip.settings = { ...trip.settings, people: pl.filter((p) => p !== deletedName) };
+      }
+      trip.expenses = (trip.expenses || []).map(mapExp);
+    }
+    this.saveTripsData(tripsData);
+    const cur = this.getCurrentTrip(tripsData);
+    if (cur?.expenses) {
+      this.saveExpenses(cur.expenses);
+    }
+  },
 };
 
 export default DataService;

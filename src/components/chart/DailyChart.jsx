@@ -3,24 +3,25 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { CATEGORY_COLORS } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
+import { resolveAssigneeDisplay } from '../../utils/people';
 
 export default function DailyChart() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee } = useApp();
 
   const { data, categories, max } = useMemo(() => {
     const map = {};
     for (const e of expenses) {
       if (filterPerson) {
-        const whole = (e.assignedTo || '共同') === filterPerson;
+        const whole = resolveAssigneeDisplay(e.assignedTo, people) === filterPerson;
         if (whole) {
           if (!map[e.date]) map[e.date] = {};
           const cat = e.category || '未分類';
           map[e.date][cat] = (map[e.date][cat] || 0) + e.hkdAmount;
-        } else if (e.items?.some((i) => (i.assignedTo || e.assignedTo || '共同') === filterPerson)) {
+        } else if (e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson)) {
           if (!map[e.date]) map[e.date] = {};
           const cat = e.category || '未分類';
-          const share = getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates);
+          const share = getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates, defaultAssignee);
           map[e.date][cat] = (map[e.date][cat] || 0) + share;
         }
       } else {
@@ -37,7 +38,7 @@ export default function DailyChart() {
     const categories = [...new Set(expenses.map((e) => e.category || '未分類'))];
     const max = Math.max(...data.map((d) => d.total), 1);
     return { data, categories, max };
-  }, [expenses, filterPerson, exchangeRates]);
+  }, [expenses, filterPerson, exchangeRates, people, defaultAssignee]);
 
   if (data.length === 0) {
     return <div className="text-center py-12 text-slate-400">{t('chartsPage.noData')}</div>;

@@ -11,6 +11,7 @@ import {
   sumAssignedItemPrices,
 } from '../../utils/personShare';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
+import { resolveAssigneeDisplay } from '../../utils/people';
 
 function refundEpsilon(currency) {
   const c = (currency || 'HKD').toUpperCase();
@@ -19,28 +20,28 @@ function refundEpsilon(currency) {
 
 export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
-  const { filterPerson, exchangeRates, homeCurrencyCode, tripCurrency } = useApp();
+  const { filterPerson, exchangeRates, homeCurrencyCode, tripCurrency, people, defaultAssignee } = useApp();
   const cat = expense.category || '未分類';
   const catLabel = t(`categories.${cat}`, { defaultValue: cat });
   const storeDisplay = getExpenseStoreDisplay(expense, i18n.language, t);
   const locationDisplay = getExpenseLocationDisplay(expense, i18n.language, t);
   const personLabel = (name) => (name === '共同' ? t('expenseCard.shared') : name);
   const catColor = CATEGORY_COLORS[cat] || '#9CA3AF';
-  const isPartialMatch = filterPerson && (expense.assignedTo || '共同') !== filterPerson;
+  const isPartialMatch = filterPerson && resolveAssigneeDisplay(expense.assignedTo, people) !== filterPerson;
 
   const displayAmount = useMemo(() => {
     if (!isPartialMatch) return { hkd: expense.hkdAmount, orig: expense.originalAmount, currency: expense.currency };
-    const hkd = getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates);
-    const orig = getPartialMatchPersonShareOriginal(expense, filterPerson);
+    const hkd = getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRates, defaultAssignee);
+    const orig = getPartialMatchPersonShareOriginal(expense, filterPerson, defaultAssignee);
     return { hkd, orig, currency: expense.currency };
-  }, [expense, filterPerson, isPartialMatch, exchangeRates]);
+  }, [expense, filterPerson, isPartialMatch, exchangeRates, defaultAssignee]);
 
   const visibleItems = useMemo(() => {
     const items = expense.items || [];
     if (!filterPerson) return items;
     if (!isPartialMatch) return items;
-    return items.filter((i) => (i.assignedTo || expense.assignedTo || '共同') === filterPerson);
-  }, [expense, filterPerson, isPartialMatch]);
+    return items.filter((i) => (i.assignedTo || resolveAssigneeDisplay(expense.assignedTo, people)) === filterPerson);
+  }, [expense, filterPerson, isPartialMatch, people]);
 
   /** 收據印製之免稅額（細項可能已是免稅後價，與差額推算無關） */
   const receiptTaxExemptionAmount = useMemo(() => {
@@ -70,11 +71,11 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
   /** 分人：外稅時的比例消費稅 */
   const partialTaxShare = useMemo(() => {
     if (!isPartialMatch || !filterPerson || !isTaxExclusive || taxAmount <= 0) return 0;
-    const personItemSum = sumAssignedItemPrices(expense, filterPerson);
+    const personItemSum = sumAssignedItemPrices(expense, filterPerson, defaultAssignee);
     const allItemSum = (expense.items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
     if (allItemSum <= 0) return 0;
     return Math.round(taxAmount * (personItemSum / allItemSum));
-  }, [expense, filterPerson, isPartialMatch, isTaxExclusive, taxAmount]);
+  }, [expense, filterPerson, isPartialMatch, isTaxExclusive, taxAmount, defaultAssignee]);
 
   /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
   const partialBreakdown = useMemo(() => {
@@ -83,14 +84,14 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     if (refundTotal <= refundEpsilon(expense.currency)) return null;
     const subtotalGross = sumAssignedItemPrices(expense, filterPerson);
     if (subtotalGross <= 0) return null;
-    const refundShare = getPartialRefundShareOriginal(expense, filterPerson);
-    const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson);
+    const refundShare = getPartialRefundShareOriginal(expense, filterPerson, defaultAssignee);
+    const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson, defaultAssignee);
     return {
       subtotalGross,
       refundShare,
       netOrig,
     };
-  }, [expense, filterPerson, isPartialMatch]);
+  }, [expense, filterPerson, isPartialMatch, defaultAssignee]);
 
   return (
     <article className="card overflow-hidden">
@@ -123,7 +124,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
               {catLabel}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-100">
-              {personLabel(expense.assignedTo || '共同')}
+              {personLabel(resolveAssigneeDisplay(expense.assignedTo, people))}
             </span>
             {expense.receiptType && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600 border border-sky-100">

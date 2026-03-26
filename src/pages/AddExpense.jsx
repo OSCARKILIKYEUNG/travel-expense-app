@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
@@ -8,7 +8,7 @@ import { ArrowLeft, Check } from '../components/ui/Icons';
 
 export default function AddExpense() {
   const { t } = useTranslation();
-  const { people, exchangeRates, addExpense, tripCurrency } = useApp();
+  const { people, exchangeRates, addExpense, tripCurrency, defaultAssignee } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -16,7 +16,7 @@ export default function AddExpense() {
     merchant: '',
     location: '',
     category: '飲食',
-    assignedTo: '共同',
+    assignedTo: defaultAssignee,
     currency: tripCurrency || 'JPY',
     amount: '',
     subtotal: '',
@@ -27,6 +27,10 @@ export default function AddExpense() {
   });
 
   const patch = (updates) => setForm((p) => ({ ...p, ...updates }));
+
+  useEffect(() => {
+    setForm((p) => (people.includes(p.assignedTo) ? p : { ...p, assignedTo: defaultAssignee }));
+  }, [people, defaultAssignee]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
