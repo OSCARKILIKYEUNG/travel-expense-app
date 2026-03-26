@@ -4,7 +4,7 @@ import { useApp } from '../store/AppContext';
 import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
 import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
-import { fetchFrankfurterRates, mergeExchangeRates } from '../services/ExchangeRateService';
+import { fetchFrankfurterRates, mergeExchangeRates, rebaseRates, FRANKFURTER_SUPPORTED } from '../services/ExchangeRateService';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
@@ -24,26 +24,27 @@ export default function Settings() {
   const handleHomeCurrencyChange = async (e) => {
     const next = e.target.value;
     if (next === 'OTHER') {
-      updateSettings({
-        homeCurrency: next,
-        customCurrencyCode: '',
-        customCurrencyRate: 1,
-      });
+      updateSettings({ homeCurrency: next, customCurrencyCode: '', customCurrencyRate: 1 });
       return;
     }
+
+    const rebased = rebaseRates(exchangeRates, next);
+    const basePatch = { homeCurrency: next, customCurrencyCode: '', customCurrencyRate: 1, exchangeRates: rebased };
+
+    if (!FRANKFURTER_SUPPORTED.has(next)) {
+      updateSettings(basePatch);
+      notify(t('toast.currencyNoLiveRate', { code: next }), 'info');
+      return;
+    }
+
     setRatesLoading(true);
     try {
       const fetched = await fetchFrankfurterRates(next);
-      const merged = mergeExchangeRates(exchangeRates, fetched, next);
-      updateSettings({
-        homeCurrency: next,
-        customCurrencyCode: '',
-        customCurrencyRate: 1,
-        exchangeRates: merged,
-        exchangeRatesUpdatedAt: new Date().toISOString(),
-      });
+      const merged = mergeExchangeRates(rebased, fetched, next);
+      updateSettings({ ...basePatch, exchangeRates: merged, exchangeRatesUpdatedAt: new Date().toISOString() });
       if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
     } catch {
+      updateSettings(basePatch);
       notify(t('toast.fetchRatesFailed'), 'error');
     } finally {
       setRatesLoading(false);
@@ -55,14 +56,15 @@ export default function Settings() {
       notify(t('settings.fetchRatesOtherOnly'), 'info');
       return;
     }
+    if (!FRANKFURTER_SUPPORTED.has(homeCurrency)) {
+      notify(t('toast.currencyNoLiveRate', { code: homeCurrency }), 'info');
+      return;
+    }
     setRatesLoading(true);
     try {
       const fetched = await fetchFrankfurterRates(homeCurrency);
       const merged = mergeExchangeRates(exchangeRates, fetched, homeCurrency);
-      updateSettings({
-        exchangeRates: merged,
-        exchangeRatesUpdatedAt: new Date().toISOString(),
-      });
+      updateSettings({ exchangeRates: merged, exchangeRatesUpdatedAt: new Date().toISOString() });
       if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
     } catch {
       notify(t('toast.fetchRatesFailed'), 'error');
@@ -198,7 +200,7 @@ export default function Settings() {
           <button
             type="button"
             onClick={handleFetchRatesClick}
-            disabled={ratesLoading || homeCurrency === 'OTHER'}
+            disabled={ratesLoading || homeCurrency === 'OTHER' || !FRANKFURTER_SUPPORTED.has(homeCurrency)}
             className="btn-secondary !py-1.5 !px-3 text-xs shrink-0"
           >
             {ratesLoading ? t('settings.fetchRatesLoading') : t('settings.fetchRates')}

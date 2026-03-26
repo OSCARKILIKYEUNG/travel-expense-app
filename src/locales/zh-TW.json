@@ -271,6 +271,7 @@
     "ratesUpdated": "匯率已更新，金額已重算",
     "fetchRatesOk": "匯率已更新",
     "fetchRatesFailed": "無法取得即時匯率，請稍後再試或手動輸入",
+    "currencyNoLiveRate": "{{code}} 不在即時匯率支援範圍，已按比例換算；如需精確匯率請手動輸入",
     "tripCreated": "旅程已創建",
     "tripSwitched": "已切換旅程",
     "cannotDeleteTrip": "無法刪除當前旅程",

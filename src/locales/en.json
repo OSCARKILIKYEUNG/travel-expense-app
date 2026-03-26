@@ -271,6 +271,7 @@
     "ratesUpdated": "Rates updated; amounts recalculated",
     "fetchRatesOk": "Exchange rates updated",
     "fetchRatesFailed": "Could not fetch live rates. Try again or enter manually.",
+    "currencyNoLiveRate": "{{code}} isn't covered by live rates. Cross-rates applied — enter exact rates manually if needed.",
     "tripCreated": "Trip created",
     "tripSwitched": "Trip switched",
     "cannotDeleteTrip": "Cannot delete current trip",

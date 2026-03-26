@@ -1,5 +1,13 @@
 import { CURRENCY_NAMES } from '../utils/constants';
 
+/** ECB 支援的幣別（Frankfurter API 只涵蓋 ECB 牌價，TWD / VND 等不在內） */
+export const FRANKFURTER_SUPPORTED = new Set([
+  'AUD', 'BGN', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR',
+  'GBP', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW',
+  'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD',
+  'THB', 'TRY', 'USD', 'ZAR',
+]);
+
 /** 經 Vercel / Vite 代理，與前端同源，避免 CORS；僅傳 `from`，由 API 回傳全部可兌幣別 */
 const PROXY_PATH = '/api/exchange-rates';
 
@@ -50,4 +58,21 @@ export function mergeExchangeRates(existing, fetched, home) {
     }
   }
   return merged;
+}
+
+/**
+ * 以數學方式將現有匯率表從舊基準換算到新基準（cross-rate rebase）。
+ * 公式：newRate[C] = oldRate[C] / oldRate[newHome]
+ */
+export function rebaseRates(oldRates, newHome) {
+  const pivot = oldRates[newHome] || 1;
+  const rebased = {};
+  for (const code of Object.keys(CURRENCY_NAMES)) {
+    if (code === newHome) {
+      rebased[code] = 1;
+    } else {
+      rebased[code] = (oldRates[code] || 1) / pivot;
+    }
+  }
+  return rebased;
 }
