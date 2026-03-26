@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { PERSON_COLORS, PERSON_BG_CLASSES } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 
 export default function PersonChart() {
+  const { t } = useTranslation();
   const { expenses, people, filterPerson, exchangeRates } = useApp();
 
   const { totals, totalAll } = useMemo(() => {
@@ -26,7 +28,7 @@ export default function PersonChart() {
 
   const entries = Object.entries(totals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0 || totalAll === 0) {
-    return <div className="text-center py-8 text-slate-400 text-sm">尚無數據</div>;
+    return <div className="text-center py-8 text-slate-400 text-sm">{t('chartsPage.noChartData')}</div>;
   }
 
   // Pie chart arcs
@@ -48,7 +50,7 @@ export default function PersonChart() {
 
   return (
     <div className="space-y-6">
-      <h4 className="text-sm font-bold text-slate-700">人物花費分配</h4>
+      <h4 className="text-sm font-bold text-slate-700">{t('personChart.title')}</h4>
       <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="w-44 h-44 shrink-0">
           <svg viewBox="0 0 200 200" className="w-full h-full">

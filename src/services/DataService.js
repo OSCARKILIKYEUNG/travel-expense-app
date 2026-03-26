@@ -104,21 +104,27 @@ const DataService = {
     const saved = read(KEYS.SETTINGS);
     if (saved) {
       const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
+      const uiLang = saved.uiLanguage;
       return {
         ...rest,
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(saved.exchangeRates || {}) },
         defaultCurrency: saved.defaultCurrency || 'HKD',
         customCurrencyCode: saved.customCurrencyCode || '',
         customCurrencyRate: saved.customCurrencyRate || 1,
+        uiLanguage:
+          uiLang === 'zh-TW' || uiLang === 'en' || uiLang === 'system' ? uiLang : 'system',
       };
     }
     const preset = PRESET_TRIPS_DATA.trips[0]?.settings;
     if (preset) {
+      const uiLang = preset.uiLanguage;
       return {
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(preset.exchangeRates || {}) },
         defaultCurrency: preset.defaultCurrency || 'HKD',
         customCurrencyCode: preset.customCurrencyCode || '',
         customCurrencyRate: preset.customCurrencyRate || 1,
+        uiLanguage:
+          uiLang === 'zh-TW' || uiLang === 'en' || uiLang === 'system' ? uiLang : 'system',
       };
     }
     return {
@@ -126,6 +132,7 @@ const DataService = {
       defaultCurrency: 'HKD',
       customCurrencyCode: '',
       customCurrencyRate: 1,
+      uiLanguage: 'system',
     };
   },
 

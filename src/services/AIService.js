@@ -3,6 +3,7 @@
  * API 金鑰僅存 GEMINI_API_KEY，不經前端。
  */
 
+import i18n from '../i18n';
 import { inferFixedFeeFromName } from '../utils/personShare';
 
 function resizeImage(file) {
@@ -49,7 +50,7 @@ export async function parseReceipt(file) {
     data = raw ? JSON.parse(raw) : {};
   } catch {
     throw new Error(
-      `伺服器回傳異常（${res.status}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。`,
+      i18n.t('errors.parseReceipt', { status: res.status }),
     );
   }
   if (!res.ok) {
@@ -132,6 +133,7 @@ export function buildExpenseFromAI(result, index, currency, rate) {
   const items = Array.isArray(result.items)
     ? result.items.map((item) => {
         const name = (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤');
+        const nameEn = String(item.name_en || item.nameEn || '').trim();
         const exRaw = item.exclude_from_refund_split ?? item.excludeFromRefundSplit;
         let excludeFromRefundSplit;
         if (exRaw === true) excludeFromRefundSplit = true;
@@ -148,6 +150,7 @@ export function buildExpenseFromAI(result, index, currency, rate) {
         return {
           ...item,
           name,
+          ...(nameEn ? { nameEn } : {}),
           price,
           ...(priceActual !== undefined ? { priceActual } : {}),
           excludeFromRefundSplit,
@@ -259,11 +262,16 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     }
   }
 
+  const locationEn = String(result.location_en || result.locationEn || '').trim();
+  const storeEn = String(result.store_en || result.storeEn || '').trim();
+
   return {
     id: Date.now() + index,
     date: result.date || new Date().toLocaleDateString('zh-TW'),
     location: result.location || '未知地點',
+    ...(locationEn ? { locationEn } : {}),
     store: result.store || '未知店舖',
+    ...(storeEn ? { storeEn } : {}),
     category: result.category || '未分類',
     items,
     subtotal: subtotal || 0,

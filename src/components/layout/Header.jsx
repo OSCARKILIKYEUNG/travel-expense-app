@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { MapPin, Globe, ChevronDown } from '../ui/Icons';
 
 export default function Header() {
+  const { t } = useTranslation();
   const { currentTrip, trips, switchTrip } = useApp();
 
   return (
@@ -10,7 +12,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-lg px-1">
           <MapPin size={18} className="text-pink-400" />
-          <span className="font-bold text-base tracking-tight">旅遊記帳助手 Pro</span>
+          <span className="font-bold text-base tracking-tight">{t('app.brand')}</span>
         </Link>
 
         {currentTrip && (
@@ -33,7 +35,7 @@ export default function Header() {
                     <span className="truncate">{t.name}</span>
                     {t.id === currentTrip.id && (
                       <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
-                        當前
+                        {t('trip.current')}
                       </span>
                     )}
                   </button>

@@ -1,18 +1,20 @@
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Plus, BarChart, Settings } from '../ui/Icons';
 
-const NAV_ITEMS = [
-  { to: '/', icon: Home, label: '首頁' },
-  { to: '/add', icon: Plus, label: '新增' },
-  { to: '/charts', icon: BarChart, label: '圖表' },
-  { to: '/settings', icon: Settings, label: '設定' },
+const NAV_KEYS = [
+  { to: '/', icon: Home, labelKey: 'nav.home' },
+  { to: '/add', icon: Plus, labelKey: 'nav.add' },
+  { to: '/charts', icon: BarChart, labelKey: 'nav.charts' },
+  { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 
 export default function BottomNav() {
+  const { t } = useTranslation();
   return (
     <nav className="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 lg:hidden safe-bottom" role="navigation" aria-label="主導航">
       <div className="grid grid-cols-4 max-w-lg mx-auto">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+        {NAV_KEYS.map(({ to, icon: Icon, labelKey }) => (
           <NavLink
             key={to}
             to={to}
@@ -24,7 +26,7 @@ export default function BottomNav() {
             }
           >
             <Icon size={22} />
-            <span className="text-[10px] font-medium">{label}</span>
+            <span className="text-[10px] font-medium">{t(labelKey)}</span>
           </NavLink>
         ))}
       </div>

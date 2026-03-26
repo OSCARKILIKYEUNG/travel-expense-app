@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
-import { CATEGORY_COLORS, RECEIPT_TYPES } from '../../utils/constants';
+import { CATEGORY_COLORS } from '../../utils/constants';
+import { getExpenseLocationDisplay, getExpenseStoreDisplay, getItemDisplayName } from '../../utils/displayNames';
 import {
   getPartialMatchPersonShareHKD,
   getPartialMatchPersonShareOriginal,
@@ -16,8 +18,13 @@ function refundEpsilon(currency) {
 }
 
 export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
+  const { t, i18n } = useTranslation();
   const { filterPerson, exchangeRates } = useApp();
   const cat = expense.category || '未分類';
+  const catLabel = t(`categories.${cat}`, { defaultValue: cat });
+  const storeDisplay = getExpenseStoreDisplay(expense, i18n.language, t);
+  const locationDisplay = getExpenseLocationDisplay(expense, i18n.language, t);
+  const personLabel = (name) => (name === '共同' ? t('expenseCard.shared') : name);
   const catColor = CATEGORY_COLORS[cat] || '#9CA3AF';
   const isPartialMatch = filterPerson && (expense.assignedTo || '共同') !== filterPerson;
 
@@ -91,17 +98,17 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
         <div className="bg-amber-50 border-b-2 border-amber-300 px-4 py-2 flex items-center gap-2">
           <span className="text-lg">⚠️</span>
           <div>
-            <p className="text-amber-800 text-xs font-bold">可能重複記錄</p>
-            <p className="text-amber-600 text-[10px]">相同日期、商品數和金額</p>
+            <p className="text-amber-800 text-xs font-bold">{t('expenseCard.duplicateTitle')}</p>
+            <p className="text-amber-600 text-[10px]">{t('expenseCard.duplicateHint')}</p>
           </div>
         </div>
       )}
 
       {isPartialMatch && (
         <div className="bg-violet-50 border-b border-violet-200 px-4 py-1.5 space-y-0.5">
-          <span className="text-violet-700 text-xs font-medium">僅顯示「{filterPerson}」的部分</span>
+          <span className="text-violet-700 text-xs font-medium">{t('expenseCard.partialOnly', { name: filterPerson })}</span>
           {getEffectiveRefundPositive(expense) > refundEpsilon(expense.currency) && (
-            <p className="text-violet-500 text-[10px] leading-tight">下方附「比例退稅」與實攤明細（與全單實付一致）</p>
+            <p className="text-violet-500 text-[10px] leading-tight">{t('expenseCard.partialRefundHint')}</p>
           )}
         </div>
       )}
@@ -113,22 +120,22 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
               className="text-[10px] font-bold px-2 py-0.5 rounded-md"
               style={{ backgroundColor: catColor + '15', color: catColor, border: `1px solid ${catColor}30` }}
             >
-              {cat}
+              {catLabel}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-100">
-              {expense.assignedTo || '共同'}
+              {personLabel(expense.assignedTo || '共同')}
             </span>
-            {expense.receiptType && RECEIPT_TYPES[expense.receiptType] && (
+            {expense.receiptType && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600 border border-sky-100">
-                {RECEIPT_TYPES[expense.receiptType]}
+                {t(`receiptTypes.${expense.receiptType}`, { defaultValue: expense.receiptType })}
               </span>
             )}
             <span className="text-slate-400 text-[10px]">{expense.date}</span>
           </div>
-          <h3 className="font-bold text-slate-800 truncate">{expense.store}</h3>
+          <h3 className="font-bold text-slate-800 truncate">{storeDisplay}</h3>
           <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
             <MapPin size={11} />
-            <span className="truncate">{expense.location}</span>
+            <span className="truncate">{locationDisplay}</span>
           </div>
         </div>
 
@@ -162,24 +169,24 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex items-start gap-2">
             <span className="text-amber-500 text-sm leading-none mt-0.5">⚠</span>
             <p className="text-[10px] text-amber-700 leading-snug">
-              明細加總與合計有落差，可能含套裝價或稅額差異，建議檢查。
+              {t('expenseCard.needsReview')}
             </p>
           </div>
         )}
         {visibleItems.length > 0 && (
           <>
             <p className="text-[10px] text-slate-400 mb-1.5">
-              {isTaxExclusive ? '原價（未稅）' : '原價'}
+              {isTaxExclusive ? t('expenseCard.priceTaxExclusive') : t('expenseCard.priceOriginal')}
             </p>
             <ul className="space-y-0.5 mb-2">
               {visibleItems.map((item, idx) => (
                 <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
                   <span className="flex items-center gap-1.5 min-w-0">
                     <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
-                    <span className="truncate">{item.name}</span>
+                    <span className="truncate">{getItemDisplayName(item, i18n.language)}</span>
                     {item.assignedTo && item.assignedTo !== expense.assignedTo && (
                       <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
-                        {item.assignedTo}
+                        {personLabel(item.assignedTo)}
                       </span>
                     )}
                   </span>
@@ -198,36 +205,36 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             </ul>
             {refundRowsMeta.showTaxRow && (
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
-                <span>消費稅</span>
+                <span>{t('expenseCard.consumptionTax')}</span>
                 <span className="font-mono tabular-nums">+ {taxAmount.toLocaleString()}</span>
               </div>
             )}
             {isPartialMatch && isTaxExclusive && partialTaxShare > 0 && (
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
-                <span>消費稅（按比例）</span>
+                <span>{t('expenseCard.consumptionTaxProportional')}</span>
                 <span className="font-mono tabular-nums">+ {partialTaxShare.toLocaleString()}</span>
               </div>
             )}
             {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
-                <span>退稅（標價與實付差額）</span>
+                <span>{t('expenseCard.refundDiff')}</span>
                 <span className="font-mono tabular-nums">{refundRowsMeta.eff.toLocaleString()}</span>
               </div>
             )}
             {refundRowsMeta.showReceiptOnlyRow && (
               <div className="mb-2 pt-1.5 border-t border-teal-200/80 space-y-1">
                 <div className="flex justify-between items-center text-xs text-teal-800 font-medium">
-                  <span>免稅額（收據）</span>
+                  <span>{t('expenseCard.receiptExemption')}</span>
                   <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 leading-snug">
-                  收據上記載之免稅／退稅金額。若細項已是免稅後單價、加總與實付一致，屬正常；不影響上方實付合計。
+                  {t('expenseCard.receiptExemptionNote')}
                 </p>
               </div>
             )}
             {refundRowsMeta.showReceiptSecondaryRow && (
               <div className="flex justify-between items-center text-[10px] text-slate-600 mb-2 pt-1 border-t border-slate-100">
-                <span>收據另載免稅額</span>
+                <span>{t('expenseCard.receiptExemptionSecondary')}</span>
                 <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
               </div>
             )}
@@ -235,19 +242,19 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             {partialBreakdown && (
               <div className="space-y-1.5 mb-2 pt-1.5 border-t border-violet-200/80">
                 <div className="flex justify-between items-center text-xs text-slate-600">
-                  <span>原價小計</span>
+                  <span>{t('expenseCard.subtotalGross')}</span>
                   <span className="font-mono tabular-nums">
                     {Math.round(partialBreakdown.subtotalGross).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
-                  <span>退稅（依全單原價比例）</span>
+                  <span>{t('expenseCard.refundProportional')}</span>
                   <span className="font-mono tabular-nums">
                     {Math.round(partialBreakdown.refundShare).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold text-violet-800 pt-1 border-t border-violet-100">
-                  <span>實攤</span>
+                  <span>{t('expenseCard.netShare')}</span>
                   <span className="font-mono tabular-nums">
                     {Math.round(partialBreakdown.netOrig).toLocaleString()} {expense.currency}
                   </span>
@@ -262,17 +269,17 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             onClick={() => onEdit(expense)}
             className="text-indigo-600 text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg border border-indigo-200
               hover:bg-indigo-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            aria-label={`編輯 ${expense.store}`}
+            aria-label={t('expenseCard.editAria', { store: storeDisplay })}
           >
-            <Edit size={14} /> 編輯
+            <Edit size={14} /> {t('expenseCard.edit')}
           </button>
           <button
             onClick={() => onDelete(expense.id, expense.store)}
             className="text-red-500 text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200
               hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-            aria-label={`刪除 ${expense.store}`}
+            aria-label={t('expenseCard.deleteAria', { store: storeDisplay })}
           >
-            <Trash2 size={14} /> 刪除
+            <Trash2 size={14} /> {t('expenseCard.delete')}
           </button>
         </div>
       </div>

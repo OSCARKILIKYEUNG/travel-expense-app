@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
-import { CURRENCY_NAMES } from '../utils/constants';
 import { getPartialMatchPersonShareHKD, getPartialMatchPersonShareOriginal } from '../utils/personShare';
 import { Save, FileText, Copy, BarChart, Plus } from '../components/ui/Icons';
 import { exportFullBackup, copyReport } from '../services/ExportService';
@@ -10,7 +10,8 @@ import ExpenseList from '../components/expense/ExpenseList';
 import UploadArea from '../components/expense/UploadArea';
 
 export default function Dashboard() {
-  const { expenses, filterPerson, people, settings, exchangeRates, notify } = useApp();
+  const { t } = useTranslation();
+  const { expenses, filterPerson, settings, exchangeRates, notify } = useApp();
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
@@ -56,8 +57,8 @@ export default function Dashboard() {
 
   const handleCopy = async () => {
     if (!expenses.length) return;
-    try { await copyReport(expenses); notify('已複製到剪貼簿'); }
-    catch { notify('複製失敗', 'error'); }
+    try { await copyReport(expenses); notify(t('dashboard.copied')); }
+    catch { notify(t('dashboard.copyFailed'), 'error'); }
   };
 
   const handlePrint = () => {
@@ -71,19 +72,19 @@ export default function Dashboard() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
         <div className="relative z-10">
           <p className="text-indigo-200 text-xs font-medium mb-0.5">
-            總花費 (HKD){filterPerson && ` · ${filterPerson}`}
+            {t('dashboard.totalSpend')}{filterPerson && ` · ${filterPerson}`}
           </p>
           <h2 className="text-3xl lg:text-4xl font-bold mb-0.5 tabular-nums">
             ${Math.round(totalHKD).toLocaleString()}
           </h2>
-          <p className="text-indigo-300 text-xs mb-4">共 {recordCount} 筆記錄</p>
+          <p className="text-indigo-300 text-xs mb-4">{t('dashboard.recordsCount', { count: recordCount })}</p>
 
           {currencySums.length > 0 && (
             <div className="border-t border-white/20 pt-3 mb-4">
-              <p className="text-indigo-200 text-[10px] font-medium mb-1.5">原幣值總和</p>
+              <p className="text-indigo-200 text-[10px] font-medium mb-1.5">{t('dashboard.originalTotals')}</p>
               {currencySums.map(([curr, amount]) => (
                 <div key={curr} className="flex justify-between items-center text-xs mb-0.5">
-                  <span className="text-indigo-200">{CURRENCY_NAMES[curr] || curr}</span>
+                  <span className="text-indigo-200">{t(`currency.${curr}`, { defaultValue: curr })}</span>
                   <span className="font-bold">{curr} ${Math.round(amount).toLocaleString()}</span>
                 </div>
               ))}
@@ -92,16 +93,16 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-4 gap-2">
             <button onClick={() => exportFullBackup(expenses, settings)} className="bg-white/15 hover:bg-white/25 border border-white/20 py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-              <Save size={14} /><span>備份</span>
+              <Save size={14} /><span>{t('dashboard.backup')}</span>
             </button>
             <button onClick={handlePrint} disabled={!expenses.length} className="bg-white text-indigo-700 py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-              <FileText size={14} /><span>列印</span>
+              <FileText size={14} /><span>{t('dashboard.print')}</span>
             </button>
             <button onClick={handleCopy} disabled={!expenses.length} className="bg-white/15 hover:bg-white/25 border border-white/20 py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-              <Copy size={14} /><span>複製</span>
+              <Copy size={14} /><span>{t('dashboard.copy')}</span>
             </button>
             <Link to="/charts" className="bg-blue-500/80 hover:bg-blue-500 border border-blue-400/40 py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-              <BarChart size={14} /><span>圖表</span>
+              <BarChart size={14} /><span>{t('dashboard.charts')}</span>
             </Link>
           </div>
         </div>
@@ -115,7 +116,7 @@ export default function Dashboard() {
           className="btn-primary w-full flex items-center justify-center gap-2 text-base !py-3.5 shadow-lg"
         >
           <Plus size={20} />
-          手動新增記錄
+          {t('dashboard.manualAdd')}
         </Link>
       </section>
 

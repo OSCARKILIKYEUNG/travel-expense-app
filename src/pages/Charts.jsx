@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../store/AppContext';
 import PersonFilter from '../components/expense/PersonFilter';
 import DailyChart from '../components/chart/DailyChart';
@@ -6,6 +7,7 @@ import PersonChart from '../components/chart/PersonChart';
 import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 
 export default function Charts() {
+  const { t } = useTranslation();
   const { expenses, filterPerson, exchangeRates } = useApp();
 
   const stats = useMemo(() => {
@@ -31,22 +33,22 @@ export default function Charts() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-slate-900">統計圖表</h1>
+      <h1 className="text-xl font-bold text-slate-900">{t('chartsPage.title')}</h1>
 
       {/* Stats summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">
-            總花費{filterPerson ? ` (${filterPerson})` : ''}
+            {t('chartsPage.totalSpend')}{filterPerson ? ` (${filterPerson})` : ''}
           </p>
           <p className="text-xl font-bold text-violet-600 tabular-nums">${Math.round(stats.total).toLocaleString()}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-[10px] text-slate-400 font-medium mb-0.5">天數</p>
+          <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.days')}</p>
           <p className="text-xl font-bold text-blue-600 tabular-nums">{stats.days}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-[10px] text-slate-400 font-medium mb-0.5">日均</p>
+          <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.dailyAvg')}</p>
           <p className="text-xl font-bold text-emerald-600 tabular-nums">${Math.round(stats.avg).toLocaleString()}</p>
         </div>
       </div>
@@ -54,7 +56,7 @@ export default function Charts() {
       <PersonFilter />
 
       <section className="card p-5">
-        <h3 className="font-bold text-slate-700 mb-4">每日花費趨勢</h3>
+        <h3 className="font-bold text-slate-700 mb-4">{t('chartsPage.dailyTrend')}</h3>
         <DailyChart />
       </section>
 

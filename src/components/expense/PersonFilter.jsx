@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 
 export default function PersonFilter() {
+  const { t } = useTranslation();
   const { expenses, people, filterPerson, setFilterPerson } = useApp();
 
   const counts = useMemo(() => {
@@ -18,8 +20,8 @@ export default function PersonFilter() {
   if (expenses.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label="按人物篩選">
-      <span className="text-xs text-slate-500 font-medium self-center">篩選:</span>
+    <div className="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label={t('filter.label')}>
+      <span className="text-xs text-slate-500 font-medium self-center">{t('filter.label')}</span>
       <button
         onClick={() => setFilterPerson(null)}
         role="radio"
@@ -28,7 +30,7 @@ export default function PersonFilter() {
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400
           ${filterPerson === null ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
       >
-        全部 ({expenses.length})
+        {t('filter.all', { count: expenses.length })}
       </button>
       {people.map((person) => {
         const c = counts[person] || 0;

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { sortExpenses } from '../../utils/date';
 import { detectDuplicates } from '../../utils/duplicates';
@@ -7,6 +8,7 @@ import DeleteConfirmDialog from './DeleteConfirmDialog';
 import EditExpenseDialog from './EditExpenseDialog';
 
 export default function ExpenseList() {
+  const { t } = useTranslation();
   const { expenses, filterPerson, removeExpense, updateExpense } = useApp();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -27,8 +29,8 @@ export default function ExpenseList() {
   if (filtered.length === 0) {
     return (
       <div className="text-center py-16 text-slate-400">
-        <p className="text-lg mb-1">尚無記錄</p>
-        <p className="text-sm">上傳收據或手動新增開始記帳</p>
+        <p className="text-lg mb-1">{t('list.emptyTitle')}</p>
+        <p className="text-sm">{t('list.emptyHint')}</p>
       </div>
     );
   }

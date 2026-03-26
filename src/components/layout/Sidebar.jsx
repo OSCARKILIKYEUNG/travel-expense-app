@@ -1,18 +1,20 @@
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Plus, BarChart, Settings } from '../ui/Icons';
 
-const NAV_ITEMS = [
-  { to: '/', icon: Home, label: '儀表板' },
-  { to: '/add', icon: Plus, label: '新增記錄' },
-  { to: '/charts', icon: BarChart, label: '統計圖表' },
-  { to: '/settings', icon: Settings, label: '設定' },
+const NAV_KEYS = [
+  { to: '/', icon: Home, labelKey: 'nav.dashboard' },
+  { to: '/add', icon: Plus, labelKey: 'nav.addRecord' },
+  { to: '/charts', icon: BarChart, labelKey: 'nav.charts' },
+  { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 
 export default function Sidebar() {
+  const { t } = useTranslation();
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white border-r border-slate-200 p-4 gap-1" role="navigation" aria-label="側邊導航">
-      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2 px-3">導航</p>
-      {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2 px-3">{t('nav.sidebarTitle')}</p>
+      {NAV_KEYS.map(({ to, icon: Icon, labelKey }) => (
         <NavLink
           key={to}
           to={to}
@@ -26,7 +28,7 @@ export default function Sidebar() {
           }
         >
           <Icon size={18} />
-          {label}
+          {t(labelKey)}
         </NavLink>
       ))}
     </aside>

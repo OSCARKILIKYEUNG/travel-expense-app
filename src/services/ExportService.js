@@ -1,4 +1,5 @@
-import { CURRENCY_NAMES } from '../utils/constants';
+import i18n from '../i18n';
+import { getItemDisplayName, pickLocalized } from '../utils/displayNames';
 
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -19,7 +20,8 @@ export function exportExpenses(expenses) {
 export function exportFullBackup(expenses, settings) {
   const data = { expenses, settings, backupDate: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  download(blob, `旅遊記帳_完整備份_${new Date().toISOString().slice(0, 10)}.json`);
+  const prefix = i18n.t('export.backupFilename');
+  download(blob, `${prefix}_${new Date().toISOString().slice(0, 10)}.json`);
 }
 
 export function importData(file) {
@@ -33,10 +35,10 @@ export function importData(file) {
         } else if (parsed.expenses && Array.isArray(parsed.expenses)) {
           resolve(parsed);
         } else {
-          reject(new Error('格式錯誤'));
+          reject(new Error(i18n.t('export.importFormatError')));
         }
       } catch {
-        reject(new Error('匯入失敗'));
+        reject(new Error(i18n.t('export.importFailed')));
       }
     };
     reader.readAsText(file);
@@ -44,17 +46,33 @@ export function importData(file) {
 }
 
 export function generateReport(expenses) {
+  const t = i18n.t.bind(i18n);
+  const lang = i18n.language || 'zh-TW';
+  const locale = lang.startsWith('en') ? 'en' : 'zh-TW';
   const totalHKD = expenses.reduce((a, c) => a + c.hkdAmount, 0);
-  const header = `🧳 旅行記帳報告\n========================\n📅 報告生成時間: ${new Date().toLocaleString('zh-TW')}\n📊 記錄總數: ${expenses.length} 筆\n💰 總花費: HKD $${Math.round(totalHKD).toLocaleString()}\n========================\n`;
+  const sep = '========================';
+  const title = t('export.reportTitle');
+  const time = new Date().toLocaleString(locale);
+  const header = `🧳 ${title}\n${sep}\n📅 ${t('export.generatedAt')}: ${time}\n📊 ${t('export.recordLine', { count: expenses.length })}\n💰 ${t('export.totalSpend')}: HKD $${Math.round(totalHKD).toLocaleString(locale)}\n${sep}\n`;
 
   const details = expenses
-    .map(
-      (e) =>
-        `\n📍 ${e.date}\n🏪 店舖: ${e.store}\n📌 地點: ${e.location}\n🏷️ 種類: ${e.category}\n📝 細項: ${e.items.map((i) => i.name).join(', ')}\n💵 花費: ${e.originalAmount} ${e.currency} = HKD $${Math.round(e.hkdAmount)}${e.receiptTaxExemptionAmount ? `\n📋 收據免稅額: ${e.receiptTaxExemptionAmount}` : ''}\n------------------------`
-    )
+    .map((e) => {
+      const catKey = e.category || '未分類';
+      const catLabel = t(`categories.${catKey}`, { defaultValue: catKey });
+      const itemNames = (e.items || [])
+        .map((i) => getItemDisplayName(i, lang))
+        .filter(Boolean)
+        .join(', ');
+      const store = pickLocalized(e.store, e.storeEn, lang);
+      const loc = pickLocalized(e.location, e.locationEn, lang);
+      const ex = e.receiptTaxExemptionAmount
+        ? `\n📋 ${t('export.receiptExemption')}: ${e.receiptTaxExemptionAmount}`
+        : '';
+      return `\n📍 ${e.date}\n🏪 ${t('export.store')}: ${store}\n📌 ${t('export.location')}: ${loc}\n🏷️ ${t('export.category')}: ${catLabel}\n📝 ${t('export.items')}: ${itemNames}\n💵 ${t('export.amount')}: ${e.originalAmount} ${e.currency} = HKD $${Math.round(e.hkdAmount)}${ex}\n------------------------`;
+    })
     .join('\n');
 
-  return `${header}${details}\n\n========================\n💵 總計: HKD $${Math.round(totalHKD).toLocaleString()}\n========================`;
+  return `${header}${details}\n\n${sep}\n💵 ${t('export.grandTotal')}: HKD $${Math.round(totalHKD).toLocaleString(locale)}\n${sep}`;
 }
 
 export function copyReport(expenses) {

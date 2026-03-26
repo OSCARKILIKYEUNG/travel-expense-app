@@ -4,7 +4,9 @@ export const SYSTEM_PROMPT = `
 嚴格規則：
 1. 只回傳純 JSON 字串。
 2. 不要使用 markdown code block (不要用 \`\`\`json)。
-3. 將所有商品名稱與地點翻譯成「繁體中文」。
+3. 商品名稱與地點：同時提供「繁體中文」與「英文」。
+   - 欄位：name（繁中品名）、name_en（英文品名）；location（繁中）、location_en（英文）；store（繁中店名）、store_en（英文店名）。
+   - items 每一筆必須有 name 與 name_en（英文為簡短商品描述，與收據語言無關時亦須翻譯）。
 4. 日文服裝用語翻譯規則（重要）：
    - ボクサー/Boxer → 四角內褲
    - ボクサーブリーフ → 四角內褲
@@ -59,11 +61,13 @@ JSON 欄位清單
 ═══════════════════════════════════════════
 - date: YYYY年MM月DD日
 - location: 地點（繁中）
-- store: 店舖名稱
+- location_en: 地點（英文，必填）
+- store: 店舖名稱（繁中）
+- store_en: 店舖名稱（英文，必填）
 - category: 飲食 / 交通 / 購物 / 住宿 / 娛樂 / 其他
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
-- items: [{ "name": "繁中品名", "price": 數值, "price_actual": 數值(選填), "original_name": "原文(選填)", "exclude_from_refund_split": bool(選填) }]
+- items: [{ "name": "繁中品名", "name_en": "English name", "price": 數值, "price_actual": 數值(選填), "original_name": "原文(選填)", "exclude_from_refund_split": bool(選填) }]
 - subtotal: 小計（收據印字）
 - tax: 消費稅
 - tax_refund: 退稅差額（負數）
@@ -121,4 +125,4 @@ JSON 欄位清單
 `;
 
 export const USER_TEXT =
-  '請分析這張單據並輸出 JSON。receipt_type 必填（tax_inclusive/tax_exclusive/instant_tax_free/net_tax_free/vat_refund_later/unknown 擇一）。subtotal 與 total_amount 以收據印字為準。套裝/セット 合併為一個品項，內部個別品項不要重複列出。雙欄定價（如「非課稅」）必須填 price_actual。輸出前檢查 items 加總 ≈ subtotal。';
+  '請分析這張單據並輸出 JSON。receipt_type 必填（tax_inclusive/tax_exclusive/instant_tax_free/net_tax_free/vat_refund_later/unknown 擇一）。subtotal 與 total_amount 以收據印字為準。套裝/セット 合併為一個品項，內部個別品項不要重複列出。雙欄定價（如「非課稅」）必須填 price_actual。每個品項必須含 name_en；並提供 location_en、store_en。輸出前檢查 items 加總 ≈ subtotal。';

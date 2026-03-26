@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { CATEGORY_COLORS } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 
 export default function DailyChart() {
+  const { t } = useTranslation();
   const { expenses, filterPerson, exchangeRates } = useApp();
 
   const { data, categories, max } = useMemo(() => {
@@ -38,7 +40,7 @@ export default function DailyChart() {
   }, [expenses, filterPerson, exchangeRates]);
 
   if (data.length === 0) {
-    return <div className="text-center py-12 text-slate-400">尚無消費記錄</div>;
+    return <div className="text-center py-12 text-slate-400">{t('chartsPage.noData')}</div>;
   }
 
   const chartW = Math.max(data.length * 80 + 60, 400);
@@ -50,7 +52,7 @@ export default function DailyChart() {
         {categories.map((c) => (
           <div key={c} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: CATEGORY_COLORS[c] || '#9CA3AF' }} />
-            <span className="text-xs text-slate-600">{c}</span>
+            <span className="text-xs text-slate-600">{t(`categories.${c}`, { defaultValue: c })}</span>
           </div>
         ))}
       </div>
@@ -80,7 +82,7 @@ export default function DailyChart() {
                     const h = (amt / max) * 260;
                     const sy = curY - h;
                     curY = sy;
-                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={CATEGORY_COLORS[cat] || '#9CA3AF'} opacity="0.85"><title>{cat}: ${Math.round(amt)}</title></rect>;
+                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={CATEGORY_COLORS[cat] || '#9CA3AF'} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: $${Math.round(amt)}`}</title></rect>;
                   })}
                   <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">${Math.round(d.total)}</text>
                   <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
@@ -98,16 +100,16 @@ export default function DailyChart() {
         <table className="w-full text-xs">
           <thead className="bg-slate-50">
             <tr>
-              <th className="px-2 py-2 text-left font-semibold text-slate-600">日期</th>
+              <th className="px-2 py-2 text-left font-semibold text-slate-600">{t('dailyChart.date')}</th>
               {categories.map((c) => (
                 <th key={c} className="px-2 py-2 text-right font-semibold text-slate-600">
                   <span className="inline-flex items-center gap-1">
                     <span className="w-2 h-2 rounded" style={{ backgroundColor: CATEGORY_COLORS[c] || '#9CA3AF' }} />
-                    {c}
+                    {t(`categories.${c}`, { defaultValue: c })}
                   </span>
                 </th>
               ))}
-              <th className="px-2 py-2 text-right font-semibold text-violet-600">總計</th>
+              <th className="px-2 py-2 text-right font-semibold text-violet-600">{t('dailyChart.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -125,7 +127,7 @@ export default function DailyChart() {
           </tbody>
           <tfoot className="bg-violet-50 font-bold">
             <tr>
-              <td className="px-2 py-2 text-slate-700">總計</td>
+              <td className="px-2 py-2 text-slate-700">{t('dailyChart.grandTotal')}</td>
               {categories.map((c) => {
                 const t = data.reduce((s, d) => s + (d.categories[c] || 0), 0);
                 return <td key={c} className="px-2 py-2 text-right text-slate-600">${Math.round(t)}</td>;

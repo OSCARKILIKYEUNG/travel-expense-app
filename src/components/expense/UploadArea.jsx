@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
 import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
+  const { t } = useTranslation();
   const { settings, exchangeRates, addExpenses, notify } = useApp();
   const { customCurrencyCode, customCurrencyRate } = settings;
 
@@ -23,7 +25,7 @@ export default function UploadArea() {
 
     for (let i = 0; i < files.length; i++) {
       setProgress({ current: i + 1, total: files.length });
-      setStep(`正在處理第 ${i + 1}/${files.length} 張\u2026`);
+      setStep(t('upload.processing', { current: i + 1, total: files.length }));
       try {
         const parsed = await parseReceipt(files[i]);
         const currency = resolveReceiptCurrency(parsed, settings);
@@ -40,10 +42,10 @@ export default function UploadArea() {
 
     if (results.length > 0) {
       addExpenses(results);
-      setStep(`成功處理 ${results.length}/${files.length} 張單據`);
+      setStep(t('upload.success', { ok: results.length, total: files.length }));
       setTimeout(() => { setLoading(false); setStep(''); }, 1500);
     } else {
-      notify(lastError || '所有單據處理失敗，請檢查圖片或稍後再試', 'error');
+      notify(lastError || t('upload.allFailed'), 'error');
       setLoading(false);
       setStep('');
     }
@@ -77,8 +79,8 @@ export default function UploadArea() {
             <div className="bg-indigo-100 p-3 rounded-full text-indigo-600 inline-block mb-2">
               <ImageIcon size={28} />
             </div>
-            <p className="text-slate-800 font-bold text-sm">批量上傳單據</p>
-            <p className="text-slate-400 text-xs">可一次選擇多張照片，AI 自動識別</p>
+            <p className="text-slate-800 font-bold text-sm">{t('upload.batch')}</p>
+            <p className="text-slate-400 text-xs">{t('upload.hint')}</p>
           </div>
         )}
       </label>

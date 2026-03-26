@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import DataService from '../services/DataService';
 import { sortExpenses } from '../utils/date';
 import { getExchangeRate } from '../utils/currency';
+import i18n from '../i18n';
+import { resolveAppLanguage } from '../utils/locale';
 
 const AppContext = createContext(null);
 
@@ -17,6 +19,12 @@ export function AppProvider({ children }) {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    const lang = resolveAppLanguage(settings.uiLanguage);
+    if (i18n.language !== lang) i18n.changeLanguage(lang);
+    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
+  }, [settings.uiLanguage]);
 
   // ── People ──
   const [people, setPeopleState] = useState(() => DataService.loadPeople());
@@ -93,7 +101,7 @@ export function AppProvider({ children }) {
     });
     if (changed) {
       setExpenses(updated);
-      notify('匯率已更新，金額已重算');
+      notify(i18n.t('toast.ratesUpdated'));
     }
   }, [exchangeRates]);
 
@@ -115,7 +123,7 @@ export function AppProvider({ children }) {
     setCurrentTripId(newTrip.id);
     setExpensesState([]);
     setPeopleState(newTrip.settings.people || ['共同']);
-    notify('旅程已創建');
+    notify(i18n.t('toast.tripCreated'));
   }, [expenses]);
 
   const switchTrip = useCallback((tripId) => {
@@ -128,11 +136,11 @@ export function AppProvider({ children }) {
     setExpensesState(newExpenses);
     if (trip?.settings?.people) setPeopleState(trip.settings.people);
     setFilterPerson(null);
-    notify('已切換旅程');
+    notify(i18n.t('toast.tripSwitched'));
   }, [currentTripId, expenses]);
 
   const deleteTrip = useCallback((tripId) => {
-    if (tripId === currentTripId) return { ok: false, msg: '無法刪除當前旅程' };
+    if (tripId === currentTripId) return { ok: false, msg: i18n.t('toast.cannotDeleteTrip') };
     const ok = DataService.deleteTrip(tripId);
     if (ok) {
       const data = DataService.loadTripsData();
@@ -143,7 +151,7 @@ export function AppProvider({ children }) {
         setExpensesState(trip.expenses || []);
         setPeopleState(trip.settings?.people || ['共同']);
       }
-      notify('旅程已刪除');
+      notify(i18n.t('toast.tripDeleted'));
     }
     return { ok };
   }, [currentTripId]);
@@ -155,31 +163,31 @@ export function AppProvider({ children }) {
       data.trips[idx].name = name;
       DataService.saveTripsData(data);
       setTrips(data.trips);
-      notify('旅程名稱已更新');
+      notify(i18n.t('toast.tripNameUpdated'));
     }
   }, []);
 
   // ── Expense actions ──
   const addExpense = useCallback((expense) => {
     setExpenses((prev) => sortExpenses([...prev, expense]));
-    notify('記錄已新增');
+    notify(i18n.t('toast.expenseAdded'));
   }, []);
 
   const addExpenses = useCallback((newOnes) => {
     setExpenses((prev) => sortExpenses([...newOnes, ...prev]));
-    notify(`成功新增 ${newOnes.length} 筆記錄`);
+    notify(i18n.t('toast.expensesAdded', { count: newOnes.length }));
   }, []);
 
   const updateExpense = useCallback((updated) => {
     const rate = exchangeRates[updated.currency] || 1;
     const withHkd = { ...updated, hkdAmount: updated.originalAmount * rate };
     setExpenses((prev) => sortExpenses(prev.map((e) => (e.id === withHkd.id ? withHkd : e))));
-    notify('記錄已更新');
+    notify(i18n.t('toast.expenseUpdated'));
   }, [exchangeRates]);
 
   const removeExpense = useCallback((id) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-    notify('記錄已刪除');
+    notify(i18n.t('toast.expenseDeleted'));
   }, []);
 
   // ── Context value ──
