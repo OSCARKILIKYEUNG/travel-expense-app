@@ -22,8 +22,15 @@ export async function fetchFrankfurterRates(homeBase) {
     throw new Error('INVALID_HOME');
   }
   const url = `${PROXY_PATH}?from=${encodeURIComponent(home)}`;
-  const res = await fetch(url);
-  const text = await res.text();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  let res, text;
+  try {
+    res = await fetch(url, { signal: ctrl.signal });
+    text = await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let detail = text;
     try {

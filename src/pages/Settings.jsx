@@ -212,6 +212,7 @@ export default function Settings() {
               <label className="block text-[10px] text-slate-500 mb-0.5">{code}</label>
               <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
               <input
+                key={`${code}-${exchangeRates[code]}`}
                 type="number"
                 step="0.0001"
                 defaultValue={exchangeRates[code]}
