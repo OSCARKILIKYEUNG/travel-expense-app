@@ -1,19 +1,24 @@
+/**
+ * 匯率方向：1 記帳貨幣（homeCurrency）= X 外幣。
+ * 例：homeCurrency = HKD，JPY: 19.23 表示 1 HKD = 19.23 JPY。
+ * 轉換公式：homeAmount = originalAmount / rate。
+ */
 export const DEFAULT_EXCHANGE_RATES = {
   HKD: 1.0,
-  JPY: 0.052,
-  USD: 7.8,
-  CNY: 1.08,
-  EUR: 8.5,
-  GBP: 9.8,
-  SGD: 5.8,
-  KRW: 0.0059,
-  THB: 0.23,
-  TWD: 0.25,
-  MYR: 1.75,
-  PHP: 0.14,
-  VND: 0.00031,
-  AUD: 5.0,
-  CAD: 5.5,
+  JPY: 19.23,
+  USD: 0.128,
+  CNY: 0.926,
+  EUR: 0.118,
+  GBP: 0.102,
+  SGD: 0.172,
+  KRW: 169.49,
+  THB: 4.35,
+  TWD: 4.0,
+  MYR: 0.571,
+  PHP: 7.14,
+  VND: 3225.81,
+  AUD: 0.2,
+  CAD: 0.182,
 };
 
 export const CURRENCY_NAMES = {
@@ -85,10 +90,11 @@ export const PRESET_TRIPS_DATA = {
       startDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
       expenses: [],
+      tripCurrency: 'JPY',
       settings: {
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
         people: ['共同', '人物A', '人物B'],
-        defaultCurrency: 'HKD',
+        homeCurrency: 'HKD',
         customCurrencyCode: '',
         customCurrencyRate: 1,
         uiLanguage: 'zh-TW',

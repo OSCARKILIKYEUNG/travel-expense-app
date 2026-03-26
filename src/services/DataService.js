@@ -25,7 +25,17 @@ const DataService = {
   // ── Trips ──────────────────────────────────────────
   loadTripsData() {
     const stored = read(KEYS.TRIPS);
-    if (stored) return stored;
+    if (stored) {
+      let dirty = false;
+      for (const trip of stored.trips) {
+        if (!trip.tripCurrency) {
+          trip.tripCurrency = 'JPY';
+          dirty = true;
+        }
+      }
+      if (dirty) this.saveTripsData(stored);
+      return stored;
+    }
     this.saveTripsData(PRESET_TRIPS_DATA);
     return PRESET_TRIPS_DATA;
   },
@@ -51,15 +61,16 @@ const DataService = {
     return next ? next.expenses : [];
   },
 
-  createTrip(name, startDate) {
+  createTrip(name, startDate, tripCurrency) {
     const tripsData = this.loadTripsData();
     const newTrip = {
       id: `trip-${Date.now()}`,
       name,
       startDate,
+      tripCurrency: tripCurrency || 'JPY',
       createdAt: new Date().toISOString(),
       expenses: [],
-      settings: { ...tripsData.trips[0].settings },
+      settings: { people: [...(tripsData.trips[0]?.settings?.people || ['共同'])] },
     };
     tripsData.trips.push(newTrip);
     tripsData.currentTripId = newTrip.id;
@@ -101,14 +112,47 @@ const DataService = {
   },
 
   // ── Settings ───────────────────────────────────────
+  /** 反轉舊版匯率（1 外幣 = X 本幣 → 1 本幣 = X 外幣） */
+  _migrateRates(oldRates) {
+    const out = {};
+    for (const [code, rate] of Object.entries(oldRates)) {
+      out[code] = rate > 0 ? parseFloat((1 / rate).toPrecision(6)) : 1;
+    }
+    return out;
+  },
+
+  _isOldRateFormat(saved) {
+    return !saved.homeCurrency;
+  },
+
   loadSettings() {
     const saved = read(KEYS.SETTINGS);
     if (saved) {
       const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
+
+      if (this._isOldRateFormat(saved)) {
+        const migratedRates = this._migrateRates(saved.exchangeRates || {});
+        const homeCurrency = (saved.defaultCurrency && saved.defaultCurrency !== 'OTHER')
+          ? saved.defaultCurrency : 'HKD';
+        const customRate = (saved.customCurrencyRate && saved.customCurrencyRate > 0)
+          ? parseFloat((1 / saved.customCurrencyRate).toPrecision(6)) : 1;
+        const migrated = {
+          ...rest,
+          exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...migratedRates },
+          homeCurrency,
+          customCurrencyCode: saved.customCurrencyCode || '',
+          customCurrencyRate: customRate,
+          uiLanguage: normalizeUiLanguage(saved.uiLanguage),
+        };
+        delete migrated.defaultCurrency;
+        this.saveSettings(migrated);
+        return migrated;
+      }
+
       return {
         ...rest,
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(saved.exchangeRates || {}) },
-        defaultCurrency: saved.defaultCurrency || 'HKD',
+        homeCurrency: saved.homeCurrency || 'HKD',
         customCurrencyCode: saved.customCurrencyCode || '',
         customCurrencyRate: saved.customCurrencyRate || 1,
         uiLanguage: normalizeUiLanguage(saved.uiLanguage),
@@ -118,7 +162,7 @@ const DataService = {
     if (preset) {
       return {
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(preset.exchangeRates || {}) },
-        defaultCurrency: preset.defaultCurrency || 'HKD',
+        homeCurrency: preset.homeCurrency || 'HKD',
         customCurrencyCode: preset.customCurrencyCode || '',
         customCurrencyRate: preset.customCurrencyRate || 1,
         uiLanguage: normalizeUiLanguage(preset.uiLanguage),
@@ -126,7 +170,7 @@ const DataService = {
     }
     return {
       exchangeRates: DEFAULT_EXCHANGE_RATES,
-      defaultCurrency: 'HKD',
+      homeCurrency: 'HKD',
       customCurrencyCode: '',
       customCurrencyRate: 1,
       uiLanguage: 'zh-TW',

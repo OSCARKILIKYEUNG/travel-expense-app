@@ -45,15 +45,16 @@ export function importData(file) {
   });
 }
 
-export function generateReport(expenses) {
+export function generateReport(expenses, homeCurrencyCode = 'HKD') {
   const t = i18n.t.bind(i18n);
   const lang = i18n.language || 'zh-TW';
   const locale = lang.startsWith('en') ? 'en' : 'zh-TW';
-  const totalHKD = expenses.reduce((a, c) => a + c.hkdAmount, 0);
+  const code = homeCurrencyCode || 'HKD';
+  const totalHome = expenses.reduce((a, c) => a + c.hkdAmount, 0);
   const sep = '========================';
   const title = t('export.reportTitle');
   const time = new Date().toLocaleString(locale);
-  const header = `🧳 ${title}\n${sep}\n📅 ${t('export.generatedAt')}: ${time}\n📊 ${t('export.recordLine', { count: expenses.length })}\n💰 ${t('export.totalSpend')}: HKD $${Math.round(totalHKD).toLocaleString(locale)}\n${sep}\n`;
+  const header = `🧳 ${title}\n${sep}\n📅 ${t('export.generatedAt')}: ${time}\n📊 ${t('export.recordLine', { count: expenses.length })}\n💰 ${t('export.totalSpend')}: ${code} $${Math.round(totalHome).toLocaleString(locale)}\n${sep}\n`;
 
   const details = expenses
     .map((e) => {
@@ -68,15 +69,15 @@ export function generateReport(expenses) {
       const ex = e.receiptTaxExemptionAmount
         ? `\n📋 ${t('export.receiptExemption')}: ${e.receiptTaxExemptionAmount}`
         : '';
-      return `\n📍 ${e.date}\n🏪 ${t('export.store')}: ${store}\n📌 ${t('export.location')}: ${loc}\n🏷️ ${t('export.category')}: ${catLabel}\n📝 ${t('export.items')}: ${itemNames}\n💵 ${t('export.amount')}: ${e.originalAmount} ${e.currency} = HKD $${Math.round(e.hkdAmount)}${ex}\n------------------------`;
+      return `\n📍 ${e.date}\n🏪 ${t('export.store')}: ${store}\n📌 ${t('export.location')}: ${loc}\n🏷️ ${t('export.category')}: ${catLabel}\n📝 ${t('export.items')}: ${itemNames}\n💵 ${t('export.amount')}: ${e.originalAmount} ${e.currency} = ${code} $${Math.round(e.hkdAmount)}${ex}\n------------------------`;
     })
     .join('\n');
 
-  return `${header}${details}\n\n${sep}\n💵 ${t('export.grandTotal')}: HKD $${Math.round(totalHKD).toLocaleString(locale)}\n${sep}`;
+  return `${header}${details}\n\n${sep}\n💵 ${t('export.grandTotal')}: ${code} $${Math.round(totalHome).toLocaleString(locale)}\n${sep}`;
 }
 
-export function copyReport(expenses) {
-  const text = generateReport(expenses);
+export function copyReport(expenses, homeCurrencyCode = 'HKD') {
+  const text = generateReport(expenses, homeCurrencyCode);
   if (navigator.clipboard?.writeText) {
     return navigator.clipboard.writeText(text);
   }

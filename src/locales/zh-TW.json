@@ -35,7 +35,7 @@
     "add": "新增"
   },
   "dashboard": {
-    "totalSpend": "總花費 (HKD)",
+    "totalSpend": "總花費 ({{currency}})",
     "recordsCount": "共 {{count}} 筆記錄",
     "originalTotals": "原幣值總和",
     "backup": "備份",
@@ -66,7 +66,7 @@
   },
   "chartsPage": {
     "title": "統計圖表",
-    "totalSpend": "總花費",
+    "totalSpend": "總花費 ({{currency}})",
     "days": "天數",
     "dailyAvg": "日均",
     "dailyTrend": "每日花費趨勢",
@@ -88,9 +88,11 @@
     "languageEn": "English",
     "currencyTitle": "記帳貨幣",
     "currencyCode": "貨幣代碼",
-    "rateToHkd": "匯率 (→ HKD)",
     "otherCurrency": "其他貨幣",
-    "ratesTitle": "匯率 (→ HKD)",
+    "ratesTitle": "匯率（1 {{home}} = X 外幣）",
+    "ratesHint": "數字為「1 記帳幣可兌換多少該外幣」。記帳幣那一列固定為 1。",
+    "rateOneHomeLabel": "1 {{home}} =",
+    "rateCustomForeign": "1 {{home}} 可兌 {{custom}}（外幣數量）",
     "tripsTitle": "旅程管理",
     "peopleTitle": "人物管理",
     "newPersonPlaceholder": "新人物名稱…",
@@ -256,7 +258,9 @@
     "enterName": "請輸入旅程名稱",
     "cannotDeleteCurrent": "無法刪除當前旅程，請先切換到其他旅程",
     "keepOne": "至少需要保留一個旅程",
-    "nameEmpty": "名稱不能為空"
+    "nameEmpty": "名稱不能為空",
+    "tripCurrency": "旅程主要外幣",
+    "tripCurrencyHint": "掃描收據時若 AI 未辨識幣別，會預設為此幣（與記帳幣不同）。"
   },
   "toast": {
     "ratesUpdated": "匯率已更新，金額已重算",

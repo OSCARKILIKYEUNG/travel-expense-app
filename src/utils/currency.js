@@ -1,26 +1,36 @@
 import { CURRENCY_NAMES } from './constants';
 
+/**
+ * 匯率值語意：1 homeCurrency = rate 單位的該外幣。
+ * homeCurrency 本身 rate = 1。
+ */
 export function getExchangeRate(currency, rates) {
   return rates[currency] || 1;
 }
 
 /**
- * 單據 AI 若回傳 currency（如 JPY），應優先採用，勿用使用者預設幣別覆蓋，否則金額會被當錯幣別、HKD 匯率錯。
+ * 將原幣金額轉成記帳幣（home currency）。
+ * 公式：homeAmount = originalAmount / rate（rate = 1 home = X foreign）。
  */
-export function resolveReceiptCurrency(parsed, settings) {
+export function toHome(amount, currency, rates) {
+  const rate = getExchangeRate(currency, rates);
+  return rate > 0 ? amount / rate : amount;
+}
+
+/**
+ * AI 回傳 currency 優先；其次 tripCurrency（旅程幣）；最後 homeCurrency。
+ */
+export function resolveReceiptCurrency(parsed, settings, tripCurrency) {
   const raw = (parsed?.currency || '').toString().trim().toUpperCase();
   if (raw && CURRENCY_NAMES[raw]) return raw;
-  if (settings?.defaultCurrency === 'OTHER' && settings?.customCurrencyCode) {
+  if (tripCurrency && CURRENCY_NAMES[tripCurrency]) return tripCurrency;
+  if (settings?.homeCurrency === 'OTHER' && settings?.customCurrencyCode) {
     const c = String(settings.customCurrencyCode).trim().toUpperCase();
     if (c && CURRENCY_NAMES[c]) return c;
   }
-  const def = settings?.defaultCurrency;
-  if (def && def !== 'OTHER' && CURRENCY_NAMES[def]) return def;
+  const home = settings?.homeCurrency;
+  if (home && home !== 'OTHER' && CURRENCY_NAMES[home]) return home;
   return 'HKD';
-}
-
-export function toHKD(amount, currency, rates) {
-  return amount * getExchangeRate(currency, rates);
 }
 
 export function formatCurrency(amount, options = {}) {

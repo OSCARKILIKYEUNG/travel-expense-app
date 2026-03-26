@@ -10,8 +10,8 @@ import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { t } = useTranslation();
-  const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify, renamePerson } = useApp();
-  const { exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate, uiLanguage } = settings;
+  const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify, renamePerson, homeCurrencyCode } = useApp();
+  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate, uiLanguage } = settings;
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
@@ -79,7 +79,7 @@ export default function Settings() {
   const handleCopyReport = async () => {
     if (!expenses.length) return;
     try {
-      await copyReport(expenses);
+      await copyReport(expenses, homeCurrencyCode);
       notify(t('dashboard.copied'));
     } catch {
       notify(t('dashboard.copyFailed'), 'error');
@@ -105,9 +105,9 @@ export default function Settings() {
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.currencyTitle')}</h2>
         <select
-          value={defaultCurrency}
+          value={homeCurrency}
           onChange={(e) => updateSettings({
-            defaultCurrency: e.target.value,
+            homeCurrency: e.target.value,
             ...(e.target.value !== 'OTHER' ? { customCurrencyCode: '', customCurrencyRate: 1 } : {}),
           })}
           className="input-field"
@@ -120,14 +120,14 @@ export default function Settings() {
           <option value="OTHER">{t('settings.otherCurrency')}</option>
         </select>
 
-        {defaultCurrency === 'OTHER' && (
+        {homeCurrency === 'OTHER' && (
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
             <div>
               <label htmlFor="s-custom-code" className="block text-xs text-slate-600 mb-0.5">{t('settings.currencyCode')}</label>
               <input id="s-custom-code" type="text" value={customCurrencyCode} onChange={(e) => updateSettings({ customCurrencyCode: e.target.value.toUpperCase() })} maxLength={3} className="input-field text-xs uppercase" placeholder="CHF" autoComplete="off" />
             </div>
             <div>
-              <label htmlFor="s-custom-rate" className="block text-xs text-slate-600 mb-0.5">{t('settings.rateToHkd')}</label>
+              <label htmlFor="s-custom-rate" className="block text-xs text-slate-600 mb-0.5">{t('settings.rateCustomForeign', { home: homeCurrencyCode, custom: customCurrencyCode || '…' })}</label>
               <input id="s-custom-rate" type="number" step="0.0001" value={customCurrencyRate} onChange={(e) => updateSettings({ customCurrencyRate: parseFloat(e.target.value) || 1 })} className="input-field text-xs" />
             </div>
           </div>
@@ -135,17 +135,20 @@ export default function Settings() {
       </section>
 
       <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle')}</h2>
+        <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
+        <p className="text-[10px] text-slate-500">{t('settings.ratesHint')}</p>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
           {Object.keys(CURRENCY_NAMES).map((code) => (
             <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200">
               <label className="block text-[10px] text-slate-500 mb-0.5">{code}</label>
+              <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
               <input
                 type="number"
                 step="0.0001"
                 defaultValue={exchangeRates[code]}
+                disabled={code === homeCurrencyCode}
                 onBlur={(e) => updateSettings({ exchangeRates: { ...exchangeRates, [code]: parseFloat(e.target.value) || 1 } })}
-                className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           ))}

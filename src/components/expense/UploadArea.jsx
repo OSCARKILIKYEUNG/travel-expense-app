@@ -7,7 +7,7 @@ import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { t } = useTranslation();
-  const { settings, exchangeRates, addExpenses, notify } = useApp();
+  const { settings, exchangeRates, addExpenses, notify, tripCurrency } = useApp();
   const { customCurrencyCode, customCurrencyRate } = settings;
 
   const [loading, setLoading] = useState(false);
@@ -28,9 +28,9 @@ export default function UploadArea() {
       setStep(t('upload.processing', { current: i + 1, total: files.length }));
       try {
         const parsed = await parseReceipt(files[i]);
-        const currency = resolveReceiptCurrency(parsed, settings);
+        const currency = resolveReceiptCurrency(parsed, settings, tripCurrency);
         const rate =
-          settings.defaultCurrency === 'OTHER' && currency === customCurrencyCode
+          settings.homeCurrency === 'OTHER' && currency === customCurrencyCode
             ? customCurrencyRate
             : getExchangeRate(currency, exchangeRates);
         results.push(buildExpenseFromAI(parsed, i, currency, rate));

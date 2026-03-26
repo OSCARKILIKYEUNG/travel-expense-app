@@ -35,7 +35,7 @@
     "add": "Add"
   },
   "dashboard": {
-    "totalSpend": "Total (HKD)",
+    "totalSpend": "Total ({{currency}})",
     "recordsCount": "{{count}} records",
     "originalTotals": "Original currency totals",
     "backup": "Backup",
@@ -66,7 +66,7 @@
   },
   "chartsPage": {
     "title": "Charts",
-    "totalSpend": "Total spend",
+    "totalSpend": "Total ({{currency}})",
     "days": "Days",
     "dailyAvg": "Daily avg",
     "dailyTrend": "Daily spending trend",
@@ -88,9 +88,11 @@
     "languageEn": "English",
     "currencyTitle": "Base currency",
     "currencyCode": "Currency code",
-    "rateToHkd": "Rate (→ HKD)",
     "otherCurrency": "Other",
-    "ratesTitle": "Rates (→ HKD)",
+    "ratesTitle": "Rates (1 {{home}} = X foreign)",
+    "ratesHint": "Each value is how many units of that currency equal 1 base currency. Your base currency row is locked at 1.",
+    "rateOneHomeLabel": "1 {{home}} =",
+    "rateCustomForeign": "Units of {{custom}} per 1 {{home}}",
     "tripsTitle": "Trips",
     "peopleTitle": "People",
     "newPersonPlaceholder": "New person…",
@@ -256,7 +258,9 @@
     "enterName": "Enter a trip name",
     "cannotDeleteCurrent": "Switch to another trip before deleting this one",
     "keepOne": "Keep at least one trip",
-    "nameEmpty": "Name cannot be empty"
+    "nameEmpty": "Name cannot be empty",
+    "tripCurrency": "Trip currency",
+    "tripCurrencyHint": "When AI cannot detect currency, receipts default to this (not the same as base currency)."
   },
   "toast": {
     "ratesUpdated": "Rates updated; amounts recalculated",

@@ -6,7 +6,7 @@ import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 
 export default function DailyChart() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
 
   const { data, categories, max } = useMemo(() => {
     const map = {};
@@ -66,7 +66,7 @@ export default function DailyChart() {
               return (
                 <g key={i}>
                   <line x1="40" y1={y} x2={chartW - 10} y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray={ratio === 0 ? '0' : '4 4'} />
-                  <text x="4" y={y + 4} fontSize="10" fill="#94A3B8">${Math.round(max * ratio)}</text>
+                  <text x="4" y={y + 4} fontSize="10" fill="#94A3B8">{homeCurrencyCode} ${Math.round(max * ratio)}</text>
                 </g>
               );
             })}
@@ -82,9 +82,9 @@ export default function DailyChart() {
                     const h = (amt / max) * 260;
                     const sy = curY - h;
                     curY = sy;
-                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={CATEGORY_COLORS[cat] || '#9CA3AF'} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: $${Math.round(amt)}`}</title></rect>;
+                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={CATEGORY_COLORS[cat] || '#9CA3AF'} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${homeCurrencyCode} $${Math.round(amt)}`}</title></rect>;
                   })}
-                  <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">${Math.round(d.total)}</text>
+                  <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{homeCurrencyCode} ${Math.round(d.total)}</text>
                   <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
                     {d.date.replace('年', '/').replace('月', '/').replace('日', '')}
                   </text>
@@ -118,10 +118,10 @@ export default function DailyChart() {
                 <td className="px-2 py-1.5 font-medium text-slate-700">{d.date}</td>
                 {categories.map((c) => (
                   <td key={c} className="px-2 py-1.5 text-right text-slate-500">
-                    {d.categories[c] ? `$${Math.round(d.categories[c])}` : '-'}
+                    {d.categories[c] ? `${homeCurrencyCode} $${Math.round(d.categories[c])}` : '-'}
                   </td>
                 ))}
-                <td className="px-2 py-1.5 text-right font-bold text-violet-600">${Math.round(d.total)}</td>
+                <td className="px-2 py-1.5 text-right font-bold text-violet-600">{homeCurrencyCode} ${Math.round(d.total)}</td>
               </tr>
             ))}
           </tbody>
@@ -130,9 +130,9 @@ export default function DailyChart() {
               <td className="px-2 py-2 text-slate-700">{t('dailyChart.grandTotal')}</td>
               {categories.map((c) => {
                 const t = data.reduce((s, d) => s + (d.categories[c] || 0), 0);
-                return <td key={c} className="px-2 py-2 text-right text-slate-600">${Math.round(t)}</td>;
+                return <td key={c} className="px-2 py-2 text-right text-slate-600">{homeCurrencyCode} ${Math.round(t)}</td>;
               })}
-              <td className="px-2 py-2 text-right text-violet-700">${Math.round(data.reduce((s, d) => s + d.total, 0))}</td>
+              <td className="px-2 py-2 text-right text-violet-700">{homeCurrencyCode} ${Math.round(data.reduce((s, d) => s + d.total, 0))}</td>
             </tr>
           </tfoot>
         </table>

@@ -19,7 +19,7 @@ function refundEpsilon(currency) {
 
 export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
-  const { filterPerson, exchangeRates } = useApp();
+  const { filterPerson, exchangeRates, homeCurrencyCode } = useApp();
   const cat = expense.category || '未分類';
   const catLabel = t(`categories.${cat}`, { defaultValue: cat });
   const storeDisplay = getExpenseStoreDisplay(expense, i18n.language, t);
@@ -143,7 +143,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
           {isPartialMatch ? (
             <>
               <p className="text-lg font-bold text-violet-700">
-                <span className="text-[10px] text-violet-400 font-normal mr-0.5">HKD</span>
+                <span className="text-[10px] text-violet-400 font-normal mr-0.5">{homeCurrencyCode}</span>
                 {Math.round(displayAmount.hkd).toLocaleString()}
               </p>
               <p className="text-[10px] text-violet-400">
@@ -153,7 +153,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
           ) : (
             <>
               <p className="text-xl font-bold text-slate-900">
-                <span className="text-xs text-slate-400 font-normal">HKD </span>
+                <span className="text-xs text-slate-400 font-normal">{homeCurrencyCode} </span>
                 {Math.round(displayAmount.hkd).toLocaleString()}
               </p>
               <p className="text-xs text-slate-500 font-medium">

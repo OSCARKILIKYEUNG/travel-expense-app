@@ -1,24 +1,27 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
+import { CURRENCY_NAMES } from '../../utils/constants';
 import Dialog from '../ui/Dialog';
 import { Globe, Edit, Trash2 } from '../ui/Icons';
 
 export default function TripManager() {
   const { t } = useTranslation();
-  const { trips, currentTripId, createTrip, deleteTrip, updateTripName, switchTrip, notify } = useApp();
+  const { trips, currentTripId, createTrip, deleteTrip, updateTripName, switchTrip, notify, tripCurrency: currentTripCurrency } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newTripCurrency, setNewTripCurrency] = useState('JPY');
 
   const handleCreate = () => {
     if (!newName.trim()) { notify(t('trip.enterName'), 'warning'); return; }
-    createTrip(newName.trim(), newDate);
+    createTrip(newName.trim(), newDate, newTripCurrency);
     setNewName('');
     setNewDate(new Date().toISOString().split('T')[0]);
+    setNewTripCurrency('JPY');
     setShowCreate(false);
   };
 
@@ -45,7 +48,11 @@ export default function TripManager() {
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-700">{t('trip.title')}</h3>
-        <button type="button" onClick={() => setShowCreate(true)} className="btn-primary !py-1.5 !px-3 text-xs">
+        <button
+          type="button"
+          onClick={() => { setNewTripCurrency(currentTripCurrency || 'JPY'); setShowCreate(true); }}
+          className="btn-primary !py-1.5 !px-3 text-xs"
+        >
           {t('trip.addTrip')}
         </button>
       </div>
@@ -62,7 +69,9 @@ export default function TripManager() {
                     <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">{t('trip.current')}</span>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 ml-5">{trip.startDate} · {t('trip.records', { count: trip.expenses?.length || 0 })}</p>
+                <p className="text-[10px] text-slate-400 ml-5">
+                  {trip.startDate} · {(trip.tripCurrency || 'JPY')} · {t('trip.records', { count: trip.expenses?.length || 0 })}
+                </p>
               </div>
               <div className="flex gap-1 shrink-0">
                 {trip.id !== currentTripId && (
@@ -109,6 +118,22 @@ export default function TripManager() {
           <div>
             <label htmlFor="trip-date" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.startDate')}</label>
             <input id="trip-date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label htmlFor="trip-currency" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.tripCurrency')}</label>
+            <select
+              id="trip-currency"
+              value={newTripCurrency}
+              onChange={(e) => setNewTripCurrency(e.target.value)}
+              className="input-field"
+            >
+              {Object.keys(CURRENCY_NAMES).map((code) => (
+                <option key={code} value={code}>
+                  {code} — {t(`currency.${code}`)}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500 mt-1">{t('trip.tripCurrencyHint')}</p>
           </div>
         </div>
         <div className="flex gap-3 mt-6">

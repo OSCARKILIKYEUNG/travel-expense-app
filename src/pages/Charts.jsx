@@ -8,7 +8,7 @@ import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 
 export default function Charts() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
 
   const stats = useMemo(() => {
     let total = 0;
@@ -39,9 +39,9 @@ export default function Charts() {
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">
-            {t('chartsPage.totalSpend')}{filterPerson ? ` (${filterPerson})` : ''}
+            {t('chartsPage.totalSpend', { currency: homeCurrencyCode })}{filterPerson ? ` (${filterPerson})` : ''}
           </p>
-          <p className="text-xl font-bold text-violet-600 tabular-nums">${Math.round(stats.total).toLocaleString()}</p>
+          <p className="text-xl font-bold text-violet-600 tabular-nums">{homeCurrencyCode} ${Math.round(stats.total).toLocaleString()}</p>
         </div>
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.days')}</p>
@@ -49,7 +49,7 @@ export default function Charts() {
         </div>
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.dailyAvg')}</p>
-          <p className="text-xl font-bold text-emerald-600 tabular-nums">${Math.round(stats.avg).toLocaleString()}</p>
+          <p className="text-xl font-bold text-emerald-600 tabular-nums">{homeCurrencyCode} ${Math.round(stats.avg).toLocaleString()}</p>
         </div>
       </div>
 

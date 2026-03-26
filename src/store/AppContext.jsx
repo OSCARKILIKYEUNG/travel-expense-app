@@ -10,7 +10,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   // ── Settings ──
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
-  const { exchangeRates, defaultCurrency, customCurrencyCode, customCurrencyRate } = settings;
+  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate } = settings;
 
   const updateSettings = useCallback((patch) => {
     setSettingsState((prev) => {
@@ -92,10 +92,10 @@ export function AppProvider({ children }) {
       const amt = e.originalAmount || e.hkdAmount;
       if (!curr || !amt) return e;
       const newRate = exchangeRates[curr] || 1;
-      const newHkd = amt * newRate;
-      if (Math.abs(newHkd - e.hkdAmount) > 0.01) {
+      const newHome = newRate > 0 ? amt / newRate : amt;
+      if (Math.abs(newHome - e.hkdAmount) > 0.01) {
         changed = true;
-        return { ...e, hkdAmount: newHkd, rate: newRate };
+        return { ...e, hkdAmount: newHome, rate: newRate };
       }
       return e;
     });
@@ -107,17 +107,17 @@ export function AppProvider({ children }) {
 
   // ── Custom currency sync ──
   useEffect(() => {
-    if (defaultCurrency === 'OTHER' && customCurrencyCode?.length === 3 && customCurrencyRate > 0) {
+    if (homeCurrency === 'OTHER' && customCurrencyCode?.length === 3 && customCurrencyRate > 0) {
       updateSettings({
         exchangeRates: { ...exchangeRates, [customCurrencyCode]: customCurrencyRate },
       });
     }
-  }, [customCurrencyCode, customCurrencyRate, defaultCurrency]);
+  }, [customCurrencyCode, customCurrencyRate, homeCurrency]);
 
   // ── Trip actions ──
-  const createTrip = useCallback((name, startDate) => {
+  const createTrip = useCallback((name, startDate, tripCurrency) => {
     DataService.updateCurrentTripExpenses(expenses);
-    const newTrip = DataService.createTrip(name, startDate);
+    const newTrip = DataService.createTrip(name, startDate, tripCurrency);
     const data = DataService.loadTripsData();
     setTrips(data.trips);
     setCurrentTripId(newTrip.id);
@@ -213,7 +213,7 @@ export function AppProvider({ children }) {
 
   const updateExpense = useCallback((updated) => {
     const rate = exchangeRates[updated.currency] || 1;
-    const withHkd = { ...updated, hkdAmount: updated.originalAmount * rate };
+    const withHkd = { ...updated, hkdAmount: rate > 0 ? updated.originalAmount / rate : updated.originalAmount };
     setExpenses((prev) => sortExpenses(prev.map((e) => (e.id === withHkd.id ? withHkd : e))));
     notify(i18n.t('toast.expenseUpdated'));
   }, [exchangeRates]);
@@ -224,6 +224,16 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── Context value ──
+  const tripCurrency = currentTrip?.tripCurrency || 'JPY';
+
+  const homeCurrencyCode = useMemo(() => {
+    if (homeCurrency === 'OTHER' && customCurrencyCode?.length === 3) {
+      return String(customCurrencyCode).trim().toUpperCase();
+    }
+    if (homeCurrency && homeCurrency !== 'OTHER') return homeCurrency;
+    return 'HKD';
+  }, [homeCurrency, customCurrencyCode]);
+
   const value = useMemo(() => ({
     settings, updateSettings,
     people, setPeople,
@@ -233,9 +243,12 @@ export function AppProvider({ children }) {
     filterPerson, setFilterPerson,
     toast, notify,
     exchangeRates,
+    homeCurrency: homeCurrency || 'HKD',
+    homeCurrencyCode,
+    tripCurrency,
   }), [
     settings, people, trips, currentTripId, currentTrip,
-    expenses, filterPerson, toast, exchangeRates,
+    expenses, filterPerson, toast, exchangeRates, homeCurrency, homeCurrencyCode, tripCurrency,
     updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTripName, renamePerson,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     setFilterPerson, notify,

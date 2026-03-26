@@ -172,14 +172,14 @@ export function getPartialMatchPersonShareHKD(expense, filterPerson, exchangeRat
   const G = sumAllItemActualPrices(expense.items);
   const rate = getExchangeRate(expense.currency || 'HKD', exchangeRates);
   if (G <= 0) {
-    return sumAssignedItemActualPrices(expense, filterPerson) * rate;
+    return rate > 0 ? sumAssignedItemActualPrices(expense, filterPerson) / rate : 0;
   }
   const netOrig = getPartialMatchPersonShareOriginal(expense, filterPerson);
   const P = Number(expense.originalAmount) || 0;
   if (P > 0) {
     return expense.hkdAmount * (netOrig / P);
   }
-  return netOrig * rate;
+  return rate > 0 ? netOrig / rate : netOrig;
 }
 
 /**

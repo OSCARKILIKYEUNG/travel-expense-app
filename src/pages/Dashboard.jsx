@@ -15,7 +15,7 @@ import UploadArea from '../components/expense/UploadArea';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode } = useApp();
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
@@ -65,10 +65,10 @@ export default function Dashboard() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
         <div className="relative z-10">
           <p className="text-indigo-200 text-xs font-medium mb-0.5">
-            {t('dashboard.totalSpend')}{filterPerson && ` · ${filterPerson}`}
+            {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
           </p>
           <h2 className="text-3xl lg:text-4xl font-bold mb-0.5 tabular-nums">
-            ${Math.round(totalHKD).toLocaleString()}
+            {homeCurrencyCode} ${Math.round(totalHKD).toLocaleString()}
           </h2>
           <p className="text-indigo-300 text-xs">{t('dashboard.recordsCount', { count: recordCount })}</p>
 

@@ -8,7 +8,7 @@ import { ArrowLeft, Check } from '../components/ui/Icons';
 
 export default function AddExpense() {
   const { t } = useTranslation();
-  const { people, exchangeRates, addExpense } = useApp();
+  const { people, exchangeRates, addExpense, tripCurrency } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -17,7 +17,7 @@ export default function AddExpense() {
     location: '',
     category: '飲食',
     assignedTo: '共同',
-    currency: 'HKD',
+    currency: tripCurrency || 'JPY',
     amount: '',
     subtotal: '',
     tax: '',
@@ -54,7 +54,7 @@ export default function AddExpense() {
       discount,
       currency: form.currency,
       originalAmount: amount,
-      hkdAmount: amount * rate,
+      hkdAmount: rate > 0 ? amount / rate : amount,
       rate,
       assignedTo: form.assignedTo,
       items,

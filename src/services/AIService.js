@@ -280,7 +280,7 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     discount,
     originalAmount: finalAmount,
     currency,
-    hkdAmount: finalAmount * rate,
+    hkdAmount: rate > 0 ? finalAmount / rate : finalAmount,
     paymentMethod: result.payment_method || '',
     receiptType,
     ...(hasBundlePricing ? { hasBundlePricing: true } : {}),
