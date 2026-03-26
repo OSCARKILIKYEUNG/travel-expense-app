@@ -45,9 +45,23 @@ export function accountingCurrencyOptions(trip, globalSaved = []) {
   return [...set].sort();
 }
 
-/** 旅程主要外幣下拉：內建 + 跨旅程曾用過的代碼（去重） */
-export function tripCurrencyOptions(globalSaved = []) {
+/** 旅程主要外幣 ISO（與 trip.tripCurrency 一致） */
+export function getTripCurrencyCode(trip) {
+  if (!trip) return 'JPY';
+  const c = trip.tripCurrency;
+  if (c && typeof c === 'string' && c.length >= 3) return c.toUpperCase().slice(0, 3);
+  return 'JPY';
+}
+
+/** 旅程主要外幣下拉：內建 + 跨旅程已儲存 + 本旅程自訂（去重） */
+export function tripCurrencyOptions(trip, globalSaved = []) {
   const preset = Object.keys(CURRENCY_NAMES);
-  const set = new Set([...preset, ...(Array.isArray(globalSaved) ? globalSaved : [])]);
+  const extra = [
+    ...(Array.isArray(trip?.customTripCurrencyCodes) ? trip.customTripCurrencyCodes : []),
+    ...(Array.isArray(globalSaved) ? globalSaved : []),
+  ];
+  const cur = trip ? getTripCurrencyCode(trip) : '';
+  const set = new Set([...preset, ...extra]);
+  if (cur && /^[A-Z]{3}$/.test(cur)) set.add(cur);
   return [...set].sort();
 }

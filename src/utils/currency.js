@@ -25,7 +25,10 @@ export function resolveReceiptCurrency(parsed, accountingCode, tripCurrency) {
   const raw = (parsed?.currency || '').toString().trim().toUpperCase();
   if (raw && CURRENCY_NAMES[raw]) return raw;
   if (raw && /^[A-Z]{3}$/.test(raw)) return raw;
-  if (tripCurrency && CURRENCY_NAMES[tripCurrency]) return tripCurrency;
+  const tripIso = String(tripCurrency || '')
+    .toUpperCase()
+    .slice(0, 3);
+  if (tripIso && /^[A-Z]{3}$/.test(tripIso)) return tripIso;
   const home = String(accountingCode || '').toUpperCase();
   if (home && /^[A-Z]{3}$/.test(home)) return home.slice(0, 3);
   return 'HKD';

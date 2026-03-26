@@ -91,6 +91,8 @@ export const PRESET_TRIPS_DATA = {
       createdAt: new Date().toISOString(),
       expenses: [],
       tripCurrency: 'JPY',
+      tripCurrencyIsCustom: false,
+      customTripCurrencyCodes: [],
       accountingCurrency: 'HKD',
       accountingIsCustom: false,
       customAccountingCodes: [],

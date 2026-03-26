@@ -1,4 +1,4 @@
-import { DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
+import { CURRENCY_NAMES, DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
 import { blankRatesForAccounting, getAccountingCode } from '../utils/tripMoney';
 import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
@@ -43,6 +43,12 @@ function buildSavedCurrencyListsFromTrips() {
       .toUpperCase()
       .slice(0, 3);
     if (/^[A-Z]{3}$/.test(tc)) tripC.add(tc);
+    (t.customTripCurrencyCodes || []).forEach((c) => {
+      const x = String(c)
+        .toUpperCase()
+        .slice(0, 3);
+      if (/^[A-Z]{3}$/.test(x)) tripC.add(x);
+    });
   }
   return {
     savedAccountingCodes: [...acc].sort(),
@@ -118,6 +124,23 @@ function migrateTripsCurrency(data) {
     if (!Array.isArray(trip.manualRateCodes)) {
       trip.manualRateCodes = [];
       dirty = true;
+    }
+    if (!Array.isArray(trip.customTripCurrencyCodes)) {
+      trip.customTripCurrencyCodes = [];
+      dirty = true;
+    }
+    {
+      const tcur = String(trip.tripCurrency || '')
+        .toUpperCase()
+        .slice(0, 3);
+      if (trip.tripCurrencyIsCustom == null) {
+        trip.tripCurrencyIsCustom = !!(
+          tcur &&
+          /^[A-Z]{3}$/.test(tcur) &&
+          !CURRENCY_NAMES[tcur]
+        );
+        dirty = true;
+      }
     }
     if (!trip.exchangeRates || Object.keys(trip.exchangeRates).length === 0) {
       if (!globalMigrated && settings?.exchangeRates && Object.keys(settings.exchangeRates).length) {
@@ -199,6 +222,8 @@ const DataService = {
    * @param {string} [options.accountingCurrency]
    * @param {boolean} [options.accountingIsCustom]
    * @param {string[]} [options.customAccountingCodes]
+   * @param {boolean} [options.tripCurrencyIsCustom]
+   * @param {string[]} [options.customTripCurrencyCodes]
    */
   createTrip(name, startDate, tripCurrency, options = {}) {
     const tripsData = this.loadTripsData();
@@ -221,12 +246,25 @@ const DataService = {
       exchangeRates = rebaseRates({ ...DEFAULT_EXCHANGE_RATES }, ac);
     }
 
+    const tcCode = String(tripCurrency || 'JPY')
+      .toUpperCase()
+      .slice(0, 3);
+    const tripIsCustom =
+      options.tripCurrencyIsCustom != null
+        ? !!options.tripCurrencyIsCustom
+        : !!cur?.tripCurrencyIsCustom;
+    const customTripCodes = Array.isArray(options.customTripCurrencyCodes)
+      ? [...options.customTripCurrencyCodes]
+      : [...(cur?.customTripCurrencyCodes || [])];
+
     const peopleSource = cur?.settings?.people || tripsData.trips[0]?.settings?.people || ['共同'];
     const newTrip = {
       id: `trip-${Date.now()}`,
       name,
       startDate,
-      tripCurrency: tripCurrency || 'JPY',
+      tripCurrency: tcCode || 'JPY',
+      tripCurrencyIsCustom: tripIsCustom,
+      customTripCurrencyCodes: customTripCodes,
       accountingCurrency: ac,
       accountingIsCustom: isCustom,
       customAccountingCodes: customCodes,
@@ -279,8 +317,14 @@ const DataService = {
       if (trimmed) trip.name = trimmed;
     }
     if (patch.tripCurrency != null) {
-      const code = String(patch.tripCurrency).toUpperCase();
+      const code = String(patch.tripCurrency).toUpperCase().slice(0, 3);
       trip.tripCurrency = code;
+    }
+    if (patch.tripCurrencyIsCustom != null) {
+      trip.tripCurrencyIsCustom = !!patch.tripCurrencyIsCustom;
+    }
+    if (patch.customTripCurrencyCodes != null) {
+      trip.customTripCurrencyCodes = [...patch.customTripCurrencyCodes];
     }
     if (patch.accountingCurrency != null) {
       trip.accountingCurrency = String(patch.accountingCurrency).toUpperCase().slice(0, 3);

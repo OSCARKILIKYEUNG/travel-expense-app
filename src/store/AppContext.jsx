@@ -5,7 +5,7 @@ import { getExchangeRate } from '../utils/currency';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 import { getDefaultAssignee } from '../utils/people';
-import { getAccountingCode } from '../utils/tripMoney';
+import { getAccountingCode, getTripCurrencyCode } from '../utils/tripMoney';
 
 const AppContext = createContext(null);
 
@@ -116,9 +116,13 @@ export function AppProvider({ children }) {
       const x = String(c).toUpperCase().slice(0, 3);
       if (/^[A-Z]{3}$/.test(x)) acc.add(x);
     });
-    const tc = String(trip.tripCurrency || '')
-      .toUpperCase()
-      .slice(0, 3);
+    const tripCodes = new Set();
+    const tc = getTripCurrencyCode(trip);
+    if (/^[A-Z]{3}$/.test(tc)) tripCodes.add(tc);
+    (trip.customTripCurrencyCodes || []).forEach((c) => {
+      const x = String(c).toUpperCase().slice(0, 3);
+      if (/^[A-Z]{3}$/.test(x)) tripCodes.add(x);
+    });
 
     setSettingsState((prev) => {
       const mergeArr = (base, additions) => {
@@ -132,7 +136,7 @@ export function AppProvider({ children }) {
       const next = {
         ...prev,
         savedAccountingCodes: mergeArr(prev.savedAccountingCodes, [...acc]),
-        savedTripCurrencies: mergeArr(prev.savedTripCurrencies, tc && /^[A-Z]{3}$/.test(tc) ? [tc] : []),
+        savedTripCurrencies: mergeArr(prev.savedTripCurrencies, [...tripCodes]),
       };
       DataService.saveSettings(next);
       return next;
@@ -263,7 +267,7 @@ export function AppProvider({ children }) {
     notify(i18n.t('toast.expenseDeleted'));
   }, [notify]);
 
-  const tripCurrency = currentTrip?.tripCurrency || 'JPY';
+  const tripCurrency = getTripCurrencyCode(currentTrip);
 
   const defaultAssignee = useMemo(() => getDefaultAssignee(people), [people]);
 
