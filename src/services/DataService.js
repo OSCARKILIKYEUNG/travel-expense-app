@@ -143,6 +143,7 @@ const DataService = {
           customCurrencyCode: saved.customCurrencyCode || '',
           customCurrencyRate: customRate,
           uiLanguage: normalizeUiLanguage(saved.uiLanguage),
+          exchangeRatesUpdatedAt: null,
         };
         delete migrated.defaultCurrency;
         this.saveSettings(migrated);
@@ -156,6 +157,7 @@ const DataService = {
         customCurrencyCode: saved.customCurrencyCode || '',
         customCurrencyRate: saved.customCurrencyRate || 1,
         uiLanguage: normalizeUiLanguage(saved.uiLanguage),
+        exchangeRatesUpdatedAt: saved.exchangeRatesUpdatedAt || null,
       };
     }
     const preset = PRESET_TRIPS_DATA.trips[0]?.settings;
@@ -166,6 +168,7 @@ const DataService = {
         customCurrencyCode: preset.customCurrencyCode || '',
         customCurrencyRate: preset.customCurrencyRate || 1,
         uiLanguage: normalizeUiLanguage(preset.uiLanguage),
+        exchangeRatesUpdatedAt: null,
       };
     }
     return {
@@ -174,6 +177,7 @@ const DataService = {
       customCurrencyCode: '',
       customCurrencyRate: 1,
       uiLanguage: 'zh-TW',
+      exchangeRatesUpdatedAt: null,
     };
   },
 

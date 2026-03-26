@@ -4,6 +4,7 @@
  */
 
 import i18n from '../i18n';
+import { CURRENCY_NAMES } from '../utils/constants';
 import { inferFixedFeeFromName } from '../utils/personShare';
 
 function resizeImage(file) {
@@ -126,7 +127,7 @@ function normalizeReceiptType(raw) {
   return v;
 }
 
-export function buildExpenseFromAI(result, index, currency, rate) {
+export function buildExpenseFromAI(result, index, currency, rate, tripCurrency) {
   const receiptType = normalizeReceiptType(result.receipt_type);
   const hasBundlePricing = !!(result.has_bundle ?? result.hasBundle);
 
@@ -238,6 +239,15 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     result.tax_exemption_display;
   const receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
 
+  const rawAiCurrency = (result?.currency || '').toString().trim().toUpperCase();
+  const tripCur = (tripCurrency || '').toString().trim().toUpperCase();
+  const currencyMismatch =
+    !!rawAiCurrency &&
+    !!tripCur &&
+    CURRENCY_NAMES[rawAiCurrency] &&
+    CURRENCY_NAMES[tripCur] &&
+    rawAiCurrency !== tripCur;
+
   // --- 驗證：數字是否依類型自洽 ---
   let needsReview = false;
   const driftThreshold = Math.max(eps * 5, 5);
@@ -286,5 +296,6 @@ export function buildExpenseFromAI(result, index, currency, rate) {
     ...(hasBundlePricing ? { hasBundlePricing: true } : {}),
     ...(receiptTaxExemptionAmount > eps ? { receiptTaxExemptionAmount } : {}),
     ...(needsReview ? { needsReview: true } : {}),
+    ...(currencyMismatch ? { currencyMismatch: true, aiDetectedCurrency: rawAiCurrency } : {}),
   };
 }

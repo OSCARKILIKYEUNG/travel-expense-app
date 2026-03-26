@@ -33,7 +33,7 @@ export default function UploadArea() {
           settings.homeCurrency === 'OTHER' && currency === customCurrencyCode
             ? customCurrencyRate
             : getExchangeRate(currency, exchangeRates);
-        results.push(buildExpenseFromAI(parsed, i, currency, rate));
+        results.push(buildExpenseFromAI(parsed, i, currency, rate, tripCurrency));
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);
         lastError = err?.message || String(err);

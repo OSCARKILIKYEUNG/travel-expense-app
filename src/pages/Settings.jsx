@@ -4,20 +4,72 @@ import { useApp } from '../store/AppContext';
 import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
 import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
+import { fetchFrankfurterRates, mergeExchangeRates } from '../services/ExchangeRateService';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings, updateSettings, people, setPeople, expenses, setExpenses, notify, renamePerson, homeCurrencyCode } = useApp();
-  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate, uiLanguage } = settings;
+  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate, uiLanguage, exchangeRatesUpdatedAt } = settings;
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
   const [deletePerson, setDeletePerson] = useState(null);
   const [editPerson, setEditPerson] = useState(null);
   const [editPersonName, setEditPersonName] = useState('');
+  const [ratesLoading, setRatesLoading] = useState(false);
+
+  const handleHomeCurrencyChange = async (e) => {
+    const next = e.target.value;
+    if (next === 'OTHER') {
+      updateSettings({
+        homeCurrency: next,
+        customCurrencyCode: '',
+        customCurrencyRate: 1,
+      });
+      return;
+    }
+    setRatesLoading(true);
+    try {
+      const fetched = await fetchFrankfurterRates(next);
+      const merged = mergeExchangeRates(exchangeRates, fetched, next);
+      updateSettings({
+        homeCurrency: next,
+        customCurrencyCode: '',
+        customCurrencyRate: 1,
+        exchangeRates: merged,
+        exchangeRatesUpdatedAt: new Date().toISOString(),
+      });
+      if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
+    } catch {
+      notify(t('toast.fetchRatesFailed'), 'error');
+    } finally {
+      setRatesLoading(false);
+    }
+  };
+
+  const handleFetchRatesClick = async () => {
+    if (homeCurrency === 'OTHER') {
+      notify(t('settings.fetchRatesOtherOnly'), 'warning');
+      return;
+    }
+    setRatesLoading(true);
+    try {
+      const fetched = await fetchFrankfurterRates(homeCurrency);
+      const merged = mergeExchangeRates(exchangeRates, fetched, homeCurrency);
+      updateSettings({
+        exchangeRates: merged,
+        exchangeRatesUpdatedAt: new Date().toISOString(),
+      });
+      if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
+    } catch {
+      notify(t('toast.fetchRatesFailed'), 'error');
+    } finally {
+      setRatesLoading(false);
+    }
+  };
 
   const handleAddPerson = () => {
     const name = newPerson.trim();
@@ -106,10 +158,8 @@ export default function Settings() {
         <h2 className="text-sm font-bold text-slate-700">{t('settings.currencyTitle')}</h2>
         <select
           value={homeCurrency}
-          onChange={(e) => updateSettings({
-            homeCurrency: e.target.value,
-            ...(e.target.value !== 'OTHER' ? { customCurrencyCode: '', customCurrencyRate: 1 } : {}),
-          })}
+          onChange={handleHomeCurrencyChange}
+          disabled={ratesLoading}
           className="input-field"
         >
           {Object.keys(CURRENCY_NAMES).map((code) => (
@@ -135,8 +185,25 @@ export default function Settings() {
       </section>
 
       <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
-        <p className="text-[10px] text-slate-500">{t('settings.ratesHint')}</p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
+            <p className="text-[10px] text-slate-500">{t('settings.ratesHint')}</p>
+            {exchangeRatesUpdatedAt && (
+              <p className="text-[10px] text-slate-400 mt-1">
+                {t('settings.ratesLastUpdated')}: {new Date(exchangeRatesUpdatedAt).toLocaleString(i18n.language?.startsWith('en') ? 'en' : 'zh-TW')}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleFetchRatesClick}
+            disabled={ratesLoading || homeCurrency === 'OTHER'}
+            className="btn-secondary !py-1.5 !px-3 text-xs shrink-0"
+          >
+            {ratesLoading ? t('settings.fetchRatesLoading') : t('settings.fetchRates')}
+          </button>
+        </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
           {Object.keys(CURRENCY_NAMES).map((code) => (
             <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200">

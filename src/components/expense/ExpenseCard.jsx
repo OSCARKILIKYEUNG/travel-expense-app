@@ -19,7 +19,7 @@ function refundEpsilon(currency) {
 
 export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
-  const { filterPerson, exchangeRates, homeCurrencyCode } = useApp();
+  const { filterPerson, exchangeRates, homeCurrencyCode, tripCurrency } = useApp();
   const cat = expense.category || '未分類';
   const catLabel = t(`categories.${cat}`, { defaultValue: cat });
   const storeDisplay = getExpenseStoreDisplay(expense, i18n.language, t);
@@ -165,12 +165,17 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       </div>
 
       <div className="bg-slate-50/80 px-4 py-3 border-t border-slate-100">
-        {expense.needsReview && (
+        {(expense.currencyMismatch || expense.needsReview) && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex items-start gap-2">
             <span className="text-amber-500 text-sm leading-none mt-0.5">⚠</span>
-            <p className="text-[10px] text-amber-700 leading-snug">
-              {t('expenseCard.needsReview')}
-            </p>
+            <div className="text-[10px] text-amber-700 leading-snug space-y-1.5">
+              {expense.currencyMismatch && (
+                <p>{t('expenseCard.currencyMismatch', { ai: expense.aiDetectedCurrency || '—', trip: tripCurrency || '—' })}</p>
+              )}
+              {expense.needsReview && (
+                <p>{t('expenseCard.needsReview')}</p>
+              )}
+            </div>
           </div>
         )}
         {visibleItems.length > 0 && (
