@@ -166,6 +166,7 @@
 | 2025-03-24 | §三 踩坑擴充 L8～L17（AI 漏品項、品名誤辨、套裝重複、部署時序、PWA 快取、運算子優先順序等）；§五 Backlog 擴充到 B-15。 |
 | 2025-03-26 | 與 AI 協作書面 SOP **併入** `PRODUCT_MANAGEMENT.md` 專節（不另開檔）；§九 加連結；`docs/README.md`、根 `README.md` 已索引。 |
 | 2025-03-26 | SAVE：i18n（繁中／英）、收據雙語、語言僅兩選與 `normalizeUiLanguage`；詳見 §十。 |
+| 2025-03-26 | **SAVE 多幣別**：新增 **§十一**（計劃／交付／坑／後續）；§十 增列；`PRODUCT_MANAGEMENT` 發布紀錄補一行。 |
 
 ---
 
@@ -200,6 +201,48 @@
 | 2025-03-26 | **SAVE — i18n 與語言設定**：① `react-i18next` + `zh-TW.json`／`en.json`，全站文案（含 `Header`、導航、圖表、設定、Toast 等）；② 收據 **雙語欄位**（`name`／`name_en`、`store`／`store_en`、`location`／`location_en`）由 `receipt-prompt` + `buildExpenseFromAI` 寫入，`displayNames` 依語系顯示；③ **外稅 + 分人**時加「消費稅（按比例）」列；④ 刪除確認用本地化店名；⑤ **設定僅繁中／英**（移除「跟隨系統」），`normalizeUiLanguage` + `DataService` 統一、舊 `system`→繁中，`PRESET_TRIPS_DATA` 補 `uiLanguage`，匯入備份可帶語言。 | 舊資料無 `name_en` 時英文介面先顯示繁中；可選 backlog：編輯表單加英文品名欄。 |
 | 2025-03-26 | **書面 SOP**：併入 `PRODUCT_MANAGEMENT.md`（與 §九、Cursor rule 對照）；明定「細節規格≠已授權實作」。 | 規則變更時同步：Cursor rule、`PRODUCT_MANAGEMENT.md` 該節、§九。 |
 | 2025-03-26 | **歸檔**：獨立 `SOP_AI_COLLABORATION.md` 已刪除，全文併入產品管理檔專節，減少重複檔案。 | — |
+| 2025-03-26 | **多幣別 Phase 1+2**（`c43c9cb` 已 push）：匯率語意反轉、home/trip 幣、遷移、UI 動態記帳幣、旅程幣選擇、匯出／圖表標籤；詳見 **§十一**。 | **Phase 3（未做）**：即時匯率 API、切換記帳幣全量重算、AI 幣別誤判警示、旅程內編輯幣別、與 `PRODUCT_MANAGEMENT` 路線對齊。 |
+
+---
+
+## 十一、多幣別系統（2025-03-26）— 計劃 · 交付 · 坑 · 後續
+
+> 本節為 **SAVE** 存檔：與使用者對齊「先單一旅程幣、原幣 + 記帳幣為真實來源」後，分階段實作；**此處為接棒用單一來源**。
+
+### 11.1 更新計劃（當時對齊）
+
+| 階段 | 內容 |
+|------|------|
+| **Phase 1 · 基礎** | 匯率方向改為 **「1 記帳幣（home）= X 外幣」**；換算 **記帳幣金額 = 原幣 ÷ X**（`hkdAmount` 欄位仍表示「記帳幣金額」，未全面改名）。**`settings.homeCurrency`**（原 `defaultCurrency` 遷移）、**`trip.tripCurrency`**；舊資料一次性反轉匯率並存回。 |
+| **Phase 2 · UI** | 畫面顯示 **記帳幣代碼**（含 OTHER + 自訂碼）、設定頁匯率說明與「記帳幣列鎖 1」、**新建旅程選旅程幣**、複製報告／圖表／卡片標籤一致。 |
+| **Phase 3 · 後續（未做）** | 免費穩定匯率 API（例如 Frankfurter）、手動覆寫；切換「記帳幣」時依 `originalAmount`+`currency` 重算；掃描時 **AI 幣別與旅程幣不符** 之警示；儀表板「1 記帳幣 = X 外幣」展示與專業 UX 細節。 |
+
+### 11.2 已交付（實作與推送）
+
+- **常數**：`DEFAULT_EXCHANGE_RATES` 改為「1 HKD = X 外幣」等預設；`PRESET_TRIPS_DATA` 含 `tripCurrency`、`homeCurrency`。
+- **DataService**：`loadSettings` 遷移（無 `homeCurrency` → 反轉 `exchangeRates`、`defaultCurrency`→`homeCurrency`、自訂匯率反轉）；`loadTripsData` 補 `tripCurrency`；`createTrip(name, date, tripCurrency)`，新旅程 **僅複製 people**（不再整包複製 settings 匯率）。
+- **currency.js**：`toHome` 語意；`resolveReceiptCurrency(parsed, settings, tripCurrency)`。
+- **AppContext**：匯率重算與 `updateExpense` 用 **÷**；暴露 `homeCurrency`、`homeCurrencyCode`、`tripCurrency`。
+- **AIService / AddExpense / UploadArea / personShare**：計算與分人攤分與主邏輯一致（**÷ rate**）。
+- **UI**：`Settings` 匯率標題、hint、每格「1 home =」、記帳幣列 disabled；`TripManager` 新建旅程幣下拉、列表顯示幣別；`Dashboard`、`ExpenseCard`、`Charts`、`DailyChart`、`PersonChart`、`ExportService` 動態幣別。
+- **Git**：`main` 已 push（例：`c43c9cb`），可觸發 Vercel 部署。
+
+### 11.3 坑點與注意（接棒必讀）
+
+| # | 說明 |
+|---|------|
+| **M1** | 欄位名 **`hkdAmount`** 語意已是「記帳幣金額」，**勿**望文生義當成僅 HKD；未來若改名需遷移 localStorage。 |
+| **M2** | **舊匯率遷移** 為 `1/r`；自訂幣 `customCurrencyRate` 一併反轉；若使用者曾手動改錯，遷移後仍繼承該錯誤（需人工對帳）。 |
+| **M3** | 設定頁匯率 **uncontrolled `defaultValue`**（`onBlur` 寫入）：若程式碼改 `exchangeRates` 不經由 input，**輸入框顯示可能不更新**（已知限制；可改 controlled 或 `key` 強制重掛）。 |
+| **M4** | `getPartialMatchPersonShareHKD` 等函式名仍含 HKD，**與記帳幣語意不一致**；重構時一併改名。 |
+| **M5** | **Header** 曾發生 **map 回呼參數 `t` 遮蔽 `useTranslation` 的 `t`** → 第二個旅程起白屏；**已修**；日後避免 `map((t)=>` 等遮蔽 i18n。 |
+| **M6** | `renamePerson` 必須走 **`setExpenses`** 持久化，勿用僅更新 state 的 setter。 |
+| **M7** | 部署後若見舊版：**Vercel build 完成前**、**PWA Service Worker 快取**（見 §三 L13/L14）。 |
+
+### 11.4 後續跟進（Backlog 對齊）
+
+- 與 `PRODUCT_MANAGEMENT.md` 路線圖中「多幣／匯率」項併檢；**Phase 3** 實作前再與使用者 **對齊方案再改碼**（§九）。
+- 建議下一個 SAVE 時補：**API 選型**、**是否改名 `hkdAmount`**、**旅程內改 `tripCurrency` 對既有費用的影響**。
 
 ---
 

@@ -73,7 +73,7 @@ travel app/                    # 資料夾名含空白，終端機路徑請加�
 | `HANDOFF.md` | 遷移與決策歷史 |
 | `DESIGN_SPEC.md` | UI/UX 規格 |
 | `docs/PRODUCT_MANAGEMENT.md` | 路線圖、技術債、發布紀錄、**與 AI 協作 SOP**（專節） |
-| `docs/PRODUCT_ITERATION_2025-03.md` | 2025-03 分帳／免稅迭代之書面 log |
+| `docs/PRODUCT_ITERATION_2025-03.md` | 2025-03 分帳／免稅迭代之書面 log；**§十一** 多幣別 Phase 1+2 計劃／交付／坑 |
 | `docs/README.md` | **本檔：文件地圖** |
 | `docs/archive/BACKUP_BRANCH_v1.md` | Git 備份分支操作說明 |
 | `designs/README.md` | Pencil mockup 說明 |
