@@ -164,7 +164,7 @@
 | 2025-03-24 | 新增 §十 SAVE 快照表與觸發詞約定；擴充 Cursor rule。 |
 | 2025-03-24 | 新增 `docs/RECEIPT_TYPES.md`（單據 A～H）；索引與 README 連結。 |
 | 2025-03-24 | §三 踩坑擴充 L8～L17（AI 漏品項、品名誤辨、套裝重複、部署時序、PWA 快取、運算子優先順序等）；§五 Backlog 擴充到 B-15。 |
-| 2025-03-26 | 新增 `docs/SOP_AI_COLLABORATION.md`（意見→對齊→再實作之書面 SOP）；§九 加連結；`docs/README.md`、根 `README.md`、`PRODUCT_MANAGEMENT.md` 已索引。 |
+| 2025-03-26 | 與 AI 協作書面 SOP **併入** `PRODUCT_MANAGEMENT.md` 專節（不另開檔）；§九 加連結；`docs/README.md`、根 `README.md` 已索引。 |
 | 2025-03-26 | SAVE：i18n（繁中／英）、收據雙語、語言僅兩選與 `normalizeUiLanguage`；詳見 §十。 |
 
 ---
@@ -179,7 +179,7 @@
 | 2 | 助手先說明：**我如何理解問題**、**預計怎麼改**（含檔案／風險）。 |
 | 3 | 使用者確認、或明確說「同意／改吧／執行／幫我做」後，再實作。 |
 
-**實作位置**：`.cursor/rules/feedback-before-implement.mdc`（`alwaysApply: true`）。**書面 SOP（給人讀）**：[`docs/SOP_AI_COLLABORATION.md`](./SOP_AI_COLLABORATION.md)。
+**實作位置**：`.cursor/rules/feedback-before-implement.mdc`（`alwaysApply: true`）。**書面 SOP（給人讀）**：[`PRODUCT_MANAGEMENT.md` 專節「與 AI 協作 SOP」](./PRODUCT_MANAGEMENT.md#與-ai-協作-sop)。
 
 **例外**：純解釋概念、讀檔說明現況，可直接回答。
 
@@ -198,7 +198,8 @@
 | 2025-03-24 | **第二輪修正**（3 commits）：① prompt 加 4 個具體範例 + 自我檢查清單，強制 AI 回 `receipt_type`；② `buildExpenseFromAI` 品項去重（items sum > subtotal 時自動刪多餘行）；③ ExpenseCard 外稅加「消費稅 +N」列 + 標題改「原價（未稅）」；④ `normalizeReceiptType` 容錯加寬（中文、各種變體）。| 實測 8 張東京小票：badge✅、ZARA 雙價格✅、UNIQLO セット合併✅、退稅 2,557✅。 |
 | 2025-03-24 | **第三輪修正**：① 外稅 `tax` fallback（AI 沒回 tax 時自動算 total−subtotal）；② `instant_tax_free` 加 needsReview 驗證（items vs subtotal 差 >5%）；③ 套裝 needsReview 門檻從 5 JPY 放寬到 max(小計×1%, 300)。| 待驗：清 PWA 快取後重新上傳 DORAEMON（消費稅列）、ZARA（needsReview 觸發）；UNIQLO 黃條應消失。AI 品項遺漏（ZARA BLAZER）/ 品名誤辨（UNIQLO 短襪→內褲）為 Gemini 準確度問題，持續觀察。 |
 | 2025-03-26 | **SAVE — i18n 與語言設定**：① `react-i18next` + `zh-TW.json`／`en.json`，全站文案（含 `Header`、導航、圖表、設定、Toast 等）；② 收據 **雙語欄位**（`name`／`name_en`、`store`／`store_en`、`location`／`location_en`）由 `receipt-prompt` + `buildExpenseFromAI` 寫入，`displayNames` 依語系顯示；③ **外稅 + 分人**時加「消費稅（按比例）」列；④ 刪除確認用本地化店名；⑤ **設定僅繁中／英**（移除「跟隨系統」），`normalizeUiLanguage` + `DataService` 統一、舊 `system`→繁中，`PRESET_TRIPS_DATA` 補 `uiLanguage`，匯入備份可帶語言。 | 舊資料無 `name_en` 時英文介面先顯示繁中；可選 backlog：編輯表單加英文品名欄。 |
-| 2025-03-26 | **書面 SOP**：新增 `docs/SOP_AI_COLLABORATION.md`，與 §九、`.cursor/rules/feedback-before-implement.mdc` 三位一體；明定「細節規格≠已授權實作」。 | 規則變更時同步：Cursor rule、本 SOP、§九。 |
+| 2025-03-26 | **書面 SOP**：併入 `PRODUCT_MANAGEMENT.md`（與 §九、Cursor rule 對照）；明定「細節規格≠已授權實作」。 | 規則變更時同步：Cursor rule、`PRODUCT_MANAGEMENT.md` 該節、§九。 |
+| 2025-03-26 | **歸檔**：獨立 `SOP_AI_COLLABORATION.md` 已刪除，全文併入產品管理檔專節，減少重複檔案。 | — |
 
 ---
 
