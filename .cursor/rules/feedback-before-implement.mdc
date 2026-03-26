@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 意見與改動流程（強制）
 
-> 書面 SOP（給人讀、可交接）：[`docs/SOP_AI_COLLABORATION.md`](../../docs/SOP_AI_COLLABORATION.md)
+> 書面 SOP（給人讀、可交接）：`docs/SOP_AI_COLLABORATION.md`（路徑自專案根目錄）
 
 當使用者提出**意見、問題、想優化的點、或要求修改行為**時：
 
