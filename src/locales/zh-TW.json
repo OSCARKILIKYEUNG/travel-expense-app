@@ -96,7 +96,7 @@
     "fetchRates": "更新匯率（網路）",
     "fetchRatesLoading": "更新中…",
     "ratesLastUpdated": "上次更新",
-    "fetchRatesOtherOnly": "記帳幣為「其他」時請手動輸入匯率，無法自動更新。",
+    "fetchRatesOtherOnly": "自訂記帳幣請在下方匯率表手動填寫；不會向網路拉牌價（非錯誤）。",
     "tripsTitle": "旅程管理",
     "peopleTitle": "人物管理",
     "newPersonPlaceholder": "新人物名稱…",

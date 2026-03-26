@@ -52,7 +52,7 @@ export default function Settings() {
 
   const handleFetchRatesClick = async () => {
     if (homeCurrency === 'OTHER') {
-      notify(t('settings.fetchRatesOtherOnly'), 'warning');
+      notify(t('settings.fetchRatesOtherOnly'), 'info');
       return;
     }
     setRatesLoading(true);

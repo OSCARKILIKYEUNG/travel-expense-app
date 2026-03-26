@@ -96,7 +96,7 @@
     "fetchRates": "Update rates (live)",
     "fetchRatesLoading": "Updating…",
     "ratesLastUpdated": "Last updated",
-    "fetchRatesOtherOnly": "With a custom base currency, enter rates manually; auto-update is unavailable.",
+    "fetchRatesOtherOnly": "Custom base currency: enter rates in the grid below. Live fetch isn’t used (this is expected).",
     "tripsTitle": "Trips",
     "peopleTitle": "People",
     "newPersonPlaceholder": "New person…",

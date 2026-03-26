@@ -35,5 +35,16 @@ export default defineConfig({
       },
     }),
   ],
-  server: { port: 3000, open: true },
+  server: {
+    port: 3000,
+    open: true,
+    proxy: {
+      // 與 Vercel 同源代理一致：本地 dev 可更新匯率（見 api/exchange-rates.js）
+      '/api/exchange-rates': {
+        target: 'https://api.frankfurter.app',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/exchange-rates/, '/latest'),
+      },
+    },
+  },
 });

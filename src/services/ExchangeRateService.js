@@ -1,6 +1,7 @@
 import { CURRENCY_NAMES } from '../utils/constants';
 
-const FRANKFURTER_LATEST = 'https://api.frankfurter.app/latest';
+/** 經 Vercel / Vite 代理，與前端同源，避免 CORS；僅傳 `from`，由 API 回傳全部可兌幣別 */
+const PROXY_PATH = '/api/exchange-rates';
 
 /**
  * 從 Frankfurter（ECB）拉取牌價：語意為 1 `homeBase` = X 外幣，與本 app `exchangeRates` 一致。
@@ -12,16 +13,18 @@ export async function fetchFrankfurterRates(homeBase) {
   if (!CURRENCY_NAMES[home]) {
     throw new Error('INVALID_HOME');
   }
-  const targets = Object.keys(CURRENCY_NAMES).filter((c) => c !== home);
-  const url = new URL(FRANKFURTER_LATEST);
-  url.searchParams.set('from', home);
-  url.searchParams.set('to', targets.join(','));
-  const res = await fetch(url.toString());
+  const url = `${PROXY_PATH}?from=${encodeURIComponent(home)}`;
+  const res = await fetch(url);
+  const text = await res.text();
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(errText || `HTTP ${res.status}`);
+    let detail = text;
+    try {
+      const j = JSON.parse(text);
+      detail = j.error || text;
+    } catch { /* keep text */ }
+    throw new Error(detail || `HTTP ${res.status}`);
   }
-  const data = await res.json();
+  const data = JSON.parse(text);
   const rates = data.rates || {};
   const out = {};
   for (const code of Object.keys(CURRENCY_NAMES)) {
