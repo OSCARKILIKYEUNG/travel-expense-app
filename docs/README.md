@@ -13,6 +13,7 @@
 | 排優先級、路線圖、技術債、發版紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md)（**產品主控**） |
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
 | 單據類型 A～H（外稅／免稅／套裝等） | [RECEIPT_TYPES.md](./RECEIPT_TYPES.md) |
+| **與 AI 協作 SOP**（意見→對齊→再實作；與 §九／Cursor rule 對照） | [SOP_AI_COLLABORATION.md](./SOP_AI_COLLABORATION.md) |
 | Cursor 規則（意見→先對齊再改；**SAVE**→寫 §十） | [../.cursor/rules/feedback-before-implement.mdc](../.cursor/rules/feedback-before-implement.mdc) |
 | 畫面/品牌/無障礙等 **UI 規格** | [DESIGN_SPEC.md](../DESIGN_SPEC.md) |
 | 為什麼用 Vite、遷移史、目錄對照 | [HANDOFF.md](../HANDOFF.md)（**歷史與決策**） |
@@ -73,6 +74,7 @@ travel app/                    # 資料夾名含空白，終端機路徑請加�
 | `DESIGN_SPEC.md` | UI/UX 規格 |
 | `docs/PRODUCT_MANAGEMENT.md` | 路線圖、技術債、發布紀錄 |
 | `docs/PRODUCT_ITERATION_2025-03.md` | 2025-03 分帳／免稅迭代之書面 log |
+| `docs/SOP_AI_COLLABORATION.md` | 與 AI 協作標準流程（書面 SOP） |
 | `docs/README.md` | **本檔：文件地圖** |
 | `docs/archive/BACKUP_BRANCH_v1.md` | Git 備份分支操作說明 |
 | `designs/README.md` | Pencil mockup 說明 |

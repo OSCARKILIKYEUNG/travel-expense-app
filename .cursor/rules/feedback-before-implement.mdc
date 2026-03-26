@@ -5,6 +5,8 @@ alwaysApply: true
 
 # 意見與改動流程（強制）
 
+> 書面 SOP（給人讀、可交接）：[`docs/SOP_AI_COLLABORATION.md`](../../docs/SOP_AI_COLLABORATION.md)
+
 當使用者提出**意見、問題、想優化的點、或要求修改行為**時：
 
 1. **不要**立刻使用工具改程式碼、改設定或 push。

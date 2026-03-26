@@ -3,7 +3,7 @@
 > **目的**：把「產品決策、版本節奏、架構優先級」寫成可追蹤的文件，避免只存在對話裡、難以交接與複盤。  
 > **維護原則**：每次重大功能上線、架構調整或發布前，更新本文件對應章節；與 `HANDOFF.md`、`DESIGN_SPEC.md` 互補，不互相重複貼長文。  
 > **迭代詳錄**：分帳／免稅／收據顯示等 **單次迭代的需求、踩坑、backlog、進度快照** → **[PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md)**（PM 級書面 log）。  
-> **人機協作**：使用者提意見時 **先對齊理解與方案再改碼** → `.cursor/rules/feedback-before-implement.mdc`（與迭代檔 §九一致）。  
+> **人機協作**：使用者提意見時 **先對齊理解與方案再改碼** → 書面流程見 **[docs/SOP_AI_COLLABORATION.md](./SOP_AI_COLLABORATION.md)**；機讀規則見 `.cursor/rules/feedback-before-implement.mdc`（與迭代檔 §九一致）。  
 > **SAVE**：使用者輸入 **`SAVE`** 時，助手應將本次要點寫入當期 **`docs/PRODUCT_ITERATION_YYYY-MM.md` §十**（SAVE 快照表）；規則見同檔 Cursor rule。  
 > **單據類型**：情境 A～H 規格 → **[RECEIPT_TYPES.md](./RECEIPT_TYPES.md)**（收據印字優先、與程式對照表）。
 
@@ -138,6 +138,7 @@
 | 2025-03-24 | docs | 新增 `RECEIPT_TYPES.md`（單據類型 A～H） |
 | 2025-03-24 | feat | 單據類型系統上線：receipt_type 必填、雙價格、外稅消費稅列、套裝合併、依類型驗證；3 輪迭代以 8 張東京真實小票驗收 |
 | 2025-03-26 | feat | 介面 i18n（繁中／英）、收據雙語欄位、外稅分人比例稅列、設定僅兩語言；見 `PRODUCT_ITERATION_2025-03.md` §十 SAVE |
+| 2025-03-26 | docs | 新增 `SOP_AI_COLLABORATION.md`（與 AI 協作書面流程）；與 §九、Cursor rule 對照 |
 | （歷史） | — | 初建立本管理文件 |
 
 ---
