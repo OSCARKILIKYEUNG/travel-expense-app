@@ -7,8 +7,7 @@ import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { t } = useTranslation();
-  const { settings, exchangeRates, addExpenses, notify, tripCurrency, defaultAssignee } = useApp();
-  const { customCurrencyCode, customCurrencyRate } = settings;
+  const { exchangeRates, addExpenses, notify, tripCurrency, defaultAssignee, homeCurrencyCode } = useApp();
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
@@ -28,11 +27,8 @@ export default function UploadArea() {
       setStep(t('upload.processing', { current: i + 1, total: files.length }));
       try {
         const parsed = await parseReceipt(files[i]);
-        const currency = resolveReceiptCurrency(parsed, settings, tripCurrency);
-        const rate =
-          settings.homeCurrency === 'OTHER' && currency === customCurrencyCode
-            ? customCurrencyRate
-            : getExchangeRate(currency, exchangeRates);
+        const currency = resolveReceiptCurrency(parsed, homeCurrencyCode, tripCurrency);
+        const rate = getExchangeRate(currency, exchangeRates);
         results.push(buildExpenseFromAI(parsed, i, currency, rate, tripCurrency, defaultAssignee));
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);

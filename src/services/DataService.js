@@ -1,5 +1,7 @@
 import { DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
+import { blankRatesForAccounting, getAccountingCode } from '../utils/tripMoney';
+import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
 
 const KEYS = {
   TRIPS: 'travel_trips_data',
@@ -21,23 +23,127 @@ function write(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+function stripLegacyCurrencyFromSettings() {
+  const settings = read(KEYS.SETTINGS);
+  if (!settings) return;
+  const next = { ...settings };
+  delete next.homeCurrency;
+  delete next.customCurrencyCode;
+  delete next.customCurrencyRate;
+  delete next.exchangeRates;
+  delete next.exchangeRatesUpdatedAt;
+  next._currencyMigratedToTrips = true;
+  write(KEYS.SETTINGS, next);
+}
+
+/**
+ * 將全域設定中的本幣／匯率併入各旅程（僅執行一次），並自 trip.settings 抬升舊欄位。
+ */
+function migrateTripsCurrency(data) {
+  const settings = read(KEYS.SETTINGS);
+  const globalMigrated = settings?._currencyMigratedToTrips;
+  let dirty = false;
+
+  for (const trip of data.trips || []) {
+    if (!trip.tripCurrency) {
+      trip.tripCurrency = 'JPY';
+      dirty = true;
+    }
+    if (trip.settings?.exchangeRates && trip.exchangeRates == null) {
+      trip.exchangeRates = { ...trip.settings.exchangeRates };
+      delete trip.settings.exchangeRates;
+      dirty = true;
+    }
+    if (trip.settings?.homeCurrency != null && trip.accountingCurrency == null) {
+      const h = trip.settings.homeCurrency;
+      trip.accountingCurrency =
+        h === 'OTHER' && trip.settings.customCurrencyCode
+          ? String(trip.settings.customCurrencyCode).toUpperCase().slice(0, 3)
+          : h;
+      trip.accountingIsCustom = h === 'OTHER';
+      delete trip.settings.homeCurrency;
+      delete trip.settings.customCurrencyCode;
+      delete trip.settings.customCurrencyRate;
+      dirty = true;
+    }
+    if (trip.accountingCurrency == null) {
+      if (!globalMigrated && settings?.homeCurrency) {
+        const gh = settings.homeCurrency;
+        trip.accountingCurrency =
+          gh === 'OTHER' && settings.customCurrencyCode?.length === 3
+            ? String(settings.customCurrencyCode).toUpperCase().slice(0, 3)
+            : gh || 'HKD';
+        trip.accountingIsCustom = gh === 'OTHER';
+      } else {
+        trip.accountingCurrency = 'HKD';
+        trip.accountingIsCustom = false;
+      }
+      dirty = true;
+    }
+    if (trip.accountingIsCustom == null) {
+      trip.accountingIsCustom = false;
+      dirty = true;
+    }
+    if (!Array.isArray(trip.customAccountingCodes)) {
+      trip.customAccountingCodes = [];
+      dirty = true;
+    }
+    if (!Array.isArray(trip.manualRateCodes)) {
+      trip.manualRateCodes = [];
+      dirty = true;
+    }
+    if (!trip.exchangeRates || Object.keys(trip.exchangeRates).length === 0) {
+      if (!globalMigrated && settings?.exchangeRates && Object.keys(settings.exchangeRates).length) {
+        trip.exchangeRates = { ...settings.exchangeRates };
+        trip.exchangeRatesUpdatedAt = trip.exchangeRatesUpdatedAt ?? settings.exchangeRatesUpdatedAt ?? null;
+      } else {
+        trip.exchangeRates = { ...DEFAULT_EXCHANGE_RATES };
+        trip.exchangeRatesUpdatedAt = trip.exchangeRatesUpdatedAt ?? null;
+      }
+      dirty = true;
+    }
+    const ac = String(trip.accountingCurrency).toUpperCase().slice(0, 3);
+    if (trip.exchangeRates[ac] == null) {
+      trip.exchangeRates[ac] = 1;
+      dirty = true;
+    }
+  }
+
+  stripLegacyCurrencyFromSettings();
+
+  return dirty;
+}
+
+function applyAccountingRatesAfterChange(trip, prevCode, prevIsCustom) {
+  const newCode = getAccountingCode(trip);
+  const newIsCustom = !!trip.accountingIsCustom;
+  if (newCode === prevCode && newIsCustom === prevIsCustom) return;
+  if (newIsCustom || !FRANKFURTER_SUPPORTED.has(newCode)) {
+    trip.exchangeRates = blankRatesForAccounting(newCode);
+    trip.exchangeRatesUpdatedAt = null;
+    return;
+  }
+  if (prevIsCustom || !FRANKFURTER_SUPPORTED.has(prevCode)) {
+    trip.exchangeRates = rebaseRates({ ...DEFAULT_EXCHANGE_RATES }, newCode);
+    trip.exchangeRatesUpdatedAt = null;
+    return;
+  }
+  if (newCode !== prevCode) {
+    trip.exchangeRates = rebaseRates({ ...(trip.exchangeRates || DEFAULT_EXCHANGE_RATES) }, newCode);
+    trip.exchangeRatesUpdatedAt = null;
+  }
+}
+
 const DataService = {
-  // ── Trips ──────────────────────────────────────────
   loadTripsData() {
     const stored = read(KEYS.TRIPS);
-    if (stored) {
-      let dirty = false;
-      for (const trip of stored.trips) {
-        if (!trip.tripCurrency) {
-          trip.tripCurrency = 'JPY';
-          dirty = true;
-        }
-      }
-      if (dirty) this.saveTripsData(stored);
-      return stored;
+    const data = stored ? { ...stored, trips: [...stored.trips] } : { ...PRESET_TRIPS_DATA };
+    if (!stored) {
+      write(KEYS.TRIPS, data);
     }
-    this.saveTripsData(PRESET_TRIPS_DATA);
-    return PRESET_TRIPS_DATA;
+    const dirty = migrateTripsCurrency(data);
+    if (dirty) write(KEYS.TRIPS, data);
+    return data;
   },
 
   saveTripsData(data) {
@@ -61,16 +167,48 @@ const DataService = {
     return next ? next.expenses : [];
   },
 
-  createTrip(name, startDate, tripCurrency) {
+  /**
+   * @param {object} [options]
+   * @param {string} [options.accountingCurrency]
+   * @param {boolean} [options.accountingIsCustom]
+   * @param {string[]} [options.customAccountingCodes]
+   */
+  createTrip(name, startDate, tripCurrency, options = {}) {
     const tripsData = this.loadTripsData();
+    const cur = this.getCurrentTrip(tripsData);
+    const ac =
+      options.accountingCurrency != null
+        ? String(options.accountingCurrency).toUpperCase().slice(0, 3)
+        : cur?.accountingCurrency || 'HKD';
+    const isCustom =
+      options.accountingIsCustom != null ? !!options.accountingIsCustom : !!cur?.accountingIsCustom;
+    const customCodes = Array.isArray(options.customAccountingCodes)
+      ? [...options.customAccountingCodes]
+      : [...(cur?.customAccountingCodes || [])];
+
+    let exchangeRates;
+    let exchangeRatesUpdatedAt = null;
+    if (isCustom || !FRANKFURTER_SUPPORTED.has(ac)) {
+      exchangeRates = blankRatesForAccounting(ac);
+    } else {
+      exchangeRates = rebaseRates({ ...DEFAULT_EXCHANGE_RATES }, ac);
+    }
+
+    const peopleSource = cur?.settings?.people || tripsData.trips[0]?.settings?.people || ['共同'];
     const newTrip = {
       id: `trip-${Date.now()}`,
       name,
       startDate,
       tripCurrency: tripCurrency || 'JPY',
+      accountingCurrency: ac,
+      accountingIsCustom: isCustom,
+      customAccountingCodes: customCodes,
+      exchangeRates,
+      exchangeRatesUpdatedAt,
+      manualRateCodes: [],
       createdAt: new Date().toISOString(),
       expenses: [],
-      settings: { people: [...(tripsData.trips[0]?.settings?.people || ['共同'])] },
+      settings: { people: [...peopleSource] },
     };
     tripsData.trips.push(newTrip);
     tripsData.currentTripId = newTrip.id;
@@ -98,6 +236,56 @@ const DataService = {
     }
   },
 
+  /**
+   * 合併更新旅程欄位；變更記帳幣時自動重算或清空匯率表。
+   */
+  patchTrip(tripId, patch) {
+    const tripsData = this.loadTripsData();
+    const trip = tripsData.trips.find((t) => t.id === tripId);
+    if (!trip) return false;
+
+    const prevCode = getAccountingCode(trip);
+    const prevIsCustom = !!trip.accountingIsCustom;
+
+    if (patch.name != null) {
+      const trimmed = String(patch.name).trim();
+      if (trimmed) trip.name = trimmed;
+    }
+    if (patch.tripCurrency != null) {
+      const code = String(patch.tripCurrency).toUpperCase();
+      trip.tripCurrency = code;
+    }
+    if (patch.accountingCurrency != null) {
+      trip.accountingCurrency = String(patch.accountingCurrency).toUpperCase().slice(0, 3);
+    }
+    if (patch.accountingIsCustom != null) {
+      trip.accountingIsCustom = !!patch.accountingIsCustom;
+    }
+    if (patch.customAccountingCodes != null) {
+      trip.customAccountingCodes = [...patch.customAccountingCodes];
+    }
+
+    const accountingTouched =
+      patch.accountingCurrency != null ||
+      patch.accountingIsCustom != null;
+    if (accountingTouched) {
+      applyAccountingRatesAfterChange(trip, prevCode, prevIsCustom);
+    }
+
+    if (patch.exchangeRates != null) {
+      trip.exchangeRates = { ...patch.exchangeRates };
+    }
+    if (patch.manualRateCodes != null) {
+      trip.manualRateCodes = [...patch.manualRateCodes];
+    }
+    if (patch.exchangeRatesUpdatedAt !== undefined) {
+      trip.exchangeRatesUpdatedAt = patch.exchangeRatesUpdatedAt;
+    }
+
+    this.saveTripsData(tripsData);
+    return true;
+  },
+
   // ── Expenses ───────────────────────────────────────
   loadExpenses() {
     const saved = read(KEYS.EXPENSES);
@@ -112,7 +300,6 @@ const DataService = {
   },
 
   // ── Settings ───────────────────────────────────────
-  /** 反轉舊版匯率（1 外幣 = X 本幣 → 1 本幣 = X 外幣） */
   _migrateRates(oldRates) {
     const out = {};
     for (const [code, rate] of Object.entries(oldRates)) {
@@ -122,20 +309,25 @@ const DataService = {
   },
 
   _isOldRateFormat(saved) {
-    return !saved.homeCurrency;
+    return saved && !saved.homeCurrency;
   },
 
   loadSettings() {
+    this.loadTripsData();
+
     const saved = read(KEYS.SETTINGS);
     if (saved) {
-      const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
-
       if (this._isOldRateFormat(saved)) {
         const migratedRates = this._migrateRates(saved.exchangeRates || {});
-        const homeCurrency = (saved.defaultCurrency && saved.defaultCurrency !== 'OTHER')
-          ? saved.defaultCurrency : 'HKD';
-        const customRate = (saved.customCurrencyRate && saved.customCurrencyRate > 0)
-          ? parseFloat((1 / saved.customCurrencyRate).toPrecision(6)) : 1;
+        const homeCurrency =
+          saved.defaultCurrency && saved.defaultCurrency !== 'OTHER'
+            ? saved.defaultCurrency
+            : 'HKD';
+        const customRate =
+          saved.customCurrencyRate && saved.customCurrencyRate > 0
+            ? parseFloat((1 / saved.customCurrencyRate).toPrecision(6))
+            : 1;
+        const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
         const migrated = {
           ...rest,
           exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...migratedRates },
@@ -146,43 +338,30 @@ const DataService = {
           exchangeRatesUpdatedAt: null,
         };
         delete migrated.defaultCurrency;
-        this.saveSettings(migrated);
-        return migrated;
+        write(KEYS.SETTINGS, migrated);
       }
 
+      this.loadTripsData();
+      stripLegacyCurrencyFromSettings();
+
+      const latest = read(KEYS.SETTINGS);
       return {
-        ...rest,
-        exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(saved.exchangeRates || {}) },
-        homeCurrency: saved.homeCurrency || 'HKD',
-        customCurrencyCode: saved.customCurrencyCode || '',
-        customCurrencyRate: saved.customCurrencyRate || 1,
-        uiLanguage: normalizeUiLanguage(saved.uiLanguage),
-        exchangeRatesUpdatedAt: saved.exchangeRatesUpdatedAt || null,
-      };
-    }
-    const preset = PRESET_TRIPS_DATA.trips[0]?.settings;
-    if (preset) {
-      return {
-        exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(preset.exchangeRates || {}) },
-        homeCurrency: preset.homeCurrency || 'HKD',
-        customCurrencyCode: preset.customCurrencyCode || '',
-        customCurrencyRate: preset.customCurrencyRate || 1,
-        uiLanguage: normalizeUiLanguage(preset.uiLanguage),
-        exchangeRatesUpdatedAt: null,
+        uiLanguage: normalizeUiLanguage(latest?.uiLanguage ?? 'zh-TW'),
+        ...(latest?.apiKey != null ? { apiKey: latest.apiKey } : {}),
+        ...(latest?.modelName != null ? { modelName: latest.modelName } : {}),
       };
     }
     return {
-      exchangeRates: DEFAULT_EXCHANGE_RATES,
-      homeCurrency: 'HKD',
-      customCurrencyCode: '',
-      customCurrencyRate: 1,
       uiLanguage: 'zh-TW',
-      exchangeRatesUpdatedAt: null,
     };
   },
 
   saveSettings(settings) {
-    write(KEYS.SETTINGS, settings);
+    const prev = read(KEYS.SETTINGS) || {};
+    write(KEYS.SETTINGS, {
+      ...prev,
+      ...settings,
+    });
   },
 
   // ── People ─────────────────────────────────────────
@@ -197,7 +376,6 @@ const DataService = {
     write(KEYS.PEOPLE, people);
   },
 
-  /** 將所有旅程內 `settings.people` 中的舊名替換為新名（與 `travel_people_list` 一併維護時使用） */
   syncPersonNameInAllTrips(oldName, newName) {
     const tripsData = this.loadTripsData();
     for (const trip of tripsData.trips) {
@@ -211,7 +389,6 @@ const DataService = {
     this.saveTripsData(tripsData);
   },
 
-  /** 刪除人物：從各旅程 people 移除，並將支出／品項上的舊名改為 `reassignTo`；同步目前旅程的 flat expenses */
   removePersonAndReassignAll(deletedName, reassignTo) {
     const tripsData = this.loadTripsData();
     const mapExp = (e) => {

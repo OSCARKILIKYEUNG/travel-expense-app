@@ -8,6 +8,11 @@ export const FRANKFURTER_SUPPORTED = new Set([
   'THB', 'TRY', 'USD', 'ZAR',
 ]);
 
+/** 匯率設定表可顯示「可網路更新」的幣別列（Frankfurter ∩ 內建名單） */
+export const FRANKFURTER_GRID_CODES = Object.keys(CURRENCY_NAMES).filter((c) =>
+  FRANKFURTER_SUPPORTED.has(c)
+);
+
 /** 經 Vercel / Vite 代理，與前端同源，避免 CORS；僅傳 `from`，由 API 回傳全部可兌幣別 */
 const PROXY_PATH = '/api/exchange-rates';
 
@@ -18,7 +23,7 @@ const PROXY_PATH = '/api/exchange-rates';
  */
 export async function fetchFrankfurterRates(homeBase) {
   const home = String(homeBase || '').toUpperCase();
-  if (!CURRENCY_NAMES[home]) {
+  if (!/^[A-Z]{3}$/.test(home)) {
     throw new Error('INVALID_HOME');
   }
   const url = `${PROXY_PATH}?from=${encodeURIComponent(home)}`;
@@ -42,7 +47,7 @@ export async function fetchFrankfurterRates(homeBase) {
   const data = JSON.parse(text);
   const rates = data.rates || {};
   const out = {};
-  for (const code of Object.keys(CURRENCY_NAMES)) {
+  for (const code of FRANKFURTER_GRID_CODES) {
     if (code === home) {
       out[code] = 1;
     } else if (rates[code] != null && rates[code] > 0) {
@@ -55,11 +60,17 @@ export async function fetchFrankfurterRates(homeBase) {
 /**
  * 將 API 結果合併進現有表：API 有值的覆寫；缺者保留 `existing`；記帳幣列為 1。
  */
-export function mergeExchangeRates(existing, fetched, home) {
+/**
+ * @param {string[]} manualRateCodes 手動新增列：永不被 API 覆寫
+ */
+export function mergeExchangeRates(existing, fetched, home, manualRateCodes = []) {
+  const manual = new Set((manualRateCodes || []).map((c) => String(c).toUpperCase()));
   const merged = { ...existing };
-  for (const code of Object.keys(CURRENCY_NAMES)) {
+  for (const code of FRANKFURTER_GRID_CODES) {
     if (code === home) {
       merged[code] = 1;
+    } else if (manual.has(code)) {
+      /* 保留 merged[code] */
     } else if (fetched[code] != null && fetched[code] > 0) {
       merged[code] = fetched[code];
     }
@@ -73,8 +84,12 @@ export function mergeExchangeRates(existing, fetched, home) {
  */
 export function rebaseRates(oldRates, newHome) {
   const pivot = oldRates[newHome] || 1;
+  const codes = new Set([
+    ...FRANKFURTER_GRID_CODES,
+    ...Object.keys(oldRates || {}),
+  ]);
   const rebased = {};
-  for (const code of Object.keys(CURRENCY_NAMES)) {
+  for (const code of codes) {
     if (code === newHome) {
       rebased[code] = 1;
     } else {

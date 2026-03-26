@@ -1,18 +1,42 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store/AppContext';
-import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeUiLanguage } from '../utils/locale';
 import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
-import { fetchFrankfurterRates, mergeExchangeRates, rebaseRates, FRANKFURTER_SUPPORTED } from '../services/ExchangeRateService';
+import {
+  fetchFrankfurterRates,
+  mergeExchangeRates,
+  FRANKFURTER_SUPPORTED,
+  FRANKFURTER_GRID_CODES,
+} from '../services/ExchangeRateService';
+import { canFetchLiveRates } from '../utils/tripMoney';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
-  const { settings, updateSettings, people, expenses, notify, renamePerson, homeCurrencyCode, removePersonWithReassign } = useApp();
-  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate, uiLanguage, exchangeRatesUpdatedAt } = settings;
+  const {
+    settings,
+    updateSettings,
+    people,
+    setPeople,
+    expenses,
+    setExpenses,
+    notify,
+    renamePerson,
+    homeCurrencyCode,
+    removePersonWithReassign,
+    currentTrip,
+    currentTripId,
+    updateTrip,
+    exchangeRates,
+  } = useApp();
+
+  const uiLanguage = settings?.uiLanguage ?? 'zh-TW';
+  const exchangeRatesUpdatedAt = currentTrip?.exchangeRatesUpdatedAt;
+  const manualRateCodes = currentTrip?.manualRateCodes || [];
+
   const importRef = useRef(null);
 
   const [newPerson, setNewPerson] = useState('');
@@ -21,63 +45,83 @@ export default function Settings() {
   const [editPerson, setEditPerson] = useState(null);
   const [editPersonName, setEditPersonName] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
+  const [addManualCode, setAddManualCode] = useState('');
 
-  const handleHomeCurrencyChange = async (e) => {
-    const next = e.target.value;
-    if (next === 'OTHER') {
-      updateSettings({ homeCurrency: next, customCurrencyCode: '', customCurrencyRate: 1 });
+  const rateGridCodes = [
+    ...FRANKFURTER_GRID_CODES,
+    ...manualRateCodes.filter((c) => !FRANKFURTER_GRID_CODES.includes(c)),
+  ];
+
+  const patchTripRates = (nextRates, nextManual, nextUpdated) => {
+    updateTrip(currentTripId, {
+      exchangeRates: nextRates,
+      manualRateCodes: nextManual,
+      ...(nextUpdated !== undefined ? { exchangeRatesUpdatedAt: nextUpdated } : {}),
+    });
+  };
+
+  const handleFetchRatesClick = async () => {
+    if (!currentTrip || !canFetchLiveRates(currentTrip)) {
+      notify(t('settings.ratesManualOnlyHint'), 'info');
       return;
     }
-
-    const rebased = rebaseRates(exchangeRates, next);
-    const basePatch = { homeCurrency: next, customCurrencyCode: '', customCurrencyRate: 1, exchangeRates: rebased };
-
-    if (!FRANKFURTER_SUPPORTED.has(next)) {
-      updateSettings(basePatch);
-      notify(t('toast.currencyNoLiveRate', { code: next }), 'info');
+    const home = homeCurrencyCode;
+    if (!FRANKFURTER_SUPPORTED.has(home)) {
+      notify(t('toast.currencyNoLiveRate', { code: home }), 'info');
       return;
     }
-
     setRatesLoading(true);
     try {
-      const fetched = await fetchFrankfurterRates(next);
-      const merged = mergeExchangeRates(rebased, fetched, next);
-      updateSettings({ ...basePatch, exchangeRates: merged, exchangeRatesUpdatedAt: new Date().toISOString() });
+      const fetched = await fetchFrankfurterRates(home);
+      const merged = mergeExchangeRates(exchangeRates, fetched, home, manualRateCodes);
+      patchTripRates(merged, manualRateCodes, new Date().toISOString());
       if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
     } catch {
-      updateSettings(basePatch);
       notify(t('toast.fetchRatesFailed'), 'error');
     } finally {
       setRatesLoading(false);
     }
   };
 
-  const handleFetchRatesClick = async () => {
-    if (homeCurrency === 'OTHER') {
-      notify(t('settings.fetchRatesOtherOnly'), 'info');
+  const handleRateBlur = (code, value) => {
+    const v = parseFloat(value) || 1;
+    patchTripRates({ ...exchangeRates, [code]: v }, manualRateCodes, exchangeRatesUpdatedAt);
+  };
+
+  const handleAddManualRate = () => {
+    const c = addManualCode.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(c)) {
+      notify(t('settings.addManualInvalid'), 'warning');
       return;
     }
-    if (!FRANKFURTER_SUPPORTED.has(homeCurrency)) {
-      notify(t('toast.currencyNoLiveRate', { code: homeCurrency }), 'info');
+    if (c === homeCurrencyCode) {
+      notify(t('settings.addManualDuplicate'), 'warning');
       return;
     }
-    setRatesLoading(true);
-    try {
-      const fetched = await fetchFrankfurterRates(homeCurrency);
-      const merged = mergeExchangeRates(exchangeRates, fetched, homeCurrency);
-      updateSettings({ exchangeRates: merged, exchangeRatesUpdatedAt: new Date().toISOString() });
-      if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
-    } catch {
-      notify(t('toast.fetchRatesFailed'), 'error');
-    } finally {
-      setRatesLoading(false);
-    }
+    const nextManual = [...new Set([...manualRateCodes, c])];
+    patchTripRates(
+      { ...exchangeRates, [c]: exchangeRates[c] ?? 1 },
+      nextManual,
+      exchangeRatesUpdatedAt
+    );
+    setAddManualCode('');
+    notify(t('settings.addManualOk', { code: c }));
+  };
+
+  const handleRemoveManualRate = (code) => {
+    const nextManual = manualRateCodes.filter((x) => x !== code);
+    const nextRates = { ...exchangeRates };
+    delete nextRates[code];
+    patchTripRates(nextRates, nextManual, exchangeRatesUpdatedAt);
   };
 
   const handleAddPerson = () => {
     const name = newPerson.trim();
     if (!name) return;
-    if (people.includes(name)) { notify(t('toast.personExists'), 'warning'); return; }
+    if (people.includes(name)) {
+      notify(t('toast.personExists'), 'warning');
+      return;
+    }
     setPeople((p) => [...p, name]);
     setNewPerson('');
     notify(t('toast.personAdded'));
@@ -118,13 +162,13 @@ export default function Settings() {
     try {
       const data = await importData(file);
       setExpenses(data.expenses);
-      if (data.settings) {
-        updateSettings({
-          exchangeRates: data.settings.exchangeRates || exchangeRates,
-          ...(data.settings.uiLanguage != null
-            ? { uiLanguage: normalizeUiLanguage(data.settings.uiLanguage) }
-            : {}),
+      if (data.settings?.exchangeRates && currentTripId) {
+        updateTrip(currentTripId, {
+          exchangeRates: { ...exchangeRates, ...data.settings.exchangeRates },
         });
+      }
+      if (data.settings?.uiLanguage != null) {
+        updateSettings({ uiLanguage: normalizeUiLanguage(data.settings.uiLanguage) });
       }
       notify(t('toast.importOk'));
     } catch (err) {
@@ -143,6 +187,9 @@ export default function Settings() {
     }
   };
 
+  const fetchDisabled =
+    ratesLoading || !currentTrip || !canFetchLiveRates(currentTrip) || !FRANKFURTER_SUPPORTED.has(homeCurrencyCode);
+
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">{t('settings.title')}</h1>
@@ -150,7 +197,7 @@ export default function Settings() {
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.language')}</h2>
         <select
-          value={uiLanguage ?? 'zh-TW'}
+          value={uiLanguage}
           onChange={(e) => updateSettings({ uiLanguage: e.target.value })}
           className="input-field"
         >
@@ -159,41 +206,15 @@ export default function Settings() {
         </select>
       </section>
 
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.currencyTitle')}</h2>
-        <select
-          value={homeCurrency}
-          onChange={handleHomeCurrencyChange}
-          disabled={ratesLoading}
-          className="input-field"
-        >
-          {Object.keys(CURRENCY_NAMES).map((code) => (
-            <option key={code} value={code}>
-              {code} - {t(`currency.${code}`)}
-            </option>
-          ))}
-          <option value="OTHER">{t('settings.otherCurrency')}</option>
-        </select>
-
-        {homeCurrency === 'OTHER' && (
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-            <div>
-              <label htmlFor="s-custom-code" className="block text-xs text-slate-600 mb-0.5">{t('settings.currencyCode')}</label>
-              <input id="s-custom-code" type="text" value={customCurrencyCode} onChange={(e) => updateSettings({ customCurrencyCode: e.target.value.toUpperCase() })} maxLength={3} className="input-field text-xs uppercase" placeholder="CHF" autoComplete="off" />
-            </div>
-            <div>
-              <label htmlFor="s-custom-rate" className="block text-xs text-slate-600 mb-0.5">{t('settings.rateCustomForeign', { home: homeCurrencyCode, custom: customCurrencyCode || '…' })}</label>
-              <input id="s-custom-rate" type="number" step="0.0001" value={customCurrencyRate} onChange={(e) => updateSettings({ customCurrencyRate: parseFloat(e.target.value) || 1 })} className="input-field text-xs" />
-            </div>
-          </div>
-        )}
+      <section className="card p-4">
+        <TripManager />
       </section>
 
       <section className="card p-4 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
-            <p className="text-[10px] text-slate-500">{t('settings.ratesHint')}</p>
+            <p className="text-[10px] text-slate-500">{t('settings.ratesHintTrip')}</p>
             {exchangeRatesUpdatedAt && (
               <p className="text-[10px] text-slate-400 mt-1">
                 {t('settings.ratesLastUpdated')}: {new Date(exchangeRatesUpdatedAt).toLocaleString(i18n.language?.startsWith('en') ? 'en' : 'zh-TW')}
@@ -203,33 +224,69 @@ export default function Settings() {
           <button
             type="button"
             onClick={handleFetchRatesClick}
-            disabled={ratesLoading || homeCurrency === 'OTHER' || !FRANKFURTER_SUPPORTED.has(homeCurrency)}
+            disabled={fetchDisabled}
             className="btn-secondary !py-1.5 !px-3 text-xs shrink-0"
           >
             {ratesLoading ? t('settings.fetchRatesLoading') : t('settings.fetchRates')}
           </button>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-          {Object.keys(CURRENCY_NAMES).map((code) => (
-            <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-              <label className="block text-[10px] text-slate-500 mb-0.5">{code}</label>
-              <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
-              <input
-                key={`${code}-${exchangeRates[code]}`}
-                type="number"
-                step="0.0001"
-                defaultValue={exchangeRates[code]}
-                disabled={code === homeCurrencyCode}
-                onBlur={(e) => updateSettings({ exchangeRates: { ...exchangeRates, [code]: parseFloat(e.target.value) || 1 } })}
-                className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:bg-slate-100 disabled:text-slate-500"
-              />
-            </div>
-          ))}
-        </div>
-      </section>
 
-      <section className="card p-4">
-        <TripManager />
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[140px]">
+            <label htmlFor="add-manual-rate" className="block text-[10px] text-slate-600 mb-0.5">{t('settings.addManualLabel')}</label>
+            <div className="flex gap-2">
+              <input
+                id="add-manual-rate"
+                type="text"
+                value={addManualCode}
+                onChange={(e) => setAddManualCode(e.target.value.toUpperCase())}
+                maxLength={3}
+                placeholder="TWD"
+                className="input-field text-xs uppercase flex-1"
+                autoComplete="off"
+              />
+              <button type="button" onClick={handleAddManualRate} className="btn-secondary !py-2 !px-3 text-xs shrink-0">
+                {t('settings.addManual')}
+              </button>
+            </div>
+            <p className="text-[9px] text-slate-400 mt-1">{t('settings.addManualHint')}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+          {rateGridCodes.map((code) => {
+            const isManual = manualRateCodes.includes(code);
+            return (
+              <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200 relative">
+                <div className="flex items-center justify-between gap-1 mb-0.5">
+                  <label className="block text-[10px] text-slate-500">{code}</label>
+                  {isManual && (
+                    <span className="text-[8px] font-bold text-amber-700 bg-amber-100 px-1 rounded">{t('settings.rateManualBadge')}</span>
+                  )}
+                </div>
+                <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
+                <input
+                  key={`${code}-${exchangeRates[code]}`}
+                  type="number"
+                  step="0.0001"
+                  defaultValue={exchangeRates[code] ?? 1}
+                  disabled={code === homeCurrencyCode}
+                  onBlur={(e) => handleRateBlur(code, e.target.value)}
+                  className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:bg-slate-100 disabled:text-slate-500"
+                />
+                {isManual && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveManualRate(code)}
+                    className="mt-1 text-[9px] text-red-500 hover:underline w-full text-left"
+                  >
+                    {t('settings.removeManual')}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section className="card p-4 space-y-3">
@@ -300,7 +357,6 @@ export default function Settings() {
         >
           <Copy size={16} /> {t('settings.copyReport')}
         </button>
-        {/* 列印：與舊版首頁相同，預設隱藏；移除 button 的 className「hidden」即可顯示 */}
         <button
           type="button"
           className="hidden w-full flex items-center justify-center gap-2 border border-slate-200 text-sm rounded-xl py-2.5 text-slate-600 hover:bg-slate-50"

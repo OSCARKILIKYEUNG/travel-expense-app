@@ -2,33 +2,94 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { CURRENCY_NAMES } from '../../utils/constants';
+import { accountingCurrencyOptions, getAccountingCode } from '../../utils/tripMoney';
 import Dialog from '../ui/Dialog';
 import { Globe, Edit, Trash2 } from '../ui/Icons';
 
 export default function TripManager() {
   const { t } = useTranslation();
-  const { trips, currentTripId, createTrip, deleteTrip, updateTrip, switchTrip, notify, tripCurrency: currentTripCurrency } = useApp();
+  const {
+    trips,
+    currentTripId,
+    currentTrip,
+    createTrip,
+    deleteTrip,
+    updateTrip,
+    switchTrip,
+    notify,
+    tripCurrency: currentTripCurrency,
+  } = useApp();
+
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editCurrency, setEditCurrency] = useState('JPY');
+  const [editAccountingSelect, setEditAccountingSelect] = useState('HKD');
+  const [editOtherCode, setEditOtherCode] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
   const [newTripCurrency, setNewTripCurrency] = useState('JPY');
+  const [newAccountingSelect, setNewAccountingSelect] = useState('HKD');
+  const [newOtherCode, setNewOtherCode] = useState('');
+
+  const openCreate = () => {
+    setNewTripCurrency(currentTripCurrency || 'JPY');
+    if (currentTrip?.accountingIsCustom) {
+      setNewAccountingSelect('OTHER');
+      setNewOtherCode(getAccountingCode(currentTrip));
+    } else {
+      setNewAccountingSelect(getAccountingCode(currentTrip) || 'HKD');
+      setNewOtherCode('');
+    }
+    setShowCreate(true);
+  };
 
   const handleCreate = () => {
-    if (!newName.trim()) { notify(t('trip.enterName'), 'warning'); return; }
-    createTrip(newName.trim(), newDate, newTripCurrency);
+    if (!newName.trim()) {
+      notify(t('trip.enterName'), 'warning');
+      return;
+    }
+    let accountCurrency = newAccountingSelect;
+    let accountIsCustom = false;
+    const extraCodes = [...(currentTrip?.customAccountingCodes || [])];
+
+    if (newAccountingSelect === 'OTHER') {
+      const code = newOtherCode.trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(code)) {
+        notify(t('trip.accountingOtherInvalid'), 'warning');
+        return;
+      }
+      accountCurrency = code;
+      accountIsCustom = true;
+      if (!extraCodes.includes(code)) extraCodes.push(code);
+    } else {
+      accountCurrency = newAccountingSelect;
+      accountIsCustom = false;
+    }
+
+    createTrip(newName.trim(), newDate, newTripCurrency, {
+      accountingCurrency: accountCurrency,
+      accountingIsCustom: accountIsCustom,
+      customAccountingCodes: extraCodes,
+    });
     setNewName('');
     setNewDate(new Date().toISOString().split('T')[0]);
     setNewTripCurrency('JPY');
+    setNewAccountingSelect('HKD');
+    setNewOtherCode('');
     setShowCreate(false);
   };
 
   const handleDelete = (id) => {
-    if (id === currentTripId) { notify(t('trip.cannotDeleteCurrent'), 'error'); return; }
-    if (trips.length <= 1) { notify(t('trip.keepOne'), 'warning'); return; }
+    if (id === currentTripId) {
+      notify(t('trip.cannotDeleteCurrent'), 'error');
+      return;
+    }
+    if (trips.length <= 1) {
+      notify(t('trip.keepOne'), 'warning');
+      return;
+    }
     setDeleteId(id);
   };
 
@@ -37,23 +98,64 @@ export default function TripManager() {
     setDeleteId(null);
   };
 
+  const openEdit = (trip) => {
+    setEditId(trip.id);
+    setEditName(trip.name);
+    setEditCurrency(trip.tripCurrency || 'JPY');
+    if (trip.accountingIsCustom) {
+      setEditAccountingSelect('OTHER');
+      setEditOtherCode(getAccountingCode(trip));
+    } else {
+      setEditAccountingSelect(getAccountingCode(trip));
+      setEditOtherCode('');
+    }
+  };
+
   const handleSaveEdit = () => {
-    if (!editName.trim()) { notify(t('trip.nameEmpty'), 'warning'); return; }
-    updateTrip(editId, { name: editName.trim(), tripCurrency: editCurrency });
+    if (!editName.trim()) {
+      notify(t('trip.nameEmpty'), 'warning');
+      return;
+    }
+    const trip = trips.find((tr) => tr.id === editId);
+    if (!trip) return;
+
+    let accountCurrency = editAccountingSelect;
+    let accountIsCustom = false;
+    const extraCodes = [...(trip.customAccountingCodes || [])];
+
+    if (editAccountingSelect === 'OTHER') {
+      const code = editOtherCode.trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(code)) {
+        notify(t('trip.accountingOtherInvalid'), 'warning');
+        return;
+      }
+      accountCurrency = code;
+      accountIsCustom = true;
+      if (!extraCodes.includes(code)) extraCodes.push(code);
+    } else {
+      accountCurrency = editAccountingSelect;
+      accountIsCustom = false;
+    }
+
+    updateTrip(editId, {
+      name: editName.trim(),
+      tripCurrency: editCurrency,
+      accountingCurrency: accountCurrency,
+      accountingIsCustom: accountIsCustom,
+      customAccountingCodes: extraCodes,
+    });
     setEditId(null);
   };
 
-  const tripToDelete = trips.find((t) => t.id === deleteId);
+  const tripToDelete = trips.find((tr) => tr.id === deleteId);
+
+  const accountingOptionsFor = (trip) => accountingCurrencyOptions(trip || currentTrip);
 
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-700">{t('trip.title')}</h3>
-        <button
-          type="button"
-          onClick={() => { setNewTripCurrency(currentTripCurrency || 'JPY'); setShowCreate(true); }}
-          className="btn-primary !py-1.5 !px-3 text-xs"
-        >
+        <button type="button" onClick={openCreate} className="btn-primary !py-1.5 !px-3 text-xs">
           {t('trip.addTrip')}
         </button>
       </div>
@@ -71,7 +173,7 @@ export default function TripManager() {
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400 ml-5">
-                  {trip.startDate} · {(trip.tripCurrency || 'JPY')} · {t('trip.records', { count: trip.expenses?.length || 0 })}
+                  {trip.startDate} · {t('trip.accountingShort', { ac: getAccountingCode(trip) })} · {trip.tripCurrency || 'JPY'} · {t('trip.records', { count: trip.expenses?.length || 0 })}
                 </p>
               </div>
               <div className="flex gap-1 shrink-0">
@@ -82,11 +184,7 @@ export default function TripManager() {
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditId(trip.id);
-                    setEditName(trip.name);
-                    setEditCurrency(trip.tripCurrency || 'JPY');
-                  }}
+                  onClick={() => openEdit(trip)}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
                   aria-label={`${t('expenseCard.edit')} ${trip.name}`}
                 >
@@ -114,6 +212,41 @@ export default function TripManager() {
                     className="input-field w-full text-xs"
                     autoFocus
                   />
+                </div>
+                <div>
+                  <label htmlFor={`trip-edit-accounting-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.accountingCurrency')}</label>
+                  <select
+                    id={`trip-edit-accounting-${trip.id}`}
+                    value={editAccountingSelect}
+                    onChange={(e) => {
+                      setEditAccountingSelect(e.target.value);
+                      if (e.target.value !== 'OTHER') setEditOtherCode('');
+                    }}
+                    className="input-field w-full text-xs"
+                  >
+                    {accountingOptionsFor(trip).map((code) => (
+                      <option key={code} value={code}>
+                        {CURRENCY_NAMES[code] ? `${code} — ${t(`currency.${code}`)}` : code}
+                      </option>
+                    ))}
+                    <option value="OTHER">{t('settings.otherCurrency')}</option>
+                  </select>
+                  {editAccountingSelect === 'OTHER' && (
+                    <div className="mt-1.5">
+                      <label htmlFor={`trip-edit-other-${trip.id}`} className="block text-[9px] text-slate-500 mb-0.5">{t('trip.accountingOtherCode')}</label>
+                      <input
+                        id={`trip-edit-other-${trip.id}`}
+                        type="text"
+                        value={editOtherCode}
+                        onChange={(e) => setEditOtherCode(e.target.value.toUpperCase())}
+                        maxLength={3}
+                        className="input-field w-full text-xs uppercase"
+                        placeholder="CHF"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                  <p className="text-[9px] text-slate-500 mt-1">{t('trip.accountingCurrencyHint')}</p>
                 </div>
                 <div>
                   <label htmlFor={`trip-edit-currency-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripCurrency')}</label>
@@ -150,6 +283,41 @@ export default function TripManager() {
           <div>
             <label htmlFor="trip-date" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.startDate')}</label>
             <input id="trip-date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label htmlFor="trip-new-accounting" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.accountingCurrency')}</label>
+            <select
+              id="trip-new-accounting"
+              value={newAccountingSelect}
+              onChange={(e) => {
+                setNewAccountingSelect(e.target.value);
+                if (e.target.value !== 'OTHER') setNewOtherCode('');
+              }}
+              className="input-field"
+            >
+              {accountingOptionsFor(currentTrip).map((code) => (
+                <option key={code} value={code}>
+                  {CURRENCY_NAMES[code] ? `${code} — ${t(`currency.${code}`)}` : code}
+                </option>
+              ))}
+              <option value="OTHER">{t('settings.otherCurrency')}</option>
+            </select>
+            {newAccountingSelect === 'OTHER' && (
+              <div className="mt-2">
+                <label htmlFor="trip-new-other" className="block text-xs text-slate-600 mb-1">{t('trip.accountingOtherCode')}</label>
+                <input
+                  id="trip-new-other"
+                  type="text"
+                  value={newOtherCode}
+                  onChange={(e) => setNewOtherCode(e.target.value.toUpperCase())}
+                  maxLength={3}
+                  className="input-field uppercase"
+                  placeholder="CHF"
+                  autoComplete="off"
+                />
+              </div>
+            )}
+            <p className="text-[10px] text-slate-500 mt-1">{t('trip.accountingCurrencyHint')}</p>
           </div>
           <div>
             <label htmlFor="trip-currency" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.tripCurrency')}</label>

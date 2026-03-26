@@ -6,13 +6,12 @@ import { CURRENCY_NAMES } from '../utils/constants';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 import { getDefaultAssignee } from '../utils/people';
+import { getAccountingCode } from '../utils/tripMoney';
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  // ── Settings ──
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
-  const { exchangeRates, homeCurrency, customCurrencyCode, customCurrencyRate } = settings;
 
   const updateSettings = useCallback((patch) => {
     setSettingsState((prev) => {
@@ -28,7 +27,6 @@ export function AppProvider({ children }) {
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
   }, [settings.uiLanguage]);
 
-  // ── People ──
   const [people, setPeopleState] = useState(() => DataService.loadPeople());
   const setPeople = useCallback((val) => {
     const next = typeof val === 'function' ? val(people) : val;
@@ -37,7 +35,6 @@ export function AppProvider({ children }) {
     return next;
   }, [people]);
 
-  // ── Trips ──
   const [trips, setTrips] = useState(() => {
     const data = DataService.loadTripsData();
     return data.trips || [];
@@ -52,7 +49,15 @@ export function AppProvider({ children }) {
     [trips, currentTripId]
   );
 
-  // ── Expenses ──
+  const exchangeRates = useMemo(
+    () => (currentTrip?.exchangeRates && typeof currentTrip.exchangeRates === 'object'
+      ? currentTrip.exchangeRates
+      : {}),
+    [currentTrip]
+  );
+
+  const homeCurrencyCode = useMemo(() => getAccountingCode(currentTrip), [currentTrip]);
+
   const [expenses, setExpensesState] = useState(() => DataService.loadExpenses());
 
   const setExpenses = useCallback((val) => {
@@ -63,17 +68,14 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // Sync trip expenses
   useEffect(() => {
     if (currentTripId && expenses) {
       DataService.updateCurrentTripExpenses(expenses);
     }
   }, [expenses, currentTripId]);
 
-  // ── Filters ──
   const [filterPerson, setFilterPerson] = useState(null);
 
-  // ── Notifications ──
   const [toast, setToast] = useState(null);
   const notify = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -85,7 +87,6 @@ export function AppProvider({ children }) {
     }
   }, [toast]);
 
-  // ── Exchange rate auto-recalc ──
   useEffect(() => {
     if (expenses.length === 0) return;
     let changed = false;
@@ -107,26 +108,16 @@ export function AppProvider({ children }) {
     }
   }, [exchangeRates]);
 
-  // ── Custom currency sync ──
-  useEffect(() => {
-    if (homeCurrency === 'OTHER' && customCurrencyCode?.length === 3 && customCurrencyRate > 0) {
-      updateSettings({
-        exchangeRates: { ...exchangeRates, [customCurrencyCode]: customCurrencyRate },
-      });
-    }
-  }, [customCurrencyCode, customCurrencyRate, homeCurrency]);
-
-  // ── Trip actions ──
-  const createTrip = useCallback((name, startDate, tripCurrency) => {
+  const createTrip = useCallback((name, startDate, tripCurrency, options) => {
     DataService.updateCurrentTripExpenses(expenses);
-    const newTrip = DataService.createTrip(name, startDate, tripCurrency);
+    const newTrip = DataService.createTrip(name, startDate, tripCurrency, options);
     const data = DataService.loadTripsData();
     setTrips(data.trips);
     setCurrentTripId(newTrip.id);
     setExpensesState([]);
     setPeopleState(newTrip.settings.people || ['共同']);
     notify(i18n.t('toast.tripCreated'));
-  }, [expenses]);
+  }, [expenses, notify]);
 
   const switchTrip = useCallback((tripId) => {
     if (tripId === currentTripId) return;
@@ -139,7 +130,7 @@ export function AppProvider({ children }) {
     if (trip?.settings?.people) setPeopleState(trip.settings.people);
     setFilterPerson(null);
     notify(i18n.t('toast.tripSwitched'));
-  }, [currentTripId, expenses]);
+  }, [currentTripId, expenses, notify]);
 
   const renamePerson = useCallback((oldName, newName) => {
     const trimmed = newName.trim();
@@ -174,7 +165,6 @@ export function AppProvider({ children }) {
     return { ok: true };
   }, [people, filterPerson, notify, setExpenses, setPeople]);
 
-  /** 設定頁刪除人物：各旅程 people 移除、支出改派，並同步 state */
   const removePersonWithReassign = useCallback((deletedName, reassignTo) => {
     if (!deletedName || !reassignTo) return;
     DataService.removePersonAndReassignAll(deletedName, reassignTo);
@@ -201,69 +191,44 @@ export function AppProvider({ children }) {
       notify(i18n.t('toast.tripDeleted'));
     }
     return { ok };
-  }, [currentTripId]);
+  }, [currentTripId, notify]);
 
-  /** 更新旅程名稱與／或旅程幣（設定 → 旅程管理） */
-  const updateTrip = useCallback((tripId, { name, tripCurrency } = {}) => {
+  const updateTrip = useCallback((tripId, patch) => {
     const data = DataService.loadTripsData();
-    const idx = data.trips.findIndex((t) => t.id === tripId);
-    if (idx === -1) return;
-    const trip = data.trips[idx];
-    let changed = false;
-    if (name != null) {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      if (trip.name !== trimmed) {
-        trip.name = trimmed;
-        changed = true;
-      }
+    const trip = data.trips.find((t) => t.id === tripId);
+    if (!trip) return;
+    if (patch.tripCurrency != null) {
+      const code = String(patch.tripCurrency).toUpperCase();
+      if (!CURRENCY_NAMES[code]) return;
     }
-    if (tripCurrency != null) {
-      const code = String(tripCurrency).toUpperCase();
-      if (CURRENCY_NAMES[code] && trip.tripCurrency !== code) {
-        trip.tripCurrency = code;
-        changed = true;
-      }
-    }
-    if (!changed) return;
-    DataService.saveTripsData(data);
-    setTrips(data.trips);
+    DataService.patchTrip(tripId, patch);
+    setTrips(DataService.loadTripsData().trips);
     notify(i18n.t('toast.tripUpdated'));
-  }, []);
+  }, [notify]);
 
-  // ── Expense actions ──
   const addExpense = useCallback((expense) => {
     setExpenses((prev) => sortExpenses([...prev, expense]));
     notify(i18n.t('toast.expenseAdded'));
-  }, []);
+  }, [notify]);
 
   const addExpenses = useCallback((newOnes) => {
     setExpenses((prev) => sortExpenses([...newOnes, ...prev]));
     notify(i18n.t('toast.expensesAdded', { count: newOnes.length }));
-  }, []);
+  }, [notify]);
 
   const updateExpense = useCallback((updated) => {
     const rate = exchangeRates[updated.currency] || 1;
     const withHkd = { ...updated, hkdAmount: rate > 0 ? updated.originalAmount / rate : updated.originalAmount };
     setExpenses((prev) => sortExpenses(prev.map((e) => (e.id === withHkd.id ? withHkd : e))));
     notify(i18n.t('toast.expenseUpdated'));
-  }, [exchangeRates]);
+  }, [exchangeRates, notify]);
 
   const removeExpense = useCallback((id) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     notify(i18n.t('toast.expenseDeleted'));
-  }, []);
+  }, [notify]);
 
-  // ── Context value ──
   const tripCurrency = currentTrip?.tripCurrency || 'JPY';
-
-  const homeCurrencyCode = useMemo(() => {
-    if (homeCurrency === 'OTHER' && customCurrencyCode?.length === 3) {
-      return String(customCurrencyCode).trim().toUpperCase();
-    }
-    if (homeCurrency && homeCurrency !== 'OTHER') return homeCurrency;
-    return 'HKD';
-  }, [homeCurrency, customCurrencyCode]);
 
   const defaultAssignee = useMemo(() => getDefaultAssignee(people), [people]);
 
@@ -276,13 +241,12 @@ export function AppProvider({ children }) {
     filterPerson, setFilterPerson,
     toast, notify,
     exchangeRates,
-    homeCurrency: homeCurrency || 'HKD',
     homeCurrencyCode,
     tripCurrency,
     defaultAssignee,
   }), [
     settings, people, trips, currentTripId, currentTrip,
-    expenses, filterPerson, toast, exchangeRates, homeCurrency, homeCurrencyCode, tripCurrency,
+    expenses, filterPerson, toast, exchangeRates, homeCurrencyCode, tripCurrency,
     defaultAssignee,
     updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,

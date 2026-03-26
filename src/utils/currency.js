@@ -18,18 +18,16 @@ export function toHome(amount, currency, rates) {
 }
 
 /**
- * AI 回傳 currency 優先；其次 tripCurrency（旅程幣）；最後 homeCurrency。
+ * AI 回傳 currency 優先；其次 tripCurrency（旅程幣）；最後記帳幣代碼。
+ * @param {string} accountingCode 目前旅程記帳貨幣 ISO（可為自訂三字碼）
  */
-export function resolveReceiptCurrency(parsed, settings, tripCurrency) {
+export function resolveReceiptCurrency(parsed, accountingCode, tripCurrency) {
   const raw = (parsed?.currency || '').toString().trim().toUpperCase();
   if (raw && CURRENCY_NAMES[raw]) return raw;
+  if (raw && /^[A-Z]{3}$/.test(raw)) return raw;
   if (tripCurrency && CURRENCY_NAMES[tripCurrency]) return tripCurrency;
-  if (settings?.homeCurrency === 'OTHER' && settings?.customCurrencyCode) {
-    const c = String(settings.customCurrencyCode).trim().toUpperCase();
-    if (c && CURRENCY_NAMES[c]) return c;
-  }
-  const home = settings?.homeCurrency;
-  if (home && home !== 'OTHER' && CURRENCY_NAMES[home]) return home;
+  const home = String(accountingCode || '').toUpperCase();
+  if (home && /^[A-Z]{3}$/.test(home)) return home.slice(0, 3);
   return 'HKD';
 }
 
