@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store/AppContext';
 import { CURRENCY_NAMES } from '../utils/constants';
+import { normalizeUiLanguage } from '../utils/locale';
 import { exportExpenses, exportFullBackup, importData } from '../services/ExportService';
 import TripManager from '../components/trip/TripManager';
 import { Download, Upload, Trash2 } from '../components/ui/Icons';
@@ -45,6 +46,9 @@ export default function Settings() {
       if (data.settings) {
         updateSettings({
           exchangeRates: data.settings.exchangeRates || exchangeRates,
+          ...(data.settings.uiLanguage != null
+            ? { uiLanguage: normalizeUiLanguage(data.settings.uiLanguage) }
+            : {}),
         });
       }
       notify(t('toast.importOk'));
@@ -61,11 +65,10 @@ export default function Settings() {
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.language')}</h2>
         <select
-          value={uiLanguage ?? 'system'}
+          value={uiLanguage ?? 'zh-TW'}
           onChange={(e) => updateSettings({ uiLanguage: e.target.value })}
           className="input-field"
         >
-          <option value="system">{t('settings.languageSystem')}</option>
           <option value="zh-TW">{t('settings.languageZhTW')}</option>
           <option value="en">{t('settings.languageEn')}</option>
         </select>

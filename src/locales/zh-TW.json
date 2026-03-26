@@ -84,7 +84,6 @@
   "settings": {
     "title": "設定",
     "language": "介面語言",
-    "languageSystem": "跟隨系統",
     "languageZhTW": "繁體中文",
     "languageEn": "English",
     "currencyTitle": "記帳貨幣",

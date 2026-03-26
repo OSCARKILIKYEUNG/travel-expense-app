@@ -84,7 +84,6 @@
   "settings": {
     "title": "Settings",
     "language": "Language",
-    "languageSystem": "Follow system",
     "languageZhTW": "Traditional Chinese",
     "languageEn": "English",
     "currencyTitle": "Base currency",

@@ -1,4 +1,5 @@
 import { DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
+import { normalizeUiLanguage } from '../utils/locale';
 
 const KEYS = {
   TRIPS: 'travel_trips_data',
@@ -104,27 +105,23 @@ const DataService = {
     const saved = read(KEYS.SETTINGS);
     if (saved) {
       const { apiKey: _omitKey, modelName: _omitModel, ...rest } = saved;
-      const uiLang = saved.uiLanguage;
       return {
         ...rest,
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(saved.exchangeRates || {}) },
         defaultCurrency: saved.defaultCurrency || 'HKD',
         customCurrencyCode: saved.customCurrencyCode || '',
         customCurrencyRate: saved.customCurrencyRate || 1,
-        uiLanguage:
-          uiLang === 'zh-TW' || uiLang === 'en' || uiLang === 'system' ? uiLang : 'system',
+        uiLanguage: normalizeUiLanguage(saved.uiLanguage),
       };
     }
     const preset = PRESET_TRIPS_DATA.trips[0]?.settings;
     if (preset) {
-      const uiLang = preset.uiLanguage;
       return {
         exchangeRates: { ...DEFAULT_EXCHANGE_RATES, ...(preset.exchangeRates || {}) },
         defaultCurrency: preset.defaultCurrency || 'HKD',
         customCurrencyCode: preset.customCurrencyCode || '',
         customCurrencyRate: preset.customCurrencyRate || 1,
-        uiLanguage:
-          uiLang === 'zh-TW' || uiLang === 'en' || uiLang === 'system' ? uiLang : 'system',
+        uiLanguage: normalizeUiLanguage(preset.uiLanguage),
       };
     }
     return {
@@ -132,7 +129,7 @@ const DataService = {
       defaultCurrency: 'HKD',
       customCurrencyCode: '',
       customCurrencyRate: 1,
-      uiLanguage: 'system',
+      uiLanguage: 'zh-TW',
     };
   },
 

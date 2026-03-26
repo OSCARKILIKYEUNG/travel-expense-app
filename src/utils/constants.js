@@ -91,6 +91,7 @@ export const PRESET_TRIPS_DATA = {
         defaultCurrency: 'HKD',
         customCurrencyCode: '',
         customCurrencyRate: 1,
+        uiLanguage: 'zh-TW',
       },
     },
   ],

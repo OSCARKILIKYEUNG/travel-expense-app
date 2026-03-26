@@ -1,33 +1,35 @@
 /**
- * App UI language: Traditional Chinese or English.
- * @param {'system' | 'zh-TW' | 'en' | undefined} uiLanguage From settings
+ * UI language is only Traditional Chinese or English.
+ * Legacy persisted value "system" (or unknown) → zh-TW.
+ * @param {unknown} raw
  * @returns {'zh-TW' | 'en'}
  */
-export function resolveAppLanguage(uiLanguage) {
-  if (uiLanguage === 'zh-TW') return 'zh-TW';
-  if (uiLanguage === 'en') return 'en';
-  if (typeof navigator !== 'undefined' && navigator.language) {
-    const n = navigator.language.toLowerCase();
-    if (n.startsWith('zh')) return 'zh-TW';
-  }
-  return 'en';
+export function normalizeUiLanguage(raw) {
+  if (raw === 'en') return 'en';
+  return 'zh-TW';
 }
 
 /**
- * Read initial uiLanguage from persisted settings (sync, before React).
- * @returns {'system' | 'zh-TW' | 'en'}
+ * @param {unknown} uiLanguage From settings
+ * @returns {'zh-TW' | 'en'}
  */
-export function readStoredUiLanguageMode() {
+export function resolveAppLanguage(uiLanguage) {
+  return normalizeUiLanguage(uiLanguage);
+}
+
+/**
+ * Initial language before React (reads localStorage; same rules as DataService.loadSettings).
+ * @returns {'zh-TW' | 'en'}
+ */
+export function readStoredUiLanguage() {
   try {
     const raw = localStorage.getItem('travel_app_settings');
     if (raw) {
       const s = JSON.parse(raw);
-      if (s.uiLanguage === 'zh-TW' || s.uiLanguage === 'en' || s.uiLanguage === 'system') {
-        return s.uiLanguage;
-      }
+      return normalizeUiLanguage(s.uiLanguage);
     }
   } catch {
     /* ignore */
   }
-  return 'system';
+  return 'zh-TW';
 }
