@@ -60,10 +60,18 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
     };
   }, [expense, isPartialMatch, receiptTaxExemptionAmount, isTaxExclusive, taxAmount]);
 
+  /** 分人：外稅時的比例消費稅 */
+  const partialTaxShare = useMemo(() => {
+    if (!isPartialMatch || !filterPerson || !isTaxExclusive || taxAmount <= 0) return 0;
+    const personItemSum = sumAssignedItemPrices(expense, filterPerson);
+    const allItemSum = (expense.items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
+    if (allItemSum <= 0) return 0;
+    return Math.round(taxAmount * (personItemSum / allItemSum));
+  }, [expense, filterPerson, isPartialMatch, isTaxExclusive, taxAmount]);
+
   /** 分人檢視：原價小計、比例退稅、實攤明細（與全單「退稅」列語意一致） */
   const partialBreakdown = useMemo(() => {
     if (!isPartialMatch || !filterPerson) return null;
-    /** 含 taxRefund，亦含「原價加總 − 實付」推算（舊資料常缺 taxRefund） */
     const refundTotal = getEffectiveRefundPositive(expense);
     if (refundTotal <= refundEpsilon(expense.currency)) return null;
     const subtotalGross = sumAssignedItemPrices(expense, filterPerson);
@@ -192,6 +200,12 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>消費稅</span>
                 <span className="font-mono tabular-nums">+ {taxAmount.toLocaleString()}</span>
+              </div>
+            )}
+            {isPartialMatch && isTaxExclusive && partialTaxShare > 0 && (
+              <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
+                <span>消費稅（按比例）</span>
+                <span className="font-mono tabular-nums">+ {partialTaxShare.toLocaleString()}</span>
               </div>
             )}
             {refundRowsMeta.showComputedRefundRow && (
