@@ -25,15 +25,15 @@ export default function Header() {
 
             {trips.length > 1 && (
               <div className="absolute right-0 top-full mt-1 bg-white text-slate-800 rounded-xl shadow-xl border border-slate-200 py-1 min-w-[200px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-40">
-                {trips.map((t) => (
+                {trips.map((trip) => (
                   <button
-                    key={t.id}
-                    onClick={() => switchTrip(t.id)}
+                    key={trip.id}
+                    onClick={() => switchTrip(trip.id)}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between
-                      ${t.id === currentTrip.id ? 'text-indigo-600 font-semibold bg-indigo-50/50' : ''}`}
+                      ${trip.id === currentTrip.id ? 'text-indigo-600 font-semibold bg-indigo-50/50' : ''}`}
                   >
-                    <span className="truncate">{t.name}</span>
-                    {t.id === currentTrip.id && (
+                    <span className="truncate">{trip.name}</span>
+                    {trip.id === currentTrip.id && (
                       <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
                         {t('trip.current')}
                       </span>
