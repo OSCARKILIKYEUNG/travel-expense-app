@@ -274,7 +274,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             <Edit size={14} /> {t('expenseCard.edit')}
           </button>
           <button
-            onClick={() => onDelete(expense.id, expense.store)}
+            onClick={() => onDelete(expense)}
             className="text-red-500 text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200
               hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             aria-label={t('expenseCard.deleteAria', { store: storeDisplay })}

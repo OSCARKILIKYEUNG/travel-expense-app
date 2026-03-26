@@ -23,6 +23,7 @@ export function getItemDisplayName(item, lang) {
 
 const UNKNOWN_LOC_ZH = '未知地點';
 const UNKNOWN_STORE_ZH = '未知店舖';
+const UNNAMED_STORE_ZH = '未命名';
 
 /**
  * @param {{ location?: string, locationEn?: string }} expense
@@ -42,8 +43,9 @@ export function getExpenseLocationDisplay(expense, lang, t) {
  */
 export function getExpenseStoreDisplay(expense, lang, t) {
   const raw = pickLocalized(expense?.store, expense?.storeEn, lang);
-  if (typeof lang === 'string' && lang.toLowerCase().startsWith('en') && raw === UNKNOWN_STORE_ZH) {
-    return t('common.unknownStore');
+  if (typeof lang === 'string' && lang.toLowerCase().startsWith('en')) {
+    if (raw === UNKNOWN_STORE_ZH) return t('common.unknownStore');
+    if (raw === UNNAMED_STORE_ZH) return t('common.unnamedStore');
   }
   return raw;
 }

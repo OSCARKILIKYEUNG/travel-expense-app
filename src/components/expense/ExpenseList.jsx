@@ -63,7 +63,7 @@ export default function ExpenseList() {
               expense={row.data}
               isDuplicate={duplicateIds.has(row.data.id)}
               onEdit={(e) => setEditTarget({ ...e })}
-              onDelete={(id, store) => setDeleteTarget({ id, store })}
+              onDelete={(e) => setDeleteTarget(e)}
             />
           )
         )}
@@ -71,7 +71,7 @@ export default function ExpenseList() {
 
       <DeleteConfirmDialog
         open={!!deleteTarget}
-        store={deleteTarget?.store}
+        expense={deleteTarget}
         onConfirm={() => { removeExpense(deleteTarget.id); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />

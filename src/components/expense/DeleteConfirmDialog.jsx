@@ -1,9 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import Dialog from '../ui/Dialog';
 import { AlertCircle } from '../ui/Icons';
+import { getExpenseStoreDisplay } from '../../utils/displayNames';
 
-export default function DeleteConfirmDialog({ open, store, onConfirm, onCancel }) {
-  const { t } = useTranslation();
+export default function DeleteConfirmDialog({ open, expense, onConfirm, onCancel }) {
+  const { t, i18n } = useTranslation();
+  const storeLabel = expense
+    ? getExpenseStoreDisplay(expense, i18n.language, t)
+    : '';
   return (
     <Dialog open={open} onClose={onCancel} size="sm">
       <div className="flex items-center gap-3 mb-4">
@@ -13,7 +17,7 @@ export default function DeleteConfirmDialog({ open, store, onConfirm, onCancel }
         <h3 className="text-xl font-bold text-slate-900">{t('deleteDialog.title')}</h3>
       </div>
       <p className="text-slate-600 mb-6">
-        {t('deleteDialog.message', { store })}
+        {t('deleteDialog.message', { store: storeLabel })}
       </p>
       <div className="flex gap-3">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1">{t('deleteDialog.cancel')}</button>

@@ -1,7 +1,8 @@
 {
   "common": {
     "unknownLocation": "未知地點",
-    "unknownStore": "未知店舖"
+    "unknownStore": "未知店舖",
+    "unnamedStore": "未命名"
   },
   "export": {
     "reportTitle": "旅行記帳報告",

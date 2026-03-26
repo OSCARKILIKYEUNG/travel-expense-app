@@ -1,7 +1,8 @@
 {
   "common": {
     "unknownLocation": "Unknown location",
-    "unknownStore": "Unknown store"
+    "unknownStore": "Unknown store",
+    "unnamedStore": "Unnamed"
   },
   "export": {
     "reportTitle": "Travel expense report",
