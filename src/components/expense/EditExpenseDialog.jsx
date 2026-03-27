@@ -22,7 +22,12 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
 
   const patchItem = (idx, updates) => {
     const items = [...(form.items || [])];
-    items[idx] = { ...items[idx], ...updates };
+    const prev = items[idx] || {};
+    const next = { ...prev, ...updates };
+    if (updates.price != null && Number(updates.price) !== Number(prev.price)) {
+      next.priceActual = undefined;
+    }
+    items[idx] = next;
     patch({ items });
   };
 

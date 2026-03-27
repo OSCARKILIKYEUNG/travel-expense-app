@@ -63,7 +63,8 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       eff,
       rec,
       eps,
-      showTaxRow: !isPartialMatch && isTaxExclusive && taxAmount > 0,
+      /** 有填消費稅即顯示（不限外稅單據；編輯後仍能看到） */
+      showTaxRow: !isPartialMatch && taxAmount > eps,
       showComputedRefundRow: !isPartialMatch && eff > eps,
       showReceiptOnlyRow: !isPartialMatch && rec > eps && eff <= eps,
       showReceiptSecondaryRow: !isPartialMatch && rec > eps && eff > eps && !closeEnough,
@@ -196,7 +197,12 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                   !simplified &&
                   item.priceActual != null &&
                   Math.abs(item.priceActual - item.price) > Math.max(refundEpsilon(expense.currency) * 2, 0.5);
-                const single = item.priceActual != null ? item.priceActual : item.price;
+                /** 精簡模式或手動編價後以 `price` 為準，避免舊的掃描 priceActual 蓋過新價 */
+                const single = simplified
+                  ? (Number(item.price) || 0)
+                  : item.priceActual != null
+                    ? item.priceActual
+                    : item.price;
                 return (
                   <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
                     <span className="flex items-center gap-1.5 min-w-0">
@@ -242,7 +248,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 <span className="font-mono tabular-nums">+ {partialTaxShare.toLocaleString()}</span>
               </div>
             )}
-            {refundRowsMeta.showComputedRefundRow && !simplified && (
+            {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.refundDiff')}</span>
                 <span className="font-mono tabular-nums">{refundRowsMeta.eff.toLocaleString()}</span>
