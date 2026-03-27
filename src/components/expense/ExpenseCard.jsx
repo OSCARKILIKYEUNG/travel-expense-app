@@ -233,7 +233,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             {Math.abs(discountAmount) > refundEpsilon(expense.currency) && (
               <div className="flex justify-between items-center text-xs text-amber-800 font-medium mb-2 pt-1 border-t border-slate-200/80">
                 <span>{t('expenseCard.discountLine')}</span>
-                <span className="font-mono tabular-nums">{discountAmount.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">- {Math.abs(discountAmount).toLocaleString()}</span>
               </div>
             )}
             {refundRowsMeta.showTaxRow && (
@@ -251,7 +251,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.refundDiff')}</span>
-                <span className="font-mono tabular-nums">{refundRowsMeta.eff.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">- {refundRowsMeta.eff.toLocaleString()}</span>
               </div>
             )}
             {refundRowsMeta.showReceiptOnlyRow && !simplified && (
@@ -283,7 +283,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
                   <span>{t('expenseCard.refundProportional')}</span>
                   <span className="font-mono tabular-nums">
-                    {Math.round(partialBreakdown.refundShare).toLocaleString()}
+                    - {Math.round(partialBreakdown.refundShare).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold text-violet-800 pt-1 border-t border-violet-100">
