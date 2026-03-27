@@ -71,6 +71,7 @@ export function AppProvider({ children, userId }) {
 }
 
 function AppProviderInner({ children, userId }) {
+  const { t } = useTranslation();
   DataService.setStorageScope(userId);
 
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
@@ -136,15 +137,6 @@ function AppProviderInner({ children, userId }) {
     }
   }, [expenses, currentTripId]);
 
-  useEffect(() => {
-    const id = setTimeout(() => {
-      persistUserAppData(userId).catch((err) => {
-        console.error('[sync]', err);
-      });
-    }, PERSIST_DEBOUNCE_MS);
-    return () => clearTimeout(id);
-  }, [userId, trips, currentTripId, expenses, settings, people]);
-
   const [filterPerson, setFilterPerson] = useState(null);
 
   const [toast, setToast] = useState(null);
@@ -157,6 +149,20 @@ function AppProviderInner({ children, userId }) {
       return () => clearTimeout(t);
     }
   }, [toast]);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      persistUserAppData(userId).catch((err) => {
+        console.error('[sync]', err);
+        const msg =
+          err?.message ||
+          err?.error_description ||
+          (typeof err === 'string' ? err : JSON.stringify(err));
+        notify(t('errors.persistFailed', { message: msg }), 'error');
+      });
+    }, PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [userId, trips, currentTripId, expenses, settings, people, notify, t]);
 
   useEffect(() => {
     if (expenses.length === 0) return;

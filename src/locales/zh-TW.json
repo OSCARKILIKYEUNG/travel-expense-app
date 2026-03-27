@@ -76,7 +76,8 @@
   "errors": {
     "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
     "syncFailed": "無法從雲端載入或儲存資料：{{message}}",
-    "syncRetry": "重新載入"
+    "syncRetry": "重新載入",
+    "persistFailed": "無法同步到 Supabase：{{message}}（請確認已在 SQL Editor 執行 supabase/migrations/001_user_app_data.sql，且 Vercel 環境變數與本機 .env 指向同一專案）"
   },
   "list": {
     "emptyTitle": "尚無記錄",
