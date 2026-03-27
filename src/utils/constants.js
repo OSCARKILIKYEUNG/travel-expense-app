@@ -99,6 +99,7 @@ export const PRESET_TRIPS_DATA = {
       exchangeRates: { ...DEFAULT_EXCHANGE_RATES },
       exchangeRatesUpdatedAt: null,
       manualRateCodes: [],
+      exchangeRateUserEditedCodes: [],
       settings: {
         people: ['共同', '人物A', '人物B'],
       },

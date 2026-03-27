@@ -10,6 +10,7 @@ import {
   FRANKFURTER_GRID_CODES,
 } from '../services/ExchangeRateService';
 import { canFetchLiveRates } from '../utils/tripMoney';
+import { formatExchangeRateInputValue } from '../utils/rateDisplay';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
@@ -36,6 +37,7 @@ export default function Settings() {
   const uiLanguage = settings?.uiLanguage ?? 'zh-TW';
   const exchangeRatesUpdatedAt = currentTrip?.exchangeRatesUpdatedAt;
   const manualRateCodes = currentTrip?.manualRateCodes || [];
+  const exchangeRateUserEditedCodes = currentTrip?.exchangeRateUserEditedCodes || [];
 
   const importRef = useRef(null);
 
@@ -52,11 +54,12 @@ export default function Settings() {
     ...manualRateCodes.filter((c) => !FRANKFURTER_GRID_CODES.includes(c)),
   ];
 
-  const patchTripRates = (nextRates, nextManual, nextUpdated) => {
+  const patchTripRates = (nextRates, nextManual, nextUpdated, extra = {}) => {
     updateTrip(currentTripId, {
       exchangeRates: nextRates,
       manualRateCodes: nextManual,
       ...(nextUpdated !== undefined ? { exchangeRatesUpdatedAt: nextUpdated } : {}),
+      ...extra,
     });
   };
 
@@ -74,7 +77,9 @@ export default function Settings() {
     try {
       const fetched = await fetchFrankfurterRates(home);
       const merged = mergeExchangeRates(exchangeRates, fetched, home, manualRateCodes);
-      patchTripRates(merged, manualRateCodes, new Date().toISOString());
+      patchTripRates(merged, manualRateCodes, new Date().toISOString(), {
+        exchangeRateUserEditedCodes: [],
+      });
       if (expenses.length === 0) notify(t('toast.fetchRatesOk'));
     } catch {
       notify(t('toast.fetchRatesFailed'), 'error');
@@ -84,8 +89,30 @@ export default function Settings() {
   };
 
   const handleRateBlur = (code, value) => {
-    const v = parseFloat(value) || 1;
-    patchTripRates({ ...exchangeRates, [code]: v }, manualRateCodes, exchangeRatesUpdatedAt);
+    if (code === homeCurrencyCode) return;
+    const prev = exchangeRates[code] ?? 1;
+    const v = parseFloat(value);
+    if (!Number.isFinite(v) || v <= 0) return;
+
+    const isManual = manualRateCodes.includes(code);
+    const wasEdited = exchangeRateUserEditedCodes.includes(code);
+
+    if (!isManual && !wasEdited) {
+      const roundedDisplay = Number(Number(prev).toFixed(2));
+      if (Math.abs(v - roundedDisplay) < 1e-9) {
+        return;
+      }
+    }
+
+    const nextEdited = new Set(exchangeRateUserEditedCodes);
+    if (!isManual) nextEdited.add(code);
+
+    patchTripRates(
+      { ...exchangeRates, [code]: v },
+      manualRateCodes,
+      exchangeRatesUpdatedAt,
+      { exchangeRateUserEditedCodes: [...nextEdited] },
+    );
   };
 
   const handleAddManualRate = () => {
@@ -112,7 +139,10 @@ export default function Settings() {
     const nextManual = manualRateCodes.filter((x) => x !== code);
     const nextRates = { ...exchangeRates };
     delete nextRates[code];
-    patchTripRates(nextRates, nextManual, exchangeRatesUpdatedAt);
+    const nextUserEdited = exchangeRateUserEditedCodes.filter((c) => c !== code);
+    patchTripRates(nextRates, nextManual, exchangeRatesUpdatedAt, {
+      exchangeRateUserEditedCodes: nextUserEdited,
+    });
   };
 
   const handleAddPerson = () => {
@@ -256,6 +286,14 @@ export default function Settings() {
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
           {rateGridCodes.map((code) => {
             const isManual = manualRateCodes.includes(code);
+            const userEdited = exchangeRateUserEditedCodes.includes(code);
+            const displayStr = formatExchangeRateInputValue(
+              code,
+              exchangeRates[code] ?? 1,
+              homeCurrencyCode,
+              isManual,
+              exchangeRateUserEditedCodes,
+            );
             return (
               <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200 relative">
                 <div className="flex items-center justify-between gap-1 mb-0.5">
@@ -266,10 +304,10 @@ export default function Settings() {
                 </div>
                 <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
                 <input
-                  key={`${code}-${exchangeRates[code]}`}
+                  key={`${code}-${exchangeRates[code]}-${isManual ? 'm' : 'a'}-${userEdited ? 'e' : 's'}`}
                   type="number"
-                  step="0.0001"
-                  defaultValue={exchangeRates[code] ?? 1}
+                  step={isManual || userEdited ? '0.0001' : '0.01'}
+                  defaultValue={displayStr}
                   disabled={code === homeCurrencyCode}
                   onBlur={(e) => handleRateBlur(code, e.target.value)}
                   className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:bg-slate-100 disabled:text-slate-500"

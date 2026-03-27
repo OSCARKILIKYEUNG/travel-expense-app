@@ -10,6 +10,7 @@
 | 我想… | 打開 |
 |------|------|
 | 安裝、跑專案、部署到 Vercel | [README.md](../README.md)（**專案門面**） |
+| **打包 zip 換機／備份**（`npm run zip:portable`） | [PORTABLE_ZIP.md](./PORTABLE_ZIP.md) |
 | 排優先級、路線圖、技術債、發版紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md)（**產品主控**） |
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
 | **從頭到現況的設計思路**（分人→稅／退稅、多幣為何要存等 **敘事**） | [DESIGN_THINKING.md](./DESIGN_THINKING.md) |

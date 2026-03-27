@@ -125,6 +125,10 @@ function migrateTripsCurrency(data) {
       trip.manualRateCodes = [];
       dirty = true;
     }
+    if (!Array.isArray(trip.exchangeRateUserEditedCodes)) {
+      trip.exchangeRateUserEditedCodes = [];
+      dirty = true;
+    }
     if (!Array.isArray(trip.customTripCurrencyCodes)) {
       trip.customTripCurrencyCodes = [];
       dirty = true;
@@ -271,6 +275,7 @@ const DataService = {
       exchangeRates,
       exchangeRatesUpdatedAt,
       manualRateCodes: [],
+      exchangeRateUserEditedCodes: [],
       createdAt: new Date().toISOString(),
       expenses: [],
       settings: { people: [...peopleSource] },
@@ -348,6 +353,9 @@ const DataService = {
     }
     if (patch.manualRateCodes != null) {
       trip.manualRateCodes = [...patch.manualRateCodes];
+    }
+    if (patch.exchangeRateUserEditedCodes != null) {
+      trip.exchangeRateUserEditedCodes = [...patch.exchangeRateUserEditedCodes];
     }
     if (patch.exchangeRatesUpdatedAt !== undefined) {
       trip.exchangeRatesUpdatedAt = patch.exchangeRatesUpdatedAt;

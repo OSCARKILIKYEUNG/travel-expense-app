@@ -12,3 +12,6 @@ reference/
 
 # 本機助手工作目錄（不進版控）
 .claude/
+
+# 本機打包備份（npm run zip:portable 產出）
+portable-zips/
