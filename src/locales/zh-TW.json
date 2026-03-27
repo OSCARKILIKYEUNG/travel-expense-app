@@ -25,6 +25,26 @@
   "app": {
     "brand": "旅遊記帳助手 Pro"
   },
+  "auth": {
+    "loading": "載入中…",
+    "signIn": "登入",
+    "signUp": "註冊",
+    "email": "電子郵件",
+    "password": "密碼",
+    "submitting": "處理中…",
+    "errorEmpty": "請輸入電子郵件與密碼。",
+    "errorGeneric": "發生錯誤，請稍後再試。",
+    "verifyHint": "註冊後我們會寄驗證信到您的信箱；請點擊信內連結即可登入。",
+    "verifyEmailSent": "已寄出驗證信，請至信箱開啟驗證連結。",
+    "checkInboxTitle": "請驗證電子郵件",
+    "checkInboxBody": "我們已寄信至 {{email}}。若未收到，請檢查垃圾郵件或稍後再試。",
+    "resend": "重新寄送驗證信",
+    "resendWait": "{{seconds}} 秒後可再寄",
+    "resendOk": "已重新寄送驗證信。",
+    "back": "返回",
+    "configMissingTitle": "尚未設定 Supabase",
+    "configMissingBody": "請在專案根目錄建立 .env，並填入下列變數（值見 Supabase Dashboard → Project Settings → API）："
+  },
   "nav": {
     "sidebarTitle": "導航",
     "dashboard": "首頁",
@@ -83,6 +103,8 @@
   },
   "settings": {
     "title": "設定",
+    "accountTitle": "帳號",
+    "signOut": "登出",
     "language": "介面語言",
     "languageZhTW": "繁體中文",
     "languageEn": "English",

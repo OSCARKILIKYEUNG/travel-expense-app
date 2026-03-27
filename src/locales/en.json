@@ -25,6 +25,26 @@
   "app": {
     "brand": "Travel Expense Pro"
   },
+  "auth": {
+    "loading": "Loading…",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "submitting": "Please wait…",
+    "errorEmpty": "Enter email and password.",
+    "errorGeneric": "Something went wrong. Try again.",
+    "verifyHint": "After sign-up we will email you a confirmation link. Open it to finish registration.",
+    "verifyEmailSent": "Verification email sent. Check your inbox.",
+    "checkInboxTitle": "Verify your email",
+    "checkInboxBody": "We sent a message to {{email}}. Check spam if you do not see it.",
+    "resend": "Resend verification email",
+    "resendWait": "Resend in {{seconds}}s",
+    "resendOk": "Verification email sent again.",
+    "back": "Back",
+    "configMissingTitle": "Supabase not configured",
+    "configMissingBody": "Create a .env file in the project root with (from Supabase Dashboard → Project Settings → API):"
+  },
   "nav": {
     "sidebarTitle": "Navigation",
     "dashboard": "Home",
@@ -83,6 +103,8 @@
   },
   "settings": {
     "title": "Settings",
+    "accountTitle": "Account",
+    "signOut": "Sign out",
     "language": "Language",
     "languageZhTW": "Traditional Chinese",
     "languageEn": "English",

@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { useApp } from '../store/AppContext';
 import { normalizeUiLanguage } from '../utils/locale';
 import { copyReport, exportExpenses, exportFullBackup, importData } from '../services/ExportService';
@@ -17,6 +19,9 @@ import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const {
     settings,
     updateSettings,
@@ -220,9 +225,32 @@ export default function Settings() {
   const fetchDisabled =
     ratesLoading || !currentTrip || !canFetchLiveRates(currentTrip) || !FRANKFURTER_SUPPORTED.has(homeCurrencyCode);
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">{t('settings.title')}</h1>
+
+      <section className="card p-4 space-y-2">
+        <h2 className="text-sm font-bold text-slate-700">{t('settings.accountTitle')}</h2>
+        <p className="text-xs text-slate-600 break-all">{user?.email ?? '—'}</p>
+        <button
+          type="button"
+          className="btn-secondary text-sm !py-2"
+          onClick={handleSignOut}
+          disabled={signingOut}
+        >
+          {signingOut ? t('auth.submitting') : t('settings.signOut')}
+        </button>
+      </section>
 
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.language')}</h2>
