@@ -74,7 +74,9 @@
     "allFailed": "Could not process receipts. Check images or try again."
   },
   "errors": {
-    "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry."
+    "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
+    "syncFailed": "Could not load or save cloud data: {{message}}",
+    "syncRetry": "Reload"
   },
   "list": {
     "emptyTitle": "No expenses yet",

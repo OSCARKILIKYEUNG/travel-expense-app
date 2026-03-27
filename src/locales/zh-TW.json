@@ -74,7 +74,9 @@
     "allFailed": "所有單據處理失敗，請檢查圖片或稍後再試"
   },
   "errors": {
-    "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。"
+    "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
+    "syncFailed": "無法從雲端載入或儲存資料：{{message}}",
+    "syncRetry": "重新載入"
   },
   "list": {
     "emptyTitle": "尚無記錄",

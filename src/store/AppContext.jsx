@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import DataService from '../services/DataService';
+import { bootstrapUserAppData, persistUserAppData } from '../services/syncSupabase';
 import { sortExpenses } from '../utils/date';
 import { toHome } from '../utils/currency';
 import i18n from '../i18n';
@@ -11,10 +13,64 @@ import { buildMergedSavedCurrencySettings } from '../utils/savedCurrencyMerge';
 
 const AppContext = createContext(null);
 
+const PERSIST_DEBOUNCE_MS = 500;
+
+/**
+ * 先從 Supabase 載入（無則建立預設並上傳），再掛載內層；本機 localStorage 作為快取，雲端為唯一真相來源。
+ */
 export function AppProvider({ children, userId }) {
-  if (!userId) {
-    throw new Error('AppProvider requires userId (Supabase user id)');
+  const { t } = useTranslation();
+  const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReady(false);
+    setBootError(null);
+    (async () => {
+      try {
+        await bootstrapUserAppData(userId);
+        if (!cancelled) setReady(true);
+      } catch (e) {
+        if (!cancelled) setBootError(e?.message || 'sync failed');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (bootError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 gap-3">
+        <p className="text-sm text-red-700 text-center max-w-md">{t('errors.syncFailed', { message: bootError })}</p>
+        <button
+          type="button"
+          className="btn-primary text-sm"
+          onClick={() => window.location.reload()}
+        >
+          {t('errors.syncRetry')}
+        </button>
+      </div>
+    );
   }
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <p className="text-slate-600 text-sm">{t('auth.loading')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <AppProviderInner key={userId} userId={userId}>
+      {children}
+    </AppProviderInner>
+  );
+}
+
+function AppProviderInner({ children, userId }) {
   DataService.setStorageScope(userId);
 
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
@@ -79,6 +135,15 @@ export function AppProvider({ children, userId }) {
       DataService.updateCurrentTripExpenses(expenses);
     }
   }, [expenses, currentTripId]);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      persistUserAppData(userId).catch((err) => {
+        console.error('[sync]', err);
+      });
+    }, PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [userId, trips, currentTripId, expenses, settings, people]);
 
   const [filterPerson, setFilterPerson] = useState(null);
 

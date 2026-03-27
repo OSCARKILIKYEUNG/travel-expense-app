@@ -3,12 +3,18 @@ import { normalizeUiLanguage } from '../utils/locale';
 import { blankRatesForAccounting, getAccountingCode } from '../utils/tripMoney';
 import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
 
-const KEYS = {
+export const KEYS = {
   TRIPS: 'travel_trips_data',
   EXPENSES: 'travel_expenses_data',
   SETTINGS: 'travel_app_settings',
   PEOPLE: 'travel_people_list',
 };
+
+/** 供雲端同步寫入本機快取用（與 internal physicalKey 規則一致） */
+export function scopedLocalStorageKey(userId, logicalKey) {
+  if (!userId) return logicalKey;
+  return `user:${userId}:${logicalKey}`;
+}
 
 /** 目前登入使用者（Supabase `user.id`）；未設定時沿用未加前綴鍵名（僅供測試／異常） */
 let activeUserId = null;
