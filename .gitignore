@@ -9,3 +9,6 @@ Thumbs.db
 
 # 本機參考圖（收據截圖等，不進版控）
 reference/
+
+# 本機助手工作目錄（不進版控）
+.claude/

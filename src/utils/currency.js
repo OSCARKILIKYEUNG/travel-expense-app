@@ -11,6 +11,7 @@ export function getExchangeRate(currency, rates) {
 /**
  * 將原幣金額轉成記帳幣（home currency）。
  * 公式：homeAmount = originalAmount / rate（rate = 1 home = X foreign）。
+ * 結果通常寫入支出欄位 `hkdAmount`（語意見 `src/types/expense.js`）。
  */
 export function toHome(amount, currency, rates) {
   const rate = getExchangeRate(currency, rates);

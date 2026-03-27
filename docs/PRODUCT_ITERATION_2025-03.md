@@ -197,6 +197,8 @@
 | 2025-03-26 | SAVE：i18n（繁中／英）、收據雙語、語言僅兩選與 `normalizeUiLanguage`；詳見 §十。 |
 | 2025-03-26 | **SAVE 多幣別**：新增 **§十一**（計劃／交付／坑／後續）；§十 增列；`PRODUCT_MANAGEMENT` 發布紀錄補一行。 |
 | 2025-03-27 | **整理與補漏**：§一 進度快照／主題更新；新增 **§2.6、§2.7**；§三 **L18、L19**；§十一 **Phase 3 狀態與交付**（含 Frankfurter、proxy、rebase、key、timeout、雙 Toast、currencyMismatch）；§十 SAVE 新列；§七 索引補匯率相關檔；與 `HANDOFF.md` 分工、避免重複長表。 |
+| 2025-03-27 | **維護優化階段 0**：新增 **`docs/DATA_FLOW.md`**（`travel_expenses_data` ↔ `trip.expenses`、Context 權威、`switchTrip`／`removePersonAndReassignAll` 要點）；`docs/README.md`、`PRODUCT_MANAGEMENT.md`（TD-01、路線圖、索引）連結更新。 |
+| 2025-03-27 | **維護優化階段 1～3**：**Vitest** + `src/**/*.test.js`（`personShare`、`currency`、`ExchangeRateService`、匯率重算、幣別清單合併）；**`recalculateExpensesForRates`、`buildMergedSavedCurrencySettings`** 抽離純函式，`AppContext` 精簡；**`src/types/expense.js`** JSDoc（`hkdAmount` 語意）；`updateExpense` 改用 `toHome`；`vite.config` `test` 區塊、`package.json` `test`／`test:run`。 |
 
 ---
 

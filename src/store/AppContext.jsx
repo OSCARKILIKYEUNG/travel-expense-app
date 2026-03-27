@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import DataService from '../services/DataService';
 import { sortExpenses } from '../utils/date';
-import { getExchangeRate } from '../utils/currency';
+import { toHome } from '../utils/currency';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 import { getDefaultAssignee } from '../utils/people';
-import { getAccountingCode, getTripCurrencyCode } from '../utils/tripMoney';
+import { getTripCurrencyCode } from '../utils/tripMoney';
+import { recalculateExpensesForRates } from '../utils/recalculateExpensesForRates';
+import { buildMergedSavedCurrencySettings } from '../utils/savedCurrencyMerge';
 
 const AppContext = createContext(null);
 
@@ -88,19 +90,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (expenses.length === 0) return;
-    let changed = false;
-    const updated = expenses.map((e) => {
-      const curr = e.originalCurrency || e.currency;
-      const amt = e.originalAmount || e.hkdAmount;
-      if (!curr || !amt) return e;
-      const newRate = exchangeRates[curr] || 1;
-      const newHome = newRate > 0 ? amt / newRate : amt;
-      if (Math.abs(newHome - e.hkdAmount) > 0.01) {
-        changed = true;
-        return { ...e, hkdAmount: newHome, rate: newRate };
-      }
-      return e;
-    });
+    const { expenses: updated, changed } = recalculateExpensesForRates(expenses, exchangeRates);
     if (changed) {
       setExpenses(updated);
       notify(i18n.t('toast.ratesUpdated'));
@@ -108,36 +98,9 @@ export function AppProvider({ children }) {
   }, [exchangeRates]);
 
   const mergeSavedCurrencyListsFromTrip = useCallback((trip) => {
-    if (!trip) return;
-    const acc = new Set();
-    const ac = getAccountingCode(trip);
-    if (/^[A-Z]{3}$/.test(ac)) acc.add(ac);
-    (trip.customAccountingCodes || []).forEach((c) => {
-      const x = String(c).toUpperCase().slice(0, 3);
-      if (/^[A-Z]{3}$/.test(x)) acc.add(x);
-    });
-    const tripCodes = new Set();
-    const tc = getTripCurrencyCode(trip);
-    if (/^[A-Z]{3}$/.test(tc)) tripCodes.add(tc);
-    (trip.customTripCurrencyCodes || []).forEach((c) => {
-      const x = String(c).toUpperCase().slice(0, 3);
-      if (/^[A-Z]{3}$/.test(x)) tripCodes.add(x);
-    });
-
     setSettingsState((prev) => {
-      const mergeArr = (base, additions) => {
-        const s = new Set([...(base || [])]);
-        additions.forEach((x) => {
-          const c = String(x).toUpperCase().slice(0, 3);
-          if (/^[A-Z]{3}$/.test(c)) s.add(c);
-        });
-        return [...s].sort();
-      };
-      const next = {
-        ...prev,
-        savedAccountingCodes: mergeArr(prev.savedAccountingCodes, [...acc]),
-        savedTripCurrencies: mergeArr(prev.savedTripCurrencies, [...tripCodes]),
-      };
+      const next = buildMergedSavedCurrencySettings(prev, trip);
+      if (!next) return prev;
       DataService.saveSettings(next);
       return next;
     });
@@ -256,8 +219,10 @@ export function AppProvider({ children }) {
   }, [notify]);
 
   const updateExpense = useCallback((updated) => {
-    const rate = exchangeRates[updated.currency] || 1;
-    const withHkd = { ...updated, hkdAmount: rate > 0 ? updated.originalAmount / rate : updated.originalAmount };
+    const withHkd = {
+      ...updated,
+      hkdAmount: toHome(updated.originalAmount, updated.currency, exchangeRates),
+    };
     setExpenses((prev) => sortExpenses(prev.map((e) => (e.id === withHkd.id ? withHkd : e))));
     notify(i18n.t('toast.expenseUpdated'));
   }, [exchangeRates, notify]);

@@ -12,6 +12,9 @@
 | 安裝、跑專案、部署到 Vercel | [README.md](../README.md)（**專案門面**） |
 | 排優先級、路線圖、技術債、發版紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md)（**產品主控**） |
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
+| **從頭到現況的設計思路**（分人→稅／退稅、多幣為何要存等 **敘事**） | [DESIGN_THINKING.md](./DESIGN_THINKING.md) |
+| **支出資料雙軌、`localStorage` 與 Context 同步（維護必讀）** | [DATA_FLOW.md](./DATA_FLOW.md) |
+| **單元測試**（Vitest：`npm run test`／`npm run test:run`） | `src/**/*.test.js`，涵蓋 `personShare`、`currency`、`ExchangeRateService`、`recalculateExpensesForRates`、`savedCurrencyMerge` |
 | 單據類型 A～H（外稅／免稅／套裝等） | [RECEIPT_TYPES.md](./RECEIPT_TYPES.md) |
 | **與 AI 協作 SOP**（意見→對齊→再實作；與 §九／Cursor rule 對照） | [PRODUCT_MANAGEMENT.md § 與 AI 協作 SOP](./PRODUCT_MANAGEMENT.md#與-ai-協作-sop) |
 | Cursor 規則（意見→先對齊再改；**SAVE**→寫 §十） | [../.cursor/rules/feedback-before-implement.mdc](../.cursor/rules/feedback-before-implement.mdc) |
@@ -73,6 +76,8 @@ travel app/                    # 資料夾名含空白，終端機路徑請加�
 | `HANDOFF.md` | 遷移與決策歷史 |
 | `DESIGN_SPEC.md` | UI/UX 規格 |
 | `docs/PRODUCT_MANAGEMENT.md` | 路線圖、技術債、發布紀錄、**與 AI 協作 SOP**（專節） |
+| `docs/DESIGN_THINKING.md` | **設計思路敘事**（起點→分帳與稅、多幣儲存、類型系統、協作方式）；細節仍見迭代檔 |
+| `docs/DATA_FLOW.md` | **資料流**：`travel_expenses_data` ↔ `trip.expenses`、誰是權威、切旅程／改名時檢查清單 |
 | `docs/PRODUCT_ITERATION_2025-03.md` | 2025-03 分帳／免稅迭代之書面 log；**§十一** 多幣別計劃／交付／坑；**§十二** **現版匯率／稅項／分帳邏輯速查**；**§2.6–2.7** 小 UX 與匯率延伸 |
 | `docs/README.md` | **本檔：文件地圖** |
 | `docs/archive/BACKUP_BRANCH_v1.md` | Git 備份分支操作說明 |

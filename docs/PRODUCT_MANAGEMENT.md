@@ -93,7 +93,7 @@
 | 分人篩選：實付比例攤分 + 圖表／總計一致 | [x] | `personShare.js`；見「迭代紀錄」 |
 | 日本免稅：固定費行（GB 佣金等）+ 可退稅池比例 | [x] | 編輯勾「固定」+ 品名推斷；見「迭代紀錄」 |
 | 收據免稅額僅顯示（細項已免稅後價之類） | [x] | `receiptTaxExemptionAmount`；不影響實付公式；見「迭代紀錄」 |
-| 資料雙軌（`travel_expenses_data` vs 旅程內 `expenses`）文件化或收斂 | [ ] | 見「架構：技術債」 |
+| 資料雙軌（`travel_expenses_data` vs 旅程內 `expenses`）文件化或收斂 | [~] | **已文件化** [DATA_FLOW.md](./DATA_FLOW.md)；收斂仍待（TD-01） |
 | 跨國：`countryHint` / `price_basis` 預留、列表「免稅」小標 | [ ] | 見「迭代紀錄」第五章 backlog |
 
 ### P1 — 體驗與成長
@@ -138,9 +138,9 @@
 
 | ID | 描述 | 影響 | 建議處理 |
 |----|------|------|----------|
-| TD-01 | 支出同時存於 `KEYS.EXPENSES` 與旅程物件，需同步 | 邊界錯易誤寫 | 文件畫資料流圖；長期改為單一來源或明確「主從」 |
+| TD-01 | 支出同時存於 `KEYS.EXPENSES` 與旅程物件，需同步 | 邊界錯易誤寫 | **已書面化**：[DATA_FLOW.md](./DATA_FLOW.md)；長期改為單一來源或明確「主從」 |
 | TD-02 | `AppContext` 職責多 | 難測、難讀 | 拆 hook 或 slice context |
-| TD-03 | 無自動化測試 | 回歸靠手動 | P0 功能穩定後補 Vitest |
+| TD-03 | 無自動化測試 | 回歸靠手動 | **已補 Vitest**（`npm run test:run`）：`personShare`、`currency`、`ExchangeRateService`、`recalculateExpensesForRates`、`savedCurrencyMerge`；擴充見 backlog |
 
 ---
 
@@ -166,6 +166,8 @@
 | `docs/archive/BACKUP_BRANCH_v1.md` | 備份分支 Git 操作 |
 | `BACKUP_README.md`（根） | 捷徑，指向 archive |
 | **`docs/PRODUCT_MANAGEMENT.md`** | **本檔：產品路線、架構優先級、技術債** |
+| **`docs/DESIGN_THINKING.md`** | **設計思路敘事**（從起點到現況：分帳與稅、多幣儲存等「為什麼」） |
+| **`docs/DATA_FLOW.md`** | **支出與 localStorage 雙軌資料流**（維護、改儲存前必讀） |
 | **`docs/PRODUCT_ITERATION_2025-03.md`** | **單次迭代：交付、踩坑、待辦、PM 跟進流程** |
 
 ---
