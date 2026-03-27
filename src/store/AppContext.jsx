@@ -5,7 +5,7 @@ import { toHome } from '../utils/currency';
 import i18n from '../i18n';
 import { resolveAppLanguage } from '../utils/locale';
 import { getDefaultAssignee } from '../utils/people';
-import { getTripCurrencyCode } from '../utils/tripMoney';
+import { getAccountingCode, getTripCurrencyCode } from '../utils/tripMoney';
 import { recalculateExpensesForRates } from '../utils/recalculateExpensesForRates';
 import { buildMergedSavedCurrencySettings } from '../utils/savedCurrencyMerge';
 
