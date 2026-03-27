@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +16,6 @@ import { formatExchangeRateInputValue } from '../utils/rateDisplay';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
-import DataService from '../services/DataService';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -54,8 +53,6 @@ export default function Settings() {
   const [editPersonName, setEditPersonName] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
   const [addManualCode, setAddManualCode] = useState('');
-
-  const hasLegacyUnscoped = useMemo(() => DataService.hasLegacyUnscopedData(), []);
 
   const rateGridCodes = [
     ...FRANKFURTER_GRID_CODES,
@@ -238,16 +235,6 @@ export default function Settings() {
     }
   };
 
-  const handleImportLegacyLocal = () => {
-    if (!window.confirm(t('settings.importLegacyConfirm'))) return;
-    const r = DataService.importLegacyIntoScoped();
-    if (r.ok) {
-      window.location.reload();
-    } else {
-      notify(t('settings.importLegacyFailed'), 'error');
-    }
-  };
-
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">{t('settings.title')}</h1>
@@ -264,16 +251,6 @@ export default function Settings() {
           {signingOut ? t('auth.submitting') : t('settings.signOut')}
         </button>
       </section>
-
-      {hasLegacyUnscoped && (
-        <section className="card p-4 space-y-2 border-amber-200 bg-amber-50/30">
-          <h2 className="text-sm font-bold text-slate-700">{t('settings.importLegacyTitle')}</h2>
-          <p className="text-xs text-slate-600">{t('settings.importLegacyHint')}</p>
-          <button type="button" className="btn-secondary text-sm !py-2" onClick={handleImportLegacyLocal}>
-            {t('settings.importLegacyButton')}
-          </button>
-        </section>
-      )}
 
       <section className="card p-4 space-y-3">
         <h2 className="text-sm font-bold text-slate-700">{t('settings.language')}</h2>

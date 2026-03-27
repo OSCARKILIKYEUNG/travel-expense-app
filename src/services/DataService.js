@@ -31,16 +31,6 @@ function writeLogical(logicalKey, data) {
   localStorage.setItem(physicalKey(logicalKey), JSON.stringify(data));
 }
 
-/** 未加 `user:` 前綴的舊版鍵（登入前資料） */
-function readUnscoped(logicalKey) {
-  try {
-    const raw = localStorage.getItem(logicalKey);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 /** 從所有旅程掃描曾用記帳幣／旅程幣，供首次填入全域重用清單 */
 function buildSavedCurrencyListsFromTrips() {
   const data = readLogical(KEYS.TRIPS);
@@ -537,32 +527,6 @@ const DataService = {
    */
   setStorageScope(userId) {
     activeUserId = userId && typeof userId === 'string' ? userId : null;
-  },
-
-  /** 是否存在「未登入前」寫入的舊鍵（無 user: 前綴） */
-  hasLegacyUnscopedData() {
-    const d = readUnscoped(KEYS.TRIPS);
-    return !!(d?.trips?.length);
-  },
-
-  /**
-   * 將未登入前的本機四鍵複製到目前帳號範圍（會覆寫同鍵內容）。
-   * @returns {{ ok: true } | { ok: false, reason: string }}
-   */
-  importLegacyIntoScoped() {
-    if (!activeUserId) return { ok: false, reason: 'no_scope' };
-    let any = false;
-    for (const logicalKey of Object.values(KEYS)) {
-      const raw = localStorage.getItem(logicalKey);
-      if (!raw) continue;
-      try {
-        writeLogical(logicalKey, JSON.parse(raw));
-        any = true;
-      } catch {
-        /* ignore */
-      }
-    }
-    return any ? { ok: true } : { ok: false, reason: 'no_legacy' };
   },
 };
 
