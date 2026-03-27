@@ -43,7 +43,9 @@
     "resendOk": "已重新寄送驗證信。",
     "back": "返回",
     "configMissingTitle": "尚未設定 Supabase",
-    "configMissingBody": "請在專案根目錄建立 .env，並填入下列變數（值見 Supabase Dashboard → Project Settings → API）："
+    "configMissingBody": "請在專案根目錄建立 .env，並填入下列變數（值見 Supabase Dashboard → Project Settings → API）：",
+    "googleSignIn": "使用 Google 登入",
+    "orDivider": "或"
   },
   "nav": {
     "sidebarTitle": "導航",

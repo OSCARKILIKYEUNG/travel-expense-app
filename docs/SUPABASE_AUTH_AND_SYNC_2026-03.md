@@ -11,6 +11,7 @@
 | 區塊 | 狀態 | 備註 |
 |------|------|------|
 | Supabase Auth（Email／密碼、驗證信） | 已上線 | `/login`；`emailRedirectTo` = `origin/`；`confirmEmail` 須在後台開 |
+| Google OAuth 登入 | 已上線 | `signInWithOAuth({ provider: 'google' })`；後台開 Google Provider + Google Cloud 重新導向 URI 見 `.env.example` |
 | 登入後路由保護 | 已上線 | `RequireAuth` + `AuthenticatedShell`；未登入 → `/login` |
 | 本機 `user:{uuid}:` 範圍鍵 | 已上線 | 每帳號一組，避免與登入前舊資料混用 |
 | 合併「登入前舊資料」入口 | **已移除** | 使用者明確不要合併；舊無前綴鍵仍可能留在瀏覽器但不讀取 |
@@ -103,6 +104,7 @@ from public.user_app_data;
 - [ ] Supabase **SQL Editor** 已執行 `supabase/migrations/001_user_app_data.sql`
 - [ ] **Authentication → URL Configuration**：Site URL、Redirect URLs 含本機與正式網域
 - [ ] **Email** 開啟 Confirm email（若要走驗證信）
+- [ ] **Google 登入**：Supabase **Authentication → Providers → Google** 開啟並貼 **Client ID／Secret**（來自 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth 2.0 用戶端 → **網頁應用程式**）；**已授權的重新導向 URI** 必含 `https://<project-ref>.supabase.co/auth/v1/callback`（`<project-ref>` 見 Supabase Project Settings → API 的 URL）
 - [ ] **Vercel** `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 與本機 `.env` **同一專案**
 - [ ] 單據 API：`GEMINI_API_KEY` 僅伺服器（`api/parse-receipt`）
 

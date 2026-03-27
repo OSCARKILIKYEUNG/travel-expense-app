@@ -43,7 +43,9 @@
     "resendOk": "Verification email sent again.",
     "back": "Back",
     "configMissingTitle": "Supabase not configured",
-    "configMissingBody": "Create a .env file in the project root with (from Supabase Dashboard → Project Settings → API):"
+    "configMissingBody": "Create a .env file in the project root with (from Supabase Dashboard → Project Settings → API):",
+    "googleSignIn": "Continue with Google",
+    "orDivider": "or"
   },
   "nav": {
     "sidebarTitle": "Navigation",

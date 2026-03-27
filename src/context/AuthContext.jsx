@@ -70,6 +70,19 @@ export function AuthProvider({ children }) {
           options: { emailRedirectTo },
         });
       },
+      async signInWithGoogle() {
+        if (!supabase) return { error: new Error('Supabase not configured') };
+        const redirectTo = `${window.location.origin}/`;
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo },
+        });
+        if (error) return { error };
+        if (data?.url) {
+          window.location.assign(data.url);
+        }
+        return { error: null };
+      },
     }),
     [session, user, loading],
   );
