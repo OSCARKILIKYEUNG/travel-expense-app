@@ -11,7 +11,12 @@ import { buildMergedSavedCurrencySettings } from '../utils/savedCurrencyMerge';
 
 const AppContext = createContext(null);
 
-export function AppProvider({ children }) {
+export function AppProvider({ children, userId }) {
+  if (!userId) {
+    throw new Error('AppProvider requires userId (Supabase user id)');
+  }
+  DataService.setStorageScope(userId);
+
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
 
   const updateSettings = useCallback((patch) => {

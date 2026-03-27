@@ -10,22 +10,40 @@ const KEYS = {
   PEOPLE: 'travel_people_list',
 };
 
-function read(key) {
+/** 目前登入使用者（Supabase `user.id`）；未設定時沿用未加前綴鍵名（僅供測試／異常） */
+let activeUserId = null;
+
+function physicalKey(logicalKey) {
+  if (!activeUserId) return logicalKey;
+  return `user:${activeUserId}:${logicalKey}`;
+}
+
+function readLogical(logicalKey) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(physicalKey(logicalKey));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function write(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+function writeLogical(logicalKey, data) {
+  localStorage.setItem(physicalKey(logicalKey), JSON.stringify(data));
+}
+
+/** 未加 `user:` 前綴的舊版鍵（登入前資料） */
+function readUnscoped(logicalKey) {
+  try {
+    const raw = localStorage.getItem(logicalKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 從所有旅程掃描曾用記帳幣／旅程幣，供首次填入全域重用清單 */
 function buildSavedCurrencyListsFromTrips() {
-  const data = read(KEYS.TRIPS);
+  const data = readLogical(KEYS.TRIPS);
   const acc = new Set();
   const tripC = new Set();
   for (const t of data?.trips || []) {
@@ -57,7 +75,7 @@ function buildSavedCurrencyListsFromTrips() {
 }
 
 function stripLegacyCurrencyFromSettings() {
-  const settings = read(KEYS.SETTINGS);
+  const settings = readLogical(KEYS.SETTINGS);
   if (!settings) return;
   const next = { ...settings };
   delete next.homeCurrency;
@@ -66,14 +84,14 @@ function stripLegacyCurrencyFromSettings() {
   delete next.exchangeRates;
   delete next.exchangeRatesUpdatedAt;
   next._currencyMigratedToTrips = true;
-  write(KEYS.SETTINGS, next);
+  writeLogical(KEYS.SETTINGS, next);
 }
 
 /**
  * 將全域設定中的本幣／匯率併入各旅程（僅執行一次），並自 trip.settings 抬升舊欄位。
  */
 function migrateTripsCurrency(data) {
-  const settings = read(KEYS.SETTINGS);
+  const settings = readLogical(KEYS.SETTINGS);
   const globalMigrated = settings?._currencyMigratedToTrips;
   let dirty = false;
 
@@ -190,18 +208,18 @@ function applyAccountingRatesAfterChange(trip, prevCode, prevIsCustom) {
 
 const DataService = {
   loadTripsData() {
-    const stored = read(KEYS.TRIPS);
+    const stored = readLogical(KEYS.TRIPS);
     const data = stored ? { ...stored, trips: [...stored.trips] } : { ...PRESET_TRIPS_DATA };
     if (!stored) {
-      write(KEYS.TRIPS, data);
+      writeLogical(KEYS.TRIPS, data);
     }
     const dirty = migrateTripsCurrency(data);
-    if (dirty) write(KEYS.TRIPS, data);
+    if (dirty) writeLogical(KEYS.TRIPS, data);
     return data;
   },
 
   saveTripsData(data) {
-    write(KEYS.TRIPS, data);
+    writeLogical(KEYS.TRIPS, data);
   },
 
   getCurrentTrip(tripsData) {
@@ -367,7 +385,7 @@ const DataService = {
 
   // ── Expenses ───────────────────────────────────────
   loadExpenses() {
-    const saved = read(KEYS.EXPENSES);
+    const saved = readLogical(KEYS.EXPENSES);
     if (saved) return saved;
     const tripsData = this.loadTripsData();
     const trip = this.getCurrentTrip(tripsData);
@@ -375,7 +393,7 @@ const DataService = {
   },
 
   saveExpenses(expenses) {
-    write(KEYS.EXPENSES, expenses);
+    writeLogical(KEYS.EXPENSES, expenses);
   },
 
   // ── Settings ───────────────────────────────────────
@@ -394,7 +412,7 @@ const DataService = {
   loadSettings() {
     this.loadTripsData();
 
-    const saved = read(KEYS.SETTINGS);
+    const saved = readLogical(KEYS.SETTINGS);
     if (saved) {
       if (this._isOldRateFormat(saved)) {
         const migratedRates = this._migrateRates(saved.exchangeRates || {});
@@ -417,13 +435,13 @@ const DataService = {
           exchangeRatesUpdatedAt: null,
         };
         delete migrated.defaultCurrency;
-        write(KEYS.SETTINGS, migrated);
+        writeLogical(KEYS.SETTINGS, migrated);
       }
 
       this.loadTripsData();
       stripLegacyCurrencyFromSettings();
 
-      const latest = read(KEYS.SETTINGS);
+      const latest = readLogical(KEYS.SETTINGS);
       const fromTrips = buildSavedCurrencyListsFromTrips();
       const savedAccountingCodes = Array.isArray(latest?.savedAccountingCodes)
         ? latest.savedAccountingCodes
@@ -442,7 +460,7 @@ const DataService = {
         !Array.isArray(latest?.savedAccountingCodes) ||
         !Array.isArray(latest?.savedTripCurrencies)
       ) {
-        write(KEYS.SETTINGS, { ...latest, savedAccountingCodes, savedTripCurrencies });
+        writeLogical(KEYS.SETTINGS, { ...latest, savedAccountingCodes, savedTripCurrencies });
       }
       return out;
     }
@@ -455,8 +473,8 @@ const DataService = {
   },
 
   saveSettings(settings) {
-    const prev = read(KEYS.SETTINGS) || {};
-    write(KEYS.SETTINGS, {
+    const prev = readLogical(KEYS.SETTINGS) || {};
+    writeLogical(KEYS.SETTINGS, {
       ...prev,
       ...settings,
     });
@@ -464,14 +482,14 @@ const DataService = {
 
   // ── People ─────────────────────────────────────────
   loadPeople() {
-    const saved = read(KEYS.PEOPLE);
+    const saved = readLogical(KEYS.PEOPLE);
     if (saved) return saved;
     const preset = PRESET_TRIPS_DATA.trips[0]?.settings?.people;
     return preset || ['共同', '人物A', '人物B'];
   },
 
   savePeople(people) {
-    write(KEYS.PEOPLE, people);
+    writeLogical(KEYS.PEOPLE, people);
   },
 
   syncPersonNameInAllTrips(oldName, newName) {
@@ -511,6 +529,40 @@ const DataService = {
     if (cur?.expenses) {
       this.saveExpenses(cur.expenses);
     }
+  },
+
+  /**
+   * 登入後依 Supabase user.id 區分 localStorage；須在 AppProvider 首次 render 前呼叫。
+   * @param {string | null} userId
+   */
+  setStorageScope(userId) {
+    activeUserId = userId && typeof userId === 'string' ? userId : null;
+  },
+
+  /** 是否存在「未登入前」寫入的舊鍵（無 user: 前綴） */
+  hasLegacyUnscopedData() {
+    const d = readUnscoped(KEYS.TRIPS);
+    return !!(d?.trips?.length);
+  },
+
+  /**
+   * 將未登入前的本機四鍵複製到目前帳號範圍（會覆寫同鍵內容）。
+   * @returns {{ ok: true } | { ok: false, reason: string }}
+   */
+  importLegacyIntoScoped() {
+    if (!activeUserId) return { ok: false, reason: 'no_scope' };
+    let any = false;
+    for (const logicalKey of Object.values(KEYS)) {
+      const raw = localStorage.getItem(logicalKey);
+      if (!raw) continue;
+      try {
+        writeLogical(logicalKey, JSON.parse(raw));
+        any = true;
+      } catch {
+        /* ignore */
+      }
+    }
+    return any ? { ok: true } : { ok: false, reason: 'no_legacy' };
   },
 };
 
