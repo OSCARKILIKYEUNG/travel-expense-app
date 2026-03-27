@@ -42,6 +42,8 @@
 
 因此：**記憶體 state 為主**；兩個 localStorage 位置都是它的 **持久化投影**。
 
+**支出選用欄位 `userEditedPricing`**：在 **`ExpenseList`** 呼叫 **`updateExpense`** 前，若本次編輯變更了價格／稅／折扣／品項金額等（見 **`src/utils/expensePricing.js`** 的 `hasPricingRelatedChanges`），則合併為 `true`（已為 `true` 則維持）。**`ExpenseCard`** 依此切換「掃描對照」與「編輯後精簡」顯示；與 Supabase 同步時一併序列化在 `expenses[]` 內。
+
 ---
 
 ## 四、流程圖（文字版）
@@ -102,6 +104,7 @@
 | `src/services/DataService.js` | `loadExpenses` / `saveExpenses` / `updateCurrentTripExpenses` / `switchTrip` / `createTrip` / `removePersonAndReassignAll` |
 | `src/store/AppContext.jsx` | `expenses` state、`setExpenses` 內持久化、`useEffect` 同步至旅程；匯率變更重算見 **`recalculateExpensesForRates`** |
 | `src/utils/recalculateExpensesForRates.js` | 依 `exchangeRates` 重算 `hkdAmount`（與舊 inline 邏輯一致） |
+| `src/utils/expensePricing.js` | `hasPricingRelatedChanges`：編輯儲存時是否應標記 `userEditedPricing` |
 | `src/utils/savedCurrencyMerge.js` | `buildMergedSavedCurrencySettings`：旅程幣／記帳幣合併進 settings 重用清單 |
 | `docs/PRODUCT_MANAGEMENT.md` | 技術債 **TD-01**（雙軌） |
 
@@ -112,3 +115,4 @@
 | 日期 | 說明 |
 |------|------|
 | 2025-03-27 | 初版：階段 0 資料流文件（對齊現行 `DataService` / `AppContext`）。 |
+| 2026-03-27 | 補充 `userEditedPricing` 與 `expensePricing.js` 說明。 |

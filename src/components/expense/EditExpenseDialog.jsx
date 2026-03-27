@@ -113,18 +113,22 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
         <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
           <p className="text-xs font-bold text-slate-500 mb-1">{t('editExpense.taxSection')}</p>
           <p className="text-[10px] text-slate-400 mb-2">{t('editExpense.taxHint')}</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label htmlFor="edit-subtotal" className="block text-[10px] text-slate-500 mb-0.5">{t('editExpense.subtotal')}</label>
-              <input id="edit-subtotal" type="number" value={form.subtotal || ''} onChange={(e) => patch({ subtotal: parseFloat(e.target.value) || 0 })} className="input-field text-xs" />
+              <input id="edit-subtotal" type="number" step="0.01" value={form.subtotal || ''} onChange={(e) => patch({ subtotal: parseFloat(e.target.value) || 0 })} className="input-field text-xs" />
+            </div>
+            <div>
+              <label htmlFor="edit-tax" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.tax')}</label>
+              <input id="edit-tax" type="number" step="0.01" value={form.tax || ''} onChange={(e) => patch({ tax: parseFloat(e.target.value) || 0 })} className="input-field text-xs" />
             </div>
             <div>
               <label htmlFor="edit-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">{t('editExpense.taxRefund')}</label>
-              <input id="edit-taxrefund" type="number" value={form.taxRefund || ''} onChange={(e) => patch({ taxRefund: parseFloat(e.target.value) || 0 })} placeholder={t('addExpense.taxRefundPlaceholder')} className="input-field text-xs" />
+              <input id="edit-taxrefund" type="number" step="0.01" value={form.taxRefund || ''} onChange={(e) => patch({ taxRefund: parseFloat(e.target.value) || 0 })} placeholder={t('addExpense.taxRefundPlaceholder')} className="input-field text-xs" />
             </div>
             <div>
               <label htmlFor="edit-discount" className="block text-[10px] text-slate-500 mb-0.5">{t('editExpense.discount')}</label>
-              <input id="edit-discount" type="number" value={form.discount || ''} onChange={(e) => patch({ discount: parseFloat(e.target.value) || 0 })} placeholder={t('addExpense.discountPlaceholder')} className="input-field text-xs" />
+              <input id="edit-discount" type="number" step="0.01" value={form.discount || ''} onChange={(e) => patch({ discount: parseFloat(e.target.value) || 0 })} placeholder={t('addExpense.discountPlaceholder')} className="input-field text-xs" />
             </div>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-200/80">

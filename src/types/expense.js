@@ -20,6 +20,7 @@
  * @property {string} [aiDetectedCurrency]
  * @property {number} [receiptTaxExemptionAmount]
  * @property {boolean} [hasBundlePricing]
+ * @property {boolean} [userEditedPricing] 使用者曾改動價格相關欄位並儲存後，卡片改為精簡顯示（不顯示掃描期品項原價／實價對照等）
  */
 
 /** 讓本檔成為 ES module，避免重複宣告 */

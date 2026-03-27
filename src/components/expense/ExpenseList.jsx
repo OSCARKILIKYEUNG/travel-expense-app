@@ -4,6 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { sortExpenses } from '../../utils/date';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { detectDuplicates } from '../../utils/duplicates';
+import { hasPricingRelatedChanges } from '../../utils/expensePricing';
 import ExpenseCard from './ExpenseCard';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 import EditExpenseDialog from './EditExpenseDialog';
@@ -80,7 +81,14 @@ export default function ExpenseList() {
       <EditExpenseDialog
         open={!!editTarget}
         expense={editTarget}
-        onSave={(updated) => { updateExpense(updated); setEditTarget(null); }}
+        onSave={(updated) => {
+          const prev = editTarget;
+          updateExpense({
+            ...updated,
+            userEditedPricing: Boolean(prev?.userEditedPricing) || hasPricingRelatedChanges(prev, updated, updated.currency),
+          });
+          setEditTarget(null);
+        }}
         onCancel={() => setEditTarget(null)}
       />
     </>

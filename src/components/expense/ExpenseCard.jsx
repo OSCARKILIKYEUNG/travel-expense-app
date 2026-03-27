@@ -50,6 +50,8 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
 
   const isTaxExclusive = expense.receiptType === 'tax_exclusive';
   const taxAmount = useMemo(() => Number(expense.tax) || 0, [expense.tax]);
+  const simplified = expense.userEditedPricing === true;
+  const discountAmount = useMemo(() => Number(expense.discount) || 0, [expense.discount]);
 
   const refundRowsMeta = useMemo(() => {
     const eps = refundEpsilon(expense.currency);
@@ -182,33 +184,52 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
         {visibleItems.length > 0 && (
           <>
             <p className="text-[10px] text-slate-400 mb-1.5">
-              {isTaxExclusive ? t('expenseCard.priceTaxExclusive') : t('expenseCard.priceOriginal')}
+              {simplified
+                ? t('expenseCard.priceLineItemsSimple')
+                : isTaxExclusive
+                  ? t('expenseCard.priceTaxExclusive')
+                  : t('expenseCard.priceOriginal')}
             </p>
             <ul className="space-y-0.5 mb-2">
-              {visibleItems.map((item, idx) => (
-                <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
-                    <span className="truncate">{getItemDisplayName(item, i18n.language)}</span>
-                    {item.assignedTo && item.assignedTo !== expense.assignedTo && (
-                      <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
-                        {personLabel(item.assignedTo)}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
-                    {item.priceActual != null && Math.abs(item.priceActual - item.price) > 0.5 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="line-through text-slate-400 text-[10px]">{typeof item.price === 'number' ? item.price.toLocaleString() : item.price}</span>
-                        <span>{item.priceActual.toLocaleString()}</span>
-                      </span>
-                    ) : (
-                      typeof item.price === 'number' ? item.price.toLocaleString() : item.price
-                    )}
-                  </span>
-                </li>
-              ))}
+              {visibleItems.map((item, idx) => {
+                const showDual =
+                  !simplified &&
+                  item.priceActual != null &&
+                  Math.abs(item.priceActual - item.price) > Math.max(refundEpsilon(expense.currency) * 2, 0.5);
+                const single = item.priceActual != null ? item.priceActual : item.price;
+                return (
+                  <li key={idx} className="flex justify-between items-center text-xs text-slate-600">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
+                      <span className="truncate">{getItemDisplayName(item, i18n.language)}</span>
+                      {item.assignedTo && item.assignedTo !== expense.assignedTo && (
+                        <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                          {personLabel(item.assignedTo)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono text-slate-700 ml-2 shrink-0 tabular-nums">
+                      {showDual ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="line-through text-slate-400 text-[10px]">
+                            {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                          </span>
+                          <span>{item.priceActual.toLocaleString()}</span>
+                        </span>
+                      ) : (
+                        typeof single === 'number' ? single.toLocaleString() : single
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
+            {Math.abs(discountAmount) > refundEpsilon(expense.currency) && (
+              <div className="flex justify-between items-center text-xs text-amber-800 font-medium mb-2 pt-1 border-t border-slate-200/80">
+                <span>{t('expenseCard.discountLine')}</span>
+                <span className="font-mono tabular-nums">{discountAmount.toLocaleString()}</span>
+              </div>
+            )}
             {refundRowsMeta.showTaxRow && (
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.consumptionTax')}</span>
@@ -221,13 +242,13 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 <span className="font-mono tabular-nums">+ {partialTaxShare.toLocaleString()}</span>
               </div>
             )}
-            {refundRowsMeta.showComputedRefundRow && (
+            {refundRowsMeta.showComputedRefundRow && !simplified && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.refundDiff')}</span>
                 <span className="font-mono tabular-nums">{refundRowsMeta.eff.toLocaleString()}</span>
               </div>
             )}
-            {refundRowsMeta.showReceiptOnlyRow && (
+            {refundRowsMeta.showReceiptOnlyRow && !simplified && (
               <div className="mb-2 pt-1.5 border-t border-teal-200/80 space-y-1">
                 <div className="flex justify-between items-center text-xs text-teal-800 font-medium">
                   <span>{t('expenseCard.receiptExemption')}</span>
@@ -238,7 +259,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 </p>
               </div>
             )}
-            {refundRowsMeta.showReceiptSecondaryRow && (
+            {refundRowsMeta.showReceiptSecondaryRow && !simplified && (
               <div className="flex justify-between items-center text-[10px] text-slate-600 mb-2 pt-1 border-t border-slate-100">
                 <span>{t('expenseCard.receiptExemptionSecondary')}</span>
                 <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
