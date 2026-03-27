@@ -15,6 +15,7 @@
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
 | **從頭到現況的設計思路**（分人→稅／退稅、多幣為何要存等 **敘事**） | [DESIGN_THINKING.md](./DESIGN_THINKING.md) |
 | **支出資料雙軌、`localStorage` 與 Context 同步（維護必讀）** | [DATA_FLOW.md](./DATA_FLOW.md) |
+| **Supabase 登入、雲端 `user_app_data`、同步坑點與除錯 log（2026-03）** | [SUPABASE_AUTH_AND_SYNC_2026-03.md](./SUPABASE_AUTH_AND_SYNC_2026-03.md) |
 | **單元測試**（Vitest：`npm run test`／`npm run test:run`） | `src/**/*.test.js`，涵蓋 `personShare`、`currency`、`ExchangeRateService`、`recalculateExpensesForRates`、`savedCurrencyMerge` |
 | 單據類型 A～H（外稅／免稅／套裝等） | [RECEIPT_TYPES.md](./RECEIPT_TYPES.md) |
 | **與 AI 協作 SOP**（意見→對齊→再實作；與 §九／Cursor rule 對照） | [PRODUCT_MANAGEMENT.md § 與 AI 協作 SOP](./PRODUCT_MANAGEMENT.md#與-ai-協作-sop) |
@@ -78,7 +79,8 @@ travel app/                    # 資料夾名含空白，終端機路徑請加�
 | `DESIGN_SPEC.md` | UI/UX 規格 |
 | `docs/PRODUCT_MANAGEMENT.md` | 路線圖、技術債、發布紀錄、**與 AI 協作 SOP**（專節） |
 | `docs/DESIGN_THINKING.md` | **設計思路敘事**（起點→分帳與稅、多幣儲存、類型系統、協作方式）；細節仍見迭代檔 |
-| `docs/DATA_FLOW.md` | **資料流**：`travel_expenses_data` ↔ `trip.expenses`、誰是權威、切旅程／改名時檢查清單 |
+| `docs/DATA_FLOW.md` | **資料流**：`travel_expenses_data` ↔ `trip.expenses`、誰是權威、切旅程／改名時檢查清單；**雲端**見開頭一段 |
+| `docs/SUPABASE_AUTH_AND_SYNC_2026-03.md` | **Auth + `user_app_data`、migration、debounce、坑 L20+、Console／Network／SQL 除錯** |
 | `docs/PRODUCT_ITERATION_2025-03.md` | 2025-03 分帳／免稅迭代之書面 log；**§十一** 多幣別計劃／交付／坑；**§十二** **現版匯率／稅項／分帳邏輯速查**；**§2.6–2.7** 小 UX 與匯率延伸 |
 | `docs/README.md` | **本檔：文件地圖** |
 | `docs/archive/BACKUP_BRANCH_v1.md` | Git 備份分支操作說明 |

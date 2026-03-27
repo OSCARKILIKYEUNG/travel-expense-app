@@ -3,6 +3,13 @@
 > **目的**：說明 **支出** 在 **localStorage** 與 **React 狀態** 之間如何流動，避免改儲存／同步邏輯時漏改。  
 > **程式唯一真相**：以 **`src/services/DataService.js`**、**`src/store/AppContext.jsx`** 為準；本檔若與程式不一致，**以程式為準**並應更新本檔。
 
+### 雲端上線後（2026-03）
+
+- **登入使用者**的 **唯一真相** 在 Supabase **`public.user_app_data`**（`trips_data` / `app_settings` / `people_list`）；  
+  登入後先 **bootstrap** 拉取，寫入本機 **`user:{userId}:`** 範圍鍵作快取；變更後 **約 500ms debounce** 再 **upsert**。
+- **單據相片**不進此表；辨識結果與手動記帳一樣在 **`trips_data` → `trips[]` → `expenses[]`**。
+- **完整交接、坑點、log、SQL 檢查** → **`docs/SUPABASE_AUTH_AND_SYNC_2026-03.md`**。
+
 ---
 
 ## 一、localStorage 四個 key

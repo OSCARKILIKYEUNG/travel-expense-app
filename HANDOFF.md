@@ -151,6 +151,7 @@ travel-expense-app/
 |------|------|
 | **`HANDOFF.md`（本檔）** | 遷移背景、架構決策、換機步驟、目錄、**備份／tag** |
 | **`docs/PRODUCT_ITERATION_2025-03.md`** | **交付清單、踩坑 Lx、多幣 §十一、§十二（匯率／稅／分帳公式）、SAVE、backlog** |
+| **`docs/SUPABASE_AUTH_AND_SYNC_2026-03.md`** | **Supabase 登入、雲端 `user_app_data`、同步延遲、坑與 log／SQL 除錯（2026-03）** |
 | **`docs/PRODUCT_MANAGEMENT.md`** | 滾動路線圖、技術債、發布紀錄簡表、與 AI 協作 SOP |
 | **`docs/README.md`** | 文件導覽索引 |
 
