@@ -112,7 +112,7 @@
 travel-expense-app/
 ├── public/
 │   └── icons/
-├── api/               Vercel serverless（parse-receipt、receipt-prompt、**exchange-rates** 代理 Frankfurter）
+├── api/               Vercel serverless（parse-receipt、`receipt-prompt/` 模組、`receipt-prompt.js` re-export、**exchange-rates**）
 ├── src/
 │   ├── components/
 │   │   ├── chart/     DailyChart, PersonChart

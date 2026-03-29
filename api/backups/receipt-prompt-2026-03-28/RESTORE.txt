@@ -1,0 +1,10 @@
+還原步驟（2026-03-28 快照）
+========================
+
+1. 將本目錄下的 receipt-prompt.js 複製到專案 api/ 資料夾。
+2. 覆蓋現有 api/receipt-prompt.js（建議先 git diff 確認）。
+3. 無須改 parse-receipt.js（仍 import ./receipt-prompt.js）。
+
+可選：用 git 還原
+  git checkout -- api/receipt-prompt.js
+  （若該版本曾 commit；否則以本備份檔為準。）

@@ -4,6 +4,7 @@
  */
 
 import i18n from '../i18n';
+import { normalizeDetectedMarket } from '../constants/receiptMarkets';
 import { CURRENCY_NAMES } from '../utils/constants';
 import { inferFixedFeeFromName } from '../utils/personShare';
 
@@ -129,6 +130,12 @@ function normalizeReceiptType(raw) {
 
 export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, defaultAssignee = '共同') {
   const receiptType = normalizeReceiptType(result.receipt_type);
+  const rawMarket = result.detected_market ?? result.detectedMarket ?? '';
+  const aiDetectedMarket = normalizeDetectedMarket(rawMarket);
+  const evRaw = result.market_evidence ?? result.marketEvidence;
+  const aiMarketEvidence = Array.isArray(evRaw)
+    ? evRaw.slice(0, 12).map((x) => String(x).trim()).filter(Boolean)
+    : [];
   const hasBundlePricing = !!(result.has_bundle ?? result.hasBundle);
 
   const items = Array.isArray(result.items)
@@ -298,5 +305,7 @@ export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, 
     ...(receiptTaxExemptionAmount > eps ? { receiptTaxExemptionAmount } : {}),
     ...(needsReview ? { needsReview: true } : {}),
     ...(currencyMismatch ? { currencyMismatch: true, aiDetectedCurrency: rawAiCurrency } : {}),
+    ...(aiDetectedMarket ? { aiDetectedMarket } : {}),
+    ...(aiMarketEvidence.length > 0 ? { aiMarketEvidence } : {}),
   };
 }

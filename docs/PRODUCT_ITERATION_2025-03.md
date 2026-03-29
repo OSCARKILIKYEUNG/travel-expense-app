@@ -175,7 +175,7 @@
 | `src/components/expense/ExpenseList.jsx` | 編輯儲存合併 `userEditedPricing`、`hasPricingRelatedChanges` |
 | `src/utils/expensePricing.js` | `hasPricingRelatedChanges`（價格／稅／折扣／品項金額是否變更） |
 | `src/services/AIService.js` | `buildExpenseFromAI` |
-| `api/receipt-prompt.js` | Gemini JSON 規格 |
+| `api/receipt-prompt/`（`assemble.js` + `markets/*`）／`api/receipt-prompt.js` re-export | Gemini JSON 規格（市場偵測 + 附件 A/B） |
 | `README.md` | 免稅／固定費／收據免稅額說明 |
 | `docs/PRODUCT_MANAGEMENT.md` | 滾動路線圖與技術債 |
 | `docs/RECEIPT_TYPES.md` | **單據類型 A～H**、收據印字優先之共識 |

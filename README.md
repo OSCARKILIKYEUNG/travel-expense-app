@@ -140,8 +140,10 @@ vercel
 ```
 api/                 # Vercel Serverless（Gemini，讀 GEMINI_API_KEY）
 ├── parse-receipt.js
-├── receipt-prompt.js
+├── receipt-prompt.js          # re-export → receipt-prompt/
+├── receipt-prompt/            # 模組化 prompt：base、markets（generic/jp）、assemble；見內 README
 src/
+├── constants/       # receiptMarkets（與 api/receipt-prompt/registry 同步）
 ├── components/
 │   ├── chart/        # DailyChart, PersonChart
 │   ├── expense/      # ExpenseCard, ExpenseList, EditDialog, DeleteDialog, UploadArea, PersonFilter
