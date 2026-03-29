@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
-import { CURRENCY_NAMES } from '../utils/constants';
 import { getSelectableExpenseCategories } from '../utils/expenseCategories';
 import { todayISO } from '../utils/date';
 import { ArrowLeft, Check } from '../components/ui/Icons';
+import ExpenseFormPricingSection from '../components/expense/ExpenseFormPricingSection';
 
 export default function AddExpense() {
   const { t } = useTranslation();
@@ -19,12 +19,13 @@ export default function AddExpense() {
     category: '飲食',
     assignedTo: defaultAssignee,
     currency: tripCurrency || 'JPY',
-    amount: '',
-    subtotal: '',
-    tax: '',
-    taxRefund: '',
-    discount: '',
-    items: '',
+    originalAmount: 0,
+    subtotal: 0,
+    tax: 0,
+    taxRefund: 0,
+    discount: 0,
+    receiptTaxExemptionAmount: undefined,
+    items: [],
   });
 
   const patch = (updates) => setForm((p) => ({ ...p, ...updates }));
@@ -35,17 +36,8 @@ export default function AddExpense() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const subtotal = parseFloat(form.subtotal) || 0;
-    const taxRefund = parseFloat(form.taxRefund) || 0;
-    const discount = parseFloat(form.discount) || 0;
-    const calculated = subtotal + taxRefund + discount;
-    const amount = calculated > 0 ? calculated : parseFloat(form.amount) || 0;
+    const amount = parseFloat(form.originalAmount) || 0;
     const rate = exchangeRates[form.currency] || 1;
-
-    const items = form.items
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => ({ description: l.trim(), name: l.trim() }));
 
     addExpense({
       id: `exp-${Date.now()}`,
@@ -53,16 +45,19 @@ export default function AddExpense() {
       store: form.merchant || '未命名',
       location: form.location || '',
       category: form.category,
-      subtotal,
+      subtotal: parseFloat(form.subtotal) || 0,
       tax: parseFloat(form.tax) || 0,
-      taxRefund,
-      discount,
+      taxRefund: parseFloat(form.taxRefund) || 0,
+      discount: parseFloat(form.discount) || 0,
       currency: form.currency,
       originalAmount: amount,
       hkdAmount: rate > 0 ? amount / rate : amount,
       rate,
       assignedTo: form.assignedTo,
-      items,
+      items: form.items || [],
+      ...(form.receiptTaxExemptionAmount != null && form.receiptTaxExemptionAmount > 0
+        ? { receiptTaxExemptionAmount: form.receiptTaxExemptionAmount }
+        : {}),
     });
 
     navigate('/');
@@ -112,46 +107,13 @@ export default function AddExpense() {
 
         <div className="card p-4 space-y-4">
           <h2 className="text-sm font-bold text-slate-700">{t('addExpense.amountSection')}</h2>
-          <div>
-            <label htmlFor="add-currency" className="block text-xs font-medium text-slate-600 mb-1">{t('addExpense.currency')}</label>
-            <select id="add-currency" value={form.currency} onChange={(e) => patch({ currency: e.target.value })} className="input-field">
-              {Object.keys(CURRENCY_NAMES).map((code) => (
-                <option key={code} value={code}>{code} - {t(`currency.${code}`)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-            <p className="text-[10px] font-bold text-slate-500">{t('addExpense.fillOne')}</p>
-            <div>
-              <label htmlFor="add-amount" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.amountPaid')}</label>
-              <input id="add-amount" type="number" step="0.01" value={form.amount} onChange={(e) => patch({ amount: e.target.value })} className="input-field text-xs" placeholder={t('addExpense.amountPaidPlaceholder')} />
-            </div>
-            <div className="border-t border-slate-200 pt-3 space-y-2">
-              <p className="text-[10px] text-slate-500 font-medium">{t('addExpense.orSplit')}</p>
-              <div>
-                <label htmlFor="add-subtotal" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.subtotal')}</label>
-                <input id="add-subtotal" type="number" step="0.01" value={form.subtotal} onChange={(e) => patch({ subtotal: e.target.value })} className="input-field text-xs" />
-              </div>
-              <div>
-                <label htmlFor="add-tax" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.tax')}</label>
-                <input id="add-tax" type="number" step="0.01" value={form.tax} onChange={(e) => patch({ tax: e.target.value })} className="input-field text-xs" />
-              </div>
-              <div>
-                <label htmlFor="add-taxrefund" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.taxRefund')}</label>
-                <input id="add-taxrefund" type="number" step="0.01" value={form.taxRefund} onChange={(e) => patch({ taxRefund: e.target.value })} className="input-field text-xs" placeholder={t('addExpense.taxRefundPlaceholder')} />
-              </div>
-              <div>
-                <label htmlFor="add-discount" className="block text-[10px] text-slate-500 mb-0.5">{t('addExpense.discount')}</label>
-                <input id="add-discount" type="number" step="0.01" value={form.discount} onChange={(e) => patch({ discount: e.target.value })} className="input-field text-xs" placeholder={t('addExpense.discountPlaceholder')} />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="add-items" className="block text-xs font-medium text-slate-600 mb-1">{t('addExpense.items')}</label>
-            <textarea id="add-items" value={form.items} onChange={(e) => patch({ items: e.target.value })} rows={3} className="input-field resize-none" placeholder={t('addExpense.itemsPlaceholder')} />
-          </div>
+          <ExpenseFormPricingSection
+            form={form}
+            patch={patch}
+            people={people}
+            defaultAssignee={defaultAssignee}
+            idPrefix="add"
+          />
         </div>
 
         <div className="flex gap-3">
