@@ -5,7 +5,11 @@ import { MapPin } from '../components/ui/Icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 
-/** 信內連結導回後，Supabase 觸發 PASSWORD_RECOVERY；見 `detectSessionInUrl` + PKCE。 */
+/**
+ * 重設密碼落地頁。
+ * PKCE 信內連結多為 `?code=`，交換後常觸發 **SIGNED_IN**／**INITIAL_SESSION**，不一定有 **PASSWORD_RECOVERY**；
+ * 且事件可能在掛載前已發過，僅訂閱 PASSWORD_RECOVERY 會漏接 → 誤判「連結無效」。
+ */
 export default function ResetPassword() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -16,7 +20,8 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState('');
-  const timerRef = useRef(null);
+  const failTimerRef = useRef(null);
+  const retryTimersRef = useRef([]);
 
   useEffect(() => {
     if (!supabaseConfigured || !supabase) {
@@ -24,27 +29,66 @@ export default function ResetPassword() {
       return;
     }
 
-    timerRef.current = setTimeout(() => {
-      setPhase((p) => (p === 'checking' ? 'invalid' : p));
-    }, 8000);
+    let cancelled = false;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    const clearFailTimer = () => {
+      if (failTimerRef.current) {
+        clearTimeout(failTimerRef.current);
+        failTimerRef.current = null;
+      }
+    };
+
+    const clearRetryTimers = () => {
+      retryTimersRef.current.forEach(clearTimeout);
+      retryTimersRef.current = [];
+    };
+
+    const promoteToForm = () => {
+      if (cancelled) return;
+      clearFailTimer();
+      clearRetryTimers();
+      setPhase('form');
+    };
+
+    const trySession = async () => {
+      if (cancelled) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled && session?.user) promoteToForm();
+    };
+
+    const loc = `${window.location.search}${window.location.hash}`;
+    const expectExchange =
+      /[?&#]code=/.test(loc) || /type=recovery/i.test(loc);
+
+    void trySession();
+    [50, 150, 400, 1000, 2200, 4500].forEach((ms) => {
+      retryTimersRef.current.push(setTimeout(() => void trySession(), ms));
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
       if (event === 'PASSWORD_RECOVERY') {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
-        }
-        setPhase('form');
+        promoteToForm();
+        return;
+      }
+      if (event === 'INITIAL_SESSION' && session?.user) {
+        promoteToForm();
+        return;
+      }
+      if (event === 'SIGNED_IN' && session?.user) {
+        promoteToForm();
       }
     });
 
+    const failMs = expectExchange ? 25000 : 8000;
+    failTimerRef.current = setTimeout(() => {
+      setPhase((p) => (p === 'checking' ? 'invalid' : p));
+    }, failMs);
+
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
+      cancelled = true;
+      clearFailTimer();
+      clearRetryTimers();
       subscription.unsubscribe();
     };
   }, [supabaseConfigured]);
