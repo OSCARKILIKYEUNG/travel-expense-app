@@ -72,6 +72,9 @@ export const RECEIPT_TYPE_OPTIONS = [
   { value: 'unknown', label: '未知' },
 ];
 
+/** 設為 true 可恢復「單據類型」下拉與卡片 tag；資料與計價仍使用 receiptType。 */
+export const SHOW_RECEIPT_TYPE_UI = false;
+
 export const PERSON_COLORS = [
   '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
   '#3B82F6', '#EF4444', '#6366F1', '#14B8A6',

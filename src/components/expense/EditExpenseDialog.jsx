@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '../ui/Dialog';
 import { useApp } from '../../store/AppContext';
-import { CURRENCY_NAMES, RECEIPT_TYPE_OPTIONS } from '../../utils/constants';
+import { CURRENCY_NAMES, RECEIPT_TYPE_OPTIONS, SHOW_RECEIPT_TYPE_UI } from '../../utils/constants';
 import { getCategorySelectOptions } from '../../utils/expenseCategories';
 import { formatDateToInput, formatDateToDisplay } from '../../utils/date';
 import { Check } from '../ui/Icons';
@@ -79,21 +79,23 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
           </div>
         </div>
 
-        <div>
-          <label htmlFor="edit-receipt-type" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.receiptType')}</label>
-          <select
-            id="edit-receipt-type"
-            value={form.receiptType || ''}
-            onChange={(e) => patch({ receiptType: e.target.value })}
-            className="input-field"
-          >
-            {RECEIPT_TYPE_OPTIONS.map((o) => (
-              <option key={String(o.value)} value={o.value}>
-                {t(`receiptTypeOptions.${o.value || 'empty'}`)}
-              </option>
-            ))}
-          </select>
-        </div>
+        {SHOW_RECEIPT_TYPE_UI && (
+          <div>
+            <label htmlFor="edit-receipt-type" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.receiptType')}</label>
+            <select
+              id="edit-receipt-type"
+              value={form.receiptType || ''}
+              onChange={(e) => patch({ receiptType: e.target.value })}
+              className="input-field"
+            >
+              {RECEIPT_TYPE_OPTIONS.map((o) => (
+                <option key={String(o.value)} value={o.value}>
+                  {t(`receiptTypeOptions.${o.value || 'empty'}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>

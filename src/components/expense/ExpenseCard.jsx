@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { getCategoryColor } from '../../utils/expenseCategories';
+import { SHOW_RECEIPT_TYPE_UI } from '../../utils/constants';
 import { getExpenseLocationDisplay, getExpenseStoreDisplay, getItemDisplayName } from '../../utils/displayNames';
 import {
   getPartialMatchPersonShareHKD,
@@ -129,7 +130,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-100">
               {personLabel(resolveAssigneeDisplay(expense.assignedTo, people))}
             </span>
-            {expense.receiptType && (
+            {SHOW_RECEIPT_TYPE_UI && expense.receiptType && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600 border border-sky-100">
                 {t(`receiptTypes.${expense.receiptType}`, { defaultValue: expense.receiptType })}
               </span>
