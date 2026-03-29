@@ -1,6 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CURRENCY_NAMES } from '../../utils/constants';
 import { inferFixedFeeFromName } from '../../utils/personShare';
+
+/** 細項表頭與每一列共用欄寬，末欄容納「刪除」或「新增」按鈕 */
+const ITEM_ROW_GRID =
+  'grid items-center gap-x-2 gap-y-1 [grid-template-columns:minmax(0,1fr)_5rem_6.5rem_4.25rem_minmax(2.75rem,max-content)]';
 
 /**
  * 金額／稅務／收據免稅／細項（與編輯對話框相同結構），供新增頁與編輯共用。
@@ -13,6 +18,14 @@ export default function ExpenseFormPricingSection({
   idPrefix,
 }) {
   const { t } = useTranslation();
+  const newNameRef = useRef(null);
+  const newPriceRef = useRef(null);
+  const [draftItemAssign, setDraftItemAssign] = useState(() => form.assignedTo || defaultAssignee);
+  const [draftItemFixed, setDraftItemFixed] = useState(false);
+
+  useEffect(() => {
+    setDraftItemAssign(form.assignedTo || defaultAssignee);
+  }, [form.assignedTo, defaultAssignee]);
 
   const patchItem = (idx, updates) => {
     const items = [...(form.items || [])];
@@ -27,21 +40,29 @@ export default function ExpenseFormPricingSection({
 
   const removeItem = (idx) => patch({ items: (form.items || []).filter((_, i) => i !== idx) });
 
-  const addItem = (name, price) => {
+  const addItem = (name, price, assignedTo, fixedExcluded) => {
     patch({
       items: [
         ...(form.items || []),
         {
           name,
           price: parseFloat(price) || 0,
-          assignedTo: form.assignedTo || defaultAssignee,
+          assignedTo: assignedTo || form.assignedTo || defaultAssignee,
+          excludeFromRefundSplit: fixedExcluded ? true : false,
         },
       ],
     });
   };
 
-  const newNameId = `${idPrefix}-new-item-name`;
-  const newPriceId = `${idPrefix}-new-item-price`;
+  const commitNewItem = () => {
+    const name = newNameRef.current?.value?.trim();
+    if (!name) return;
+    const price = newPriceRef.current?.value ?? '';
+    addItem(name, price, draftItemAssign, draftItemFixed);
+    newNameRef.current.value = '';
+    if (newPriceRef.current) newPriceRef.current.value = '';
+    setDraftItemFixed(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -162,42 +183,109 @@ export default function ExpenseFormPricingSection({
       <div>
         <p className="text-sm font-medium text-slate-700 mb-0.5">{t('editExpense.itemsTitle')}</p>
         <p className="text-[10px] text-slate-400 mb-2 leading-snug">{t('editExpense.itemsHelp')}</p>
-        <div
-          className="flex flex-wrap gap-1.5 items-center px-1.5 pb-1 text-[10px] text-slate-500 font-medium max-sm:hidden"
-          aria-hidden
-        >
-          <span className="flex-1 min-w-[120px]">{t('editExpense.itemColName')}</span>
-          <span className="w-20 text-center shrink-0">{t('editExpense.itemColTagPrice')}</span>
-          <span className="w-24 shrink-0">{t('editExpense.assignTo')}</span>
-          <span className="w-14 shrink-0">{t('editExpense.fixed')}</span>
-          <span className="w-6 shrink-0" />
-        </div>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-          {(form.items || []).map((item, idx) => (
+        <div className="overflow-x-auto -mx-0.5 px-0.5">
+          <div className="min-w-[280px] sm:min-w-[26rem] space-y-1.5">
             <div
-              key={idx}
-              className="flex flex-wrap gap-1.5 items-center bg-white p-1.5 rounded-lg border border-slate-200"
+              className={`${ITEM_ROW_GRID} px-1.5 pb-1 text-[10px] text-slate-500 font-medium`}
+              aria-hidden="true"
             >
+              <span className="truncate">{t('editExpense.itemColName')}</span>
+              <span className="text-center">{t('editExpense.itemColTagPrice')}</span>
+              <span className="truncate">{t('editExpense.assignTo')}</span>
+              <span className="text-center">{t('editExpense.fixed')}</span>
+              <span />
+            </div>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {(form.items || []).map((item, idx) => (
+                <div key={idx} className={`${ITEM_ROW_GRID} bg-white p-1.5 rounded-lg border border-slate-200`}>
+                  <input
+                    type="text"
+                    value={item.name || ''}
+                    onChange={(e) => patchItem(idx, { name: e.target.value })}
+                    placeholder={t('editExpense.itemNamePlaceholder')}
+                    className="input-field min-w-0 w-full !py-1.5 text-xs"
+                    aria-label={t('editExpense.itemColName')}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={item.price || ''}
+                    onChange={(e) => patchItem(idx, { price: parseFloat(e.target.value) || 0 })}
+                    className="input-field w-full min-w-0 !py-1.5 text-xs"
+                    aria-label={t('editExpense.itemColTagPrice')}
+                  />
+                  <select
+                    value={item.assignedTo || form.assignedTo || defaultAssignee}
+                    onChange={(e) => patchItem(idx, { assignedTo: e.target.value })}
+                    className="input-field w-full min-w-0 !py-1.5 text-xs"
+                  >
+                    {people.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                  <label
+                    className="flex items-center justify-center gap-0.5 text-[9px] text-slate-500 cursor-pointer whitespace-nowrap"
+                    title={t('editExpense.fixedTitle')}
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 shrink-0"
+                      checked={
+                        item.excludeFromRefundSplit === true ||
+                        (item.excludeFromRefundSplit !== false && inferFixedFeeFromName(item.name))
+                      }
+                      onChange={(e) => patchItem(idx, { excludeFromRefundSplit: e.target.checked })}
+                    />
+                    <span className="hidden min-[380px]:inline">{t('editExpense.fixed')}</span>
+                  </label>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      className="text-red-400 hover:text-red-600 w-8 h-8 flex items-center justify-center font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded-lg"
+                      aria-label={t('editExpense.removeItem')}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={`${ITEM_ROW_GRID} bg-slate-50/90 p-1.5 rounded-lg border border-dashed border-slate-200`}>
               <input
+                ref={newNameRef}
                 type="text"
-                value={item.name || ''}
-                onChange={(e) => patchItem(idx, { name: e.target.value })}
                 placeholder={t('editExpense.itemNamePlaceholder')}
-                className="input-field flex-1 min-w-[120px] !py-1.5 text-xs"
+                className="input-field min-w-0 w-full text-xs"
                 aria-label={t('editExpense.itemColName')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitNewItem();
+                  }
+                }}
               />
               <input
+                ref={newPriceRef}
                 type="number"
                 step="0.01"
-                value={item.price || ''}
-                onChange={(e) => patchItem(idx, { price: parseFloat(e.target.value) || 0 })}
-                className="input-field w-20 !py-1.5 text-xs"
+                placeholder={t('editExpense.itemPricePlaceholder')}
+                className="input-field w-full min-w-0 text-xs"
                 aria-label={t('editExpense.itemColTagPrice')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitNewItem();
+                  }
+                }}
               />
               <select
-                value={item.assignedTo || form.assignedTo || defaultAssignee}
-                onChange={(e) => patchItem(idx, { assignedTo: e.target.value })}
-                className="input-field w-24 !py-1.5 text-xs"
+                value={draftItemAssign}
+                onChange={(e) => setDraftItemAssign(e.target.value)}
+                className="input-field w-full min-w-0 text-xs"
+                aria-label={t('editExpense.assignTo')}
               >
                 {people.map((p) => (
                   <option key={p} value={p}>
@@ -206,49 +294,24 @@ export default function ExpenseFormPricingSection({
                 ))}
               </select>
               <label
-                className="flex items-center gap-0.5 text-[9px] text-slate-500 shrink-0 cursor-pointer w-14"
+                className="flex items-center justify-center gap-0.5 text-[9px] text-slate-500 cursor-pointer whitespace-nowrap"
                 title={t('editExpense.fixedTitle')}
               >
                 <input
                   type="checkbox"
-                  className="rounded border-slate-300"
-                  checked={
-                    item.excludeFromRefundSplit === true ||
-                    (item.excludeFromRefundSplit !== false && inferFixedFeeFromName(item.name))
-                  }
-                  onChange={(e) => patchItem(idx, { excludeFromRefundSplit: e.target.checked })}
+                  className="rounded border-slate-300 shrink-0"
+                  checked={draftItemFixed}
+                  onChange={(e) => setDraftItemFixed(e.target.checked)}
                 />
-                {t('editExpense.fixed')}
+                <span className="hidden min-[380px]:inline">{t('editExpense.fixed')}</span>
               </label>
-              <button
-                type="button"
-                onClick={() => removeItem(idx)}
-                className="text-red-400 hover:text-red-600 px-1.5 font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
-                aria-label={t('editExpense.removeItem')}
-              >
-                ×
-              </button>
+              <div className="flex justify-end">
+                <button type="button" onClick={commitNewItem} className="btn-primary !py-1.5 text-xs !px-2.5 whitespace-nowrap">
+                  {t('editExpense.add')}
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          <input id={newNameId} type="text" placeholder={t('editExpense.itemNamePlaceholder')} className="input-field flex-1 min-w-[100px] text-xs" />
-          <input id={newPriceId} type="number" step="0.01" placeholder={t('editExpense.itemPricePlaceholder')} className="input-field w-20 text-xs" />
-          <button
-            type="button"
-            onClick={() => {
-              const n = document.getElementById(newNameId);
-              const p = document.getElementById(newPriceId);
-              if (n?.value?.trim()) {
-                addItem(n.value.trim(), p?.value ?? '');
-                n.value = '';
-                if (p) p.value = '';
-              }
-            }}
-            className="btn-primary !py-1.5 text-xs !px-3"
-          >
-            {t('editExpense.add')}
-          </button>
+          </div>
         </div>
       </div>
     </div>
