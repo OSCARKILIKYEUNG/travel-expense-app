@@ -317,7 +317,7 @@
 
 | 項目 | 說明 |
 |------|------|
-| **手動新增支出**（`AddExpense`） | 若 **`subtotal + taxRefund + discount > 0`**，則 **`originalAmount` = 該三者之和**；否則用使用者填的 **總額 `amount`**。其中 **`tax`** 另存，供外稅單據顯示，**不**自動加進上述 `calculated`（與欄位分工有關：實付總額以你確認的公式為準）。 |
+| **手動新增支出**（`AddExpense`） | **2026-03-29 起**與 **編輯**一致：**`originalAmount` 僅來自「實付」欄**；`subtotal`／`tax`／`taxRefund`／`discount` **獨立儲存**，不覆寫實付。此前舊版曾用「小計+退稅+折扣 > 0 則覆寫實付」——已廢止（見 **§十三**）。 |
 | **消費稅額 `tax`** | 常與 **`receiptType === 'tax_exclusive'`**（外稅）並用：卡片顯示「原價（未稅）+ 消費稅」列；**不**單獨重算 `originalAmount`（實付仍以帳上 `originalAmount` 為準）。 |
 | **有效退稅額（推算）** | `getEffectiveRefundPositive(expense)`：優先 **`|taxRefund|`**；若幾乎為 0，則用 **max(0, 標價加總或 subtotal − 實付)**，讓舊資料仍能顯示退稅感。 |
 | **收據免稅額 `receiptTaxExemptionAmount`** | **僅展示**（例：細項已是免稅後單價）；**不參與**分帳公式。 |
@@ -346,6 +346,54 @@
 
 - 使用者可讀 **`README.md`** 的免稅／固定費概念說明。  
 - **可執行的公式與變數名** 以 **本節 + 原始碼** 為準；若兩處不一致，以程式為準。
+
+---
+
+## 十三、2026-03-28～30 紀錄（自訂類別 · 表單 UX · 計費／Stripe · 營運決策）
+
+> **範圍**：與 §一～十二 **不重複**的補登；實作以 Git `main` 與下列路徑為準。
+
+### 13.1 已交付（優點／產物）
+
+| 項目 | 說明 |
+|------|------|
+| **自訂支出類別** | 六類鎖定 + Settings 增刪自訂；掃描 prompt 動態合併類別；`normalizeExpenseCategoryFromAi`。 |
+| **單據類型 UI 可關** | `constants.js` **`SHOW_RECEIPT_TYPE_UI`**；關閉時隱藏編輯下拉與卡片 tag，**`receiptType` 仍存、計價邏輯不變**。 |
+| **新增／編輯金額區共用** | `ExpenseFormPricingSection.jsx`；細項 **Grid 表頭對齊**；**新增列**含分配給 + 固定（與已存列一致）。 |
+| **文案精簡** | `taxHint`／`itemsHelp`／收據免稅／卡片 needsReview、自訂類別 hint 等縮短；細項欄 **品名／標價** 表頭。 |
+| **用量與計費基建** | `scripts/measure-receipt-prompt.mjs`（粗量文字 prompt）；`002_usage_logs.sql`；`003_stripe_billing.sql`（`stripe_*` 欄）；`api/stripe-webhook.js` + `stripe` 依賴。 |
+| **`.gitignore`** | `client_secret*.json`（Google OAuth 下載檔勿入庫）。 |
+
+### 13.2 踩坑（Lessons · 接棒預防）
+
+| # | 現象 | 原因／解法 |
+|---|------|------------|
+| L28 | 細項表頭與輸入欄 **對不齊**、新增列沒「分配給」 | **Flex + wrap** 欄寬與表頭不一致 → 改 **固定欄寬 CSS Grid**（`ITEM_ROW_GRID`）；新增列補 **draftAssign**／**draftFixed**。 |
+| L29 | 手動新增「實付」與小計／稅 **心智不一致** | 舊 `AddExpense` 用「小計+退稅+折扣」覆寫實付；編輯無此邏輯 → **已統一為僅實付欄決定 `originalAmount`**（§12.2 已改寫）。 |
+| L30 | **Stripe Dashboard 找不到 API keys** | 新 UI **Workbench → Webhooks** 與舊 **Developers → API keys** 分離 → 點 **Developers**（左下）再進 **API keys**；Webhook 用 **Add destination** 設 URL。 |
+| L31 | 只有 **Product ID** 沒 **Price ID** | 訂閱要綁 **`price_...`**；進 **Product catalog → 產品內 → Pricing**，或 **Add price** 建 **Recurring $5/month**。 |
+| L32 | 環境變數名混淆 | Stripe 後台不叫 `STRIPE_SECRET_KEY`——是 **自己**把 **Publishable / Secret** 複製後在 Vercel **命名**成該變數。 |
+| L33 | **`.env` 含真 anon key**、OAuth JSON 在根目錄 | 易誤提交或外洩 → **`.env` 必在 .gitignore**；`client_secret*.json` 已 ignore；外洩則 **rotate** Supabase／Google 憑證。 |
+| L34 | Webhook 設好仍 **400/502** | 須有 **`api/stripe-webhook.js`**；Vercel 加 **`STRIPE_WEBHOOK_SECRET`**、**`SUPABASE_SERVICE_ROLE_KEY`**；部署後 **Redeploy**；Checkout **`metadata.supabase_user_id`** 必帶。 |
+| L35 | **我無法代操使用者瀏覽器** | 安全與登入邊界 → 儀表板操作請 **截圖 + 逐步指引**。 |
+
+### 13.3 產品／商業決策（已定或討論中）
+
+| 決策 | 內容 |
+|------|------|
+| **免費額度（規劃）** | 每帳戶 **終生 5 個檔案**掃描（非「5 次 session」細節另訂）；手動記帳不限。 |
+| **付費** | 掃描不限（或另訂上限）；**月費首選討論價 USD $5**；變動成本粗估以 **Gemini 2.5 Flash + 張數** 推算（見對話與 `measure-receipt-prompt.mjs`）。 |
+| **Stripe 上線順序** | **Sandbox／Test** 先跑通；Live 再填商家／個人資料；**不必先有 BR** 才能測試；公司抬頭收款與 **Individual** 路徑因地區而異（非法律建議）。 |
+| **Webhook 事件（建議）** | `checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted`。 |
+| **訂閱與資料** | Webhook 用 **service role** 更新 **`user_app_data`** 的 `stripe_customer_id`、`stripe_subscription_id`、`subscription_status`（**003** migration）。 |
+
+### 13.4 相關檔案索引
+
+- 表單共用：`src/components/expense/ExpenseFormPricingSection.jsx`、`EditExpenseDialog.jsx`、`AddExpense.jsx`  
+- 開關：`src/utils/constants.js` → `SHOW_RECEIPT_TYPE_UI`  
+- Stripe：`api/stripe-webhook.js`、`vercel.json`、`package.json` → `stripe`  
+- SQL：`supabase/migrations/002_usage_logs.sql`、`003_stripe_billing.sql`  
+- 範例環境變數：`.env.example`（Stripe + Service Role 註解）
 
 ---
 

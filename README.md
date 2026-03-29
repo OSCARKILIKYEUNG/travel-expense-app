@@ -48,6 +48,19 @@ npm install
 npx vercel dev
 ```
 
+### Stripe 訂閱與 Webhook（可選）
+
+- **端點**：`api/stripe-webhook.js`；環境變數與 SQL 遷移見 **`.env.example`** 註解。  
+- **文件**：`docs/SUPABASE_AUTH_AND_SYNC_2026-03.md`（§五 檢查清單 + §5.1 Dashboard 路徑）；迭代決策與坑點見 **`docs/PRODUCT_ITERATION_2025-03.md` §十三**。
+
+### 可攜 zip 備份
+
+```bash
+npm run zip:portable
+```
+
+產出於 **`portable-zips/`**（預設不含 `node_modules`、`dist`、`.git`）；含歷史請加 `--with-git`。
+
 （`npm run dev` 只會跑 Vite，**沒有** `/api`，上傳單據會失敗；需用 `vercel dev` 或已部署的網址測試。）
 
 ## 在新電腦上設定

@@ -112,6 +112,19 @@ from public.user_app_data;
 - [ ] **Google 登入**：Supabase **Authentication → Providers → Google** 開啟並貼 **Client ID／Secret**（來自 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth 2.0 用戶端 → **網頁應用程式**）；**已授權的重新導向 URI** 必含 `https://<project-ref>.supabase.co/auth/v1/callback`（`<project-ref>` 見 Supabase Project Settings → API 的 URL）
 - [ ] **Vercel** `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 與本機 `.env` **同一專案**
 - [ ] 單據 API：`GEMINI_API_KEY` 僅伺服器（`api/parse-receipt`）
+- [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（用量紀錄表，可選）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）
+- [ ] **Stripe（Vercel 伺服器專用，勿加 `VITE_`）**：`STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`（Webhook destination 的 `whsec_...`）、`STRIPE_PRICE_ID`（`price_...` 月費）；可選 `STRIPE_PUBLISHABLE_KEY`（前端 Stripe.js 時再考慮 `VITE_` 暴露策略）
+- [ ] **Stripe Webhook URL**：`https://<正式網域>/api/stripe-webhook`；變數新增後 **Redeploy**
+- [ ] **Supabase Service Role**：`SUPABASE_SERVICE_ROLE_KEY` **僅 Vercel**，供 `api/stripe-webhook.js` 更新訂閱欄位；**絕不**進前端 bundle。若未設 `SUPABASE_URL`，Webhook 會 fallback 讀 `VITE_SUPABASE_URL`
+- [ ] **Checkout 實作時**：Session `metadata` 必含 **`supabase_user_id`**（與 `auth.users.id` 一致），否則 `checkout.session.completed` 無法對應列
+
+### 5.1 Stripe Dashboard 路徑速查（2026-03）
+
+| 要找什麼 | 路徑 |
+|----------|------|
+| **API keys**（`pk_test` / `sk_test`） | 左下 **Developers** → **API keys**（**不是** Workbench → Webhooks 畫面） |
+| **Price ID** | **Product catalog** → 點產品 → **Pricing** → `price_...` |
+| **Webhook signing secret** | **Workbench → Webhooks** → destination 建立完成後複製 **`whsec_...`** → Vercel `STRIPE_WEBHOOK_SECRET` |
 
 ---
 
