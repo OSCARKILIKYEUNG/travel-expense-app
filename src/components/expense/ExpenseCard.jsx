@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
-import { CATEGORY_COLORS } from '../../utils/constants';
+import { getCategoryColor } from '../../utils/expenseCategories';
 import { getExpenseLocationDisplay, getExpenseStoreDisplay, getItemDisplayName } from '../../utils/displayNames';
 import {
   getPartialMatchPersonShareHKD,
@@ -26,7 +26,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
   const storeDisplay = getExpenseStoreDisplay(expense, i18n.language, t);
   const locationDisplay = getExpenseLocationDisplay(expense, i18n.language, t);
   const personLabel = (name) => (name === '共同' ? t('expenseCard.shared') : name);
-  const catColor = CATEGORY_COLORS[cat] || '#9CA3AF';
+  const catColor = getCategoryColor(cat);
   const isPartialMatch = filterPerson && resolveAssigneeDisplay(expense.assignedTo, people) !== filterPerson;
 
   const displayAmount = useMemo(() => {

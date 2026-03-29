@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
-import { CATEGORY_COLORS } from '../../utils/constants';
+import { getCategoryColor } from '../../utils/expenseCategories';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
 
@@ -59,7 +59,7 @@ export default function DailyChart() {
       <div className="flex flex-wrap gap-3">
         {categories.map((c) => (
           <div key={c} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: CATEGORY_COLORS[c] || '#9CA3AF' }} />
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: getCategoryColor(c) }} />
             <span className="text-xs text-slate-600">{t(`categories.${c}`, { defaultValue: c })}</span>
           </div>
         ))}
@@ -114,7 +114,7 @@ export default function DailyChart() {
                     const h = (amt / max) * 260;
                     const sy = curY - h;
                     curY = sy;
-                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={CATEGORY_COLORS[cat] || '#9CA3AF'} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${homeCurrencyCode} $${Math.round(amt)}`}</title></rect>;
+                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={getCategoryColor(cat)} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${homeCurrencyCode} $${Math.round(amt)}`}</title></rect>;
                   })}
                   <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{homeCurrencyCode} ${Math.round(d.total)}</text>
                   <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
@@ -136,7 +136,7 @@ export default function DailyChart() {
               {categories.map((c) => (
                 <th key={c} className="px-2 py-2 text-right font-semibold text-slate-600">
                   <span className="inline-flex items-center gap-1">
-                    <span className="w-2 h-2 rounded" style={{ backgroundColor: CATEGORY_COLORS[c] || '#9CA3AF' }} />
+                    <span className="w-2 h-2 rounded" style={{ backgroundColor: getCategoryColor(c) }} />
                     {t(`categories.${c}`, { defaultValue: c })}
                   </span>
                 </th>

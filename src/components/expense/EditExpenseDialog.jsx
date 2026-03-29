@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '../ui/Dialog';
 import { useApp } from '../../store/AppContext';
-import { CATEGORIES, CURRENCY_NAMES, RECEIPT_TYPE_OPTIONS } from '../../utils/constants';
+import { CURRENCY_NAMES, RECEIPT_TYPE_OPTIONS } from '../../utils/constants';
+import { getCategorySelectOptions } from '../../utils/expenseCategories';
 import { formatDateToInput, formatDateToDisplay } from '../../utils/date';
 import { Check } from '../ui/Icons';
 import { inferFixedFeeFromName } from '../../utils/personShare';
 
 export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
   const { t } = useTranslation();
-  const { people, defaultAssignee } = useApp();
+  const { people, defaultAssignee, settings } = useApp();
   const [form, setForm] = useState(null);
 
   useEffect(() => {
@@ -17,6 +18,8 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
   }, [expense]);
 
   if (!open || !form) return null;
+
+  const categoryOptions = getCategorySelectOptions(settings, form.category);
 
   const patch = (updates) => setForm((p) => ({ ...p, ...updates }));
 
@@ -65,7 +68,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
           <div>
             <label htmlFor="edit-category" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.category')}</label>
             <select id="edit-category" defaultValue={form.category} onChange={(e) => patch({ category: e.target.value })} className="input-field">
-              {CATEGORIES.map((c) => (
+              {categoryOptions.map((c) => (
                 <option key={c} value={c}>{t(`categories.${c}`, { defaultValue: c })}</option>
               ))}
             </select>

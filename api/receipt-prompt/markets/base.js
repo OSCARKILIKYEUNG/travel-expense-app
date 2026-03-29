@@ -73,7 +73,7 @@ JSON 欄位清單
 - detected_market: 見上（必填）
 - market_evidence: 字串陣列（建議）
 - date: YYYY年MM月DD日（或收據上日期如實轉寫）
-- location, location_en, store, store_en, category（飲食／交通／購物／住宿／娛樂／其他）
+- location, location_en, store, store_en, category — **僅能**為以下之一：飲食、交通、購物、住宿、娛樂、其他；無法判斷則填**其他**；**禁止**自創類別名稱
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
 - items: [{ "name", "name_en", "price", "price_actual"?, "original_name"?, "exclude_from_refund_split"? }]
