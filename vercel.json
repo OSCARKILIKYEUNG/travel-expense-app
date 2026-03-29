@@ -2,6 +2,9 @@
   "functions": {
     "api/parse-receipt.js": {
       "maxDuration": 60
+    },
+    "api/stripe-webhook.js": {
+      "maxDuration": 30
     }
   }
 }
