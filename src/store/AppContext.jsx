@@ -10,11 +10,6 @@ import { getDefaultAssignee } from '../utils/people';
 import { getAccountingCode, getTripCurrencyCode } from '../utils/tripMoney';
 import { recalculateExpensesForRates } from '../utils/recalculateExpensesForRates';
 import { buildMergedSavedCurrencySettings } from '../utils/savedCurrencyMerge';
-import { CATEGORIES } from '../utils/constants';
-import {
-  sanitizeCustomExpenseCategoriesArray,
-  validateNewCustomExpenseCategory,
-} from '../utils/expenseCategories';
 
 const AppContext = createContext(null);
 
@@ -313,37 +308,6 @@ function AppProviderInner({ children, userId }) {
     notify(i18n.t('toast.expenseDeleted'));
   }, [notify]);
 
-  const addCustomExpenseCategory = useCallback(
-    (raw) => {
-      const existing = settings.customExpenseCategories || [];
-      const v = validateNewCustomExpenseCategory(raw, existing);
-      if (!v.ok) return v;
-      const next = sanitizeCustomExpenseCategoriesArray([...existing, v.name]);
-      updateSettings({ customExpenseCategories: next });
-      notify(i18n.t('toast.customCategoryAdded', { name: v.name }));
-      return { ok: true };
-    },
-    [settings.customExpenseCategories, updateSettings, notify],
-  );
-
-  const removeCustomExpenseCategory = useCallback(
-    (name) => {
-      if (CATEGORIES.includes(name)) return { ok: false, reason: 'preset' };
-      const existing = settings.customExpenseCategories || [];
-      if (!existing.includes(name)) return { ok: false, reason: 'missing' };
-      DataService.reassignExpenseCategoryInAllTrips(name, '其他');
-      updateSettings({
-        customExpenseCategories: existing.filter((x) => x !== name),
-      });
-      const data = DataService.loadTripsData();
-      setTrips(data.trips);
-      setExpensesState(sortExpenses(DataService.loadExpenses()));
-      notify(i18n.t('toast.customCategoryRemoved', { name }));
-      return { ok: true };
-    },
-    [settings.customExpenseCategories, updateSettings, notify],
-  );
-
   const tripCurrency = getTripCurrencyCode(currentTrip);
 
   const defaultAssignee = useMemo(() => getDefaultAssignee(people), [people]);
@@ -354,7 +318,6 @@ function AppProviderInner({ children, userId }) {
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
-    addCustomExpenseCategory, removeCustomExpenseCategory,
     filterPerson, setFilterPerson,
     toast, notify,
     exchangeRates,
@@ -367,7 +330,6 @@ function AppProviderInner({ children, userId }) {
     defaultAssignee,
     updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
-    addCustomExpenseCategory, removeCustomExpenseCategory,
     setFilterPerson, notify,
   ]);
 

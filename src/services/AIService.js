@@ -6,7 +6,6 @@
 import i18n from '../i18n';
 import { normalizeDetectedMarket } from '../constants/receiptMarkets';
 import { CURRENCY_NAMES } from '../utils/constants';
-import { normalizeAiExpenseCategory } from '../utils/expenseCategories';
 import { inferFixedFeeFromName } from '../utils/personShare';
 
 function resizeImage(file) {
@@ -291,7 +290,7 @@ export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, 
     ...(locationEn ? { locationEn } : {}),
     store: result.store || '未知店舖',
     ...(storeEn ? { storeEn } : {}),
-    category: normalizeAiExpenseCategory(result.category),
+    category: result.category || '未分類',
     items,
     subtotal: subtotal || 0,
     tax,

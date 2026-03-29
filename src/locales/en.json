@@ -158,17 +158,6 @@
     "removeManual": "Remove",
     "tripsTitle": "Trips",
     "peopleTitle": "People",
-    "customCategoriesTitle": "Custom expense categories",
-    "customCategoriesHint": "The six defaults (food, transport, shopping, stay, entertainment, other) cannot be deleted. Receipt scan only assigns those six; anything unclear goes to Other. Custom categories are for manual entry and edits only.",
-    "customCategoryPlaceholder": "New category name…",
-    "customCategoryAdd": "Add category",
-    "customCategoryRemoveAria": "Remove category {{name}}",
-    "customCategoryEmpty": "Enter a category name.",
-    "customCategoryDuplicate": "That category already exists.",
-    "customCategoryReserved": "That name matches a default category.",
-    "customCategoryTooLong": "Name is too long (max 32 characters).",
-    "customCategoryLimit": "Custom category limit reached.",
-    "customCategoriesEmpty": "No custom categories yet.",
     "newPersonPlaceholder": "New person…",
     "addPerson": "Add",
     "editPersonTitle": "Rename person",
@@ -376,8 +365,6 @@
     "personExists": "Person already exists",
     "personAdded": "Person added",
     "personDeleted": "Person removed",
-    "personRenamed": "Person renamed",
-    "customCategoryAdded": "Added category “{{name}}”",
-    "customCategoryRemoved": "Removed “{{name}}”; related expenses set to Other"
+    "personRenamed": "Person renamed"
   }
 }
