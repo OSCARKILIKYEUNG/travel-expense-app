@@ -37,6 +37,8 @@ export default function Settings() {
     currentTripId,
     updateTrip,
     exchangeRates,
+    addCustomExpenseCategory,
+    removeCustomExpenseCategory,
   } = useApp();
 
   const uiLanguage = settings?.uiLanguage ?? 'zh-TW';
@@ -45,6 +47,9 @@ export default function Settings() {
   const exchangeRateUserEditedCodes = currentTrip?.exchangeRateUserEditedCodes || [];
 
   const importRef = useRef(null);
+
+  const [newCustomCategory, setNewCustomCategory] = useState('');
+  const customExpenseCategories = settings?.customExpenseCategories || [];
 
   const [newPerson, setNewPerson] = useState('');
   const [deletePerson, setDeletePerson] = useState(null);
@@ -148,6 +153,29 @@ export default function Settings() {
     patchTripRates(nextRates, nextManual, exchangeRatesUpdatedAt, {
       exchangeRateUserEditedCodes: nextUserEdited,
     });
+  };
+
+  const handleAddCustomCategory = () => {
+    const r = addCustomExpenseCategory(newCustomCategory);
+    if (r.ok) {
+      setNewCustomCategory('');
+      return;
+    }
+    const key =
+      r.reason === 'empty'
+        ? 'settings.customCategoryEmptyName'
+        : r.reason === 'long'
+          ? 'settings.customCategoryTooLong'
+          : r.reason === 'preset'
+            ? 'settings.customCategoryReserved'
+            : r.reason === 'duplicate'
+              ? 'settings.customCategoryDuplicate'
+              : 'settings.customCategoryLimit';
+    notify(t(key), 'warning');
+  };
+
+  const handleRemoveCustomCategory = (name) => {
+    removeCustomExpenseCategory(name);
   };
 
   const handleAddPerson = () => {
@@ -395,6 +423,53 @@ export default function Settings() {
             autoComplete="off"
           />
           <button type="button" onClick={handleAddPerson} className="btn-primary !py-2 !px-4 text-sm">{t('settings.addPerson')}</button>
+        </div>
+      </section>
+
+      <section className="card p-4 space-y-3">
+        <h2 className="text-sm font-bold text-slate-700">{t('settings.customCategoriesTitle')}</h2>
+        <p className="text-[10px] text-slate-500 leading-snug">{t('settings.customCategoriesHint')}</p>
+        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+          {customExpenseCategories.map((cat) => (
+            <div
+              key={cat}
+              className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200"
+            >
+              <span className="flex-1 text-sm text-slate-800">{cat}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveCustomCategory(cat)}
+                className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                aria-label={t('settings.customCategoryRemoveAria', { name: cat })}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          {customExpenseCategories.length === 0 && (
+            <p className="text-xs text-slate-400 py-1">{t('settings.customCategoriesEmpty')}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newCustomCategory}
+            onChange={(e) => setNewCustomCategory(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddCustomCategory();
+            }}
+            placeholder={t('settings.customCategoryPlaceholder')}
+            className="input-field flex-1 text-sm"
+            maxLength={40}
+            autoComplete="off"
+          />
+          <button
+            type="button"
+            onClick={handleAddCustomCategory}
+            className="btn-primary !py-2 !px-4 text-sm"
+          >
+            {t('settings.customCategoryAdd')}
+          </button>
         </div>
       </section>
 

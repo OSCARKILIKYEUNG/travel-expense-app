@@ -2,12 +2,23 @@ import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
+import { buildAllowedExpenseCategories } from '../../utils/expenseCategories';
 import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
   const { t } = useTranslation();
-  const { exchangeRates, addExpenses, notify, tripCurrency, defaultAssignee, homeCurrencyCode } = useApp();
+  const {
+    exchangeRates,
+    addExpenses,
+    notify,
+    tripCurrency,
+    defaultAssignee,
+    homeCurrencyCode,
+    settings,
+  } = useApp();
+  const customCats = settings?.customExpenseCategories || [];
+  const allowedCategories = buildAllowedExpenseCategories(settings);
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
@@ -26,10 +37,20 @@ export default function UploadArea() {
       setProgress({ current: i + 1, total: files.length });
       setStep(t('upload.processing', { current: i + 1, total: files.length }));
       try {
-        const parsed = await parseReceipt(files[i]);
+        const parsed = await parseReceipt(files[i], customCats);
         const currency = resolveReceiptCurrency(parsed, homeCurrencyCode, tripCurrency);
         const rate = getExchangeRate(currency, exchangeRates);
-        results.push(buildExpenseFromAI(parsed, i, currency, rate, tripCurrency, defaultAssignee));
+        results.push(
+          buildExpenseFromAI(
+            parsed,
+            i,
+            currency,
+            rate,
+            tripCurrency,
+            defaultAssignee,
+            allowedCategories,
+          ),
+        );
       } catch (err) {
         console.error(`第 ${i + 1} 張處理失敗:`, err);
         lastError = err?.message || String(err);

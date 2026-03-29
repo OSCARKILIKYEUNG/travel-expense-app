@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
-import { CATEGORIES, CURRENCY_NAMES } from '../utils/constants';
+import { CURRENCY_NAMES } from '../utils/constants';
+import { getSelectableExpenseCategories } from '../utils/expenseCategories';
 import { todayISO } from '../utils/date';
 import { ArrowLeft, Check } from '../components/ui/Icons';
 
 export default function AddExpense() {
   const { t } = useTranslation();
-  const { people, exchangeRates, addExpense, tripCurrency, defaultAssignee } = useApp();
+  const { people, exchangeRates, addExpense, tripCurrency, defaultAssignee, settings } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -95,7 +96,7 @@ export default function AddExpense() {
             <div>
               <label htmlFor="add-category" className="block text-xs font-medium text-slate-600 mb-1">{t('addExpense.category')}</label>
               <select id="add-category" value={form.category} onChange={(e) => patch({ category: e.target.value })} className="input-field">
-                {CATEGORIES.map((c) => (
+                {getSelectableExpenseCategories(settings).map((c) => (
                   <option key={c} value={c}>{t(`categories.${c}`, { defaultValue: c })}</option>
                 ))}
               </select>

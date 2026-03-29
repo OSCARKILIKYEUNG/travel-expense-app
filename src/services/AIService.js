@@ -6,6 +6,7 @@
 import i18n from '../i18n';
 import { normalizeDetectedMarket } from '../constants/receiptMarkets';
 import { CURRENCY_NAMES } from '../utils/constants';
+import { normalizeExpenseCategoryFromAi } from '../utils/expenseCategories';
 import { inferFixedFeeFromName } from '../utils/personShare';
 
 function resizeImage(file) {
@@ -35,15 +36,20 @@ function resizeImage(file) {
 }
 
 /**
+ * @param {File} file
+ * @param {string[]} [customExpenseCategories] 使用者自訂類別（不含預設六類；後端會合併）
  * @returns {Promise<object>} 解析後的單據 JSON
  */
-export async function parseReceipt(file) {
+export async function parseReceipt(file, customExpenseCategories = []) {
   const base64 = await resizeImage(file);
 
   const res = await fetch('/api/parse-receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64 }),
+    body: JSON.stringify({
+      imageBase64: base64,
+      expenseCategories: Array.isArray(customExpenseCategories) ? customExpenseCategories : [],
+    }),
   });
 
   const raw = await res.text();
@@ -128,7 +134,15 @@ function normalizeReceiptType(raw) {
   return v;
 }
 
-export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, defaultAssignee = '共同') {
+export function buildExpenseFromAI(
+  result,
+  index,
+  currency,
+  rate,
+  tripCurrency,
+  defaultAssignee = '共同',
+  allowedExpenseCategories = null,
+) {
   const receiptType = normalizeReceiptType(result.receipt_type);
   const rawMarket = result.detected_market ?? result.detectedMarket ?? '';
   const aiDetectedMarket = normalizeDetectedMarket(rawMarket);
@@ -282,6 +296,11 @@ export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, 
   const locationEn = String(result.location_en || result.locationEn || '').trim();
   const storeEn = String(result.store_en || result.storeEn || '').trim();
 
+  const category =
+    Array.isArray(allowedExpenseCategories) && allowedExpenseCategories.length > 0
+      ? normalizeExpenseCategoryFromAi(result.category, allowedExpenseCategories)
+      : String(result.category || '').trim() || '未分類';
+
   return {
     id: Date.now() + index,
     assignedTo: defaultAssignee,
@@ -290,7 +309,7 @@ export function buildExpenseFromAI(result, index, currency, rate, tripCurrency, 
     ...(locationEn ? { locationEn } : {}),
     store: result.store || '未知店舖',
     ...(storeEn ? { storeEn } : {}),
-    category: result.category || '未分類',
+    category,
     items,
     subtotal: subtotal || 0,
     tax,

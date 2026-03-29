@@ -158,6 +158,17 @@
     "removeManual": "移除此幣別",
     "tripsTitle": "旅程管理",
     "peopleTitle": "人物管理",
+    "customCategoriesTitle": "自訂支出類別",
+    "customCategoriesHint": "飲食、交通、購物、住宿、娛樂、其他為固定六類，無法刪除。掃描單據時 AI 會從「六類＋下方自訂」擇一；分不到則歸「其他」。您可在此新增／刪除額外類別（刪除時，使用該類的支出會改為「其他」）。",
+    "customCategoryPlaceholder": "新類別名稱…",
+    "customCategoryAdd": "新增類別",
+    "customCategoryRemoveAria": "刪除類別 {{name}}",
+    "customCategoriesEmpty": "尚未新增自訂類別。",
+    "customCategoryEmptyName": "請輸入類別名稱。",
+    "customCategoryDuplicate": "此類別已存在。",
+    "customCategoryReserved": "與固定六類名稱衝突，請換名稱。",
+    "customCategoryTooLong": "名稱過長（最多 32 字）。",
+    "customCategoryLimit": "自訂類別已達上限。",
     "newPersonPlaceholder": "新人物名稱…",
     "addPerson": "新增",
     "editPersonTitle": "編輯人物名稱",
@@ -365,6 +376,8 @@
     "personExists": "此人物已存在",
     "personAdded": "已新增人物",
     "personDeleted": "已刪除人物",
-    "personRenamed": "人物名稱已更新"
+    "personRenamed": "人物名稱已更新",
+    "customCategoryAdded": "已新增類別「{{name}}」",
+    "customCategoryRemoved": "已刪除類別「{{name}}」，相關支出已改為「其他」"
   }
 }

@@ -1,4 +1,5 @@
 import { CURRENCY_NAMES, DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
+import { sanitizeCustomExpenseCategoriesArray } from '../utils/expenseCategories';
 import { normalizeUiLanguage } from '../utils/locale';
 import { blankRatesForAccounting, getAccountingCode } from '../utils/tripMoney';
 import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
@@ -445,18 +446,28 @@ const DataService = {
       const savedTripCurrencies = Array.isArray(latest?.savedTripCurrencies)
         ? latest.savedTripCurrencies
         : fromTrips.savedTripCurrencies;
+      const customExpenseCategories = sanitizeCustomExpenseCategoriesArray(
+        latest?.customExpenseCategories,
+      );
       const out = {
         uiLanguage: normalizeUiLanguage(latest?.uiLanguage ?? 'zh-TW'),
         savedAccountingCodes,
         savedTripCurrencies,
+        customExpenseCategories,
         ...(latest?.apiKey != null ? { apiKey: latest.apiKey } : {}),
         ...(latest?.modelName != null ? { modelName: latest.modelName } : {}),
       };
       if (
         !Array.isArray(latest?.savedAccountingCodes) ||
-        !Array.isArray(latest?.savedTripCurrencies)
+        !Array.isArray(latest?.savedTripCurrencies) ||
+        JSON.stringify(latest?.customExpenseCategories || []) !== JSON.stringify(customExpenseCategories)
       ) {
-        writeLogical(KEYS.SETTINGS, { ...latest, savedAccountingCodes, savedTripCurrencies });
+        writeLogical(KEYS.SETTINGS, {
+          ...latest,
+          savedAccountingCodes,
+          savedTripCurrencies,
+          customExpenseCategories,
+        });
       }
       return out;
     }
@@ -465,6 +476,7 @@ const DataService = {
       uiLanguage: 'zh-TW',
       savedAccountingCodes: fromTrips.savedAccountingCodes,
       savedTripCurrencies: fromTrips.savedTripCurrencies,
+      customExpenseCategories: [],
     };
   },
 
@@ -499,6 +511,23 @@ const DataService = {
       };
     }
     this.saveTripsData(tripsData);
+  },
+
+  reassignExpenseCategoryInAllTrips(fromCategory, toCategory) {
+    const from = String(fromCategory || '').trim();
+    const to = String(toCategory || '').trim();
+    if (!from || !to || from === to) return;
+    const tripsData = this.loadTripsData();
+    for (const trip of tripsData.trips) {
+      trip.expenses = (trip.expenses || []).map((e) =>
+        e.category === from ? { ...e, category: to } : e,
+      );
+    }
+    this.saveTripsData(tripsData);
+    const cur = this.getCurrentTrip(tripsData);
+    if (cur?.expenses) {
+      this.saveExpenses(cur.expenses);
+    }
   },
 
   removePersonAndReassignAll(deletedName, reassignTo) {

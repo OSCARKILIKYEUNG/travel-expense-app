@@ -1,6 +1,7 @@
 import { buffer } from 'node:stream/consumers';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { SYSTEM_PROMPT, USER_TEXT } from './receipt-prompt.js';
+import { mergeExpenseCategoriesForPrompt } from './expense-categories-merge.js';
 
 const MODEL_ID = 'gemini-2.5-flash';
 
@@ -89,7 +90,21 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: '圖片資料為空' }));
   }
 
-  const textParts = [{ text: USER_TEXT }, { inlineData: { mimeType, data } }];
+  const expenseCategoryList = mergeExpenseCategoriesForPrompt(body?.expenseCategories);
+  const categoryAppendix = `
+
+══════════════════════════════════════════
+支出類別清單（category 欄位 · 動態）
+══════════════════════════════════════════
+**必填**：category 僅能為以下**一字不差**的其中一個：
+${expenseCategoryList.map((n) => `「${n}」`).join('、')}
+無法合理歸類時必須選「其他」（上列已含「其他」時選「其他」）。`;
+
+  const systemInstruction = `${SYSTEM_PROMPT}${categoryAppendix}`;
+  const userText = `${USER_TEXT}
+category 僅能從下列擇一（須完全一致）：${expenseCategoryList.join('、')}。無法判斷填「其他」。`;
+
+  const textParts = [{ text: userText }, { inlineData: { mimeType, data } }];
 
   try {
     const genAI = new GoogleGenerativeAI(key);
@@ -98,7 +113,7 @@ export default async function handler(req, res) {
     try {
       const model = genAI.getGenerativeModel({
         model: MODEL_ID,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction,
         generationConfig: {
           temperature: 0.1,
           responseMimeType: 'application/json',
@@ -109,7 +124,7 @@ export default async function handler(req, res) {
     } catch (firstErr) {
       const model = genAI.getGenerativeModel({
         model: MODEL_ID,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction,
         generationConfig: { temperature: 0.1 },
       });
       const result = await model.generateContent(textParts);

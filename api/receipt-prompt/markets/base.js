@@ -73,7 +73,7 @@ JSON 欄位清單
 - detected_market: 見上（必填）
 - market_evidence: 字串陣列（建議）
 - date: YYYY年MM月DD日（或收據上日期如實轉寫）
-- location, location_en, store, store_en, category（飲食／交通／購物／住宿／娛樂／其他）
+- location, location_en, store, store_en, category — **見 system 末段「支出類別清單」**；字串須與清單**完全一致**擇一；無法判斷填「其他」
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
 - items: [{ "name", "name_en", "price", "price_actual"?, "original_name"?, "exclude_from_refund_split"? }]
@@ -90,5 +90,6 @@ JSON 欄位清單
 3. 組合價：組合內單品勿重複列出。
 4. 外稅單：tax 是否 ≈ 合計 − 小計？
 5. 雙欄定價：相關品項是否填了 price_actual？
+6. category 是否落在「支出類別清單」內？否則改為「其他」。
 `.trim();
 }
