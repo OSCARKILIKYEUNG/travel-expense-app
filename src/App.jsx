@@ -7,6 +7,7 @@ import AddExpense from './pages/AddExpense';
 import Charts from './pages/Charts';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
+import ResetPassword from './pages/ResetPassword';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<RequireAuth><AuthenticatedShell /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="add" element={<AddExpense />} />

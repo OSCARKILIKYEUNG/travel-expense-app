@@ -19,6 +19,7 @@
 | 本機快取 + debounce 寫回 | 已上線 | `bootstrapUserAppData` → 再掛 `AppProviderInner`；**500ms** debounce 後 `upsert` |
 | 同步失敗使用者可見 | 已上線 | Toast `errors.persistFailed`；先前僅 `console.error('[sync]', err)` |
 | 凍結「會員前」版本 | 已有 tag | `pre-supabase-auth`；說明見 `docs/archive/TAG_PRE_SUPABASE_AUTH.md` |
+| **忘記密碼（Email 重設流程）** | 已上線 | `/login`「忘記密碼？」→ `resetPasswordForEmail`；`/reset-password` + `PASSWORD_RECOVERY` → `updateUser({ password })` 後導向 `/`；**Redirect URLs 須含 `/reset-password`**（見 §五、§八） |
 
 ---
 
@@ -39,8 +40,9 @@
 | `supabase/migrations/001_user_app_data.sql` | 建表 + RLS；**必須在 Supabase SQL Editor 執行** |
 | `src/services/syncSupabase.js` | `bootstrapUserAppData`、`persistUserAppData` |
 | `src/store/AppContext.jsx` | 外層：`bootstrap` 完成前顯示載入／錯誤；內層：debounce 觸發 `persist` |
-| `src/context/AuthContext.jsx` | Session、`signUp`/`signIn`/`signOut`、`resendSignUpEmail` |
+| `src/context/AuthContext.jsx` | Session、`signUp`/`signIn`/`signOut`、`resendSignUpEmail`、`resetPasswordForEmail`、`updatePassword`（recovery） |
 | `src/components/auth/AuthenticatedShell.jsx` | `AppProvider key={user.id} userId={user.id}` |
+| `src/pages/ResetPassword.jsx` | 重設密碼落地頁（`PASSWORD_RECOVERY`、新密碼表單） |
 | `src/lib/supabaseClient.js` | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
 
 ### 2.3 單據影像 vs 記帳欄位
@@ -63,6 +65,9 @@
 | L24 | 同步失敗但畫面正常 | 舊版只打 `console`；現版會 **Toast** `persistFailed` |
 | L25 | 本機有資料、雲端沒有 | 未執行 **migration**、或 `VITE_*` 指到**另一個** Supabase 專案（本機 vs Vercel） |
 | L26 | 白屏（歷史） | `AppContext` 曾缺 `getAccountingCode` import；**接棒時注意 import** |
+| L27 | 點了重設密碼信卻顯示「連結無效」 | **Redirect URLs** 未含 **`/reset-password` 完整 URL**（本機 port 須與 Vite 一致，預設 **3000**）；或信在過期時間後才點 |
+
+> **與雲端／Auth 無關的支出 UI 坑**（編輯後消費稅／退稅／品項金額顯示、`priceActual`、OAuth 檔勿入庫）→ **`docs/PRODUCT_ITERATION_2025-03.md` §三 L20–L22**、§十 **SAVE（2026-03-27）**。
 
 ---
 
@@ -102,7 +107,7 @@ from public.user_app_data;
 ## 五、環境與部署檢查清單
 
 - [ ] Supabase **SQL Editor** 已執行 `supabase/migrations/001_user_app_data.sql`
-- [ ] **Authentication → URL Configuration**：Site URL、Redirect URLs 含本機與正式網域
+- [ ] **Authentication → URL Configuration**：Site URL、Redirect URLs 含本機與正式網域，且含 **`/reset-password` 完整 URL**（例：`http://localhost:3000/reset-password`、正式網域同路徑；與 `AuthContext` 內 `redirectTo` 一致；本專案 Vite **port 3000**）
 - [ ] **Email** 開啟 Confirm email（若要走驗證信）
 - [ ] **Google 登入**：Supabase **Authentication → Providers → Google** 開啟並貼 **Client ID／Secret**（來自 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth 2.0 用戶端 → **網頁應用程式**）；**已授權的重新導向 URI** 必含 `https://<project-ref>.supabase.co/auth/v1/callback`（`<project-ref>` 見 Supabase Project Settings → API 的 URL）
 - [ ] **Vercel** `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 與本機 `.env` **同一專案**
@@ -124,6 +129,35 @@ from public.user_app_data;
 - 縮短 debounce 或改「手動儲存」策略（權衡 API 次數）
 - 多分頁同時編輯：**最後寫入為準**；可加入版本欄或 Realtime
 - 單據圖若需留存：Supabase **Storage** + 連結寫入 expense
+
+---
+
+## 八、忘記密碼（Password reset · 已上線）
+
+> 官方流程見 [Supabase · Forgot password](https://supabase.com/docs/guides/auth/passwords#forgot-password)。本專案 `supabaseClient` 使用 **PKCE** + `detectSessionInUrl: true`。
+
+### 8.1 已實作行為
+
+- **`Auth.jsx`**（登入模式）：「忘記密碼？」→ 僅 email → `resetPasswordForEmail`；成功後 **`pendingPasswordReset`** 與註冊驗證 **`pendingEmail` 分開**；可「再次寄送重設信」（60s 冷卻）。
+- **`ResetPassword.jsx`**（路由 **`/reset-password`**，**不**經 `RequireAuth`）：`onAuthStateChange` 收到 **`PASSWORD_RECOVERY`** 後顯示新密碼／確認；`updateUser({ password })` 成功後 **`navigate('/')`**（沿用 Supabase 更新後之 session）。
+- **`AuthContext`**：`resetPasswordForEmail`、`updatePassword`。
+
+### 8.2 後台必做（仍請人工核對）
+
+1. **Redirect URLs** 含本機與正式之 **`…/reset-password`**（本機預設 **port 3000**，見 `vite.config.js`）。
+2. **Email**：Reset password 模板可從信內連結回到上述 URL。
+
+### 8.3 產品決策（已定）
+
+- 重設成功後：**導向首頁 `/`**（已登入狀態），非強制回 `/login` 再打一次密碼。
+- 前端密碼長度：**至少 6 字元**（與常見 Supabase 預設一致；`signUp` 未另設更嚴規則時與此對齊）。
+
+### 8.4 驗收（上線後自測勾選）
+
+- [ ] 可寄出重設信，信內連結可開啟 App 並設新密碼。
+- [ ] 新密碼可 `signInWithPassword`（必要時先 sign out 再測）。
+- [ ] 無效／過期連結會出現說明並可回 `/login`。
+- [ ] 雙語文案齊全。
 
 ---
 

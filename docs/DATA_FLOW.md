@@ -116,3 +116,4 @@
 |------|------|
 | 2025-03-27 | 初版：階段 0 資料流文件（對齊現行 `DataService` / `AppContext`）。 |
 | 2026-03-27 | 補充 `userEditedPricing` 與 `expensePricing.js` 說明。 |
+| 2026-03-27 | 與 **`PRODUCT_ITERATION_2025-03.md` §十 SAVE、§三 L20–L22** 對齊（編輯後卡片稅／退稅／品項顯示坑點）。 |

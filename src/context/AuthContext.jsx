@@ -70,6 +70,15 @@ export function AuthProvider({ children }) {
           options: { emailRedirectTo },
         });
       },
+      async resetPasswordForEmail(email) {
+        if (!supabase) return { error: new Error('Supabase not configured') };
+        const redirectTo = `${window.location.origin}/reset-password`;
+        return supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      },
+      async updatePassword(newPassword) {
+        if (!supabase) return { error: new Error('Supabase not configured') };
+        return supabase.auth.updateUser({ password: newPassword });
+      },
       async signInWithGoogle() {
         if (!supabase) return { error: new Error('Supabase not configured') };
         const redirectTo = `${window.location.origin}/`;

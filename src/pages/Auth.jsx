@@ -10,8 +10,16 @@ export default function Auth() {
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
 
-  const { supabaseConfigured, user, loading: authLoading, signIn, signUp, resendSignUpEmail, signInWithGoogle } =
-    useAuth();
+  const {
+    supabaseConfigured,
+    user,
+    loading: authLoading,
+    signIn,
+    signUp,
+    resendSignUpEmail,
+    signInWithGoogle,
+    resetPasswordForEmail,
+  } = useAuth();
 
   const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
@@ -20,6 +28,9 @@ export default function Auth() {
   const [inlineError, setInlineError] = useState('');
   const [inlineSuccess, setInlineSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingPasswordReset, setPendingPasswordReset] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [oauthGoogleLoading, setOauthGoogleLoading] = useState(false);
 
@@ -79,16 +90,7 @@ export default function Auth() {
     }
   };
 
-  const handleResend = async () => {
-    if (!pendingEmail || resendCooldown > 0) return;
-    setInlineError('');
-    setInlineSuccess('');
-    const { error } = await resendSignUpEmail(pendingEmail);
-    if (error) {
-      setInlineError(error.message || t('auth.errorGeneric'));
-      return;
-    }
-    setInlineSuccess(t('auth.resendOk'));
+  const startResendCooldown = () => {
     setResendCooldown(60);
     const id = setInterval(() => {
       setResendCooldown((s) => {
@@ -99,6 +101,55 @@ export default function Auth() {
         return s - 1;
       });
     }, 1000);
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setInlineError('');
+    setInlineSuccess('');
+    if (!email.trim()) {
+      setInlineError(t('auth.errorEmptyEmail'));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await resetPasswordForEmail(email.trim());
+      if (error) {
+        setInlineError(error.message || t('auth.errorGeneric'));
+        return;
+      }
+      setForgotPasswordEmail(email.trim());
+      setPendingPasswordReset(true);
+      setShowForgotPassword(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendReset = async () => {
+    if (!forgotPasswordEmail || resendCooldown > 0) return;
+    setInlineError('');
+    setInlineSuccess('');
+    const { error } = await resetPasswordForEmail(forgotPasswordEmail);
+    if (error) {
+      setInlineError(error.message || t('auth.errorGeneric'));
+      return;
+    }
+    setInlineSuccess(t('auth.forgotPasswordResendOk'));
+    startResendCooldown();
+  };
+
+  const handleResend = async () => {
+    if (!pendingEmail || resendCooldown > 0) return;
+    setInlineError('');
+    setInlineSuccess('');
+    const { error } = await resendSignUpEmail(pendingEmail);
+    if (error) {
+      setInlineError(error.message || t('auth.errorGeneric'));
+      return;
+    }
+    setInlineSuccess(t('auth.resendOk'));
+    startResendCooldown();
   };
 
   if (supabaseConfigured && authLoading) {
@@ -136,7 +187,43 @@ export default function Auth() {
           <span className="font-bold text-lg">{t('app.brand')}</span>
         </div>
 
-        {pendingEmail ? (
+        {pendingPasswordReset ? (
+          <div className="space-y-4">
+            <h1 className="text-lg font-semibold text-slate-800">{t('auth.forgotPasswordCheckTitle')}</h1>
+            <p className="text-sm text-slate-600">{t('auth.forgotPasswordSent')}</p>
+            {inlineSuccess && (
+              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                {inlineSuccess}
+              </p>
+            )}
+            {inlineError && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{inlineError}</p>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                className="btn-primary flex-1"
+                onClick={handleResendReset}
+                disabled={resendCooldown > 0}
+              >
+                {resendCooldown > 0 ? t('auth.resendWait', { seconds: resendCooldown }) : t('auth.forgotPasswordResend')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex-1"
+                onClick={() => {
+                  setPendingPasswordReset(false);
+                  setForgotPasswordEmail('');
+                  setInlineSuccess('');
+                  setInlineError('');
+                  setResendCooldown(0);
+                }}
+              >
+                {t('auth.back')}
+              </button>
+            </div>
+          </div>
+        ) : pendingEmail ? (
           <div className="space-y-4">
             <h1 className="text-lg font-semibold text-slate-800">{t('auth.checkInboxTitle')}</h1>
             <p className="text-sm text-slate-600">{t('auth.checkInboxBody', { email: pendingEmail })}</p>
@@ -172,22 +259,24 @@ export default function Auth() {
           </div>
         ) : (
           <>
-            <div className="space-y-3 mb-6">
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={oauthGoogleLoading || submitting}
-                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <GoogleIcon className="shrink-0" />
-                {oauthGoogleLoading ? t('auth.submitting') : t('auth.googleSignIn')}
-              </button>
-              <div className="flex items-center gap-3 text-[10px] text-slate-400 uppercase tracking-wider">
-                <span className="flex-1 h-px bg-slate-200" />
-                {t('auth.orDivider')}
-                <span className="flex-1 h-px bg-slate-200" />
+            {!showForgotPassword && (
+              <div className="space-y-3 mb-6">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={oauthGoogleLoading || submitting}
+                  className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <GoogleIcon className="shrink-0" />
+                  {oauthGoogleLoading ? t('auth.submitting') : t('auth.googleSignIn')}
+                </button>
+                <div className="flex items-center gap-3 text-[10px] text-slate-400 uppercase tracking-wider">
+                  <span className="flex-1 h-px bg-slate-200" />
+                  {t('auth.orDivider')}
+                  <span className="flex-1 h-px bg-slate-200" />
+                </div>
               </div>
-            </div>
+            )}
 
             {inlineError && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
@@ -203,6 +292,7 @@ export default function Auth() {
                 }`}
                 onClick={() => {
                   setMode('signin');
+                  setShowForgotPassword(false);
                   setInlineError('');
                 }}
               >
@@ -215,6 +305,7 @@ export default function Auth() {
                 }`}
                 onClick={() => {
                   setMode('signup');
+                  setShowForgotPassword(false);
                   setInlineError('');
                 }}
               >
@@ -222,42 +313,89 @@ export default function Auth() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="auth-email" className="block text-xs font-medium text-slate-600 mb-1">
-                  {t('auth.email')}
-                </label>
-                <input
-                  id="auth-email"
-                  type="email"
-                  autoComplete="email"
-                  className="input-field"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="auth-password" className="block text-xs font-medium text-slate-600 mb-1">
-                  {t('auth.password')}
-                </label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  className="input-field"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+            {showForgotPassword ? (
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <p className="text-sm text-slate-600">{t('auth.forgotPasswordHint')}</p>
+                <p className="text-xs text-slate-500">{t('auth.forgotPasswordGoogleHint')}</p>
+                <div>
+                  <label htmlFor="auth-forgot-email" className="block text-xs font-medium text-slate-600 mb-1">
+                    {t('auth.email')}
+                  </label>
+                  <input
+                    id="auth-forgot-email"
+                    type="email"
+                    autoComplete="email"
+                    className="input-field"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="btn-primary w-full" disabled={submitting}>
+                  {submitting ? t('auth.submitting') : t('auth.forgotPasswordSubmit')}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary w-full"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setInlineError('');
+                  }}
+                >
+                  {t('auth.backToSignIn')}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="auth-email" className="block text-xs font-medium text-slate-600 mb-1">
+                    {t('auth.email')}
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    autoComplete="email"
+                    className="input-field"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="auth-password" className="block text-xs font-medium text-slate-600 mb-1">
+                    {t('auth.password')}
+                  </label>
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    className="input-field"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  {mode === 'signin' && (
+                    <div className="flex justify-end mt-1.5">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded"
+                        onClick={() => {
+                          setShowForgotPassword(true);
+                          setInlineError('');
+                        }}
+                      >
+                        {t('auth.forgotPassword')}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-              {mode === 'signup' && (
-                <p className="text-xs text-slate-500">{t('auth.verifyHint')}</p>
-              )}
+                {mode === 'signup' && (
+                  <p className="text-xs text-slate-500">{t('auth.verifyHint')}</p>
+                )}
 
-              <button type="submit" className="btn-primary w-full" disabled={submitting}>
-                {submitting ? t('auth.submitting') : mode === 'signin' ? t('auth.signIn') : t('auth.signUp')}
-              </button>
-            </form>
+                <button type="submit" className="btn-primary w-full" disabled={submitting}>
+                  {submitting ? t('auth.submitting') : mode === 'signin' ? t('auth.signIn') : t('auth.signUp')}
+                </button>
+              </form>
+            )}
           </>
         )}
 

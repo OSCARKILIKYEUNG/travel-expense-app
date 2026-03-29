@@ -105,6 +105,9 @@
 | L17 | **PowerShell heredoc 不支援**：git commit 用 `$(cat <<'EOF' ...)` 在 PowerShell 失敗 | Windows PowerShell 不支援 bash heredoc | 在 Windows 環境一律用單行 `-m "..."` 提交。 |
 | L18 | **Frankfurter `fetch` 無 timeout** | 瀏覽器預設不逾時；代理慢或掛起時下拉 **長時間「更新中」** | `fetchFrankfurterRates` 使用 **AbortController + 10 s**；逾時進 catch，仍保留 rebase 換算。 |
 | L19 | **「更新匯率」成功時 Toast 重複** | `settings` 更新匯率 + `AppContext` 依 `exchangeRates` 重算支出 **各 notify 一次** | 有支出時只讓 **AppContext** 顯示 `ratesUpdated`；**無支出**時 Settings 才 `fetchRatesOk`。 |
+| L20 | **編輯消費稅／退稅後卡片像沒變** | ① 消費稅列曾僅在 `receiptType === 'tax_exclusive'` 時顯示，內含稅等仍存 `tax` 也不出列；② 精簡模式（`userEditedPricing`）曾 **隱藏**「退稅（標價與實付差額）」列，一改稅務就進精簡 → 退稅永遠看不到 | 已修：`tax > eps` 即顯示消費稅列；退稅列 **不再**因精簡隱藏。 |
+| L21 | **編輯品項金額後仍顯示掃描期「稅後／實價」** | 精簡顯示仍優先 `priceActual`；只改 `price` 未清掃描留下的 `priceActual` | 已修：精簡模式顯示以 **`price` 為準**；`EditExpenseDialog` 改價時 **`priceActual = undefined`**。 |
+| L22 | **OAuth `client_secret*.json` 在專案根目錄** | 下載憑證後易誤留 repo | **勿** `git add`；應 **`.gitignore`** 或移出專案；Supabase／Vercel 用環境變數。 |
 
 ---
 
@@ -168,7 +171,9 @@
 | 路徑 | 用途 |
 |------|------|
 | `src/utils/personShare.js` | 分帳、固定費、有效退稅、實攤 |
-| `src/components/expense/ExpenseCard.jsx` | 退稅列／收據免稅列／分人明細 |
+| `src/components/expense/ExpenseCard.jsx` | 退稅列／收據免稅列／分人明細；精簡顯示、`userEditedPricing` |
+| `src/components/expense/ExpenseList.jsx` | 編輯儲存合併 `userEditedPricing`、`hasPricingRelatedChanges` |
+| `src/utils/expensePricing.js` | `hasPricingRelatedChanges`（價格／稅／折扣／品項金額是否變更） |
 | `src/services/AIService.js` | `buildExpenseFromAI` |
 | `api/receipt-prompt.js` | Gemini JSON 規格 |
 | `README.md` | 免稅／固定費／收據免稅額說明 |
@@ -199,6 +204,8 @@
 | 2025-03-27 | **整理與補漏**：§一 進度快照／主題更新；新增 **§2.6、§2.7**；§三 **L18、L19**；§十一 **Phase 3 狀態與交付**（含 Frankfurter、proxy、rebase、key、timeout、雙 Toast、currencyMismatch）；§十 SAVE 新列；§七 索引補匯率相關檔；與 `HANDOFF.md` 分工、避免重複長表。 |
 | 2025-03-27 | **維護優化階段 0**：新增 **`docs/DATA_FLOW.md`**（`travel_expenses_data` ↔ `trip.expenses`、Context 權威、`switchTrip`／`removePersonAndReassignAll` 要點）；`docs/README.md`、`PRODUCT_MANAGEMENT.md`（TD-01、路線圖、索引）連結更新。 |
 | 2025-03-27 | **維護優化階段 1～3**：**Vitest** + `src/**/*.test.js`（`personShare`、`currency`、`ExchangeRateService`、匯率重算、幣別清單合併）；**`recalculateExpensesForRates`、`buildMergedSavedCurrencySettings`** 抽離純函式，`AppContext` 精簡；**`src/types/expense.js`** JSDoc（`hkdAmount` 語意）；`updateExpense` 改用 `toHome`；`vite.config` `test` 區塊、`package.json` `test`／`test:run`。 |
+| 2026-03-27 | **SAVE**：§三 新增 **L20–L22**（編輯後稅／退稅／品項顯示、OAuth 檔勿入庫）；§十 新增 **2026-03-27** 列；與 `DATA_FLOW.md` 修訂紀錄對齊。 |
+| 2026-03-27 | **`DESIGN_THINKING.md`**：新增 **§五**（掃描對照 vs 編輯後定案、`userEditedPricing`、折扣可見、稅務列與 ± 前綴）；原 §五～§八 順延為 §六～§九；時間軸與延伸閱讀已更新。 |
 
 ---
 
@@ -235,6 +242,7 @@
 | 2025-03-26 | **歸檔**：獨立 `SOP_AI_COLLABORATION.md` 已刪除，全文併入產品管理檔專節，減少重複檔案。 | — |
 | 2025-03-26 | **多幣別 Phase 1+2**（`c43c9cb` 已 push）：匯率語意反轉、home/trip 幣、遷移、UI 動態記帳幣、旅程幣選擇、匯出／圖表標籤；詳見 **§十一**。 | 延伸見 **§十一 Phase 3**；`PRODUCT_MANAGEMENT` 發布表另補 Frankfurter 等列。 |
 | 2025-03-27 | **多幣 Phase 3 延伸**（已 push `main`，例：`f60c664`／`b3da7df`／`1916cbb`）：Frankfurter + **`/api/exchange-rates`** + Vite proxy、`FRANKFURTER_SUPPORTED` + **`rebaseRates`**、設定頁 **`key`**、**fetch 10s**、AI **`currencyMismatch`**、設定內改旅程幣、雙 Toast 處理；**`HANDOFF.md`** 改為備份/tag 專職、不重複本表。 | UX 微調、改名 `hkdAmount`、**OTHER** 自訂幣精準牌價等見 §11.4。 |
+| 2026-03-27 | **SAVE — 支出卡片／編輯（稅務、精簡顯示、UI 前綴）**（已 push `main`，例：`33bb2dd`、`2b7c1d0`、`f0f07d8`）：① **`userEditedPricing`** + **`src/utils/expensePricing.js`** 之 `hasPricingRelatedChanges`（`ExpenseList` 儲存時合併）；② **`ExpenseCard`**：整單折扣列、精簡／掃描兩套品項對照、**消費稅**改為有 **`tax`** 即顯示、**退稅列**不因精簡隱藏；③ **`EditExpenseDialog`**：補 **消費稅 `tax`**、改品項價時清 **`priceActual`**；④ 退稅／折扣金額前加 **`-`**（與消費稅 **`+`** 對齊），分人「比例退稅」同前綴；⑤ 坑與 log → **§三 L20–L22**；⑥ **`docs/DATA_FLOW.md`** 已述 `userEditedPricing`；⑦ **Auth／雲端**坑與 Console／Network／SQL →仍見 **`docs/SUPABASE_AUTH_AND_SYNC_2026-03.md`**。 | 根目錄 **`client_secret*.json`** 勿入庫（見 **L22**）；可選：`.gitignore` 加條款。 |
 
 ---
 
