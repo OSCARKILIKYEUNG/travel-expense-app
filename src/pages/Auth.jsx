@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MapPin } from '../components/ui/Icons';
 import { useAuth } from '../context/AuthContext';
+import { formatAuthError } from '../lib/authErrors';
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -52,7 +53,7 @@ export default function Auth() {
       if (mode === 'signin') {
         const { error } = await signIn(email.trim(), password);
         if (error) {
-          setInlineError(error.message || t('auth.errorGeneric'));
+          setInlineError(formatAuthError(error, t));
           return;
         }
         navigate(from, { replace: true });
@@ -61,7 +62,7 @@ export default function Auth() {
 
       const { data, error } = await signUp(email.trim(), password);
       if (error) {
-        setInlineError(error.message || t('auth.errorGeneric'));
+        setInlineError(formatAuthError(error, t));
         return;
       }
       if (data.session) {
@@ -81,7 +82,7 @@ export default function Auth() {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        setInlineError(error.message || t('auth.errorGeneric'));
+        setInlineError(formatAuthError(error, t));
         setOauthGoogleLoading(false);
       }
     } catch {
@@ -115,7 +116,7 @@ export default function Auth() {
     try {
       const { error } = await resetPasswordForEmail(email.trim());
       if (error) {
-        setInlineError(error.message || t('auth.errorGeneric'));
+        setInlineError(formatAuthError(error, t));
         return;
       }
       setForgotPasswordEmail(email.trim());
@@ -132,7 +133,7 @@ export default function Auth() {
     setInlineSuccess('');
     const { error } = await resetPasswordForEmail(forgotPasswordEmail);
     if (error) {
-      setInlineError(error.message || t('auth.errorGeneric'));
+      setInlineError(formatAuthError(error, t));
       return;
     }
     setInlineSuccess(t('auth.forgotPasswordResendOk'));
@@ -145,7 +146,7 @@ export default function Auth() {
     setInlineSuccess('');
     const { error } = await resendSignUpEmail(pendingEmail);
     if (error) {
-      setInlineError(error.message || t('auth.errorGeneric'));
+      setInlineError(formatAuthError(error, t));
       return;
     }
     setInlineSuccess(t('auth.resendOk'));

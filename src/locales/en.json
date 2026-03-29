@@ -34,6 +34,7 @@
     "submitting": "Please wait…",
     "errorEmpty": "Enter email and password.",
     "errorGeneric": "Something went wrong. Try again.",
+    "errorEmailRateLimit": "This project hit Supabase’s email send limit (sign-up, password reset, etc. count together, usually per hour). Wait and try again, or use Google sign-in. For production, add custom SMTP under Project Settings → Auth → SMTP Settings for higher quotas; you can also tune some limits under Authentication → Rate Limits.",
     "verifyHint": "After sign-up we will email you a confirmation link. Open it to finish registration.",
     "verifyEmailSent": "Verification email sent. Check your inbox.",
     "checkInboxTitle": "Verify your email",

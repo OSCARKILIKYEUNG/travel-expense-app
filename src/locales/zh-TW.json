@@ -34,6 +34,7 @@
     "submitting": "處理中…",
     "errorEmpty": "請輸入電子郵件與密碼。",
     "errorGeneric": "發生錯誤，請稍後再試。",
+    "errorEmailRateLimit": "寄信次數已達 Supabase 專案上限（驗證信、重設密碼等會一起計入，通常以「每小時」為單位）。請隔一段時間再試，或改用 Google 登入。正式環境可在 Supabase → Project Settings → Auth → SMTP Settings 設定自訂 SMTP 以提高配額；亦可至 Authentication → Rate Limits 調整部分節流。",
     "verifyHint": "註冊後我們會寄驗證信到您的信箱；請點擊信內連結即可登入。",
     "verifyEmailSent": "已寄出驗證信，請至信箱開啟驗證連結。",
     "checkInboxTitle": "請驗證電子郵件",
