@@ -44,7 +44,14 @@ export default function DailyChart() {
     return <div className="text-center py-12 text-slate-400">{t('chartsPage.noData')}</div>;
   }
 
-  const chartW = Math.max(data.length * 80 + 60, 400);
+  /** 左側留空給 Y 軸刻度（含「HKD $12345」）；標籤用 textAnchor=end 靠右對齊至此線左側，避免與長條圖重疊 */
+  const MARGIN_LEFT = 96;
+  const MARGIN_RIGHT = 20;
+  const BAR_SLOT = 80;
+  const BAR_WIDTH = 50;
+  const GAP_AFTER_AXIS = 12;
+  const plotBarsWidth = data.length * BAR_SLOT + GAP_AFTER_AXIS;
+  const chartW = Math.max(MARGIN_LEFT + plotBarsWidth + MARGIN_RIGHT, 400);
 
   return (
     <div className="space-y-4">
@@ -64,18 +71,42 @@ export default function DailyChart() {
           <svg width="100%" height="350" viewBox={`0 0 ${chartW} 350`} preserveAspectRatio="xMidYMid meet">
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
               const y = 300 - ratio * 260;
+              const tick = `${homeCurrencyCode} $${Math.round(max * ratio)}`;
               return (
                 <g key={i}>
-                  <line x1="40" y1={y} x2={chartW - 10} y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray={ratio === 0 ? '0' : '4 4'} />
-                  <text x="4" y={y + 4} fontSize="10" fill="#94A3B8">{homeCurrencyCode} ${Math.round(max * ratio)}</text>
+                  <line
+                    x1={MARGIN_LEFT}
+                    y1={y}
+                    x2={chartW - MARGIN_RIGHT}
+                    y2={y}
+                    stroke="#E2E8F0"
+                    strokeWidth="1"
+                    strokeDasharray={ratio === 0 ? '0' : '4 4'}
+                  />
+                  <text
+                    x={MARGIN_LEFT - 10}
+                    y={y + 4}
+                    fontSize="10"
+                    fill="#94A3B8"
+                    textAnchor="end"
+                  >
+                    {tick}
+                  </text>
                 </g>
               );
             })}
-            <line x1="40" y1="300" x2={chartW - 10} y2="300" stroke="#64748B" strokeWidth="1.5" />
+            <line
+              x1={MARGIN_LEFT}
+              y1="300"
+              x2={chartW - MARGIN_RIGHT}
+              y2="300"
+              stroke="#64748B"
+              strokeWidth="1.5"
+            />
 
             {data.map((d, i) => {
-              const x = i * 80 + 50;
-              const bw = 50;
+              const x = MARGIN_LEFT + GAP_AFTER_AXIS + i * BAR_SLOT;
+              const bw = BAR_WIDTH;
               let curY = 300;
               return (
                 <g key={i}>
