@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../store/AppContext';
@@ -20,8 +20,11 @@ import Dialog from '../components/ui/Dialog';
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { user, session, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const checkoutReturnNotified = useRef(false);
   const {
     settings,
     updateSettings,
@@ -47,6 +50,16 @@ export default function Settings() {
   const exchangeRateUserEditedCodes = currentTrip?.exchangeRateUserEditedCodes || [];
 
   const importRef = useRef(null);
+
+  useEffect(() => {
+    if (checkoutReturnNotified.current) return;
+    const v = searchParams.get('checkout');
+    if (!v) return;
+    checkoutReturnNotified.current = true;
+    if (v === 'success') notify(t('settings.billingSuccess'), 'success');
+    else if (v === 'cancelled') notify(t('settings.billingCancelled'), 'info');
+    navigate('/settings', { replace: true });
+  }, [searchParams, navigate, notify, t]);
 
   const [newCustomCategory, setNewCustomCategory] = useState('');
   const customExpenseCategories = settings?.customExpenseCategories || [];
@@ -263,6 +276,36 @@ export default function Settings() {
     }
   };
 
+  const handleStartCheckout = async () => {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      notify(t('settings.billingNoSession'), 'warning');
+      return;
+    }
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notify(data.error || t('settings.billingError'), 'error');
+        return;
+      }
+      if (data.url) window.location.assign(data.url);
+      else notify(t('settings.billingError'), 'error');
+    } catch {
+      notify(t('settings.billingError'), 'error');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-slate-900">{t('settings.title')}</h1>
@@ -277,6 +320,19 @@ export default function Settings() {
           disabled={signingOut}
         >
           {signingOut ? t('auth.submitting') : t('settings.signOut')}
+        </button>
+      </section>
+
+      <section className="card p-4 space-y-2">
+        <h2 className="text-sm font-bold text-slate-700">{t('settings.billingTitle')}</h2>
+        <p className="text-[10px] text-slate-500 leading-snug">{t('settings.billingHint')}</p>
+        <button
+          type="button"
+          className="btn-primary text-sm !py-2"
+          onClick={handleStartCheckout}
+          disabled={checkoutLoading || !session?.access_token}
+        >
+          {checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
         </button>
       </section>
 

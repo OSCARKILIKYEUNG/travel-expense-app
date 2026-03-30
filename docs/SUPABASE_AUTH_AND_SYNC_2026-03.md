@@ -115,16 +115,39 @@ from public.user_app_data;
 - [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（用量紀錄表，可選）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）
 - [ ] **Stripe（Vercel 伺服器專用，勿加 `VITE_`）**：`STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`（Webhook destination 的 `whsec_...`）、`STRIPE_PRICE_ID`（`price_...` 月費）；可選 `STRIPE_PUBLISHABLE_KEY`（前端 Stripe.js 時再考慮 `VITE_` 暴露策略）
 - [ ] **Stripe Webhook URL**：`https://<正式網域>/api/stripe-webhook`；變數新增後 **Redeploy**
+- [ ] **結帳 API**：`STRIPE_PRICE_ID`（`price_...`）已設，且 **`/api/create-checkout-session`** 與設定頁可建立 Checkout（見 §5.2）
 - [ ] **Supabase Service Role**：`SUPABASE_SERVICE_ROLE_KEY` **僅 Vercel**，供 `api/stripe-webhook.js` 更新訂閱欄位；**絕不**進前端 bundle。若未設 `SUPABASE_URL`，Webhook 會 fallback 讀 `VITE_SUPABASE_URL`
-- [ ] **Checkout 實作時**：Session `metadata` 必含 **`supabase_user_id`**（與 `auth.users.id` 一致），否則 `checkout.session.completed` 無法對應列
+- [ ] **Checkout 實作時**：Session `metadata` 必含 **`supabase_user_id`**（與 `auth.users.id` 一致），否則 `checkout.session.completed` 無法對應列（**詳見 §5.2**）
 
-### 5.1 Stripe Dashboard 路徑速查（2026-03）
+### 5.1 後台哪裡複製這兩支「伺服器專用」金鑰
+
+| 變數（貼到 Vercel） | 在哪裡看 |
+|---------------------|----------|
+| **`SUPABASE_SERVICE_ROLE_KEY`** | [Supabase Dashboard](https://supabase.com/dashboard) → 選專案 → 左側 **Project Settings**（齒輪）→ **API** → 區塊 **Project API keys** → **`service_role`**（**secret**，按 Reveal 後複製）。**不要**放進前端或 commit。 |
+| **`STRIPE_WEBHOOK_SECRET`** | [Stripe Dashboard](https://dashboard.stripe.com)：**路徑 A（建議）** 左下 **Developers** → **Webhooks** → 新增或點選 endpoint（URL：`https://<網域>/api/stripe-webhook`）→ **Signing secret**（`whsec_...`）。**路徑 B** 畫面**右下角** **Workbench** 圖示（終端機 `>_`）→ 在 Workbench 內開 **Webhooks** → 同上。產品目錄／定價頁**沒有** Webhooks；若看不到 secret，代表尚未建立 endpoint 或點錯筆。 |
+
+**Stripe 補充**：一般 **API Secret Key**（`sk_test_...` / `sk_live_...`）在左下角 **Developers** → **API keys**，與 Webhook 的 **`whsec_...`** 是不同東西——Webhook 專用密鑰只在 Webhook 設定裡。
+
+### 5.1a Stripe Dashboard 其他路徑速查（2026-03）
 
 | 要找什麼 | 路徑 |
 |----------|------|
 | **API keys**（`pk_test` / `sk_test`） | 左下 **Developers** → **API keys**（**不是** Workbench → Webhooks 畫面） |
 | **Price ID** | **Product catalog** → 點產品 → **Pricing** → `price_...` |
-| **Webhook signing secret** | **Workbench → Webhooks** → destination 建立完成後複製 **`whsec_...`** → Vercel `STRIPE_WEBHOOK_SECRET` |
+
+### 5.2 Checkout Session：**務必**帶 `metadata`（與 Webhook 的契約）
+
+**之後實作 Checkout 時**，在伺服器端呼叫 `stripe.checkout.sessions.create` **必須**設定：
+
+```js
+metadata: {
+  supabase_user_id: '<目前登入使用者的 UUID>', // 須與 Supabase Auth 的 `user.id` 一致
+},
+```
+
+**原因**：`api/stripe-webhook.js` 處理 `checkout.session.completed` 時，只從 **`session.metadata.supabase_user_id`** 取得要更新的列，再以 `user_app_data.user_id` 做 `.eq('user_id', userId)`。Stripe 的 `customer`／`subscription` ID **不會自動對應** Supabase 使用者，省略 metadata 時 Webhook 會記錄警告並 **直接 return，不寫入 DB**——使用者已付費，但 **`stripe_customer_id`／`stripe_subscription_id`／`subscription_status` 仍為空**。
+
+**實作**：本專案已提供 **`api/create-checkout-session.js`**（POST + `Authorization: Bearer <access_token>`），會寫入 `metadata.supabase_user_id`；設定頁「前往結帳」會呼叫該路由。**不要**讓前端持有 `sk_` 或自行拼帶 Secret 的 Stripe 請求。
 
 ---
 

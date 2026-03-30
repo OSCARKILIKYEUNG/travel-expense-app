@@ -362,7 +362,9 @@
 | **新增／編輯金額區共用** | `ExpenseFormPricingSection.jsx`；細項 **Grid 表頭對齊**；**新增列**含分配給 + 固定（與已存列一致）。 |
 | **文案精簡** | `taxHint`／`itemsHelp`／收據免稅／卡片 needsReview、自訂類別 hint 等縮短；細項欄 **品名／標價** 表頭。 |
 | **用量與計費基建** | `scripts/measure-receipt-prompt.mjs`（粗量文字 prompt）；`002_usage_logs.sql`；`003_stripe_billing.sql`（`stripe_*` 欄）；`api/stripe-webhook.js` + `stripe` 依賴。 |
+| **Checkout 建立 + 設定頁** | **`api/create-checkout-session.js`**（JWT 驗證、`metadata.supabase_user_id`）；**設定 → 訂閱（Stripe）→ 前往結帳**；回傳 `?checkout=success`／`cancelled` 提示。 |
 | **`.gitignore`** | `client_secret*.json`（Google OAuth 下載檔勿入庫）。 |
+| **設計思路（PM 敘事）** | **[DESIGN_THINKING.md](./DESIGN_THINKING.md) §八** — 與本節同一時點的「為什麼這樣設計」（類別骨架、單據 UI 收斂、Add=Edit 心智、誠實表單、短文案、掃描綁定變動成本、金鑰／儀表板信任邊界）。 |
 
 ### 13.2 踩坑（Lessons · 接棒預防）
 
