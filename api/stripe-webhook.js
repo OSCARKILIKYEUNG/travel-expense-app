@@ -14,12 +14,6 @@ import { createClient } from '@supabase/supabase-js';
  * SQL：supabase/migrations/003_stripe_billing.sql
  */
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 async function dispatchStripeEvent(stripe, supabase, event) {
   switch (event.type) {
     case 'checkout.session.completed': {
