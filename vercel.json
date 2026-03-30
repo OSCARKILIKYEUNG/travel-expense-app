@@ -1,4 +1,5 @@
 {
+  "trailingSlash": false,
   "functions": {
     "api/parse-receipt.js": {
       "maxDuration": 60

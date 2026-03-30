@@ -1,20 +1,24 @@
 import Stripe from 'stripe';
+import { buffer } from 'node:stream/consumers';
 import { createClient } from '@supabase/supabase-js';
 
 /**
  * Stripe → Supabase：更新 `user_app_data` 訂閱欄位。
  *
- * 使用 `export async function POST(request)` + `request.text()` 取得 **raw body**，
- * 避免 Vercel Node helpers 先解析 JSON 導致簽章驗證失敗（Recent deliveries 全 Failed）。
+ * - 使用 **default export**（req, res），相容 Vite 專案在 Vercel 上的 `/api` 路由，避免只 export POST 時落到平台層 **308** redirect。
+ * - `bodyParser: false` + `buffer(req)` 取得 **raw body** 供簽章驗證（勿先讀 `req.body`）。
  *
- * 環境變數（Vercel）：
- * - STRIPE_SECRET_KEY
- * - STRIPE_WEBHOOK_SECRET
- * - SUPABASE_SERVICE_ROLE_KEY
- * - SUPABASE_URL 或 VITE_SUPABASE_URL
+ * 環境變數：STRIPE_SECRET_KEY、STRIPE_WEBHOOK_SECRET、SUPABASE_SERVICE_ROLE_KEY、
+ * SUPABASE_URL 或 VITE_SUPABASE_URL
  *
  * SQL：supabase/migrations/003_stripe_billing.sql
  */
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 async function dispatchStripeEvent(stripe, supabase, event) {
   switch (event.type) {
@@ -74,39 +78,51 @@ async function dispatchStripeEvent(stripe, supabase, event) {
   }
 }
 
-export async function POST(request) {
+export default async function handler(req, res) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    return res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+  }
+
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!webhookSecret || !stripeSecretKey) {
-    return Response.json(
-      { error: '伺服器未設定 STRIPE_WEBHOOK_SECRET 或 STRIPE_SECRET_KEY' },
-      { status: 503, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+    res.statusCode = 503;
+    return res.end(
+      JSON.stringify({
+        error: '伺服器未設定 STRIPE_WEBHOOK_SECRET 或 STRIPE_SECRET_KEY',
+      }),
     );
   }
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return Response.json(
-      {
-        error: '伺服器未設定 SUPABASE_SERVICE_ROLE_KEY 與 SUPABASE_URL（或 VITE_SUPABASE_URL）',
-      },
-      { status: 503, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+    res.statusCode = 503;
+    return res.end(
+      JSON.stringify({
+        error:
+          '伺服器未設定 SUPABASE_SERVICE_ROLE_KEY 與 SUPABASE_URL（或 VITE_SUPABASE_URL）',
+      }),
     );
   }
 
-  const sig = request.headers.get('stripe-signature');
+  const sig = req.headers['stripe-signature'];
   if (!sig) {
-    return Response.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+    res.statusCode = 400;
+    return res.end(JSON.stringify({ error: 'Missing stripe-signature header' }));
   }
 
   let rawBody;
   try {
-    rawBody = await request.text();
+    rawBody = await buffer(req);
   } catch (err) {
     console.error('[stripe-webhook] read body', err);
-    return Response.json({ error: 'Could not read body' }, { status: 400 });
+    res.statusCode = 400;
+    return res.end(JSON.stringify({ error: 'Could not read body' }));
   }
 
   const stripe = new Stripe(stripeSecretKey);
@@ -116,10 +132,8 @@ export async function POST(request) {
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('[stripe-webhook] signature', err?.message || err);
-    return Response.json(
-      { error: `Webhook signature: ${err?.message || err}` },
-      { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
-    );
+    res.statusCode = 400;
+    return res.end(JSON.stringify({ error: `Webhook signature: ${err?.message || err}` }));
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -130,11 +144,10 @@ export async function POST(request) {
     await dispatchStripeEvent(stripe, supabase, event);
   } catch (err) {
     console.error('[stripe-webhook] dispatch', err);
-    return Response.json(
-      { error: err?.message || String(err) },
-      { status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
-    );
+    res.statusCode = 500;
+    return res.end(JSON.stringify({ error: err?.message || String(err) }));
   }
 
-  return Response.json({ received: true }, { headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+  res.statusCode = 200;
+  return res.end(JSON.stringify({ received: true }));
 }
