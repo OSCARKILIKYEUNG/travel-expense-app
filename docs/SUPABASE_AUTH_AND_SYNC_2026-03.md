@@ -128,7 +128,9 @@ from public.user_app_data;
 
 **Stripe 補充**：一般 **API Secret Key**（`sk_test_...` / `sk_live_...`）在左下角 **Developers** → **API keys**，與 Webhook 的 **`whsec_...`** 是不同東西——Webhook 專用密鑰只在 Webhook 設定裡。
 
-**Webhook Failed · HTTP 308**：Stripe **不會跟好 POST 的 redirect**。常見是 **尾隨斜線**（`/api/stripe-webhook` 被 308 到 `/api/stripe-webhook/`）或 **只 `export POST` 未命中函式** 而落到平台層。請在 **`vercel.json` 設 `"trailingSlash": false`**（本專案已加），Stripe 端 URL 與最終網址**完全一致**（建議 **不要**結尾 `/`），部署後 **Resend** event。
+**Webhook Failed · HTTP 308（已驗證）**：本專案 **`vercel.json` 為 `"trailingSlash": false`** 時，若 Stripe Endpoint 填成 **`.../api/stripe-webhook/`**（結尾多 **`/`**），Vercel 會 **308** 轉到 **`.../api/stripe-webhook`**；Stripe 對 POST 的 redirect 常失敗。請在 Stripe **Webhooks → Edit destination**，URL **不要**結尾斜線，精確為：  
+`https://<你的網域>/api/stripe-webhook`  
+（自行用 `curl -X POST https://.../api/stripe-webhook` 應得 **400** JSON 而非 308；`curl` 對 `.../webhook/` 會得 **308**。）
 
 **Webhook Failed · 簽章錯（400）**：需 **raw body**。本專案 **`api/stripe-webhook.js`** 使用 **`export default` + `export const config = { api: { bodyParser: false } }` + `buffer(req)`**（且勿先讀 `req.body`）。若仍驗簽失敗，可在 Vercel 設 **`NODEJS_HELPERS=0`**（會影響整專案其他 `/api` 對 `request.body` 的依賴，請謹慎）。
 
