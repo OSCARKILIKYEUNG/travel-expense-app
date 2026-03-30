@@ -5,14 +5,26 @@ import { createClient } from '@supabase/supabase-js';
 /**
  * Stripe → Supabase：更新 `user_app_data` 訂閱欄位。
  *
- * - 使用 **default export**（req, res），相容 Vite 專案在 Vercel 上的 `/api` 路由，避免只 export POST 時落到平台層 **308** redirect。
- * - `bodyParser: false` + `buffer(req)` 取得 **raw body** 供簽章驗證（勿先讀 `req.body`）。
- *
  * 環境變數：STRIPE_SECRET_KEY、STRIPE_WEBHOOK_SECRET、SUPABASE_SERVICE_ROLE_KEY、
  * SUPABASE_URL 或 VITE_SUPABASE_URL
  *
  * SQL：supabase/migrations/003_stripe_billing.sql
  */
+
+async function getRawBody(req) {
+  const body = req.body;
+  if (Buffer.isBuffer(body)) return body;
+  if (typeof body === 'string') return Buffer.from(body, 'utf8');
+
+  const buf = await buffer(req);
+  if (buf.length > 0) return buf;
+
+  if (body && typeof body === 'object') {
+    return Buffer.from(JSON.stringify(body), 'utf8');
+  }
+
+  return buf;
+}
 
 async function dispatchStripeEvent(stripe, supabase, event) {
   switch (event.type) {
@@ -25,7 +37,7 @@ async function dispatchStripeEvent(stripe, supabase, event) {
         typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
 
       if (!userId || !customerId || !subId) {
-        console.warn('[stripe-webhook] checkout.session.completed 缺少 metadata 或 customer/subscription', {
+        console.warn('[stripe-webhook] checkout.session.completed missing metadata/customer/subscription', {
           hasUserId: Boolean(userId),
           hasCustomerId: Boolean(customerId),
           hasSubId: Boolean(subId),
@@ -87,21 +99,12 @@ export default async function handler(req, res) {
 
   if (!webhookSecret || !stripeSecretKey) {
     res.statusCode = 503;
-    return res.end(
-      JSON.stringify({
-        error: '伺服器未設定 STRIPE_WEBHOOK_SECRET 或 STRIPE_SECRET_KEY',
-      }),
-    );
+    return res.end(JSON.stringify({ error: 'Missing STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY' }));
   }
 
   if (!supabaseUrl || !serviceRoleKey) {
     res.statusCode = 503;
-    return res.end(
-      JSON.stringify({
-        error:
-          '伺服器未設定 SUPABASE_SERVICE_ROLE_KEY 與 SUPABASE_URL（或 VITE_SUPABASE_URL）',
-      }),
-    );
+    return res.end(JSON.stringify({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL' }));
   }
 
   const sig = req.headers['stripe-signature'];
@@ -112,12 +115,14 @@ export default async function handler(req, res) {
 
   let rawBody;
   try {
-    rawBody = await buffer(req);
+    rawBody = await getRawBody(req);
   } catch (err) {
     console.error('[stripe-webhook] read body', err);
     res.statusCode = 400;
-    return res.end(JSON.stringify({ error: 'Could not read body' }));
+    return res.end(JSON.stringify({ error: 'Could not read request body' }));
   }
+
+  console.log('[stripe-webhook] rawBody length:', rawBody.length, 'sig prefix:', sig.slice(0, 30));
 
   const stripe = new Stripe(stripeSecretKey);
 
