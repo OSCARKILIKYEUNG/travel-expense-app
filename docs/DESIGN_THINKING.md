@@ -153,7 +153,8 @@
 4. 手動修正與卡片一致 → **編輯後精簡顯示**、**整單折扣可見**、稅務列與加減符號可讀（見 **§五**）。  
 5. 跨國與報表 → **記帳幣 + 旅程幣 + 匯率持久化 + 即時匯率與防呆**。  
 6. **2026-03 末** → **自訂類別**、**表單共用與對齊**、**單據類型可藏**、**付費與 API 成本對齊的產品邊界**（見 **§八**）。  
-7. 用文件與規則讓 **設計決策可追溯**。
+7. **Stripe Checkout → Webhook → Supabase** 上線：308 redirect、簽章驗證、Vercel 平台差異等實戰坑 → 技術細節見 **[SUPABASE_AUTH §5.1b](./SUPABASE_AUTH_AND_SYNC_2026-03.md)** 與 **[PRODUCT_ITERATION §13.2 L36–L42](./PRODUCT_ITERATION_2025-03.md)**。  
+8. 用文件與規則讓 **設計決策可追溯**。
 
 ---
 
@@ -162,7 +163,7 @@
 | 想深入了解 | 開啟 |
 |------------|------|
 | 本輪功能清單、踩坑 L1～、**L20～**、**§十三**（Stripe／表單／類別） | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
-| Auth、同步、**Stripe env／Webhook 檢查清單** | [SUPABASE_AUTH_AND_SYNC_2026-03.md](./SUPABASE_AUTH_AND_SYNC_2026-03.md) |
+| Auth、同步、**Stripe env／Webhook 檢查清單、§5.1b 除錯全攻略** | [SUPABASE_AUTH_AND_SYNC_2026-03.md](./SUPABASE_AUTH_AND_SYNC_2026-03.md) |
 | 支出雙軌、`userEditedPricing` | [DATA_FLOW.md](./DATA_FLOW.md) |
 | 路線圖、技術債、發布紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md) |
 | 單據情境 A～H | [RECEIPT_TYPES.md](./RECEIPT_TYPES.md) |

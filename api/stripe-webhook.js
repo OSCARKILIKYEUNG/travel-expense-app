@@ -12,18 +12,19 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 async function getRawBody(req) {
+  try {
+    const buf = await buffer(req);
+    if (buf.length > 0) return buf;
+  } catch { /* stream may already be consumed by Vercel helpers */ }
+
   const body = req.body;
   if (Buffer.isBuffer(body)) return body;
   if (typeof body === 'string') return Buffer.from(body, 'utf8');
-
-  const buf = await buffer(req);
-  if (buf.length > 0) return buf;
-
   if (body && typeof body === 'object') {
     return Buffer.from(JSON.stringify(body), 'utf8');
   }
 
-  return buf;
+  return Buffer.alloc(0);
 }
 
 async function dispatchStripeEvent(stripe, supabase, event) {

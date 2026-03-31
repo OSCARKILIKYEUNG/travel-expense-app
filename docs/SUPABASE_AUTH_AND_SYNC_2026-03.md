@@ -128,11 +128,52 @@ from public.user_app_data;
 
 **Stripe 補充**：一般 **API Secret Key**（`sk_test_...` / `sk_live_...`）在左下角 **Developers** → **API keys**，與 Webhook 的 **`whsec_...`** 是不同東西——Webhook 專用密鑰只在 Webhook 設定裡。
 
-**Webhook Failed · HTTP 308（已驗證）**：本專案 **`vercel.json` 為 `"trailingSlash": false`** 時，若 Stripe Endpoint 填成 **`.../api/stripe-webhook/`**（結尾多 **`/`**），Vercel 會 **308** 轉到 **`.../api/stripe-webhook`**；Stripe 對 POST 的 redirect 常失敗。請在 Stripe **Webhooks → Edit destination**，URL **不要**結尾斜線，精確為：  
-`https://<你的網域>/api/stripe-webhook`  
-（自行用 `curl -X POST https://.../api/stripe-webhook` 應得 **400** JSON 而非 308；`curl` 對 `.../webhook/` 會得 **308**。）
+### 5.1b Webhook 除錯全攻略（2026-03-30 實戰總結）
 
-**Webhook Failed · 簽章錯（400）**：需 **raw body**。本專案 **`api/stripe-webhook.js`** 使用 **`export default` + `export const config = { api: { bodyParser: false } }` + `buffer(req)`**（且勿先讀 `req.body`）。若仍驗簽失敗，可在 Vercel 設 **`NODEJS_HELPERS=0`**（會影響整專案其他 `/api` 對 `request.body` 的依賴，請謹慎）。
+#### 坑 ①：HTTP 308 Permanent Redirect — 函式收不到請求
+
+| 嘗試 | 結果 | 說明 |
+|------|------|------|
+| `vercel.json` 加 `"trailingSlash": false` | **造成 308** | Vercel 會對帶尾斜線的 URL 回 308 redirect，**先於** rewrites 處理；Stripe 對 POST 不追 redirect → 失敗。 |
+| 加 rewrite `"/api/stripe-webhook/" → "/api/stripe-webhook"` | **被 308 繞過** | 有 `trailingSlash: false` 時，redirect 優先於 rewrite → 仍 308。 |
+| `export async function POST(request)` (Web API 格式) | **可能不被辨識** | Vite 專案（非 Next.js）在 Vercel 上用此格式，函式可能未被正確註冊 → 路由 fallback → 308。 |
+| `export const config = { api: { bodyParser: false } }` | **Next.js 專屬** | Vite 專案忽略此設定，可能導致函式註冊異常 → 308。 |
+
+**最終解法（已驗證）**：
+1. **移除** `vercel.json` 中的 `"trailingSlash": false`
+2. **保留** rewrite：`{ "source": "/api/stripe-webhook/", "destination": "/api/stripe-webhook" }`（作為安全網）
+3. 函式用 **`export default async function handler(req, res)`**（與其他 API 一致）
+4. **移除** `export const config`（非 Next.js 不需要）
+
+**驗證**：`curl -X POST https://<domain>/api/stripe-webhook` 與 `.../stripe-webhook/` 皆應回 **400**（`Missing stripe-signature`），**不是 308**。Windows PowerShell 需用 **`curl.exe`**（`curl` 是 `Invoke-WebRequest` 的別名）。
+
+#### 坑 ②：簽章驗證失敗（400 · No signatures found matching）
+
+| 原因 | 說明 |
+|------|------|
+| **`STRIPE_WEBHOOK_SECRET` 不匹配** | **最常見**。Workbench destination 的 `whsec_...` ≠ Developers → Webhooks endpoint 的 `whsec_...`；換 endpoint 後 **必須更新** Vercel env var 並 **Redeploy**。 |
+| **Vercel body parser 吃掉 raw body** | Vercel Node.js Helpers 會自動解析 `req.body`（lazy getter），若在 `buffer(req)` 之前觸發 getter，stream 被消費 → HMAC 對不上。 |
+| **`JSON.stringify` 重序列化** | 若 fallback 到 `JSON.stringify(req.body)`，格式（空格、key 順序）與 Stripe 原始 payload 不同 → 簽章不同。 |
+
+**最終解法**：`getRawBody(req)` 多策略（Buffer → string → stream → stringify fallback），且在函式最前方讀取，**不先碰** `req.body`。已加 `console.log` 印出 `rawBody.length` 與 `sig` 前綴方便排查。若仍失敗，可在 Vercel 設 **`NODEJS_HELPERS=0`** 環境變數（停用所有 API 函式的 body 自動解析；本專案其他 API 已處理 fallback 讀取）。
+
+#### 坑 ③：Stripe Workbench 顯示舊 delivery 結果
+
+Workbench **Event deliveries** 頁面保留每次 delivery attempt 的回應。若事件在 308 時期被嘗試、之後部署修好，**舊事件的歷史 status 不會自動更新**。需點 **Resend** 或發新 test event 才能看到最新回應。
+
+#### 快速排查流程
+
+```
+1. curl.exe -X POST https://<domain>/api/stripe-webhook → 期望 400 "Missing stripe-signature"
+   ├─ 308 → 查 vercel.json trailingSlash / URL 是否帶尾斜線
+   ├─ 404 → 函式未部署（build 失敗或檔名錯）
+   └─ 400 → 函式有收到 ✔
+
+2. Stripe 發 test event → 期望 200 "received: true"
+   ├─ 400 signature → 對比 STRIPE_WEBHOOK_SECRET（Stripe Reveal vs Vercel env）
+   ├─ 400 read body → Vercel Logs 看 rawBody.length（0 = 被吃掉 → 設 NODEJS_HELPERS=0）
+   └─ 503 → 缺 env var（STRIPE_SECRET_KEY / SUPABASE_*）
+```
 
 ### 5.1a Stripe Dashboard 其他路徑速查（2026-03）
 

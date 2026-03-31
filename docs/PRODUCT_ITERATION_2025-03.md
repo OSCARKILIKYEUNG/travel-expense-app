@@ -206,6 +206,7 @@
 | 2025-03-27 | **維護優化階段 1～3**：**Vitest** + `src/**/*.test.js`（`personShare`、`currency`、`ExchangeRateService`、匯率重算、幣別清單合併）；**`recalculateExpensesForRates`、`buildMergedSavedCurrencySettings`** 抽離純函式，`AppContext` 精簡；**`src/types/expense.js`** JSDoc（`hkdAmount` 語意）；`updateExpense` 改用 `toHome`；`vite.config` `test` 區塊、`package.json` `test`／`test:run`。 |
 | 2026-03-27 | **SAVE**：§三 新增 **L20–L22**（編輯後稅／退稅／品項顯示、OAuth 檔勿入庫）；§十 新增 **2026-03-27** 列；與 `DATA_FLOW.md` 修訂紀錄對齊。 |
 | 2026-03-27 | **`DESIGN_THINKING.md`**：新增 **§五**（掃描對照 vs 編輯後定案、`userEditedPricing`、折扣可見、稅務列與 ± 前綴）；原 §五～§八 順延為 §六～§九；時間軸與延伸閱讀已更新。 |
+| 2026-03-30 | **Webhook 除錯全紀錄**：§13.1 補「Webhook 308 修復 + 簽章穩健化」交付項；§13.2 新增 **L36–L42**（308 redirect、Next.js-only config、Web API 格式、簽章 secret 不匹配、body parser 吃 raw body、Workbench 舊 delivery、PowerShell curl 別名）。`SUPABASE_AUTH_AND_SYNC` 新增 **§5.1b** 除錯全攻略（含快速排查流程圖）。 |
 
 ---
 
@@ -365,6 +366,7 @@
 | **Checkout 建立 + 設定頁** | **`api/create-checkout-session.js`**（JWT 驗證、`metadata.supabase_user_id`）；**設定 → 訂閱（Stripe）→ 前往結帳**；回傳 `?checkout=success`／`cancelled` 提示。 |
 | **`.gitignore`** | `client_secret*.json`（Google OAuth 下載檔勿入庫）。 |
 | **設計思路（PM 敘事）** | **[DESIGN_THINKING.md](./DESIGN_THINKING.md) §八** — 與本節同一時點的「為什麼這樣設計」（類別骨架、單據 UI 收斂、Add=Edit 心智、誠實表單、短文案、掃描綁定變動成本、金鑰／儀表板信任邊界）。 |
+| **Webhook 308 修復 + 簽章穩健化** | 移除 `trailingSlash: false`、移除 Next.js-only `export const config`；函式統一 `export default handler`；`getRawBody()` 多策略讀取 raw body（Buffer→string→stream→stringify fallback）；加 debug log（`rawBody.length`、`sig` 前綴）。**詳見** [SUPABASE_AUTH §5.1b](./SUPABASE_AUTH_AND_SYNC_2026-03.md)。 |
 
 ### 13.2 踩坑（Lessons · 接棒預防）
 
@@ -378,6 +380,13 @@
 | L33 | **`.env` 含真 anon key**、OAuth JSON 在根目錄 | 易誤提交或外洩 → **`.env` 必在 .gitignore**；`client_secret*.json` 已 ignore；外洩則 **rotate** Supabase／Google 憑證。 |
 | L34 | Webhook 設好仍 **400/502** | 須有 **`api/stripe-webhook.js`**；Vercel 加 **`STRIPE_WEBHOOK_SECRET`**、**`SUPABASE_SERVICE_ROLE_KEY`**；部署後 **Redeploy**；Checkout **`metadata.supabase_user_id`** 必帶。 |
 | L35 | **我無法代操使用者瀏覽器** | 安全與登入邊界 → 儀表板操作請 **截圖 + 逐步指引**。 |
+| L36 | **Webhook 308 redirect**：`vercel.json` 的 `trailingSlash: false` 對 POST 也生效 | Vercel 在 redirect 階段（先於 rewrite）回 308 → Stripe 不追 POST redirect → 失敗。解法：**移除 `trailingSlash: false`**，保留 rewrite 安全網。 |
+| L37 | **`export const config = { api: { bodyParser: false } }`** 無效 | 此語法為 **Next.js** 專屬；Vite 專案在 Vercel 上忽略，甚至可能導致函式註冊異常產生 308。解法：直接移除。 |
+| L38 | **`export async function POST(request)`** 在 Vite 專案可能不被識別 | Vercel 對非 Next.js 的 Web API 格式支援不穩定；改回 **`export default async function handler(req, res)`** 最可靠。 |
+| L39 | **Webhook 簽章失敗**：`STRIPE_WEBHOOK_SECRET` 不匹配 | Workbench destination 的 `whsec_...` **≠** Developers endpoint 的 `whsec_...`；換 endpoint 後必須更新 Vercel env var 並 Redeploy。 |
+| L40 | **Vercel body parser 吃掉 raw body** | Vercel Node.js Helpers 自動解析 `req.body`（lazy getter）；若 stream 已被消費，`buffer(req)` 讀到空 → HMAC 對不上。解法：`getRawBody()` 多策略 fallback，或設 `NODEJS_HELPERS=0`。 |
+| L41 | **Stripe Workbench 舊 delivery 不自動更新** | 部署修好後，Event deliveries 仍顯示舊 status（如 308）；需點 **Resend** 或發新 test event 驗證。 |
+| L42 | **PowerShell `curl` ≠ cURL** | Windows 下 `curl` 是 `Invoke-WebRequest` 別名；須用 **`curl.exe`** 才是原生 cURL。 |
 
 ### 13.3 產品／商業決策（已定或討論中）
 
