@@ -112,7 +112,7 @@ from public.user_app_data;
 - [ ] **Google 登入**：Supabase **Authentication → Providers → Google** 開啟並貼 **Client ID／Secret**（來自 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth 2.0 用戶端 → **網頁應用程式**）；**已授權的重新導向 URI** 必含 `https://<project-ref>.supabase.co/auth/v1/callback`（`<project-ref>` 見 Supabase Project Settings → API 的 URL）
 - [ ] **Vercel** `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 與本機 `.env` **同一專案**
 - [ ] 單據 API：`GEMINI_API_KEY` 僅伺服器（`api/parse-receipt`）
-- [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（用量紀錄表，可選）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）
+- [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（**AI 掃描免費額度必跑**；記錄 `receipt_scan` 用量）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）
 - [ ] **Stripe（Vercel 伺服器專用，勿加 `VITE_`）**：`STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`（Webhook destination 的 `whsec_...`）、`STRIPE_PRICE_ID`（`price_...` 月費）；可選 `STRIPE_PUBLISHABLE_KEY`（前端 Stripe.js 時再考慮 `VITE_` 暴露策略）
 - [ ] **Stripe Webhook URL**：`https://<正式網域>/api/stripe-webhook`；變數新增後 **Redeploy**
 - [ ] **結帳 API**：`STRIPE_PRICE_ID`（`price_...`）已設，且 **`/api/create-checkout-session`** 與設定頁可建立 Checkout（見 §5.2）
@@ -195,6 +195,172 @@ metadata: {
 **原因**：`api/stripe-webhook.js` 處理 `checkout.session.completed` 時，只從 **`session.metadata.supabase_user_id`** 取得要更新的列，再以 `user_app_data.user_id` 做 `.eq('user_id', userId)`。Stripe 的 `customer`／`subscription` ID **不會自動對應** Supabase 使用者，省略 metadata 時 Webhook 會記錄警告並 **直接 return，不寫入 DB**——使用者已付費，但 **`stripe_customer_id`／`stripe_subscription_id`／`subscription_status` 仍為空**。
 
 **實作**：本專案已提供 **`api/create-checkout-session.js`**（POST + `Authorization: Bearer <access_token>`），會寫入 `metadata.supabase_user_id`；設定頁「前往結帳」會呼叫該路由。**不要**讓前端持有 `sk_` 或自行拼帶 Secret 的 Stripe 請求。
+
+### 5.3 AI 掃描免費額度（Phase 1 已接通）
+
+**產品規則（現版）**：
+
+- 手動記帳 **永遠免費**
+- 每帳戶 **終生 5 次**免費 **AI 收據掃描**
+- `subscription_status ∈ { active, trialing }` 視為 **Pro** → 掃描不限次
+- **只有成功解析**並回 200 的掃描才記一筆 `usage_logs.event_type = 'receipt_scan'`
+
+**程式流**：
+
+1. 前端 **`src/services/AIService.js`** 呼叫 **`/api/parse-receipt`** 時，會帶 **`Authorization: Bearer <access_token>`**
+2. 伺服器 **`api/parse-receipt.js`** 用 Supabase 驗 JWT 取得 `user.id`
+3. 以 **service role** 查：
+   - `user_app_data.subscription_status`
+   - `usage_logs` 中該 user 的 `receipt_scan` 計數
+4. 若為 Free 且已用完 5 次 → 回 **`402`** + `{ code: 'quota_exceeded', billing }`
+5. 若可掃描且 Gemini 成功 → 寫入一筆 `usage_logs`
+6. API 會回傳 **`_billing`** snapshot，前端立刻更新 Settings / Upload 區的剩餘次數顯示
+
+**必要環境變數（`api/parse-receipt` 也會用到）**：
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_URL`（或 fallback `VITE_SUPABASE_URL`）
+- `VITE_SUPABASE_ANON_KEY`（伺服器驗 access token 用）
+- `GEMINI_API_KEY`
+
+**驗收清單**：
+
+- [ ] 新帳戶第 1 次掃描成功後，`usage_logs` 新增一筆 `receipt_scan`
+- [ ] Free 用戶第 5 次掃描後，Upload 區顯示剩餘 `0`
+- [ ] 第 6 次掃描被擋下，前端收到 `quota_exceeded`
+- [ ] 完成 Stripe 訂閱後，Settings 顯示 **Pro**，掃描恢復可用
+
+### 5.3a 逐步檢查：到哪裡看、看什麼
+
+#### A. Supabase SQL 是否齊全
+
+**位置**：Supabase Dashboard → **SQL Editor**
+
+**應已執行**：
+
+- `supabase/migrations/001_user_app_data.sql`
+- `supabase/migrations/002_usage_logs.sql`
+- `supabase/migrations/003_stripe_billing.sql`
+
+**如何確認 `user_app_data` 欄位齊全**：
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'user_app_data';
+```
+
+至少應看到：
+
+- `user_id`
+- `trips_data`
+- `app_settings`
+- `people_list`
+- `stripe_customer_id`
+- `stripe_subscription_id`
+- `subscription_status`
+
+**如何確認 `usage_logs` 欄位齊全**：
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'usage_logs';
+```
+
+至少應看到：
+
+- `id`
+- `user_id`
+- `event_type`
+- `metadata`
+- `created_at`
+
+#### B. Supabase API keys 是否可用
+
+**位置**：Supabase Dashboard → **Project Settings** → **API**
+
+確認能找到：
+
+- `Project URL`
+- `anon public key`
+- `service_role secret key`
+
+**對應到 Vercel env**：
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+#### C. Vercel Environment Variables 是否齊
+
+**位置**：Vercel → 專案 → **Settings** → **Environment Variables**
+
+至少要有：
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_ID`
+
+**特別核對**：
+
+- `VITE_SUPABASE_URL` = Supabase `Project URL`
+- `VITE_SUPABASE_ANON_KEY` = Supabase `anon`
+- `SUPABASE_SERVICE_ROLE_KEY` = Supabase `service_role`
+- `STRIPE_WEBHOOK_SECRET` = 目前成功回 200 的 webhook endpoint 那條 `whsec_...`
+
+**注意**：任何 env 變更後都要 **Redeploy**。
+
+#### D. Stripe webhook endpoint 是否正確
+
+**位置**：Stripe Dashboard → **Workbench / Webhooks**
+
+確認 destination URL 精確為：
+
+`https://<正式網域>/api/stripe-webhook`
+
+**不要有尾斜線**。
+
+另外確認：
+
+- signing secret 已複製到 Vercel 的 `STRIPE_WEBHOOK_SECRET`
+- 在 Stripe Workbench / Event deliveries 看到最新測試為 **200**
+
+#### E. 免費額度功能是否真的通
+
+**位置 1**：Supabase → **Table Editor** → `usage_logs`
+
+成功掃描一張收據後，應新增一列：
+
+- `user_id` = 當前登入使用者 UUID
+- `event_type` = `receipt_scan`
+
+**位置 2**：Supabase → **Table Editor** → `user_app_data`
+
+確認：
+
+- Free 用戶：`subscription_status` 多半為 `null`
+- 已訂閱用戶：`subscription_status` 應為 `active` 或 `trialing`
+
+### 5.3b 實際驗證順序（建議照做）
+
+1. 用 **免費帳戶** 成功掃描 1 次  
+   預期：`usage_logs` 多 1 筆 `receipt_scan`
+
+2. 用同帳戶繼續掃到第 5 次  
+   預期：Upload 區 / Settings 顯示剩餘 `0`
+
+3. 再掃第 6 次  
+   預期：前端被擋下，收到 `quota_exceeded` 或對應升級提示
+
+4. 完成 Stripe 訂閱後再掃  
+   預期：Settings 顯示 **Pro**，掃描恢復可用，不再受 5 次限制
 
 ---
 

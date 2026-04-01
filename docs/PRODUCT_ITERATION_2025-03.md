@@ -367,6 +367,7 @@
 | **`.gitignore`** | `client_secret*.json`（Google OAuth 下載檔勿入庫）。 |
 | **設計思路（PM 敘事）** | **[DESIGN_THINKING.md](./DESIGN_THINKING.md) §八** — 與本節同一時點的「為什麼這樣設計」（類別骨架、單據 UI 收斂、Add=Edit 心智、誠實表單、短文案、掃描綁定變動成本、金鑰／儀表板信任邊界）。 |
 | **Webhook 308 修復 + 簽章穩健化** | 移除 `trailingSlash: false`、移除 Next.js-only `export const config`；函式統一 `export default handler`；`getRawBody()` 多策略讀取 raw body（Buffer→string→stream→stringify fallback）；加 debug log（`rawBody.length`、`sig` 前綴）。**詳見** [SUPABASE_AUTH §5.1b](./SUPABASE_AUTH_AND_SYNC_2026-03.md)。 |
+| **AI 掃描免費額度 + Pro gating（Phase 1）** | `api/parse-receipt.js` 現已驗 Supabase JWT、查 `user_app_data.subscription_status` 與 `usage_logs`；Free 用戶終生 5 次，成功解析才寫 `receipt_scan`；前端 `UploadArea` / `Settings` 即時顯示剩餘次數與方案狀態。 |
 
 ### 13.2 踩坑（Lessons · 接棒預防）
 
@@ -387,6 +388,10 @@
 | L40 | **Vercel body parser 吃掉 raw body** | Vercel Node.js Helpers 自動解析 `req.body`（lazy getter）；若 stream 已被消費，`buffer(req)` 讀到空 → HMAC 對不上。解法：`getRawBody()` 多策略 fallback，或設 `NODEJS_HELPERS=0`。 |
 | L41 | **Stripe Workbench 舊 delivery 不自動更新** | 部署修好後，Event deliveries 仍顯示舊 status（如 308）；需點 **Resend** 或發新 test event 驗證。 |
 | L42 | **PowerShell `curl` ≠ cURL** | Windows 下 `curl` 是 `Invoke-WebRequest` 別名；須用 **`curl.exe`** 才是原生 cURL。 |
+| L43 | **免費額度若只做前端提示，等於沒做** | 掃描次數與 Pro 判斷必須放在 **`api/parse-receipt.js`** 伺服器端；否則使用者可繞過前端直接打 API。 |
+| L44 | **usage_logs 不能只當報表表** | 一旦要做免費額度，`002_usage_logs.sql` 就不再是「可選分析表」，而是配額判斷的基礎資料來源。 |
+| L45 | **成功才扣次數** 才符合使用者心智 | 若 Gemini/網路失敗也扣額度，會立刻降低信任；現版在 AI 成功解析後才 insert `receipt_scan`。 |
+| L46 | **Free / Pro 狀態要在 UI 上被看見** | 只有 webhook 寫 DB 還不夠；使用者必須在 Settings 與 Upload 區直接看見「剩餘次數」「已是 Pro」才知道付費有差。 |
 
 ### 13.3 產品／商業決策（已定或討論中）
 

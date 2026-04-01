@@ -3,10 +3,34 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --paper: #f5efe2;
+    --paper-soft: #fbf7ef;
+    --paper-strong: #efe4cf;
+    --paper-border: #ddcfb8;
+    --ink: #352b22;
+    --ink-soft: #5f5144;
+    --ink-muted: #8a7866;
+    --accent: #b36d48;
+    --accent-strong: #905232;
+    --accent-soft: #efd5c0;
+    --danger: #b14d42;
+  }
+
+  html, body, #root {
+    min-height: 100%;
+  }
+
   body {
     font-variant-numeric: tabular-nums;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 30%),
+      linear-gradient(180deg, rgba(255,255,255,0.35), rgba(0,0,0,0)),
+      var(--paper);
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, ui-serif, serif;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -19,42 +43,77 @@
 }
 
 @layer components {
+  .display-title {
+    @apply text-[clamp(2rem,4vw,3.25rem)] leading-[0.95] tracking-[-0.04em] font-semibold;
+  }
+
+  .section-title {
+    @apply text-base font-semibold tracking-[-0.02em] text-[color:var(--ink)];
+  }
+
+  .eyebrow {
+    @apply text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] font-semibold;
+  }
+
+  .paper-panel {
+    @apply rounded-[28px] border shadow-sm;
+    background: linear-gradient(180deg, rgba(255,255,255,0.52), rgba(255,255,255,0.18)), var(--paper-soft);
+    border-color: var(--paper-border);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.65) inset,
+      0 14px 30px rgba(82, 60, 31, 0.08);
+  }
+
   .btn-primary {
-    @apply bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold
-      rounded-xl px-4 py-3 transition-colors duration-150
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2
+    @apply text-white font-semibold rounded-2xl px-4 py-3 transition-all duration-150
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2
       disabled:opacity-50 disabled:pointer-events-none;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent-strong) 88%, white), var(--accent-strong));
+    box-shadow: 0 10px 18px rgba(144, 82, 50, 0.18);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent-strong) 76%, white), color-mix(in srgb, var(--accent-strong) 92%, black));
   }
 
   .btn-secondary {
-    @apply bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold
-      rounded-xl px-4 py-3 transition-colors duration-150
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+    @apply font-semibold rounded-2xl px-4 py-3 transition-colors duration-150
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--paper-border)] focus-visible:ring-offset-2
       disabled:opacity-50 disabled:pointer-events-none;
+    color: var(--ink-soft);
+    background: color-mix(in srgb, var(--paper-soft) 88%, white);
+    border: 1px solid var(--paper-border);
   }
 
   .btn-danger {
-    @apply bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold
-      rounded-xl px-4 py-3 transition-colors duration-150
+    @apply text-white font-semibold rounded-2xl px-4 py-3 transition-colors duration-150
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2
       disabled:opacity-50 disabled:pointer-events-none;
+    background: var(--danger);
   }
 
   .btn-ghost {
-    @apply hover:bg-slate-100 active:bg-slate-200 text-slate-600 font-medium
-      rounded-xl px-4 py-3 transition-colors duration-150
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2;
+    @apply font-medium rounded-2xl px-4 py-3 transition-colors duration-150
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--paper-border)] focus-visible:ring-offset-2;
+    color: var(--ink-soft);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.45);
   }
 
   .input-field {
-    @apply w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm
-      placeholder:text-slate-400
-      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+    @apply w-full px-3 py-2.5 rounded-2xl text-sm
+      placeholder:text-[color:var(--ink-muted)]
+      focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] focus:border-transparent
       transition-shadow duration-150;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.74);
+    border: 1px solid var(--paper-border);
   }
 
   .card {
-    @apply bg-white rounded-2xl border border-slate-100 shadow-sm;
+    @apply paper-panel;
   }
 
   .dialog-overlay {
@@ -63,8 +122,10 @@
   }
 
   .dialog-panel {
-    @apply bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto
+    @apply w-full sm:max-w-lg sm:rounded-[28px] rounded-t-[28px] max-h-[90vh] overflow-y-auto
       animate-slide-up shadow-xl;
+    background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2)), var(--paper-soft);
+    border: 1px solid var(--paper-border);
   }
 }
 

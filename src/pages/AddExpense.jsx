@@ -64,17 +64,20 @@ export default function AddExpense() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <button type="button" onClick={() => navigate(-1)} className="btn-ghost !p-2 !rounded-xl" aria-label={t('addExpense.back')}>
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-bold text-slate-900">{t('addExpense.title')}</h1>
+        <div>
+          <p className="eyebrow">{t('nav.add')}</p>
+          <h1 className="display-title text-[color:var(--ink)] text-[clamp(1.7rem,3vw,2.5rem)]">{t('addExpense.title')}</h1>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="card p-4 space-y-4">
-          <h2 className="text-sm font-bold text-slate-700">{t('addExpense.basic')}</h2>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="paper-panel p-5 space-y-4">
+          <h2 className="section-title">{t('addExpense.basic')}</h2>
           <div>
             <label htmlFor="add-date" className="block text-xs font-medium text-slate-600 mb-1">{t('addExpense.date')}</label>
             <input id="add-date" type="date" value={form.date} onChange={(e) => patch({ date: e.target.value })} required className="input-field" />
@@ -105,8 +108,8 @@ export default function AddExpense() {
           </div>
         </div>
 
-        <div className="card p-4 space-y-4">
-          <h2 className="text-sm font-bold text-slate-700">{t('addExpense.amountSection')}</h2>
+        <div className="paper-panel p-5 space-y-4">
+          <h2 className="section-title">{t('addExpense.amountSection')}</h2>
           <ExpenseFormPricingSection
             form={form}
             patch={patch}

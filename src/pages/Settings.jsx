@@ -14,7 +14,7 @@ import {
 import { canFetchLiveRates } from '../utils/tripMoney';
 import { formatExchangeRateInputValue } from '../utils/rateDisplay';
 import TripManager from '../components/trip/TripManager';
-import { Copy, Download, FileText, Upload, Trash2, Edit } from '../components/ui/Icons';
+import { Copy, Download, FileText, Upload, Trash2, Edit, RefreshCw } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
 
 export default function Settings() {
@@ -27,6 +27,8 @@ export default function Settings() {
   const checkoutReturnNotified = useRef(false);
   const {
     settings,
+    billing,
+    refreshBilling,
     updateSettings,
     people,
     setPeople,
@@ -58,8 +60,13 @@ export default function Settings() {
     checkoutReturnNotified.current = true;
     if (v === 'success') notify(t('settings.billingSuccess'), 'success');
     else if (v === 'cancelled') notify(t('settings.billingCancelled'), 'info');
+    if (v === 'success') {
+      window.setTimeout(() => {
+        refreshBilling().catch(() => {});
+      }, 1800);
+    }
     navigate('/settings', { replace: true });
-  }, [searchParams, navigate, notify, t]);
+  }, [searchParams, navigate, notify, refreshBilling, t]);
 
   const [newCustomCategory, setNewCustomCategory] = useState('');
   const customExpenseCategories = settings?.customExpenseCategories || [];
@@ -71,6 +78,7 @@ export default function Settings() {
   const [editPersonName, setEditPersonName] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
   const [addManualCode, setAddManualCode] = useState('');
+  const [billingRefreshing, setBillingRefreshing] = useState(false);
 
   const rateGridCodes = [
     ...FRANKFURTER_GRID_CODES,
@@ -306,13 +314,29 @@ export default function Settings() {
     }
   };
 
-  return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-slate-900">{t('settings.title')}</h1>
+  const handleRefreshBilling = async () => {
+    setBillingRefreshing(true);
+    try {
+      await refreshBilling();
+      notify(t('settings.billingRefreshed'));
+    } catch {
+      notify(t('settings.billingRefreshError'), 'error');
+    } finally {
+      setBillingRefreshing(false);
+    }
+  };
 
-      <section className="card p-4 space-y-2">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.accountTitle')}</h2>
-        <p className="text-xs text-slate-600 break-all">{user?.email ?? '—'}</p>
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <p className="eyebrow">{t('settings.pageEyebrow')}</p>
+        <h1 className="display-title text-[color:var(--ink)]">{t('settings.title')}</h1>
+        <p className="text-sm text-[color:var(--ink-muted)] max-w-2xl">{t('settings.pageIntro')}</p>
+      </div>
+
+      <section className="paper-panel p-5 space-y-2">
+        <h2 className="section-title">{t('settings.accountTitle')}</h2>
+        <p className="text-xs text-[color:var(--ink-soft)] break-all">{user?.email ?? '—'}</p>
         <button
           type="button"
           className="btn-secondary text-sm !py-2"
@@ -323,21 +347,90 @@ export default function Settings() {
         </button>
       </section>
 
-      <section className="card p-4 space-y-2">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.billingTitle')}</h2>
-        <p className="text-[10px] text-slate-500 leading-snug">{t('settings.billingHint')}</p>
-        <button
-          type="button"
-          className="btn-primary text-sm !py-2"
-          onClick={handleStartCheckout}
-          disabled={checkoutLoading || !session?.access_token}
-        >
-          {checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
-        </button>
+      <section className="paper-panel p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="eyebrow">{t('settings.billingEyebrow')}</p>
+            <h2 className="section-title">{t('settings.billingTitle')}</h2>
+            <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
+          </div>
+          <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+            billing.hasUnlimitedScans
+              ? 'bg-[var(--accent-strong)] text-white'
+              : 'bg-[var(--paper-soft)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
+          }`}>
+            {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingPlanLabel')}</p>
+            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">{billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}</p>
+            <p className="mt-1 text-xs text-[color:var(--ink-muted)]">
+              {billing.subscriptionStatus
+                ? t('settings.billingStatusValue', { status: billing.subscriptionStatus })
+                : t('settings.billingStatusFree')}
+            </p>
+          </div>
+
+          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingUsageLabel')}</p>
+            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">
+              {billing.hasUnlimitedScans
+                ? t('settings.billingUnlimited')
+                : t('settings.billingRemainingValue', { count: billing.remainingFreeScans ?? 0 })}
+            </p>
+            <p className="mt-1 text-xs text-[color:var(--ink-muted)]">
+              {billing.hasUnlimitedScans
+                ? t('settings.billingUnlimitedHint')
+                : t('settings.billingUsedValue', {
+                  used: billing.usedReceiptScans ?? 0,
+                  limit: billing.freeScanLimit ?? 5,
+                })}
+            </p>
+          </div>
+
+          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingNextLabel')}</p>
+            <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+              {billing.hasUnlimitedScans ? t('settings.billingEnjoyPro') : t('settings.billingUpgradePrompt')}
+            </p>
+            <p className="mt-2 text-xs text-[color:var(--ink-muted)]">
+              {billing.hasUnlimitedScans ? t('settings.billingEnjoyProHint') : t('settings.billingUpgradeHint')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-primary text-sm !py-2"
+            onClick={handleStartCheckout}
+            disabled={checkoutLoading || !session?.access_token || billing.hasUnlimitedScans}
+          >
+            {billing.hasUnlimitedScans
+              ? t('settings.billingSubscribed')
+              : checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm !py-2 flex items-center gap-2"
+            onClick={handleRefreshBilling}
+            disabled={billingRefreshing || billing.loading}
+          >
+            <RefreshCw size={16} className={billingRefreshing || billing.loading ? 'animate-spin-slow' : ''} />
+            {billingRefreshing || billing.loading ? t('settings.billingRefreshing') : t('settings.billingRefresh')}
+          </button>
+        </div>
+
+        {billing.error && (
+          <p className="text-xs text-amber-700">{t('settings.billingLoadWarning')}</p>
+        )}
       </section>
 
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.language')}</h2>
+      <section className="paper-panel p-5 space-y-3">
+        <h2 className="section-title">{t('settings.language')}</h2>
         <select
           value={uiLanguage}
           onChange={(e) => updateSettings({ uiLanguage: e.target.value })}
@@ -348,11 +441,11 @@ export default function Settings() {
         </select>
       </section>
 
-      <section className="card p-4">
+      <section className="paper-panel p-5">
         <TripManager />
       </section>
 
-      <section className="card p-4 space-y-3">
+      <section className="paper-panel p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
@@ -439,8 +532,8 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.peopleTitle')}</h2>
+      <section className="paper-panel p-5 space-y-3">
+        <h2 className="section-title">{t('settings.peopleTitle')}</h2>
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {people.map((person) => (
             <div key={person} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
@@ -482,9 +575,9 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.customCategoriesTitle')}</h2>
-        <p className="text-[10px] text-slate-500 leading-snug">{t('settings.customCategoriesHint')}</p>
+      <section className="paper-panel p-5 space-y-3">
+        <h2 className="section-title">{t('settings.customCategoriesTitle')}</h2>
+        <p className="text-[10px] text-[color:var(--ink-muted)] leading-snug">{t('settings.customCategoriesHint')}</p>
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {customExpenseCategories.map((cat) => (
             <div
@@ -529,9 +622,9 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-700">{t('settings.dataTitle')}</h2>
-        <p className="text-[10px] text-slate-500 leading-snug">
+      <section className="paper-panel p-5 space-y-3">
+        <h2 className="section-title">{t('settings.dataTitle')}</h2>
+        <p className="text-[10px] text-[color:var(--ink-muted)] leading-snug">
           {t('settings.dataHint')}
         </p>
         <div className="flex flex-wrap gap-2">

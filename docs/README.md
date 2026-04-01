@@ -12,6 +12,7 @@
 | 安裝、跑專案、部署到 Vercel | [README.md](../README.md)（**專案門面**） |
 | **打包 zip 換機／備份**（`npm run zip:portable`） | [PORTABLE_ZIP.md](./PORTABLE_ZIP.md) |
 | 排優先級、路線圖、技術債、發版紀錄 | [PRODUCT_MANAGEMENT.md](./PRODUCT_MANAGEMENT.md)（**產品主控**） |
+| 看完整產品藍圖與 phase 規劃（旅前 / 旅中 / 旅後） | [PRD_TRAVEL_NOTEBOOK_APP_2026-04.md](./PRD_TRAVEL_NOTEBOOK_APP_2026-04.md) |
 | 還原「這一輪做了什麼、踩了什麼坑、下次跟進」 | [PRODUCT_ITERATION_2025-03.md](./PRODUCT_ITERATION_2025-03.md) |
 | **從頭到現況的設計思路**（分人→稅／退稅、多幣為何要存等 **敘事**） | [DESIGN_THINKING.md](./DESIGN_THINKING.md) |
 | **支出資料雙軌、`localStorage` 與 Context 同步（維護必讀）** | [DATA_FLOW.md](./DATA_FLOW.md) |
@@ -78,6 +79,7 @@ travel app/                    # 資料夾名含空白，終端機路徑請加�
 | `HANDOFF.md` | 遷移與決策歷史 |
 | `DESIGN_SPEC.md` | UI/UX 規格 |
 | `docs/PRODUCT_MANAGEMENT.md` | 路線圖、技術債、發布紀錄、**與 AI 協作 SOP**（專節） |
+| `docs/PRD_TRAVEL_NOTEBOOK_APP_2026-04.md` | **正式 PRD**：travel notebook 願景、三段式產品結構、Phase 1~3、商業模式與產品決策 |
 | `docs/DESIGN_THINKING.md` | **設計思路敘事**（起點→分帳與稅、**§五** 掃描對照／編輯後精簡、`userEditedPricing`、多幣儲存、類型系統、協作方式）；細節仍見迭代檔 |
 | `docs/DATA_FLOW.md` | **資料流**：`travel_expenses_data` ↔ `trip.expenses`、誰是權威、切旅程／改名時檢查清單；**雲端**見開頭一段 |
 | `docs/SUPABASE_AUTH_AND_SYNC_2026-03.md` | **Auth + `user_app_data`、migration、debounce、坑 L20+、Console／Network／SQL 除錯**；**§八** 忘記密碼（已上線，Redirect URLs 須含 `/reset-password`） |

@@ -13,19 +13,19 @@ const NAV_KEYS = [
 export default function Sidebar() {
   const { t } = useTranslation();
   return (
-    <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white border-r border-slate-200 p-4 gap-1" role="navigation" aria-label="側邊導航">
-      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2 px-3">{t('nav.sidebarTitle')}</p>
+    <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[var(--paper-border)] p-4 gap-1 bg-[rgba(251,247,239,0.55)]" role="navigation" aria-label="側邊導航">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)] font-semibold mb-2 px-3">{t('nav.sidebarTitle')}</p>
       {NAV_KEYS.map(({ to, icon: Icon, labelKey }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors
+            `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-colors
             ${isActive
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}
-            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`
+              ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]'
+              : 'text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-white/50'}
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]`
           }
         >
           <Icon size={18} />

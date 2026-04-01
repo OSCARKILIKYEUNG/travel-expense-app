@@ -23,7 +23,7 @@
     "backupFilename": "旅遊記帳_完整備份"
   },
   "app": {
-    "brand": "旅遊記帳助手 Pro"
+    "brand": "旅遊手帳"
   },
   "auth": {
     "loading": "載入中…",
@@ -91,11 +91,14 @@
     "copyFailed": "複製失敗"
   },
   "upload": {
+    "noteLabel": "收據筆記",
     "batch": "批量上傳單據",
-    "hint": "可一次選擇多張照片，AI 自動識別",
+    "hint": "放入收據照片，讓 AI 把它們整理成你的旅遊筆記條目。",
     "processing": "正在處理第 {{current}}/{{total}} 張…",
     "success": "成功處理 {{ok}}/{{total}} 張單據",
-    "allFailed": "所有單據處理失敗，請檢查圖片或稍後再試"
+    "allFailed": "所有單據處理失敗，請檢查圖片或稍後再試",
+    "freeQuota": "尚餘 {{remaining}} / {{limit}} 次免費 AI 掃描",
+    "proQuotaReady": "你已是 Pro，可隨時繼續使用 AI 掃描。"
   },
   "errors": {
     "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
@@ -130,15 +133,39 @@
   },
   "settings": {
     "title": "設定",
+    "pageEyebrow": "旅遊手帳設定",
+    "pageIntro": "在出發前把旅程、語言與 AI 掃描方案整理好，旅途中就能專心記錄。",
     "accountTitle": "帳號",
-    "billingTitle": "訂閱（Stripe）",
-    "billingHint": "使用目前登入帳號結帳；完成後 Webhook 會把訂閱狀態寫入雲端。請先於 Vercel 設定 STRIPE_SECRET_KEY、STRIPE_PRICE_ID，並完成 Webhook 與資料庫遷移（見 docs）。",
+    "billingEyebrow": "方案與掃描",
+    "billingTitle": "AI 掃描方案",
+    "billingHint": "手動記帳會一直免費。每個帳戶有終生 5 次免費 AI 掃描，用完後可升級 Pro 繼續掃描。",
     "billingSubscribe": "前往結帳",
+    "billingSubscribed": "已啟用 Pro",
     "billingLoading": "建立結帳連結中…",
     "billingError": "無法建立結帳連結，請確認伺服器已設定 Stripe 與價格 ID。",
     "billingSuccess": "結帳完成。訂閱狀態將由伺服器同步；若尚未更新請稍候再重新整理。",
     "billingCancelled": "已取消結帳。",
     "billingNoSession": "工作階段已過期，請重新登入後再試。",
+    "billingRefresh": "重新整理方案",
+    "billingRefreshing": "整理中…",
+    "billingRefreshed": "已更新方案狀態。",
+    "billingRefreshError": "目前無法更新方案狀態，請稍後再試。",
+    "billingLoadWarning": "方案資料暫時無法自動更新，但你已儲存的旅程資料不受影響。",
+    "planFree": "免費",
+    "planPro": "Pro",
+    "billingPlanLabel": "目前方案",
+    "billingUsageLabel": "AI 掃描",
+    "billingNextLabel": "下一步",
+    "billingStatusValue": "Stripe 狀態：{{status}}",
+    "billingStatusFree": "目前尚未啟用訂閱",
+    "billingUnlimited": "不限次",
+    "billingUnlimitedHint": "旅途中可持續使用 AI 掃描收據。",
+    "billingRemainingValue": "尚餘 {{count}} 次",
+    "billingUsedValue": "已用 {{used}} / {{limit}} 次終生免費掃描",
+    "billingUpgradePrompt": "免費額度用完後，可升級繼續掃描。",
+    "billingUpgradeHint": "就算不升級，手動記帳仍可繼續免費使用。",
+    "billingEnjoyPro": "你的旅遊手帳已啟用 Pro。",
+    "billingEnjoyProHint": "Webhook 已接通，新的掃描應可立即繼續使用。",
     "signOut": "登出",
     "language": "介面語言",
     "languageZhTW": "繁體中文",

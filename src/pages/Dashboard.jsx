@@ -16,7 +16,7 @@ import UploadArea from '../components/expense/UploadArea';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee } = useApp();
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee, currentTrip, billing } = useApp();
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
@@ -61,25 +61,45 @@ export default function Dashboard() {
   }, [expenses, filterPerson, people, defaultAssignee]);
 
   return (
-    <div className="space-y-5">
-      <section className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
-        <div className="relative z-10">
-          <p className="text-indigo-200 text-xs font-medium mb-0.5">
-            {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
-          </p>
-          <h2 className="text-3xl lg:text-4xl font-bold mb-0.5 tabular-nums">
-            {homeCurrencyCode} ${Math.round(totalHKD).toLocaleString()}
-          </h2>
-          <p className="text-indigo-300 text-xs">{t('dashboard.recordsCount', { count: recordCount })}</p>
+    <div className="space-y-6">
+      <section className="paper-panel relative overflow-hidden p-6 lg:p-7">
+        <div className="absolute inset-y-0 right-0 w-32 bg-[radial-gradient(circle_at_top,rgba(179,109,72,0.18),transparent_62%)]" />
+        <div className="relative z-10 space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="eyebrow">{currentTrip?.name || t('nav.home')}</p>
+              <h2 className="display-title">
+                {homeCurrencyCode} ${Math.round(totalHKD).toLocaleString()}
+              </h2>
+              <p className="text-sm text-[color:var(--ink-muted)]">
+                {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-[color:var(--paper-border)] bg-white/50 px-4 py-3 text-right min-w-[180px]">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">
+                {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+                {billing.hasUnlimitedScans
+                  ? t('upload.proQuotaReady')
+                  : t('upload.freeQuota', {
+                    remaining: billing.remainingFreeScans ?? 0,
+                    limit: billing.freeScanLimit ?? 5,
+                  })}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-[color:var(--ink-muted)]">{t('dashboard.recordsCount', { count: recordCount })}</p>
 
           {currencySums.length > 0 && (
-            <div className="border-t border-white/20 pt-3 mt-4">
-              <p className="text-indigo-200 text-[10px] font-medium mb-1.5">{t('dashboard.originalTotals')}</p>
+            <div className="border-t border-[color:var(--paper-border)] pt-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)] mb-2">{t('dashboard.originalTotals')}</p>
               {currencySums.map(([curr, amount]) => (
-                <div key={curr} className="flex justify-between items-center text-xs mb-0.5">
-                  <span className="text-indigo-200">{t(`currency.${curr}`, { defaultValue: curr })}</span>
-                  <span className="font-bold">{curr} ${Math.round(amount).toLocaleString()}</span>
+                <div key={curr} className="flex justify-between items-center text-sm mb-1">
+                  <span className="text-[color:var(--ink-muted)]">{t(`currency.${curr}`, { defaultValue: curr })}</span>
+                  <span className="font-semibold text-[color:var(--ink)]">{curr} ${Math.round(amount).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -91,7 +111,7 @@ export default function Dashboard() {
         <UploadArea />
         <Link
           to="/add"
-          className="btn-primary w-full flex items-center justify-center gap-2 text-base !py-3.5 shadow-lg"
+          className="btn-primary w-full flex items-center justify-center gap-2 text-base !py-3.5"
         >
           <Plus size={20} />
           {t('dashboard.manualAdd')}

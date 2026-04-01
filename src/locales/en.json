@@ -23,7 +23,7 @@
     "backupFilename": "travel_full_backup"
   },
   "app": {
-    "brand": "Travel Expense Pro"
+    "brand": "Travel Notebook"
   },
   "auth": {
     "loading": "Loading…",
@@ -91,11 +91,14 @@
     "copyFailed": "Copy failed"
   },
   "upload": {
+    "noteLabel": "Receipt note",
     "batch": "Upload receipts",
-    "hint": "Select multiple photos; AI will parse them",
+    "hint": "Drop in receipt photos and let AI turn them into notebook entries.",
     "processing": "Processing {{current}} / {{total}}…",
     "success": "Processed {{ok}} / {{total}} receipts",
-    "allFailed": "Could not process receipts. Check images or try again."
+    "allFailed": "Could not process receipts. Check images or try again.",
+    "freeQuota": "{{remaining}} of {{limit}} free AI scans left",
+    "proQuotaReady": "Pro is active. AI scans are ready whenever you are."
   },
   "errors": {
     "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
@@ -130,15 +133,39 @@
   },
   "settings": {
     "title": "Settings",
+    "pageEyebrow": "Travel notebook setup",
+    "pageIntro": "Tune the trip, the language, and the AI scan plan before you head out.",
     "accountTitle": "Account",
-    "billingTitle": "Subscription (Stripe)",
-    "billingHint": "Checkout uses your signed-in account; after payment the webhook updates your cloud row. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID on the server, and complete the webhook + DB migration (see docs).",
+    "billingEyebrow": "Plan & scans",
+    "billingTitle": "AI scan plan",
+    "billingHint": "Manual expense entries stay free. AI receipt scans come with 5 lifetime free uses per account, then unlock with Pro.",
     "billingSubscribe": "Go to checkout",
+    "billingSubscribed": "Pro is active",
     "billingLoading": "Creating checkout…",
     "billingError": "Could not start checkout. Check server Stripe keys and price ID.",
     "billingSuccess": "Payment complete. Subscription status will sync from the server; refresh shortly if needed.",
     "billingCancelled": "Checkout was cancelled.",
     "billingNoSession": "Session expired. Sign in again.",
+    "billingRefresh": "Refresh plan",
+    "billingRefreshing": "Refreshing…",
+    "billingRefreshed": "Plan status refreshed.",
+    "billingRefreshError": "Could not refresh plan status right now.",
+    "billingLoadWarning": "Plan data could not be refreshed automatically. Your saved data is safe.",
+    "planFree": "Free",
+    "planPro": "Pro",
+    "billingPlanLabel": "Current plan",
+    "billingUsageLabel": "AI scans",
+    "billingNextLabel": "Next step",
+    "billingStatusValue": "Stripe status: {{status}}",
+    "billingStatusFree": "No active subscription yet",
+    "billingUnlimited": "Unlimited",
+    "billingUnlimitedHint": "You can keep scanning receipts during the trip.",
+    "billingRemainingValue": "{{count}} left",
+    "billingUsedValue": "Used {{used}} of {{limit}} lifetime free scans",
+    "billingUpgradePrompt": "Keep AI scanning after the free starter pack.",
+    "billingUpgradeHint": "Upgrade once the free scans are gone; manual entries remain free either way.",
+    "billingEnjoyPro": "Your notebook is on Pro.",
+    "billingEnjoyProHint": "Webhook sync is live, so new scans should work immediately.",
     "signOut": "Sign out",
     "language": "Language",
     "languageZhTW": "Traditional Chinese",

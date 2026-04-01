@@ -38,14 +38,18 @@ function resizeImage(file) {
 /**
  * @param {File} file
  * @param {string[]} [customExpenseCategories] 使用者自訂類別（不含預設六類；後端會合併）
+ * @param {string} [accessToken]
  * @returns {Promise<object>} 解析後的單據 JSON
  */
-export async function parseReceipt(file, customExpenseCategories = []) {
+export async function parseReceipt(file, customExpenseCategories = [], accessToken = '') {
   const base64 = await resizeImage(file);
 
   const res = await fetch('/api/parse-receipt', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify({
       imageBase64: base64,
       expenseCategories: Array.isArray(customExpenseCategories) ? customExpenseCategories : [],
@@ -62,7 +66,10 @@ export async function parseReceipt(file, customExpenseCategories = []) {
     );
   }
   if (!res.ok) {
-    throw new Error(data.error || `API 請求失敗: ${res.status}`);
+    const err = new Error(data.error || `API 請求失敗: ${res.status}`);
+    err.code = data.code || `http_${res.status}`;
+    err.billing = data.billing || null;
+    throw err;
   }
   return data;
 }

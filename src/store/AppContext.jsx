@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { useTranslation } from 'react-i18next';
 import DataService from '../services/DataService';
 import { bootstrapUserAppData, persistUserAppData } from '../services/syncSupabase';
+import { supabase } from '../lib/supabaseClient';
 import { sortExpenses } from '../utils/date';
 import { toHome } from '../utils/currency';
 import i18n from '../i18n';
@@ -15,6 +16,7 @@ import {
   sanitizeCustomExpenseCategoriesArray,
   validateNewCustomExpenseCategory,
 } from '../utils/expenseCategories';
+import { buildBillingSnapshot } from '../../shared/billing';
 
 const AppContext = createContext(null);
 
@@ -80,6 +82,11 @@ function AppProviderInner({ children, userId }) {
   DataService.setStorageScope(userId);
 
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
+  const [billing, setBilling] = useState(() => ({
+    ...buildBillingSnapshot(),
+    loading: true,
+    error: '',
+  }));
 
   const updateSettings = useCallback((patch) => {
     setSettingsState((prev) => {
@@ -94,6 +101,59 @@ function AppProviderInner({ children, userId }) {
     if (i18n.language !== lang) i18n.changeLanguage(lang);
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
   }, [settings.uiLanguage]);
+
+  const applyBillingSnapshot = useCallback((snapshot) => {
+    setBilling((prev) => ({
+      ...prev,
+      ...snapshot,
+      loading: false,
+      error: '',
+    }));
+  }, []);
+
+  const refreshBilling = useCallback(async () => {
+    if (!supabase || !userId) {
+      applyBillingSnapshot(buildBillingSnapshot());
+      return;
+    }
+
+    setBilling((prev) => ({ ...prev, loading: true, error: '' }));
+
+    const [{ data: billingRow, error: billingError }, { count: usageCount, error: usageError }] = await Promise.all([
+      supabase
+        .from('user_app_data')
+        .select('subscription_status')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase
+        .from('usage_logs')
+        .select('id', { head: true, count: 'exact' })
+        .eq('user_id', userId)
+        .eq('event_type', 'receipt_scan'),
+    ]);
+
+    if (billingError || usageError) {
+      throw billingError || usageError;
+    }
+
+    applyBillingSnapshot(
+      buildBillingSnapshot({
+        subscriptionStatus: billingRow?.subscription_status,
+        usedReceiptScans: usageCount || 0,
+      }),
+    );
+  }, [userId, applyBillingSnapshot]);
+
+  useEffect(() => {
+    refreshBilling().catch((err) => {
+      console.error('[billing]', err);
+      setBilling((prev) => ({
+        ...prev,
+        loading: false,
+        error: err?.message || 'billing failed',
+      }));
+    });
+  }, [refreshBilling]);
 
   const [people, setPeopleState] = useState(() => DataService.loadPeople());
   const setPeople = useCallback((val) => {
@@ -350,6 +410,7 @@ function AppProviderInner({ children, userId }) {
 
   const value = useMemo(() => ({
     settings, updateSettings,
+    billing, refreshBilling, applyBillingSnapshot,
     people, setPeople,
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
@@ -362,10 +423,10 @@ function AppProviderInner({ children, userId }) {
     tripCurrency,
     defaultAssignee,
   }), [
-    settings, people, trips, currentTripId, currentTrip,
+    settings, billing, people, trips, currentTripId, currentTrip,
     expenses, filterPerson, toast, exchangeRates, homeCurrencyCode, tripCurrency,
     defaultAssignee,
-    updateSettings, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
+    updateSettings, refreshBilling, applyBillingSnapshot, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     setFilterPerson, notify,

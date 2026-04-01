@@ -166,6 +166,7 @@
 | `docs/archive/BACKUP_BRANCH_v1.md` | 備份分支 Git 操作 |
 | `BACKUP_README.md`（根） | 捷徑，指向 archive |
 | **`docs/PRODUCT_MANAGEMENT.md`** | **本檔：產品路線、架構優先級、技術債** |
+| **`docs/PRD_TRAVEL_NOTEBOOK_APP_2026-04.md`** | **正式 PRD**：旅遊手帳產品願景、旅前／旅中／旅後結構、Phase 規劃與商業模式 |
 | **`docs/DESIGN_THINKING.md`** | **設計思路敘事**（從起點到現況：分帳與稅、多幣儲存等「為什麼」） |
 | **`docs/DATA_FLOW.md`** | **支出與 localStorage 雙軌資料流**（維護、改儲存前必讀） |
 | **`docs/PRODUCT_ITERATION_2025-03.md`** | **單次迭代：交付、踩坑、待辦、PM 跟進流程** |
