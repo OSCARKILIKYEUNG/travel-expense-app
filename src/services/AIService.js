@@ -229,10 +229,31 @@ export function buildExpenseFromAI(
 
   const actualSum = items.reduce((s, i) => s + (i.priceActual ?? (i.price || 0)), 0);
 
+  // --- 收據免稅額（淨價免稅校正會用到，須先於稅額搬移） ---
+  const rawExemption =
+    result.receipt_tax_exemption_amount ??
+    result.receiptTaxExemptionAmount ??
+    result.tax_exemption_amount ??
+    result.duty_free_amount ??
+    result.exemption_amount ??
+    result.tax_exemption_display;
+  let receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
+
+  const driftThreshold = Math.max(eps * 5, 5);
+
   // --- 小計：收據印字 (subFromAI) 優先於 items 加總 ---
+  // 內稅：合計是含稅錨點。行加總已對上合計就用行加總；否則不要沿用未稅行加總（如 1076 vs 合計 2359）。
   let subtotal;
   const subDrift = subFromAI > 0 && grossSum > 0 ? Math.abs(subFromAI - grossSum) : 0;
-  if (subFromAI > 0 && (hasBundlePricing || subDrift > Math.max(eps * 5, 3))) {
+  const linesMatchTotal =
+    grossSum > 0 &&
+    totalAmount > 0 &&
+    Math.abs(grossSum - totalAmount) <= driftThreshold;
+  if (receiptType === 'tax_inclusive' && totalAmount > 0 && linesMatchTotal) {
+    subtotal = grossSum;
+  } else if (receiptType === 'tax_inclusive' && totalAmount > 0) {
+    subtotal = totalAmount;
+  } else if (subFromAI > 0 && (hasBundlePricing || subDrift > Math.max(eps * 5, 3))) {
     subtotal = subFromAI;
   } else {
     subtotal = grossSum > 0 ? grossSum : subFromAI;
@@ -244,28 +265,26 @@ export function buildExpenseFromAI(
   // --- 依類型計算 taxRefund / tax ---
   if (receiptType === 'net_tax_free') {
     if (Math.abs(taxRefund) < eps) taxRefund = 0;
+    // 免税額被誤填進 tax、免稅額欄空白時搬回資訊欄。淨價免稅的消費稅恆為 0，不加到實付。
+    if (tax > eps && receiptTaxExemptionAmount <= eps) {
+      receiptTaxExemptionAmount = tax;
+    }
+    if (tax > eps) tax = 0;
   } else if (receiptType === 'tax_exclusive') {
     // 外稅：若 AI 沒回 tax，從 total − subtotal 推算
     if (tax <= 0 && finalAmount > subtotal + eps) {
       tax = Math.round(finalAmount - subtotal);
     }
     if (tax > 0 && Math.abs(taxRefund) < eps) taxRefund = 0;
+  } else if (receiptType === 'tax_inclusive' && totalAmount > 0 && !linesMatchTotal && tax > eps) {
+    // 8%／10% 稅額列加總解釋不了合計（1076+92），不要顯示成另加的消費稅。
+    tax = 0;
   } else if (finalAmount > 0 && subtotal > finalAmount + eps) {
     const computed = finalAmount - subtotal;
     if (Math.abs(taxRefund) < eps || Math.abs(taxRefund - computed) > Math.max(eps * 2, 1)) {
       taxRefund = computed;
     }
   }
-
-  // --- 收據免稅額 ---
-  const rawExemption =
-    result.receipt_tax_exemption_amount ??
-    result.receiptTaxExemptionAmount ??
-    result.tax_exemption_amount ??
-    result.duty_free_amount ??
-    result.exemption_amount ??
-    result.tax_exemption_display;
-  const receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
 
   const rawAiCurrency = (result?.currency || '').toString().trim().toUpperCase();
   const tripCur = (tripCurrency || '').toString().trim().toUpperCase();
@@ -278,7 +297,6 @@ export function buildExpenseFromAI(
 
   // --- 驗證：數字是否依類型自洽 ---
   let needsReview = false;
-  const driftThreshold = Math.max(eps * 5, 5);
   if (receiptType === 'tax_inclusive' && grossSum > 0 && Math.abs(grossSum - finalAmount) > driftThreshold) {
     needsReview = true;
   }

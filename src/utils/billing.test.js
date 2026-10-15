@@ -28,6 +28,7 @@ describe('billing helpers', () => {
       freeScanLimit: FREE_RECEIPT_SCAN_LIMIT,
       usedReceiptScans: 2,
       remainingFreeScans: FREE_RECEIPT_SCAN_LIMIT - 2,
+      quotaDisabled: false,
     });
   });
 
@@ -42,6 +43,24 @@ describe('billing helpers', () => {
       freeScanLimit: FREE_RECEIPT_SCAN_LIMIT,
       usedReceiptScans: 7,
       remainingFreeScans: null,
+      quotaDisabled: false,
+    });
+  });
+});
+
+describe('quota kill-switch', () => {
+  it('quotaDisabled forces unlimited without paid status', () => {
+    expect(
+      buildBillingSnapshot({
+        subscriptionStatus: null,
+        usedReceiptScans: 99,
+        quotaDisabled: true,
+      }),
+    ).toMatchObject({
+      plan: 'pro',
+      hasUnlimitedScans: true,
+      remainingFreeScans: null,
+      quotaDisabled: true,
     });
   });
 });
