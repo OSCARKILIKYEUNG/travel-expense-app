@@ -62,9 +62,10 @@ has_bundle — 套裝／組合價（通用）
 ■ subtotal — 收據「小計／Subtotal」（以印字為準）；未印可省略。
 ■ tax — 收據單列的稅額；外稅時常等於 合計 − 小計。
 ■ total_amount — 顧客**實際支付**（Total / AMOUNT DUE）。
-■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。
+■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。同一筆不要再填進 discount。
 ■ receipt_tax_exemption_amount（選填，正數）— 收據印製的免稅額／Tax exemption 等展示用數字。
-■ discount — 一般折扣（Coupon 等），**負數**。
+■ discount — 一般折扣（Coupon 等），**負數**。即時免稅差額不是折扣。
+■ 品名 — name 對應收據該行印出的品名（可譯成繁中）。禁止用「商品A」「Item 1」等代稱；看不清時把可見原文放進 original_name。
 ■ 不要為了讓 items 加總 = total_amount 而改寫 price。
 
 ═══════════════════════════════════════════

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { SYSTEM_PROMPT } from '../../api/receipt-prompt/index.js';
-import { buildExpenseFromAI } from './AIService.js';
+import {
+  buildExpenseFromAI,
+  shouldShowListSubtotal,
+  shouldShowSeparateDiscount,
+  sumForInstantTaxFreeCheck,
+} from './AIService.js';
 
 function fromAI(result) {
   return buildExpenseFromAI(result, 0, 'JPY', 1, 'JPY');
@@ -26,6 +31,8 @@ describe('JP prompt — E2 exemption and A inclusive multi-rate', () => {
     expect(SYSTEM_PROMPT).toContain('禁止改成「食品」「飲料」「商品」「日用品」');
     expect(SYSTEM_PROMPT).toContain('是已含在合計裡的摘要，不是新的品項');
     expect(SYSTEM_PROMPT).toContain('禁止改成「商品A」');
+    expect(SYSTEM_PROMPT).toContain('抄寫收據該行印出的文字');
+    expect(SYSTEM_PROMPT).toContain('不要當成細項與實付不一致');
   });
 
   it('leaves B/C/D/E example figures in place', () => {
@@ -35,6 +42,11 @@ describe('JP prompt — E2 exemption and A inclusive multi-rate', () => {
     expect(SYSTEM_PROMPT).toContain('items 加總應 ≈ 28,130');
     expect(SYSTEM_PROMPT).toContain('receipt_tax_exemption_amount: 1034');
     expect(SYSTEM_PROMPT).toContain('vat_refund_later');
+    expect(SYSTEM_PROMPT).toContain('tax_refund 只填 -2557');
+    expect(SYSTEM_PROMPT).toContain('discount 必須為 0');
+    expect(SYSTEM_PROMPT).toContain('不要改成實付 25573');
+    expect(SYSTEM_PROMPT).toContain('不要改成實付 18732');
+    expect(SYSTEM_PROMPT).toContain('加總核對時排除該行');
   });
 });
 
@@ -118,7 +130,39 @@ describe('buildExpenseFromAI — A LAWSON tax-inclusive multi-rate', () => {
     expect(expense.tax).toBe(0);
     expect(expense.originalAmount).toBe(2359);
     expect(expense.originalAmount).not.toBe(1076 + 92);
-    expect(expense.needsReview).toBe(true);
+    expect(expense.needsReview).toBeUndefined();
+  });
+
+  it('drops 対象額/内税 summary rows, keeps printed names, and does not warn', () => {
+    const expense = fromAI({
+      detected_market: 'JP',
+      receipt_type: 'tax_inclusive',
+      currency: 'JPY',
+      items: [
+        { name: '商品A', original_name: 'からあげくん', name_en: 'Karaage-kun', price: 148 },
+        { name: 'お茶', name_en: 'Tea', price: 220 },
+        { name: 'おにぎり', name_en: 'Onigiri', price: 398 },
+        { name: 'ガム', name_en: 'Gum', price: 130 },
+        { name: 'プリン', name_en: 'Pudding', price: 180 },
+        { name: '8%対象額', name_en: '8% taxable amount', price: 278 },
+        { name: '内消費税(8%)', name_en: 'Tax included 8%', price: 20 },
+        { name: '(10%)対象額', name_en: '10% taxable amount', price: 798 },
+        { name: '内消費税(10%)', name_en: 'Tax included 10%', price: 72 },
+      ],
+      subtotal: 1076,
+      tax: 92,
+      total_amount: 2359,
+      tax_refund: 0,
+    });
+
+    expect(expense.items.map((item) => item.name)).toEqual([
+      'からあげくん', 'お茶', 'おにぎり', 'ガム', 'プリン',
+    ]);
+    expect(expense.items.some((item) => /^商品[A-E]$/.test(item.name))).toBe(false);
+    expect(expense.subtotal).toBe(2359);
+    expect(expense.tax).toBe(0);
+    expect(expense.originalAmount).toBe(2359);
+    expect(expense.needsReview).toBeUndefined();
   });
 
   it('keeps an 内税 summary when inclusive lines already sum to 合計', () => {
@@ -178,6 +222,42 @@ describe('buildExpenseFromAI — B/C/D/G unchanged', () => {
     expect(uniqlo.originalAmount).toBe(25573);
     expect(uniqlo.subtotal).toBe(28130);
 
+    const duplicated = fromAI({
+      receipt_type: 'instant_tax_free',
+      has_bundle: true,
+      items: [
+        { name: '女士內褲 セット×12', name_en: 'Shorts set x12', price: 5940 },
+        { name: '襪子', name_en: 'Socks', price: 1990 },
+        { name: 'T恤', name_en: 'T-shirt', price: 990 },
+        { name: '外套', name_en: 'Jacket', price: 19210 },
+      ],
+      subtotal: 25573,
+      total_amount: 25573,
+      tax_refund: -2557,
+      discount: -2557,
+      tax: 2557,
+    });
+    expect(duplicated.items.map((item) => item.name)).toEqual([
+      '女士內褲 セット×12', '襪子', 'T恤', '外套',
+    ]);
+    expect(duplicated.items.filter((item) => /セット/.test(item.name))).toHaveLength(1);
+    expect(duplicated.subtotal).toBe(28130);
+    expect(duplicated.originalAmount).toBe(25573);
+    expect(duplicated.taxRefund).toBe(-2557);
+    expect(duplicated.discount).toBe(0);
+    expect(duplicated.tax).toBe(0);
+    expect(duplicated.needsReview).toBeUndefined();
+    expect(shouldShowSeparateDiscount(duplicated)).toBe(false);
+    expect(shouldShowSeparateDiscount(
+      { currency: 'JPY', discount: -2557, taxRefund: 0 },
+      2557,
+    )).toBe(false);
+    expect(shouldShowSeparateDiscount(
+      { currency: 'JPY', discount: -500, taxRefund: -2557 },
+      2557,
+    )).toBe(true);
+    expect(shouldShowListSubtotal(duplicated)).toBe(true);
+
     const later = fromAI({
       receipt_type: 'vat_refund_later',
       items: [{ name: '包', name_en: 'Bag', price: 55000 }],
@@ -208,6 +288,51 @@ describe('buildExpenseFromAI — B/C/D/G unchanged', () => {
     expect(expense.taxRefund).toBe(-1844);
     expect(expense.subtotal).toBe(20576);
     expect(expense.items[0].priceActual).toBe(5991);
+    expect(expense.items[1].priceActual).toBe(6991);
+    expect(expense.items[2].excludeFromRefundSplit).toBe(true);
+    expect(expense.needsReview).toBeUndefined();
+    expect(sumForInstantTaxFreeCheck(expense.items)).toBe(5991 + 6991);
+    expect(shouldShowListSubtotal(expense)).toBe(true);
+  });
+
+  it('restores ZARA subtotal 20576 when the model copied the paid total', () => {
+    const expense = fromAI({
+      receipt_type: 'instant_tax_free',
+      items: [
+        { name: 'BLAZER', name_en: 'Blazer', price: 6590, price_actual: 5991 },
+        { name: 'JACKET', name_en: 'Jacket', price: 7690, price_actual: 6991 },
+        { name: 'GB 佣金', name_en: 'GB commission', price: 286, price_actual: 286, exclude_from_refund_split: true },
+      ],
+      subtotal: 18732,
+      total_amount: 18732,
+      tax_refund: -1844,
+    });
+    expect(expense.subtotal).toBe(20576);
+    expect(expense.originalAmount).toBe(18732);
+    expect(expense.taxRefund).toBe(-1844);
+    expect(expense.items[0].priceActual).toBe(5991);
+    expect(expense.items[1].priceActual).toBe(6991);
+    expect(expense.items[2].excludeFromRefundSplit).toBe(true);
+    expect(expense.items[2].priceActual).toBeUndefined();
+    expect(sumForInstantTaxFreeCheck(expense.items)).toBe(5991 + 6991);
+    expect(expense.needsReview).toBeUndefined();
+    expect(shouldShowListSubtotal(expense)).toBe(true);
+  });
+
+  it('does not let GB commission fail the instant tax-free sum check', () => {
+    const expense = fromAI({
+      receipt_type: 'instant_tax_free',
+      items: [
+        { name: '西裝外套', name_en: 'Blazer', price: 10000, price_actual: 9000 },
+        { name: '外套', name_en: 'Jacket', price: 11000, price_actual: 9732 },
+        { name: 'GB 佣金', name_en: 'GB commission', price: 5000, exclude_from_refund_split: true },
+      ],
+      subtotal: 18732,
+      total_amount: 20000,
+      tax_refund: 0,
+    });
+    expect(sumForInstantTaxFreeCheck(expense.items)).toBe(18732);
+    expect(expense.needsReview).toBeUndefined();
     expect(expense.items[2].excludeFromRefundSplit).toBe(true);
   });
 });

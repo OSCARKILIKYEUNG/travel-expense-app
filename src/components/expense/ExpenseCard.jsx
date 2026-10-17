@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { getCategoryColor } from '../../utils/expenseCategories';
 import { SHOW_RECEIPT_TYPE_UI } from '../../utils/constants';
+import { shouldShowListSubtotal, shouldShowSeparateDiscount } from '../../services/AIService';
 import { getExpenseLocationDisplay, getExpenseStoreDisplay, getItemDisplayName } from '../../utils/displayNames';
 import {
   getPartialMatchPersonShareHKD,
@@ -231,7 +232,13 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 );
               })}
             </ul>
-            {Math.abs(discountAmount) > refundEpsilon(expense.currency) && (
+            {shouldShowListSubtotal(expense) && (
+              <div className="flex justify-between items-center text-xs text-slate-600 mb-2 pt-1 border-t border-slate-200/80">
+                <span>{t('editExpense.subtotal')}</span>
+                <span className="font-mono tabular-nums">{Number(expense.subtotal).toLocaleString()}</span>
+              </div>
+            )}
+            {shouldShowSeparateDiscount(expense, refundRowsMeta.eff) && (
               <div className="flex justify-between items-center text-xs text-amber-800 font-medium mb-2 pt-1 border-t border-slate-200/80">
                 <span>{t('expenseCard.discountLine')}</span>
                 <span className="font-mono tabular-nums">- {Math.abs(discountAmount).toLocaleString()}</span>

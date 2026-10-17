@@ -88,6 +88,63 @@ function moneyEpsilon(currency) {
   return ['JPY', 'KRW', 'VND', 'CLP'].includes(c) ? 1 : 0.01;
 }
 
+/** 商品A／Item 1 這類代稱。有原文時可還原，但不可把已抄到的品名改成代稱。 */
+function isPlaceholderItemName(name) {
+  return /^(?:商品|物品|item|product)\s*[A-Ea-e0-9]{1,2}$/i.test(String(name || '').trim());
+}
+
+/**
+ * 対象額／内消費税等是稅務摘要，不是商品行。
+ * 品名較長且不像稅率列時保留，避免誤刪真實商品。
+ */
+export function isTaxSummaryLine(name) {
+  const raw = String(name || '').trim();
+  if (!raw || isPlaceholderItemName(raw)) return false;
+  const n = raw.replace(/\s+/g, '');
+  if (n.length > 24 && !/対象額|内消費税|消費税/.test(n)) return false;
+  if (/対象額|対象金額|課税対象|税込対象|税抜対象|軽減対象/.test(n)) return true;
+  if (/(?:内|外)?消費税/.test(n)) return true;
+  if (/^内税(?:額)?(?:[（(][^)）]*[)）])?$/.test(n)) return true;
+  if (/^[（(]?\d{1,2}(?:\.\d+)?[%％][)）]?/.test(n) && /対象|税|tax/i.test(n)) return true;
+  if (/^(?:taxable\s*amount|tax\s*included|incl\.?\s*tax)$/i.test(raw)) return true;
+  return false;
+}
+
+/**
+ * 即時免稅加總核對用的金額：雙欄用 priceActual，佣金／固定費排除。
+ * @param {Array<{ price?: number, priceActual?: number, excludeFromRefundSplit?: boolean }>} items
+ */
+export function sumForInstantTaxFreeCheck(items) {
+  return (items || []).reduce((sum, item) => {
+    if (item?.excludeFromRefundSplit) return sum;
+    const actual = Number(item?.priceActual);
+    if (!isNaN(actual) && actual > 0) return sum + actual;
+    return sum + (Number(item?.price) || 0);
+  }, 0);
+}
+
+/** 卡片：即時免稅且標價小計與實付不同時，要顯示小計（例如 20576、28130）。 */
+export function shouldShowListSubtotal(expense) {
+  if (expense?.receiptType !== 'instant_tax_free') return false;
+  const eps = moneyEpsilon(expense.currency);
+  return Math.abs((Number(expense.subtotal) || 0) - (Number(expense.originalAmount) || 0)) > eps;
+}
+
+/**
+ * 同一筆免稅差額不要同時出現在折扣與退稅。
+ * effectiveRefund 是卡片實際會顯示的退稅正數（含由行加總推算的差額）。
+ */
+export function shouldShowSeparateDiscount(expense, effectiveRefund) {
+  const eps = moneyEpsilon(expense?.currency);
+  const discount = Math.abs(Number(expense?.discount) || 0);
+  if (discount <= eps) return false;
+  const refund = Math.abs(
+    effectiveRefund != null ? Number(effectiveRefund) || 0 : Number(expense?.taxRefund) || 0,
+  );
+  if (refund > eps && Math.abs(discount - refund) <= Math.max(eps * 2, 1)) return false;
+  return true;
+}
+
 /**
  * 當細項加總 ≠ 實付時，依比例調整各品項，使加總 = targetTotal（最後一筆吸收捨入差）。
  * @returns {{ items: Array, adjusted: boolean }}
@@ -161,7 +218,11 @@ export function buildExpenseFromAI(
 
   const items = Array.isArray(result.items)
     ? result.items.map((item) => {
-        const name = (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤');
+        let name = (item.name || '').replace(/內觤/g, '內褲').replace(/T袖/g, 'T恤');
+        const originalName = String(item.original_name || item.originalName || '').trim();
+        if (isPlaceholderItemName(name) && originalName && !isPlaceholderItemName(originalName)) {
+          name = originalName;
+        }
         const nameEn = String(item.name_en || item.nameEn || '').trim();
         const exRaw = item.exclude_from_refund_split ?? item.excludeFromRefundSplit;
         let excludeFromRefundSplit;
@@ -187,17 +248,33 @@ export function buildExpenseFromAI(
       })
     : [];
 
+  let removedSummaryRows = false;
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (isTaxSummaryLine(items[i].name)) {
+      items.splice(i, 1);
+      removedSummaryRows = true;
+    }
+  }
+
   let grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
   const totalAmount = parseFloat(result.total_amount) || 0;
   const subFromAI = parseFloat(result.subtotal) || 0;
   let tax = parseFloat(result.tax) || 0;
   let taxRefund = parseFloat(result.tax_refund) || 0;
-  const discount = parseFloat(result.discount) || 0;
+  let discount = parseFloat(result.discount) || 0;
   const eps = moneyEpsilon(currency);
+  const driftThreshold = Math.max(eps * 5, 5);
 
   // --- 品項加總 vs 收據小計 交叉驗證 ---
-  // 若 AI 多列了重複品項（如套裝內的個別行又多列了），嘗試刪除多餘行
-  if (subFromAI > 0 && grossSum > subFromAI + eps) {
+  // 若 AI 多列了重複品項（如套裝內的個別行又多列了），嘗試刪除多餘行。
+  // 即時免稅若把小計收成實付，行加總高出的差額是退稅，不是重複品項。
+  const subtotalLooksCollapsed =
+    receiptType === 'instant_tax_free' &&
+    totalAmount > 0 &&
+    subFromAI > 0 &&
+    Math.abs(subFromAI - totalAmount) <= driftThreshold &&
+    grossSum > totalAmount + driftThreshold;
+  if (!subtotalLooksCollapsed && subFromAI > 0 && grossSum > subFromAI + eps) {
     const excess = Math.round(grossSum - subFromAI);
     if (excess > 0) {
       const candidates = items
@@ -239,10 +316,9 @@ export function buildExpenseFromAI(
     result.tax_exemption_display;
   let receiptTaxExemptionAmount = Math.max(0, parseFloat(rawExemption) || 0);
 
-  const driftThreshold = Math.max(eps * 5, 5);
-
   // --- 小計：收據印字 (subFromAI) 優先於 items 加總 ---
   // 內稅：合計是含稅錨點。行加總已對上合計就用行加總；否則不要沿用未稅行加總（如 1076 vs 合計 2359）。
+  // 即時免稅：小計是含稅標價（28130／20576），不要收成實付。
   let subtotal;
   const subDrift = subFromAI > 0 && grossSum > 0 ? Math.abs(subFromAI - grossSum) : 0;
   const linesMatchTotal =
@@ -253,6 +329,27 @@ export function buildExpenseFromAI(
     subtotal = grossSum;
   } else if (receiptType === 'tax_inclusive' && totalAmount > 0) {
     subtotal = totalAmount;
+  } else if (receiptType === 'instant_tax_free') {
+    const refundMag = Math.abs(taxRefund) > eps
+      ? Math.abs(taxRefund)
+      : (Math.abs(discount) > eps ? Math.abs(discount) : 0);
+    const printedAbovePaid = subFromAI > totalAmount + eps ? subFromAI : 0;
+    const restored = refundMag > eps && totalAmount > 0
+      ? roundMoney(totalAmount + refundMag, currency)
+      : 0;
+    const itemsAbovePaid = grossSum > totalAmount + eps ? grossSum : 0;
+    const collapsed = subFromAI <= 0 || (totalAmount > 0 && Math.abs(subFromAI - totalAmount) <= driftThreshold);
+    if (printedAbovePaid > 0) {
+      subtotal = printedAbovePaid;
+    } else if (collapsed && restored > totalAmount + eps) {
+      subtotal = restored;
+    } else if (collapsed && itemsAbovePaid > 0) {
+      subtotal = itemsAbovePaid;
+    } else if (subFromAI > 0) {
+      subtotal = subFromAI;
+    } else {
+      subtotal = grossSum > 0 ? grossSum : 0;
+    }
   } else if (subFromAI > 0 && (hasBundlePricing || subDrift > Math.max(eps * 5, 3))) {
     subtotal = subFromAI;
   } else {
@@ -286,6 +383,18 @@ export function buildExpenseFromAI(
     }
   }
 
+  if (receiptType === 'instant_tax_free') {
+    // 免税差額只留一列退稅。模型若把同一筆同時寫進 discount 或 tax，拿掉重複。
+    if (Math.abs(discount) > eps && Math.abs(taxRefund) > eps
+      && Math.abs(Math.abs(discount) - Math.abs(taxRefund)) <= Math.max(eps * 2, 1)) {
+      discount = 0;
+    }
+    if (tax > eps && Math.abs(taxRefund) > eps
+      && Math.abs(tax - Math.abs(taxRefund)) <= Math.max(eps * 2, 1)) {
+      tax = 0;
+    }
+  }
+
   const rawAiCurrency = (result?.currency || '').toString().trim().toUpperCase();
   const tripCur = (tripCurrency || '').toString().trim().toUpperCase();
   const currencyMismatch =
@@ -297,23 +406,32 @@ export function buildExpenseFromAI(
 
   // --- 驗證：數字是否依類型自洽 ---
   let needsReview = false;
-  if (receiptType === 'tax_inclusive' && grossSum > 0 && Math.abs(grossSum - finalAmount) > driftThreshold) {
+  if (receiptType === 'tax_inclusive' && grossSum > finalAmount + driftThreshold) {
+    // 行加總短於合計（未稅行、或已剔除的対象額／内税摘要）不是漏帳。
+    // 摘要列已從 items 移除；只有商品行加總超過實付才標需核對。
     needsReview = true;
+  }
+  if (removedSummaryRows && receiptType === 'tax_inclusive' && grossSum > 0 && grossSum <= finalAmount + driftThreshold) {
+    needsReview = false;
   }
   if (receiptType === 'tax_exclusive' && subFromAI > 0 && tax > 0 && Math.abs(subFromAI + tax - finalAmount) > driftThreshold) {
     needsReview = true;
   }
-  if (receiptType === 'instant_tax_free' && subFromAI > 0 && grossSum > 0) {
-    // 品項加總應接近 subtotal（含稅小計）；差太大表示 AI 漏列或多列
-    const itemVsSub = Math.abs(grossSum - subFromAI);
-    if (itemVsSub > subFromAI * 0.05 && itemVsSub > driftThreshold) {
-      needsReview = true;
+  if (receiptType === 'instant_tax_free' && subtotal > 0 && finalAmount > 0) {
+    const headerOk = Math.abs(subtotal + taxRefund - finalAmount) <= driftThreshold;
+    if (!headerOk) {
+      const payable = sumForInstantTaxFreeCheck(items);
+      const tolerance = Math.max(subtotal * 0.05, driftThreshold);
+      if (payable > 0 && Math.abs(payable - subtotal) > tolerance) {
+        needsReview = true;
+      }
     }
   }
   // 套裝/bundle：容忍 1% 或 300 以內的漂移（AI 品名/金額小誤差常見）
-  if (hasBundlePricing && subFromAI > 0 && grossSum > 0) {
-    const bundleTolerance = Math.max(subFromAI * 0.01, 300);
-    if (subDrift > bundleTolerance && !items.some((i) => i.priceActual !== undefined)) {
+  const resolvedDrift = subtotal > 0 && grossSum > 0 ? Math.abs(subtotal - grossSum) : 0;
+  if (hasBundlePricing && subtotal > 0 && grossSum > 0) {
+    const bundleTolerance = Math.max(subtotal * 0.01, 300);
+    if (resolvedDrift > bundleTolerance && !items.some((i) => i.priceActual !== undefined)) {
       needsReview = true;
     }
   }
