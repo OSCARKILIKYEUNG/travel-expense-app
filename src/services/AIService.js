@@ -205,6 +205,44 @@ function normalizeReceiptType(raw) {
   return v;
 }
 
+/**
+ * 套裝/multipack 重複防護（保守）：AI 同時列出「套裝×N」合併行與 N 條個別成分行時，
+ * 刪除成分行。僅在以下條件全部成立時才動 items（永不改金額／合計）：
+ *  1. 印字小計 > 0 且 items 加總超出小計 excess > 0
+ *  2. 存在名稱含「套裝／セット／set ×N」(N>=2) 的行 S，且 S.price <= N * p
+ *  3. 其餘品項中，恰好有 N 條價格相同 (p) 的行，且 N * p === excess（容差 eps）
+ * 回傳 { items, removed }；不符合則原樣返回。
+ */
+export function dropDuplicateSetComponents(items, printedSubtotal, eps = 1) {
+  const none = { items, removed: [] };
+  if (!Array.isArray(items) || !(printedSubtotal > 0)) return none;
+  const gross = items.reduce((s, i) => s + (i.price || 0), 0);
+  const excess = gross - printedSubtotal;
+  if (!(excess > eps)) return none;
+  const setRe = /(?:套裝|套装|組合|组合|セット|\bset\b)\s*[×xX＊*]\s*(\d+)|[×xX＊*]\s*(\d+)\s*(?:套裝|套装|セット|\bset\b)/i;
+  for (let si = 0; si < items.length; si++) {
+    const setItem = items[si];
+    const label = `${setItem.name || ''} ${setItem.originalName || ''} ${setItem.nameEn || ''}`;
+    const m = label.match(setRe);
+    const n = m ? parseInt(m[1] || m[2], 10) : 0;
+    if (!(n >= 2) || !(setItem.price > 0)) continue;
+    const byPrice = new Map();
+    items.forEach((it, idx) => {
+      if (idx === si || !(it.price > 0)) return;
+      if (!byPrice.has(it.price)) byPrice.set(it.price, []);
+      byPrice.get(it.price).push(idx);
+    });
+    for (const [price, idxs] of byPrice) {
+      if (idxs.length !== n) continue;
+      if (Math.abs(n * price - excess) > eps) continue;
+      if (setItem.price > n * price + eps) continue;
+      const drop = new Set(idxs);
+      return { items: items.filter((_, i) => !drop.has(i)), removed: idxs.map((i) => items[i]) };
+    }
+  }
+  return none;
+}
+
 export function buildExpenseFromAI(
   result,
   index,
@@ -272,6 +310,15 @@ export function buildExpenseFromAI(
   let discount = parseFloat(result.discount) || 0;
   const eps = moneyEpsilon(currency);
   const driftThreshold = Math.max(eps * 5, 5);
+
+  // --- 套裝成分行重複（套裝×N + N 條個別行）：先於一般交叉驗證處理 ---
+  if (subFromAI > 0 && grossSum > subFromAI + eps) {
+    const dedup = dropDuplicateSetComponents(items, subFromAI, Math.max(eps, 1));
+    if (dedup.removed.length > 0) {
+      items.splice(0, items.length, ...dedup.items);
+      grossSum = items.reduce((s, i) => s + (i.price || 0), 0);
+    }
+  }
 
   // --- 品項加總 vs 收據小計 交叉驗證 ---
   // 若 AI 多列了重複品項（如套裝內的個別行又多列了），嘗試刪除多餘行。
