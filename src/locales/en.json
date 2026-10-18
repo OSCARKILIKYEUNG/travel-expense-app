@@ -103,6 +103,7 @@
   },
   "errors": {
     "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
+    "parseReceiptTimeout": "AI scan timed out. The receipt may be too long or complex. Please retry, or split it / retake a clearer photo.",
     "syncFailed": "Could not load or save cloud data: {{message}}",
     "syncRetry": "Reload",
     "persistFailed": "Could not sync to Supabase: {{message}} (Run supabase/migrations/001_user_app_data.sql in the SQL Editor, and ensure Vercel env matches your .env project.)"

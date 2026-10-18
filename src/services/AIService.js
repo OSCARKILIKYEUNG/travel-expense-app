@@ -61,12 +61,19 @@ export async function parseReceipt(file, customExpenseCategories = [], accessTok
   try {
     data = raw ? JSON.parse(raw) : {};
   } catch {
+    if (res.status === 504) {
+      const e = new Error(i18n.t('errors.parseReceiptTimeout'));
+      e.code = 'gemini_timeout';
+      throw e;
+    }
     throw new Error(
       i18n.t('errors.parseReceipt', { status: res.status }),
     );
   }
   if (!res.ok) {
-    const err = new Error(data.error || `API 請求失敗: ${res.status}`);
+    const err = new Error(
+      data.code === 'gemini_timeout' ? i18n.t('errors.parseReceiptTimeout') : (data.error || `API 請求失敗: ${res.status}`),
+    );
     err.code = data.code || `http_${res.status}`;
     err.billing = data.billing || null;
     throw err;

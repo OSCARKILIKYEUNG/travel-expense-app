@@ -103,6 +103,7 @@
   },
   "errors": {
     "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
+    "parseReceiptTimeout": "AI 掃描逾時，這張單據可能太長或太複雜。請稍後再試一次，或把單據拆開、拍得更清楚後重新掃描。",
     "syncFailed": "無法從雲端載入或儲存資料：{{message}}",
     "syncRetry": "重新載入",
     "persistFailed": "無法同步到 Supabase：{{message}}（請確認已在 SQL Editor 執行 supabase/migrations/001_user_app_data.sql，且 Vercel 環境變數與本機 .env 指向同一專案）"
