@@ -4,6 +4,11 @@ import Dialog from '../ui/Dialog';
 import { AlertCircle } from '../ui/Icons';
 import { getExpenseStoreDisplay } from '../../utils/displayNames';
 import { isUserEdited } from '../../utils/duplicates';
+import {
+  createDuplicateReviewState,
+  duplicateReviewReduce,
+  shouldShowReplaceConfirm,
+} from '../../utils/duplicateDecisions';
 
 function summarize(expense, t, lang) {
   const amount = Number(expense.originalAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -28,14 +33,23 @@ const CHOICES = ['skip', 'keep', 'replace'];
  */
 export default function DuplicateReviewDialog({ open, conflicts, existing, onConfirm, onClose }) {
   const { t, i18n } = useTranslation();
-  const [choices, setChoices] = useState({});
-  const [confirming, setConfirming] = useState(false);
+  const sessionKey = open ? (conflicts || []).map((c) => String(c?.record?.id ?? '')).join('|') : '';
+  const [review, setReview] = useState(() => createDuplicateReviewState(existing));
+  const [seenSession, setSeenSession] = useState(sessionKey);
+  // Reset before paint when a new batch opens, so a previous 取代 confirm
+  // cannot reappear (with a zero count) for the next edited record.
+  let reviewNow = review;
+  if (seenSession !== sessionKey) {
+    reviewNow = createDuplicateReviewState(existing);
+    setSeenSession(sessionKey);
+    setReview(reviewNow);
+  }
 
   if (!open) return null;
 
-  const choiceOf = (id) => choices[id] || 'skip';
+  const choiceOf = (id) => reviewNow.choices[id] || 'skip';
   const byId = new Map((existing || []).map((e) => [e.id, e]));
-  const replaceRows = conflicts.filter((c) => choiceOf(c.record.id) === 'replace' && byId.has(c.matchId));
+  const replaceRows = (conflicts || []).filter((c) => choiceOf(c.record.id) === 'replace' && byId.has(c.matchId));
   const anyEdited = replaceRows.some((c) => isUserEdited(byId.get(c.matchId)));
 
   const finalize = () => {
@@ -45,14 +59,17 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
   };
 
   const handleConfirm = () => {
-    if (replaceRows.length > 0) setConfirming(true);
-    else finalize();
+    if (replaceRows.length > 0) {
+      setReview((s) => duplicateReviewReduce(s, { type: 'requestConfirm', replaceCount: replaceRows.length }));
+      return;
+    }
+    finalize();
   };
 
-  if (confirming) {
+  if (shouldShowReplaceConfirm(reviewNow, replaceRows.length)) {
     return (
       <Dialog open onClose={onClose} size="sm">
-        <div className="flex items-center gap-3 mb-4">
+        <div data-review-step="confirm" className="flex items-center gap-3 mb-4">
           <div className="bg-red-100 p-3 rounded-full">
             <AlertCircle className="text-red-600" size={24} />
           </div>
@@ -72,7 +89,7 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
         {anyEdited && <p className="text-sm text-amber-700 mb-3">{t('duplicateDialog.editedWarning')}</p>}
         <p className="text-xs text-[color:var(--ink-muted)] mb-5">{t('duplicateDialog.undoNote')}</p>
         <div className="flex gap-3">
-          <button type="button" onClick={() => setConfirming(false)} className="btn-secondary flex-1">
+          <button type="button" onClick={() => setReview((s) => duplicateReviewReduce(s, { type: 'back' }))} className="btn-secondary flex-1">
             {t('duplicateDialog.back')}
           </button>
           <button type="button" onClick={finalize} className="btn-danger flex-1">
@@ -85,7 +102,7 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
 
   return (
     <Dialog open onClose={onClose} title={t('duplicateDialog.title')} size="lg">
-      <div className="p-5 pt-3 space-y-4">
+      <div className="p-5 pt-3 space-y-4" data-review-step="choose">
         <p className="text-sm text-[color:var(--ink-soft)]">
           {t('duplicateDialog.body', { count: conflicts.length })}
         </p>
@@ -130,7 +147,7 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
                         aria-pressed={selected}
                         disabled={disabled}
                         data-choice={key}
-                        onClick={() => setChoices((prev) => ({ ...prev, [c.record.id]: key }))}
+                        onClick={() => setReview((s) => duplicateReviewReduce(s, { type: 'choose', id: c.record.id, choice: key }))}
                         className={`${base} ${tone}`}
                       >
                         {t(`duplicateDialog.choice_${key}`)}

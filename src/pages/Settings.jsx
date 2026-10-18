@@ -17,6 +17,7 @@ import { formatExchangeRateInputValue } from '../utils/rateDisplay';
 import TripManager from '../components/trip/TripManager';
 import { Copy, Download, FileText, Upload, Trash2, Edit, RefreshCw } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
+import { visiblePlanLabel } from '../utils/planBadge';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -362,14 +363,14 @@ export default function Settings() {
               ? 'bg-[var(--accent-strong)] text-white'
               : 'bg-[var(--paper-soft)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
           }`}>
-            {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
+            {visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') }) || t('auth.loading')}
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
             <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingPlanLabel')}</p>
-            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">{billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}</p>
+            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">{visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') }) || t('auth.loading')}</p>
             <p className="mt-1 text-xs text-[color:var(--ink-muted)]">
               {billing.subscriptionStatus
                 ? t('settings.billingStatusValue', { status: billing.subscriptionStatus })

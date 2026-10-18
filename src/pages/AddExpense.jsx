@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { getSelectableExpenseCategories } from '../utils/expenseCategories';
-import { todayISO } from '../utils/date';
+import { todayISO, formatDateToDisplay } from '../utils/date';
 import { ArrowLeft, Check } from '../components/ui/Icons';
 import ExpenseFormPricingSection from '../components/expense/ExpenseFormPricingSection';
 
@@ -41,7 +41,7 @@ export default function AddExpense() {
 
     addExpense({
       id: `exp-${Date.now()}`,
-      date: form.date,
+      date: formatDateToDisplay(form.date),
       store: form.merchant || '未命名',
       location: form.location || '',
       category: form.category,

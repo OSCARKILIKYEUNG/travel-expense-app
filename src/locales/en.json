@@ -412,6 +412,7 @@
     "customCategoryAdded": "Added category “{{name}}”",
     "customCategoryRemoved": "Removed “{{name}}”; related expenses moved to “other”",
     "duplicateResolved": "Duplicates handled: {{skipped}} skipped, {{kept}} kept, {{replaced}} replaced",
+    "duplicateDecideLater": "Kept the new record and marked it as a possible duplicate",
     "replaceUndone": "Old record restored"
   },
   "duplicateDialog": {

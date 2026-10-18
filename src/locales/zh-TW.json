@@ -412,6 +412,7 @@
     "customCategoryAdded": "已新增類別「{{name}}」",
     "customCategoryRemoved": "已刪除類別「{{name}}」，相關支出已改為「其他」",
     "duplicateResolved": "已處理重複單據：略過 {{skipped}} 張，保留 {{kept}} 張，取代 {{replaced}} 張",
+    "duplicateDecideLater": "已保留新記錄並標示可能重複",
     "replaceUndone": "已還原舊記錄"
   },
   "duplicateDialog": {

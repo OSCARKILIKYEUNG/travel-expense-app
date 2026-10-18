@@ -14,6 +14,7 @@ import {
 } from '../../utils/personShare';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
 import { resolveAssigneeDisplay } from '../../utils/people';
+import { expenseDateLabel } from '../../utils/date';
 
 function refundEpsilon(currency) {
   const c = (currency || 'HKD').toUpperCase();
@@ -149,7 +150,7 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
                 {t(`receiptTypes.${expense.receiptType}`, { defaultValue: expense.receiptType })}
               </span>
             )}
-            <span className="text-slate-400 text-[10px]">{expense.date}</span>
+            <span className="text-slate-400 text-[10px]">{expenseDateLabel(expense.date)}</span>
           </div>
           <h3 className="font-bold text-slate-800 truncate">{storeDisplay}</h3>
           <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">

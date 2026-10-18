@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DataService from '../services/DataService';
-import { bootstrapUserAppData, persistUserAppData } from '../services/syncSupabase';
+import { bootstrapUserAppData, enqueuePersistUserAppData } from '../services/syncSupabase';
 import { supabase } from '../lib/supabaseClient';
 import { sortExpenses } from '../utils/date';
 import { toHome } from '../utils/currency';
@@ -23,7 +23,10 @@ import {
   isUndoActive,
   undoReplace,
   dismissDuplicate,
+  reconcileUndoState,
+  duplicateResolutionToastKey,
 } from '../utils/duplicateDecisions';
+import { replaceUndoStorageKey } from '../utils/persistMerge';
 
 const AppContext = createContext(null);
 
@@ -198,7 +201,10 @@ function AppProviderInner({ children, userId }) {
   const setExpenses = useCallback((val) => {
     setExpensesState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
+      // Write the trip blob in the same turn as the expenses cache. The cloud
+      // payload is trips_data, and the debounced upsert must not read the pre-replace list.
       DataService.saveExpenses(next);
+      DataService.updateCurrentTripExpenses(next);
       return next;
     });
   }, []);
@@ -224,7 +230,9 @@ function AppProviderInner({ children, userId }) {
 
   useEffect(() => {
     const id = setTimeout(() => {
-      persistUserAppData(userId).catch((err) => {
+      // Snapshot is taken when the queued upload runs, after trip expenses
+      // have been written. Overlapping uploads are serialized.
+      enqueuePersistUserAppData(userId).catch((err) => {
         console.error('[sync]', err);
         const msg =
           err?.message ||
@@ -382,7 +390,7 @@ function AppProviderInner({ children, userId }) {
   }, [notify]);
 
   // ---- Duplicate review: resolve conflicts, replace undo ----
-  const undoStorageKey = `travel_replace_undo:${userId}`;
+  const undoStorageKey = replaceUndoStorageKey(userId);
   const expensesRef = useRef(expenses);
   expensesRef.current = expenses;
 
@@ -390,8 +398,14 @@ function AppProviderInner({ children, userId }) {
     try {
       const raw = localStorage.getItem(undoStorageKey);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && parsed.expiresAt > Date.now()) return parsed;
-      if (raw) localStorage.removeItem(undoStorageKey);
+      const tripId = DataService.loadTripsData().currentTripId;
+      const next = reconcileUndoState(parsed, DataService.loadExpenses(), tripId);
+      if (!next) {
+        if (raw) localStorage.removeItem(undoStorageKey);
+        return null;
+      }
+      if (next !== parsed) localStorage.setItem(undoStorageKey, JSON.stringify(next));
+      return next;
     } catch { /* ignore */ }
     return null;
   });
@@ -418,7 +432,10 @@ function AppProviderInner({ children, userId }) {
     setExpenses(sortExpenses(result.expenses));
     setReplaceUndo(createUndoState(result.undoEntries, currentTripId));
     const { skipped, kept, replaced, pending } = result.summary;
-    notify(i18n.t('toast.duplicateResolved', { skipped, kept: kept + pending, replaced }));
+    const toastKey = duplicateResolutionToastKey(result.summary);
+    notify(toastKey === 'toast.duplicateDecideLater'
+      ? i18n.t(toastKey)
+      : i18n.t(toastKey, { skipped, kept: kept + pending, replaced }));
     return result.summary;
   }, [currentTripId, notify, setExpenses, setReplaceUndo]);
 

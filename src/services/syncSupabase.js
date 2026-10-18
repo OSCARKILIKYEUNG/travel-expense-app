@@ -1,8 +1,10 @@
-import DataService, { KEYS, scopedLocalStorageKey } from './DataService';
+import DataService from './DataService';
 import { supabase } from '../lib/supabaseClient';
+import { mergeRemoteWithLocalStorage } from '../utils/persistMerge';
 
 /**
- * 從 Supabase 拉取並寫入本機快取（localStorage），若無列則以預設旅程建立並上傳。
+ * Pull Supabase into the local cache, or seed a row when the user has none.
+ * A newer local replace is kept: an older remote blob must not clobber it.
  */
 export async function bootstrapUserAppData(userId) {
   if (!supabase) throw new Error('Supabase not configured');
@@ -17,22 +19,8 @@ export async function bootstrapUserAppData(userId) {
   if (error) throw error;
 
   if (data) {
-    localStorage.setItem(
-      scopedLocalStorageKey(userId, KEYS.TRIPS),
-      JSON.stringify(data.trips_data)
-    );
-    localStorage.setItem(
-      scopedLocalStorageKey(userId, KEYS.SETTINGS),
-      JSON.stringify(data.app_settings)
-    );
-    localStorage.setItem(
-      scopedLocalStorageKey(userId, KEYS.PEOPLE),
-      JSON.stringify(data.people_list)
-    );
-    const td = DataService.loadTripsData();
-    const trip = DataService.getCurrentTrip(td);
-    DataService.saveExpenses(trip?.expenses || []);
-    return { source: 'remote' };
+    const merged = mergeRemoteWithLocalStorage(localStorage, userId, data);
+    return { source: merged.source };
   }
 
   DataService.loadTripsData();
@@ -43,19 +31,35 @@ export async function bootstrapUserAppData(userId) {
 }
 
 /**
- * 將目前 DataService（本機快取）完整狀態 upsert 至 Supabase。
+ * One uploader at a time. A slow older request must not finish after a newer
+ * snapshot and put the pre-replace blob back on the server.
+ */
+let persistTail = Promise.resolve();
+
+export function enqueuePersistUserAppData(userId) {
+  const run = persistTail.then(() => persistUserAppData(userId));
+  persistTail = run.then(() => {}, () => {});
+  return run;
+}
+
+/**
+ * Upsert the current DataService cache. The payload is read when the call runs,
+ * not when it was scheduled, so a debounced flush sees the latest replace.
  */
 export async function persistUserAppData(userId) {
   if (!supabase) return;
   DataService.setStorageScope(userId);
 
+  const trips = DataService.loadTripsData();
+  const updatedAt = trips?.updatedAt || new Date().toISOString();
+
   const { error } = await supabase.from('user_app_data').upsert(
     {
       user_id: userId,
-      trips_data: DataService.loadTripsData(),
+      trips_data: trips,
       app_settings: DataService.loadSettings(),
       people_list: DataService.loadPeople(),
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     },
     { onConflict: 'user_id' }
   );

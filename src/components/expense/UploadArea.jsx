@@ -8,6 +8,7 @@ import { buildAllowedExpenseCategories } from '../../utils/expenseCategories';
 import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
 import { splitBatchByDuplicates } from '../../utils/duplicates';
 import DuplicateReviewDialog from './DuplicateReviewDialog';
+import { visiblePlanLabel } from '../../utils/planBadge';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
@@ -38,6 +39,7 @@ export default function UploadArea() {
   const expensesRef = useRef(expenses);
   expensesRef.current = expenses;
   const uploadBlocked = !loading && !billing.hasUnlimitedScans && (billing.remainingFreeScans ?? 0) <= 0;
+  const planLabel = visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') });
 
   const handleOpenPicker = (e) => {
     if (!uploadBlocked) return;
@@ -112,21 +114,25 @@ export default function UploadArea() {
           <div>
             <p className="eyebrow">{t('upload.noteLabel')}</p>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              {billing.hasUnlimitedScans
-                ? t('upload.proQuotaReady')
-                : t('upload.freeQuota', {
-                  remaining: billing.remainingFreeScans ?? 0,
-                  limit: billing.freeScanLimit,
-                })}
+              {billing.loading
+                ? t('auth.loading')
+                : billing.hasUnlimitedScans
+                  ? t('upload.proQuotaReady')
+                  : t('upload.freeQuota', {
+                    remaining: billing.remainingFreeScans ?? 0,
+                    limit: billing.freeScanLimit,
+                  })}
             </p>
           </div>
-          <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-            billing.hasUnlimitedScans
-              ? 'bg-[var(--accent-strong)] text-white'
-              : 'bg-[var(--paper)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
-          }`}>
-            {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
-          </div>
+          {planLabel && (
+            <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+              billing.hasUnlimitedScans
+                ? 'bg-[var(--accent-strong)] text-white'
+                : 'bg-[var(--paper)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
+            }`}>
+              {planLabel}
+            </div>
+          )}
         </div>
       </div>
       <input type="file" accept="image/*" multiple ref={ref} onChange={handleFiles} className="hidden" id="receipt-upload" />

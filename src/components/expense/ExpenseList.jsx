@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getExpenseStoreDisplay } from '../../utils/displayNames';
 import { useApp } from '../../store/AppContext';
-import { sortExpenses } from '../../utils/date';
+import { sortExpenses, expenseDateKey, expenseDateLabel } from '../../utils/date';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { detectDuplicates } from '../../utils/duplicates';
 import { hasPricingRelatedChanges } from '../../utils/expensePricing';
@@ -38,12 +38,13 @@ export default function ExpenseList() {
     );
   }
 
-  let lastDate = '';
+  let lastKey = '';
   const rows = [];
   for (const item of filtered) {
-    if (item.date !== lastDate) {
-      lastDate = item.date;
-      rows.push({ type: 'divider', date: item.date, key: `d-${item.date}` });
+    const dayKey = expenseDateKey(item.date);
+    if (dayKey !== lastKey) {
+      lastKey = dayKey;
+      rows.push({ type: 'divider', date: expenseDateLabel(item.date), key: `d-${dayKey}` });
     }
     rows.push({ type: 'expense', data: item, key: item.id });
   }
