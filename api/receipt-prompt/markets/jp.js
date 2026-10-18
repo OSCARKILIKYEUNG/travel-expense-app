@@ -14,8 +14,9 @@ export const MARKET_JP = `
 ■ 日本小票常見標記：
   - 行末「内」→ 該行金額含消費稅；「外」→ 未稅（小計多為未稅加總）。
   - 多稅率（8% 軽減 + 10%）仍常以 tax_inclusive 呈現時，以**行加總與合計關係**為準。
-  - 品項 name／name_en 照該行收據品名翻譯，禁止改成「食品」「飲料」「商品」「日用品」等泛稱，也不要依 8%／10% 把多行併成一個稅率類別。
-  - 品名必須抄寫收據該行印出的文字再翻譯。看不清時把可見原文放進 original_name，禁止改成「商品A」「商品B」等代稱。
+  - **品名／店名語系（必守）**：name 與 store 填**繁體中文翻譯**；original_name 與 store_original 填收據印出的日文／英文原文。禁止把日文原文直接當 name／store。禁止改成「食品」「飲料」「商品」「日用品」等泛稱，也不要依 8%／10% 把多行併成一個稅率類別。
+  - 譯名須對應該行印字（可辨識品牌／品類），不可臆造。看不清時可見原文放 original_name，禁止改成「商品A」「商品B」等代稱。
+  - 店名例：LAWSON → 羅森（store_original 保留 LAWSON…）；UNIQLO → 優衣庫；ドン・キホーテ／DON QUIJOTE → 唐吉訶德。
 
 ■ 免税取引（淨價免稅，如唐吉訶德 ★免税品）：
   - 收據標明「免税取引」或「★免税品」→ receipt_type 必須為 "net_tax_free"。
@@ -50,9 +51,9 @@ export const MARKET_JP = `
   detected_market: "JP"
   receipt_type: "instant_tax_free"
   items: [
-    {name:"西裝外套", price:6590, price_actual:5991},
-    {name:"外套", price:7690, price_actual:6991},
-    {name:"GB 佣金", price:286, price_actual:286, exclude_from_refund_split:true}
+    {name:"西裝外套", original_name:"BLAZER", name_en:"Blazer", price:6590, price_actual:5991},
+    {name:"外套", original_name:"JACKET", name_en:"Jacket", price:7690, price_actual:6991},
+    {name:"GB 佣金", original_name:"GB Commis", name_en:"GB commission", price:286, price_actual:286, exclude_from_refund_split:true}
   ]
   subtotal: 20576, total_amount: 18732, tax_refund: -1844
   ⚠ subtotal 必須保留印字 20576，不要改成實付 18732。BLAZER／JACKET 必須填 price_actual。
@@ -65,7 +66,7 @@ export const MARKET_JP = `
 正確輸出：
   detected_market: "JP"
   has_bundle: true
-  items: [{name:"女士內褲 セット×12", price:5940}, ...其他品項照常]
+  items: [{name:"女士內褲 套裝×12", original_name:"Wショーツ セット×12", name_en:"Women shorts set x12", price:5940}, ...其他品項照常]
   ⚠ セット內的 12 件 @590 不要各自列出！items 加總應 ≈ 28,130。
   即時免稅（UNIQLO）：小計 ¥28,130、免税 ¥2,557、合計 ¥25,573。
   tax_refund 只填 -2557。同一筆不要再填 discount（discount 必須為 0）。subtotal 必須是 28130，不要改成實付 25573。
@@ -83,7 +84,7 @@ export const MARKET_JP = `
 ═══════════════════════════════════════════
 日本範例 E — 淨價免稅（唐吉訶德／免税取引，免税額 ≠ 消費税）
 ═══════════════════════════════════════════
-收據：免税取引／★免税品。品項已是免稅後價（例 ¥1,280、¥2,980、¥1,833；品名照收據逐行翻譯，勿寫「商品A」）。
+收據：免税取引／★免税品。品項已是免稅後價（例 ¥1,280、¥2,980、¥1,833；name 繁中、original_name 日文原文，勿寫「商品A」）。
 消費税等 ¥0、免税 ¥609、合計 ¥6,093。609 是免税額，不是消費税。
 正確輸出：
   detected_market: "JP"
@@ -96,12 +97,12 @@ export const MARKET_JP = `
 ═══════════════════════════════════════════
 日本範例 F — 內稅多稅率（LAWSON，軽 8% + 10%）
 ═══════════════════════════════════════════
-收據：商品行照收據品名翻譯（禁止改成「商品A」）。合計 ¥2,359。
+收據：商品行 name=繁中、original_name=日文印字（禁止改成「商品A」）。store 例「羅森」，store_original「LAWSON…」。合計 ¥2,359。
 底部另有 (8%)／(10%) 対象額與内消費税（例如稅額 ¥20 與 ¥72）。那些是已含在合計裡的摘要，不是新的品項。
 正確輸出：
   detected_market: "JP"
   receipt_type: "tax_inclusive"
-  items: [{name:"〈該行品名〉", name_en:"〈英文〉", price:〈該行印字〉}, ...]
+  items: [{name:"〈繁中品名〉", original_name:"〈日文印字〉", name_en:"〈英文〉", price:〈該行印字〉}, ...]
   subtotal: 2359, tax: 0, total_amount: 2359, tax_refund: 0
   ⚠ 禁止 subtotal 1076、tax 92。禁止 total_amount = subtotal + tax。禁止用「商品A」或稅率類別取代品名。
 `.trim();

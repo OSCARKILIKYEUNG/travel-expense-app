@@ -241,6 +241,7 @@ export function buildExpenseFromAI(
           ...item,
           name,
           ...(nameEn ? { nameEn } : {}),
+          ...(originalName ? { originalName } : {}),
           price,
           ...(priceActual !== undefined ? { priceActual } : {}),
           excludeFromRefundSplit,
@@ -438,6 +439,9 @@ export function buildExpenseFromAI(
 
   const locationEn = String(result.location_en || result.locationEn || '').trim();
   const storeEn = String(result.store_en || result.storeEn || '').trim();
+  const storeOriginal = String(
+    result.store_original || result.storeOriginal || '',
+  ).trim();
 
   const category =
     Array.isArray(allowedExpenseCategories) && allowedExpenseCategories.length > 0
@@ -451,6 +455,7 @@ export function buildExpenseFromAI(
     location: result.location || '未知地點',
     ...(locationEn ? { locationEn } : {}),
     store: result.store || '未知店舖',
+    ...(storeOriginal ? { storeOriginal } : {}),
     ...(storeEn ? { storeEn } : {}),
     category,
     items,

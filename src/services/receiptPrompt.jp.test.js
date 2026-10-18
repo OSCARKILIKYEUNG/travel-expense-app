@@ -31,7 +31,8 @@ describe('JP prompt — E2 exemption and A inclusive multi-rate', () => {
     expect(SYSTEM_PROMPT).toContain('禁止改成「食品」「飲料」「商品」「日用品」');
     expect(SYSTEM_PROMPT).toContain('是已含在合計裡的摘要，不是新的品項');
     expect(SYSTEM_PROMPT).toContain('禁止改成「商品A」');
-    expect(SYSTEM_PROMPT).toContain('抄寫收據該行印出的文字');
+    expect(SYSTEM_PROMPT).toContain('name 與 store 填**繁體中文翻譯**');
+    expect(SYSTEM_PROMPT).toContain('original_name 與 store_original');
     expect(SYSTEM_PROMPT).toContain('不要當成細項與實付不一致');
   });
 
@@ -334,5 +335,59 @@ describe('buildExpenseFromAI — B/C/D/G unchanged', () => {
     expect(sumForInstantTaxFreeCheck(expense.items)).toBe(18732);
     expect(expense.needsReview).toBeUndefined();
     expect(expense.items[2].excludeFromRefundSplit).toBe(true);
+  });
+});
+
+describe('JP prompt + normalizer — 繁中 display names', () => {
+  it('requires Traditional Chinese name/store and original_* fields in the prompt', () => {
+    expect(SYSTEM_PROMPT).toContain('把日文／韓文等收據原文直接放進 name 或 store');
+    expect(SYSTEM_PROMPT).toContain('store_original');
+    expect(SYSTEM_PROMPT).toContain('LAWSON → 羅森');
+    expect(SYSTEM_PROMPT).toContain('UNIQLO → 優衣庫');
+    expect(SYSTEM_PROMPT).toContain('唐吉訶德');
+    expect(SYSTEM_PROMPT).toContain('禁止臆造');
+  });
+
+  it('preserves originalName on items and storeOriginal on the expense', () => {
+    const expense = fromAI({
+      detected_market: 'JP',
+      receipt_type: 'tax_inclusive',
+      store: '羅森 台場車站前店',
+      store_original: 'LAWSON H台場駅前店',
+      store_en: 'LAWSON Odaiba',
+      currency: 'JPY',
+      items: [
+        {
+          name: '炸雞塊',
+          original_name: 'からあげくん',
+          name_en: 'Karaage-kun',
+          price: 148,
+        },
+        { name: '茶', original_name: 'お茶', name_en: 'Tea', price: 220 },
+      ],
+      subtotal: 2359,
+      tax: 0,
+      total_amount: 2359,
+    });
+
+    expect(expense.store).toBe('羅森 台場車站前店');
+    expect(expense.storeOriginal).toBe('LAWSON H台場駅前店');
+    expect(expense.storeEn).toBe('LAWSON Odaiba');
+    expect(expense.items[0].name).toBe('炸雞塊');
+    expect(expense.items[0].originalName).toBe('からあげくん');
+    expect(expense.items[0].nameEn).toBe('Karaage-kun');
+    expect(expense.items[1].originalName).toBe('お茶');
+  });
+
+  it('still prefers original_name when name is a placeholder', () => {
+    const expense = fromAI({
+      receipt_type: 'tax_inclusive',
+      items: [
+        { name: '商品A', original_name: 'からあげくん', name_en: 'Karaage-kun', price: 148 },
+      ],
+      total_amount: 148,
+    });
+    expect(expense.items[0].name).toBe('からあげくん');
+    expect(expense.items[0].originalName).toBe('からあげくん');
   });
 });

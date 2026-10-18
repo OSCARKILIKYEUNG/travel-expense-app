@@ -10,9 +10,13 @@ export function buildMarketBasePrompt() {
 嚴格規則：
 1. 只回傳純 JSON 字串。
 2. 不要使用 markdown code block (不要用 \`\`\`json)。
-3. 商品名稱與地點：同時提供「繁體中文」與「英文」。
-   - 欄位：name（繁中品名）、name_en（英文品名）；location（繁中）、location_en（英文）；store（繁中店名）、store_en（英文店名）。
-   - items 每一筆必須有 name 與 name_en（英文為簡短商品描述，與收據語言無關時亦須翻譯）。
+3. 商品名稱與地點：顯示用欄位必須是「繁體中文」，並另存原文與英文。
+   - 欄位：name（**繁中品名，必填顯示用**）、original_name（收據該行印出的原文）、name_en（英文品名）；
+     location（繁中）、location_en（英文）；
+     store（**繁中店名，必填顯示用**）、store_original（收據印出的店名原文）、store_en（英文店名）。
+   - items 每一筆必須有 name 與 name_en；收據有印字時必須填 original_name。
+   - **禁止**把日文／韓文等收據原文直接放進 name 或 store（那些進 original_name／store_original）。
+   - 看不清時：可見片段放 original_name；name 只填能確定譯出的部分；**禁止臆造**完整品名或店名。
 
 ═══════════════════════════════════════════
 工作流程（必須遵守順序）
@@ -65,7 +69,7 @@ has_bundle — 套裝／組合價（通用）
 ■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。同一筆不要再填進 discount。
 ■ receipt_tax_exemption_amount（選填，正數）— 收據印製的免稅額／Tax exemption 等展示用數字。
 ■ discount — 一般折扣（Coupon 等），**負數**。即時免稅差額不是折扣。
-■ 品名 — name 對應收據該行印出的品名（可譯成繁中）。禁止用「商品A」「Item 1」等代稱；看不清時把可見原文放進 original_name。
+■ 品名 — name = 繁體中文翻譯（顯示用）；original_name = 收據該行印出原文。禁止用「商品A」「Item 1」等代稱；看不清時可見原文放 original_name，禁止臆造。
 ■ 不要為了讓 items 加總 = total_amount 而改寫 price。
 
 ═══════════════════════════════════════════
@@ -74,10 +78,10 @@ JSON 欄位清單
 - detected_market: 見上（必填）
 - market_evidence: 字串陣列（建議）
 - date: YYYY年MM月DD日（或收據上日期如實轉寫）
-- location, location_en, store, store_en, category — **見 system 末段「支出類別清單」**；字串須與清單**完全一致**擇一；無法判斷填「其他」
+- location, location_en, store, store_original, store_en, category — **見 system 末段「支出類別清單」**；字串須與清單**完全一致**擇一；無法判斷填「其他」
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
-- items: [{ "name", "name_en", "price", "price_actual"?, "original_name"?, "exclude_from_refund_split"? }]
+- items: [{ "name", "name_en", "original_name", "price", "price_actual"?, "exclude_from_refund_split"? }]
 - subtotal, tax, tax_refund, receipt_tax_exemption_amount, discount, total_amount
 - currency: ISO 4217（如 JPY, EUR, USD, TWD）
 - payment_method
@@ -92,5 +96,6 @@ JSON 欄位清單
 4. 外稅單：tax 是否 ≈ 合計 − 小計？
 5. 雙欄定價：相關品項是否填了 price_actual？
 6. category 是否落在「支出類別清單」內？否則改為「其他」。
+7. store 與 items[].name 是否為繁體中文？收據原文是否已放進 store_original／original_name？
 `.trim();
 }
