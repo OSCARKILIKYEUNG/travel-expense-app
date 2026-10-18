@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { STRIPE_UI_ENABLED } from '../config/features';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -352,7 +353,9 @@ export default function Settings() {
           <div className="space-y-1">
             <p className="eyebrow">{t('settings.billingEyebrow')}</p>
             <h2 className="section-title">{t('settings.billingTitle')}</h2>
-            <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
+            {STRIPE_UI_ENABLED && (
+              <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
+            )}
           </div>
           <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
             billing.hasUnlimitedScans
@@ -391,6 +394,7 @@ export default function Settings() {
             </p>
           </div>
 
+          {STRIPE_UI_ENABLED && (
           <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
             <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingNextLabel')}</p>
             <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
@@ -400,9 +404,11 @@ export default function Settings() {
               {billing.hasUnlimitedScans ? t('settings.billingEnjoyProHint') : t('settings.billingUpgradeHint')}
             </p>
           </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {STRIPE_UI_ENABLED && (
           <button
             type="button"
             className="btn-primary text-sm !py-2"
@@ -413,6 +419,7 @@ export default function Settings() {
               ? t('settings.billingSubscribed')
               : checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
           </button>
+          )}
           <button
             type="button"
             className="btn-secondary text-sm !py-2 flex items-center gap-2"

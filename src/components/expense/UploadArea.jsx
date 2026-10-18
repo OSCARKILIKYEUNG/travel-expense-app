@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { STRIPE_UI_ENABLED } from '../../config/features';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../store/AppContext';
@@ -34,7 +35,7 @@ export default function UploadArea() {
   const handleOpenPicker = (e) => {
     if (!uploadBlocked) return;
     e.preventDefault();
-    notify(t('settings.billingUpgradePrompt'), 'warning');
+    notify(STRIPE_UI_ENABLED ? t('settings.billingUpgradePrompt') : t('upload.scanLimitReached'), 'warning');
   };
 
   const handleFiles = async (e) => {
@@ -138,7 +139,7 @@ export default function UploadArea() {
               <ImageIcon size={28} />
             </div>
             <p className="font-semibold tracking-[-0.01em] text-[color:var(--ink)] text-base">
-              {uploadBlocked ? t('settings.billingUpgradePrompt') : t('upload.batch')}
+              {uploadBlocked ? (STRIPE_UI_ENABLED ? t('settings.billingUpgradePrompt') : t('upload.scanLimitReached')) : t('upload.batch')}
             </p>
             <p className="text-[color:var(--ink-muted)] text-xs max-w-[18rem]">{t('upload.hint')}</p>
           </div>

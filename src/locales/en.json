@@ -91,6 +91,7 @@
     "copyFailed": "Copy failed"
   },
   "upload": {
+    "scanLimitReached": "Free AI scans used up. Manual entry is still available.",
     "noteLabel": "Receipt note",
     "batch": "Upload receipts",
     "hint": "Drop in receipt photos and let AI turn them into notebook entries.",

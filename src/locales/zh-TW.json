@@ -91,6 +91,7 @@
     "copyFailed": "複製失敗"
   },
   "upload": {
+    "scanLimitReached": "免費 AI 掃描已用完，仍可手動記帳。",
     "noteLabel": "收據筆記",
     "batch": "批量上傳單據",
     "hint": "放入收據照片，讓 AI 把它們整理成你的旅遊筆記條目。",
