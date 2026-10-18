@@ -6,6 +6,8 @@ import { useApp } from '../../store/AppContext';
 import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
 import { buildAllowedExpenseCategories } from '../../utils/expenseCategories';
 import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
+import { splitBatchByDuplicates } from '../../utils/duplicates';
+import DuplicateReviewDialog from './DuplicateReviewDialog';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
@@ -14,6 +16,8 @@ export default function UploadArea() {
   const {
     exchangeRates,
     addExpenses,
+    expenses,
+    resolveDuplicateConflicts,
     notify,
     tripCurrency,
     defaultAssignee,
@@ -30,6 +34,9 @@ export default function UploadArea() {
   const [step, setStep] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const ref = useRef(null);
+  const [conflicts, setConflicts] = useState([]);
+  const expensesRef = useRef(expenses);
+  expensesRef.current = expenses;
   const uploadBlocked = !loading && !billing.hasUnlimitedScans && (billing.remainingFreeScans ?? 0) <= 0;
 
   const handleOpenPicker = (e) => {
@@ -76,7 +83,10 @@ export default function UploadArea() {
     }
 
     if (results.length > 0) {
-      addExpenses(results);
+      // Compare against the current trip (and earlier receipts in this batch). Non-duplicates are added now.
+      const { clean, conflicts: found } = splitBatchByDuplicates(results, expensesRef.current);
+      if (clean.length > 0) addExpenses(clean);
+      if (found.length > 0) setConflicts(found);
       setStep(t('upload.success', { ok: results.length, total: files.length }));
       setTimeout(() => { setLoading(false); setStep(''); }, 1500);
     } else {
@@ -90,6 +100,13 @@ export default function UploadArea() {
 
   return (
     <div className="space-y-3">
+      <DuplicateReviewDialog
+        open={conflicts.length > 0}
+        conflicts={conflicts}
+        existing={expenses}
+        onConfirm={(decisions) => { resolveDuplicateConflicts(conflicts, decisions); setConflicts([]); }}
+        onClose={() => { resolveDuplicateConflicts(conflicts, {}); setConflicts([]); }}
+      />
       <div className="rounded-[28px] border border-[var(--paper-border)] bg-[var(--paper-soft)] px-4 py-3 shadow-[0_8px_24px_rgba(114,90,56,0.08)]">
         <div className="flex items-center justify-between gap-3">
           <div>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getExpenseStoreDisplay } from '../../utils/displayNames';
 import { useApp } from '../../store/AppContext';
 import { sortExpenses } from '../../utils/date';
 import { resolveAssigneeDisplay } from '../../utils/people';
@@ -10,8 +11,8 @@ import DeleteConfirmDialog from './DeleteConfirmDialog';
 import EditExpenseDialog from './EditExpenseDialog';
 
 export default function ExpenseList() {
-  const { t } = useTranslation();
-  const { expenses, filterPerson, removeExpense, updateExpense, people } = useApp();
+  const { t, i18n } = useTranslation();
+  const { expenses, filterPerson, removeExpense, updateExpense, dismissExpenseDuplicate, people } = useApp();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
@@ -64,6 +65,14 @@ export default function ExpenseList() {
               key={row.key}
               expense={row.data}
               isDuplicate={duplicateIds.has(row.data.id)}
+              duplicateOf={(() => {
+                const info = duplicateIds.get(row.data.id);
+                const other = info && expenses.find((x) => x.id === info.ofId);
+                return other
+                  ? { date: other.date, store: getExpenseStoreDisplay(other, i18n.language, t) }
+                  : null;
+              })()}
+              onDismissDuplicate={(e) => dismissExpenseDuplicate(e.id)}
               onEdit={(e) => setEditTarget({ ...e })}
               onDelete={(e) => setDeleteTarget(e)}
             />
