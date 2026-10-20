@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CURRENCY_NAMES } from '../../utils/constants';
 import { inferFixedFeeFromName } from '../../utils/personShare';
+import ConfirmDeleteDialog from '../ui/ConfirmDeleteDialog';
+
+function isBlankLineItem(item) {
+  const nameBlank = !String(item?.name || '').trim();
+  if (!nameBlank) return false;
+  const price = item?.price;
+  if (price == null || price === '') return true;
+  const numeric = Number(price);
+  return !Number.isFinite(numeric) || numeric === 0;
+}
 
 /** 細項表頭與每一列共用欄寬，末欄容納「刪除」或「新增」按鈕 */
 const ITEM_ROW_GRID =
@@ -22,6 +32,7 @@ export default function ExpenseFormPricingSection({
   const newPriceRef = useRef(null);
   const [draftItemAssign, setDraftItemAssign] = useState(() => form.assignedTo || defaultAssignee);
   const [draftItemFixed, setDraftItemFixed] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   useEffect(() => {
     setDraftItemAssign(form.assignedTo || defaultAssignee);
@@ -39,6 +50,20 @@ export default function ExpenseFormPricingSection({
   };
 
   const removeItem = (idx) => patch({ items: (form.items || []).filter((_, i) => i !== idx) });
+
+  const requestRemoveItem = (idx) => {
+    const item = (form.items || [])[idx];
+    if (!item || isBlankLineItem(item)) {
+      removeItem(idx);
+      return;
+    }
+    setPendingRemove(idx);
+  };
+
+  const pendingItem = pendingRemove == null ? null : (form.items || [])[pendingRemove];
+  const pendingName = pendingItem
+    ? (String(pendingItem.name || '').trim() || t('deleteDialog.lineItemFallback', { n: pendingRemove + 1 }))
+    : '';
 
   const addItem = (name, price, assignedTo, fixedExcluded) => {
     patch({
@@ -243,7 +268,7 @@ export default function ExpenseFormPricingSection({
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => removeItem(idx)}
+                      onClick={() => requestRemoveItem(idx)}
                       className="text-red-400 hover:text-red-600 w-8 h-8 flex items-center justify-center font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded-lg"
                       aria-label={t('editExpense.removeItem')}
                     >
@@ -314,6 +339,15 @@ export default function ExpenseFormPricingSection({
           </div>
         </div>
       </div>
+      <ConfirmDeleteDialog
+        open={pendingItem != null}
+        name={pendingName}
+        onConfirm={() => {
+          if (pendingRemove != null) removeItem(pendingRemove);
+          setPendingRemove(null);
+        }}
+        onCancel={() => setPendingRemove(null)}
+      />
     </div>
   );
 }

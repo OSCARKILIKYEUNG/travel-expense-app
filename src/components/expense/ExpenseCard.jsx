@@ -15,6 +15,16 @@ import {
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { expenseDateLabel } from '../../utils/date';
+import { formatMoney, formatNumber } from '../../utils/currency';
+
+function groupedAmount(value) {
+  if (value == null || value === '') return '';
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return typeof value === 'number' ? formatNumber(0) : String(value);
+  const frac = Math.abs(n % 1);
+  const decimals = frac > 1e-6 && frac < 1 - 1e-6 ? 2 : 0;
+  return formatNumber(n, decimals);
+}
 
 function refundEpsilon(currency) {
   const c = (currency || 'HKD').toUpperCase();
@@ -163,21 +173,21 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
           {isPartialMatch ? (
             <>
               <p className="text-lg font-bold text-violet-700">
-                <span className="text-[10px] text-violet-400 font-normal mr-0.5">{homeCurrencyCode}</span>
-                {Math.round(displayAmount.hkd).toLocaleString()}
+                {formatMoney(displayAmount.hkd, { code: homeCurrencyCode })}
               </p>
               <p className="text-[10px] text-violet-400">
-                {Math.round(displayAmount.orig).toLocaleString()} {displayAmount.currency}
+                {formatMoney(displayAmount.orig, { code: displayAmount.currency })}
               </p>
             </>
           ) : (
             <>
               <p className="text-xl font-bold text-slate-900">
-                <span className="text-xs text-slate-400 font-normal">{homeCurrencyCode} </span>
-                {Math.round(displayAmount.hkd).toLocaleString()}
+                {formatMoney(displayAmount.hkd, { code: homeCurrencyCode })}
               </p>
               <p className="text-xs text-slate-500 font-medium">
-                {displayAmount.orig?.toLocaleString()} {displayAmount.currency}
+                {displayAmount.orig == null
+                  ? ''
+                  : formatMoney(displayAmount.orig, { code: displayAmount.currency })}
               </p>
             </>
           )}
@@ -234,12 +244,12 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
                       {showDual ? (
                         <span className="inline-flex items-center gap-1">
                           <span className="line-through text-slate-400 text-[10px]">
-                            {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                            {groupedAmount(item.price)}
                           </span>
-                          <span>{item.priceActual.toLocaleString()}</span>
+                          <span>{groupedAmount(item.priceActual)}</span>
                         </span>
                       ) : (
-                        typeof single === 'number' ? single.toLocaleString() : single
+                        groupedAmount(single)
                       )}
                     </span>
                   </li>
@@ -249,38 +259,38 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
             {shouldShowListSubtotal(expense) && (
               <div className="flex justify-between items-center text-xs text-slate-600 mb-2 pt-1 border-t border-slate-200/80">
                 <span>{t('editExpense.subtotal')}</span>
-                <span className="font-mono tabular-nums">{Number(expense.subtotal).toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{groupedAmount(expense.subtotal)}</span>
               </div>
             )}
             {shouldShowSeparateDiscount(expense, refundRowsMeta.eff) && (
               <div className="flex justify-between items-center text-xs text-amber-800 font-medium mb-2 pt-1 border-t border-slate-200/80">
                 <span>{t('expenseCard.discountLine')}</span>
-                <span className="font-mono tabular-nums">- {Math.abs(discountAmount).toLocaleString()}</span>
+                <span className="font-mono tabular-nums">- {groupedAmount(Math.abs(discountAmount))}</span>
               </div>
             )}
             {refundRowsMeta.showTaxRow && (
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.consumptionTax')}</span>
-                <span className="font-mono tabular-nums">+ {taxAmount.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">+ {groupedAmount(taxAmount)}</span>
               </div>
             )}
             {isPartialMatch && isTaxExclusive && partialTaxShare > 0 && (
               <div className="flex justify-between items-center text-xs text-blue-700 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.consumptionTaxProportional')}</span>
-                <span className="font-mono tabular-nums">+ {partialTaxShare.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">+ {groupedAmount(partialTaxShare)}</span>
               </div>
             )}
             {refundRowsMeta.showComputedRefundRow && (
               <div className="flex justify-between items-center text-xs text-emerald-800 font-medium mb-2 pt-1.5 border-t border-slate-200/80">
                 <span>{t('expenseCard.refundDiff')}</span>
-                <span className="font-mono tabular-nums">- {refundRowsMeta.eff.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">- {groupedAmount(refundRowsMeta.eff)}</span>
               </div>
             )}
             {refundRowsMeta.showReceiptOnlyRow && !simplified && (
               <div className="mb-2 pt-1.5 border-t border-teal-200/80 space-y-1">
                 <div className="flex justify-between items-center text-xs text-teal-800 font-medium">
                   <span>{t('expenseCard.receiptExemption')}</span>
-                  <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
+                  <span className="font-mono tabular-nums">{groupedAmount(refundRowsMeta.rec)}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 leading-snug">
                   {t('expenseCard.receiptExemptionNote')}
@@ -290,7 +300,7 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
             {refundRowsMeta.showReceiptSecondaryRow && !simplified && (
               <div className="flex justify-between items-center text-[10px] text-slate-600 mb-2 pt-1 border-t border-slate-100">
                 <span>{t('expenseCard.receiptExemptionSecondary')}</span>
-                <span className="font-mono tabular-nums">{refundRowsMeta.rec.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{groupedAmount(refundRowsMeta.rec)}</span>
               </div>
             )}
 
@@ -299,19 +309,19 @@ export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismi
                 <div className="flex justify-between items-center text-xs text-slate-600">
                   <span>{t('expenseCard.subtotalGross')}</span>
                   <span className="font-mono tabular-nums">
-                    {Math.round(partialBreakdown.subtotalGross).toLocaleString()}
+                    {formatNumber(partialBreakdown.subtotalGross, 0)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-emerald-800 font-medium">
                   <span>{t('expenseCard.refundProportional')}</span>
                   <span className="font-mono tabular-nums">
-                    - {Math.round(partialBreakdown.refundShare).toLocaleString()}
+                    - {formatNumber(Math.abs(partialBreakdown.refundShare), 0)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold text-violet-800 pt-1 border-t border-violet-100">
                   <span>{t('expenseCard.netShare')}</span>
                   <span className="font-mono tabular-nums">
-                    {Math.round(partialBreakdown.netOrig).toLocaleString()} {expense.currency}
+                    {formatMoney(partialBreakdown.netOrig, { code: expense.currency })}
                   </span>
                 </div>
               </div>

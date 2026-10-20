@@ -159,6 +159,7 @@
     "billingRefreshed": "Plan status refreshed.",
     "billingRefreshError": "Could not refresh plan status right now.",
     "billingLoadWarning": "Plan data could not be refreshed automatically. Your saved data is safe.",
+    "billingPillError": "Unavailable",
     "planFree": "Free",
     "planPro": "Pro",
     "billingPlanLabel": "Current plan",
@@ -320,6 +321,7 @@
     "fixed": "Fixed",
     "fixedTitle": "Excluded from refund split (e.g. fee)",
     "removeItem": "Remove line",
+    "itemOrdinal": "Item {{n}}",
     "add": "Add",
     "cancel": "Cancel",
     "save": "Save"
@@ -355,6 +357,8 @@
   "deleteDialog": {
     "title": "Delete?",
     "message": "Delete this expense for “{{store}}”?",
+    "messageNamed": "Delete “{{name}}”? This cannot be undone.",
+    "lineItemFallback": "Item {{n}}",
     "cancel": "Cancel",
     "confirm": "Delete"
   },
@@ -371,6 +375,7 @@
     "create": "Create",
     "deleteTitle": "Delete trip",
     "deleteMessage": "Delete “{{name}}”? All expenses in this trip will be removed.",
+    "deleteDetail": "All expenses in this trip will be removed.",
     "enterName": "Enter a trip name",
     "cannotDeleteCurrent": "Switch to another trip before deleting this one",
     "keepOne": "Keep at least one trip",

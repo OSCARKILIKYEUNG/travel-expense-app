@@ -8,7 +8,7 @@ import { Plus } from '../components/ui/Icons';
 import PersonFilter from '../components/expense/PersonFilter';
 import ExpenseList from '../components/expense/ExpenseList';
 import UploadArea from '../components/expense/UploadArea';
-import { visiblePlanLabel } from '../utils/planBadge';
+import { formatMoney } from '../utils/currency';
 
 /**
  * 首頂摘要卡曾含：備份／列印／複製／圖表捷徑，已移至「設定 → 資料管理」或底部導航。
@@ -17,8 +17,7 @@ import { visiblePlanLabel } from '../utils/planBadge';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee, currentTrip, billing } = useApp();
-  const planLabel = visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') });
+  const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee, currentTrip } = useApp();
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
@@ -67,32 +66,14 @@ export default function Dashboard() {
       <section className="paper-panel relative overflow-hidden p-6 lg:p-7">
         <div className="absolute inset-y-0 right-0 w-32 bg-[radial-gradient(circle_at_top,rgba(179,109,72,0.18),transparent_62%)]" />
         <div className="relative z-10 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-2">
-              <p className="eyebrow">{currentTrip?.name || t('nav.home')}</p>
-              <h2 className="display-title">
-                {homeCurrencyCode} ${Math.round(totalHKD).toLocaleString()}
-              </h2>
-              <p className="text-sm text-[color:var(--ink-muted)]">
-                {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
-              </p>
-            </div>
-
-            <div className="rounded-[24px] border border-[color:var(--paper-border)] bg-white/50 px-4 py-3 text-right min-w-[180px]">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">
-                {planLabel || t('auth.loading')}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-                {billing.loading
-                  ? t('auth.loading')
-                  : billing.hasUnlimitedScans
-                    ? t('upload.proQuotaReady')
-                    : t('upload.freeQuota', {
-                      remaining: billing.remainingFreeScans ?? 0,
-                      limit: billing.freeScanLimit ?? 5,
-                    })}
-              </p>
-            </div>
+          <div className="space-y-2">
+            <p className="eyebrow">{currentTrip?.name || t('nav.home')}</p>
+            <h2 className="display-title">
+              {formatMoney(totalHKD, { code: homeCurrencyCode })}
+            </h2>
+            <p className="text-sm text-[color:var(--ink-muted)]">
+              {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
+            </p>
           </div>
 
           <p className="text-xs text-[color:var(--ink-muted)]">{t('dashboard.recordsCount', { count: recordCount })}</p>
@@ -103,7 +84,7 @@ export default function Dashboard() {
               {currencySums.map(([curr, amount]) => (
                 <div key={curr} className="flex justify-between items-center text-sm mb-1">
                   <span className="text-[color:var(--ink-muted)]">{t(`currency.${curr}`, { defaultValue: curr })}</span>
-                  <span className="font-semibold text-[color:var(--ink)]">{curr} ${Math.round(amount).toLocaleString()}</span>
+                  <span className="font-semibold text-[color:var(--ink)]">{formatMoney(amount, { code: curr })}</span>
                 </div>
               ))}
             </div>

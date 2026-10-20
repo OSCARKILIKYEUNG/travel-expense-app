@@ -5,6 +5,7 @@ import { getCategoryColor } from '../../utils/expenseCategories';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { expenseDateKey, expenseDateLabel } from '../../utils/date';
+import { formatMoney } from '../../utils/currency';
 
 export default function DailyChart() {
   const { t } = useTranslation();
@@ -46,7 +47,7 @@ export default function DailyChart() {
   }
 
   /** 左側留空給 Y 軸刻度（含「HKD $12345」）；標籤用 textAnchor=end 靠右對齊至此線左側，避免與長條圖重疊 */
-  const MARGIN_LEFT = 96;
+  const MARGIN_LEFT = 112;
   const MARGIN_RIGHT = 20;
   const BAR_SLOT = 80;
   const BAR_WIDTH = 50;
@@ -72,7 +73,7 @@ export default function DailyChart() {
           <svg width="100%" height="350" viewBox={`0 0 ${chartW} 350`} preserveAspectRatio="xMidYMid meet">
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
               const y = 300 - ratio * 260;
-              const tick = `${homeCurrencyCode} $${Math.round(max * ratio)}`;
+              const tick = formatMoney(max * ratio, { code: homeCurrencyCode });
               return (
                 <g key={i}>
                   <line
@@ -115,9 +116,9 @@ export default function DailyChart() {
                     const h = (amt / max) * 260;
                     const sy = curY - h;
                     curY = sy;
-                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={getCategoryColor(cat)} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${homeCurrencyCode} $${Math.round(amt)}`}</title></rect>;
+                    return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={getCategoryColor(cat)} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${formatMoney(amt, { code: homeCurrencyCode })}`}</title></rect>;
                   })}
-                  <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{homeCurrencyCode} ${Math.round(d.total)}</text>
+                  <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{formatMoney(d.total, { code: homeCurrencyCode })}</text>
                   <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
                     {expenseDateLabel(d.date).replace('年', '/').replace('月', '/').replace('日', '')}
                   </text>
@@ -151,10 +152,10 @@ export default function DailyChart() {
                 <td className="px-2 py-1.5 font-medium text-slate-700">{expenseDateLabel(d.date)}</td>
                 {categories.map((c) => (
                   <td key={c} className="px-2 py-1.5 text-right text-slate-500">
-                    {d.categories[c] ? `${homeCurrencyCode} $${Math.round(d.categories[c])}` : '-'}
+                    {d.categories[c] ? formatMoney(d.categories[c], { code: homeCurrencyCode }) : '-'}
                   </td>
                 ))}
-                <td className="px-2 py-1.5 text-right font-bold text-violet-600">{homeCurrencyCode} ${Math.round(d.total)}</td>
+                <td className="px-2 py-1.5 text-right font-bold text-violet-600">{formatMoney(d.total, { code: homeCurrencyCode })}</td>
               </tr>
             ))}
           </tbody>
@@ -162,10 +163,10 @@ export default function DailyChart() {
             <tr>
               <td className="px-2 py-2 text-slate-700">{t('dailyChart.grandTotal')}</td>
               {categories.map((c) => {
-                const t = data.reduce((s, d) => s + (d.categories[c] || 0), 0);
-                return <td key={c} className="px-2 py-2 text-right text-slate-600">{homeCurrencyCode} ${Math.round(t)}</td>;
+                const columnTotal = data.reduce((s, d) => s + (d.categories[c] || 0), 0);
+                return <td key={c} className="px-2 py-2 text-right text-slate-600">{formatMoney(columnTotal, { code: homeCurrencyCode })}</td>;
               })}
-              <td className="px-2 py-2 text-right text-violet-700">{homeCurrencyCode} ${Math.round(data.reduce((s, d) => s + d.total, 0))}</td>
+              <td className="px-2 py-2 text-right text-violet-700">{formatMoney(data.reduce((s, d) => s + d.total, 0), { code: homeCurrencyCode })}</td>
             </tr>
           </tfoot>
         </table>

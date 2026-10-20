@@ -1,19 +1,35 @@
 import { useEffect, useRef } from 'react';
 import { X } from './Icons';
 
+const dialogEscapeStack = [];
+
 export default function Dialog({ open, onClose, title, children, size = 'md' }) {
   const panelRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    if (!open) return undefined;
+    const entry = { id: Symbol('dialog') };
+    dialogEscapeStack.push(entry);
+    const handler = (e) => {
+      if (e.key !== 'Escape') return;
+      if (dialogEscapeStack[dialogEscapeStack.length - 1] !== entry) return;
+      e.preventDefault();
+      onCloseRef.current?.();
+    };
     document.addEventListener('keydown', handler);
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handler);
-      document.body.style.overflow = '';
+      const index = dialogEscapeStack.indexOf(entry);
+      if (index >= 0) dialogEscapeStack.splice(index, 1);
+      if (dialogEscapeStack.length === 0) {
+        document.body.style.overflow = previousOverflow || '';
+      }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

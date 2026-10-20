@@ -7,6 +7,7 @@ import PersonChart from '../components/chart/PersonChart';
 import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 import { resolveAssigneeDisplay } from '../utils/people';
 import { expenseDateKey } from '../utils/date';
+import { formatMoney } from '../utils/currency';
 
 export default function Charts() {
   const { t } = useTranslation();
@@ -43,7 +44,7 @@ export default function Charts() {
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">
             {t('chartsPage.totalSpend', { currency: homeCurrencyCode })}{filterPerson ? ` (${filterPerson})` : ''}
           </p>
-          <p className="text-xl font-bold text-violet-600 tabular-nums">{homeCurrencyCode} ${Math.round(stats.total).toLocaleString()}</p>
+          <p className="text-xl font-bold text-violet-600 tabular-nums">{formatMoney(stats.total, { code: homeCurrencyCode })}</p>
         </div>
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.days')}</p>
@@ -51,7 +52,7 @@ export default function Charts() {
         </div>
         <div className="card p-4 text-center">
           <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.dailyAvg')}</p>
-          <p className="text-xl font-bold text-emerald-600 tabular-nums">{homeCurrencyCode} ${Math.round(stats.avg).toLocaleString()}</p>
+          <p className="text-xl font-bold text-emerald-600 tabular-nums">{formatMoney(stats.avg, { code: homeCurrencyCode })}</p>
         </div>
       </div>
 

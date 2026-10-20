@@ -17,6 +17,8 @@ import {
   validateNewCustomExpenseCategory,
 } from '../utils/expenseCategories';
 import { buildBillingSnapshot } from '../../shared/billing';
+import { billingReducer, initialBillingState } from '../utils/billingState';
+import { derivePlanView } from '../utils/planView';
 import {
   applyDuplicateDecisions,
   createUndoState,
@@ -92,11 +94,16 @@ function AppProviderInner({ children, userId }) {
   DataService.setStorageScope(userId);
 
   const [settings, setSettingsState] = useState(() => DataService.loadSettings());
-  const [billing, setBilling] = useState(() => ({
-    ...buildBillingSnapshot(),
-    loading: true,
-    error: '',
-  }));
+  const billingRequestRef = useRef(0);
+  const billingRef = useRef(initialBillingState);
+  const [billing, setBilling] = useState(initialBillingState);
+
+  const commitBilling = useCallback((action) => {
+    const next = billingReducer(billingRef.current, action);
+    billingRef.current = next;
+    setBilling(next);
+    return next;
+  }, []);
 
   const updateSettings = useCallback((patch) => {
     setSettingsState((prev) => {
@@ -113,57 +120,78 @@ function AppProviderInner({ children, userId }) {
   }, [settings.uiLanguage]);
 
   const applyBillingSnapshot = useCallback((snapshot) => {
-    setBilling((prev) => ({
-      ...prev,
-      ...snapshot,
-      loading: false,
-      error: '',
-    }));
-  }, []);
+    const requestId = ++billingRequestRef.current;
+    commitBilling({ type: 'apply', requestId, snapshot });
+  }, [commitBilling]);
 
   const refreshBilling = useCallback(async () => {
+    const requestId = ++billingRequestRef.current;
     if (!supabase || !userId) {
-      applyBillingSnapshot(buildBillingSnapshot());
-      return;
+      return derivePlanView(commitBilling({
+        type: 'success',
+        requestId,
+        snapshot: buildBillingSnapshot(),
+      }));
     }
 
-    setBilling((prev) => ({ ...prev, loading: true, error: '' }));
+    commitBilling({ type: 'start', requestId });
+    try {
+      const [{ data: billingRow, error: billingError }, { count: usageCount, error: usageError }] = await Promise.all([
+        supabase
+          .from('user_app_data')
+          .select('subscription_status')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('usage_logs')
+          .select('id', { head: true, count: 'exact' })
+          .eq('user_id', userId)
+          .eq('event_type', 'receipt_scan'),
+      ]);
 
-    const [{ data: billingRow, error: billingError }, { count: usageCount, error: usageError }] = await Promise.all([
-      supabase
-        .from('user_app_data')
-        .select('subscription_status')
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase
-        .from('usage_logs')
-        .select('id', { head: true, count: 'exact' })
-        .eq('user_id', userId)
-        .eq('event_type', 'receipt_scan'),
-    ]);
+      if (billingError || usageError) {
+        const err = billingError || usageError;
+        console.error('[billing]', err);
+        const next = commitBilling({
+          type: 'failure',
+          requestId,
+          error: err?.message || 'billing failed',
+        });
+        return derivePlanView(next);
+      }
 
-    if (billingError || usageError) {
-      throw billingError || usageError;
+      const next = commitBilling({
+        type: 'success',
+        requestId,
+        snapshot: buildBillingSnapshot({
+          subscriptionStatus: billingRow?.subscription_status,
+          usedReceiptScans: usageCount || 0,
+        }),
+      });
+      return derivePlanView(next);
+    } catch (err) {
+      console.error('[billing]', err);
+      const next = commitBilling({
+        type: 'failure',
+        requestId,
+        error: err?.message || 'billing failed',
+      });
+      return derivePlanView(next);
     }
-
-    applyBillingSnapshot(
-      buildBillingSnapshot({
-        subscriptionStatus: billingRow?.subscription_status,
-        usedReceiptScans: usageCount || 0,
-      }),
-    );
-  }, [userId, applyBillingSnapshot]);
+  }, [userId, commitBilling]);
 
   useEffect(() => {
-    refreshBilling().catch((err) => {
-      console.error('[billing]', err);
-      setBilling((prev) => ({
-        ...prev,
-        loading: false,
-        error: err?.message || 'billing failed',
-      }));
-    });
+    refreshBilling();
   }, [refreshBilling]);
+
+  const billingState = useMemo(() => ({
+    phase: billing.phase,
+    snapshot: billing.snapshot,
+    refreshing: billing.refreshing,
+    error: billing.error,
+  }), [billing.phase, billing.snapshot, billing.refreshing, billing.error]);
+
+  const planView = useMemo(() => derivePlanView(billingState), [billingState]);
 
   const [people, setPeopleState] = useState(() => DataService.loadPeople());
   const setPeople = useCallback((val) => {
@@ -488,7 +516,7 @@ function AppProviderInner({ children, userId }) {
 
   const value = useMemo(() => ({
     settings, updateSettings,
-    billing, refreshBilling, applyBillingSnapshot,
+    billing: billingState, planView, refreshBilling, applyBillingSnapshot,
     people, setPeople,
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
@@ -502,7 +530,7 @@ function AppProviderInner({ children, userId }) {
     tripCurrency,
     defaultAssignee,
   }), [
-    settings, billing, people, trips, currentTripId, currentTrip,
+    settings, billingState, planView, people, trips, currentTripId, currentTrip,
     expenses, filterPerson, toast, exchangeRates, homeCurrencyCode, tripCurrency,
     defaultAssignee,
     updateSettings, refreshBilling, applyBillingSnapshot, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,

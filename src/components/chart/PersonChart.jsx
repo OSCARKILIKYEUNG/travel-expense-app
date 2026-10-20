@@ -4,6 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { PERSON_COLORS, PERSON_BG_CLASSES } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
+import { formatMoney } from '../../utils/currency';
 
 export default function PersonChart() {
   const { t } = useTranslation();
@@ -65,7 +66,7 @@ export default function PersonChart() {
             <div key={person} className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${PERSON_BG_CLASSES[idx % PERSON_BG_CLASSES.length]}`} />
               <span className="text-sm font-medium flex-1">{person}</span>
-              <span className="text-sm text-slate-600">{homeCurrencyCode} ${Math.round(amount).toLocaleString()}</span>
+              <span className="text-sm text-slate-600">{formatMoney(amount, { code: homeCurrencyCode })}</span>
               <span className="text-[10px] text-slate-400">({((amount / totalAll) * 100).toFixed(1)}%)</span>
             </div>
           ))}

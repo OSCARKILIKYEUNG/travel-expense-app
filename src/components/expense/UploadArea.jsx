@@ -9,7 +9,8 @@ import { resolveParseQueue } from '../../utils/sourceHash';
 import DuplicateReviewDialog from './DuplicateReviewDialog';
 import HashDuplicateDialog from './HashDuplicateDialog';
 import { gateFilesBySourceHash, parseQueuedReceipts } from './uploadBatch';
-import { visiblePlanLabel } from '../../utils/planBadge';
+import { isUploadBlocked } from '../../utils/planView';
+import PlanStatus from '../billing/PlanStatus';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
@@ -25,7 +26,7 @@ export default function UploadArea() {
     defaultAssignee,
     homeCurrencyCode,
     settings,
-    billing,
+    planView,
     applyBillingSnapshot,
     refreshBilling,
   } = useApp();
@@ -42,8 +43,7 @@ export default function UploadArea() {
   expensesRef.current = expenses;
   const pendingParseRef = useRef([]);
   const reviewingRef = useRef(false);
-  const uploadBlocked = !loading && !billing.hasUnlimitedScans && (billing.remainingFreeScans ?? 0) <= 0;
-  const planLabel = visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') });
+  const uploadBlocked = !loading && isUploadBlocked(planView);
 
   const handleOpenPicker = (e) => {
     if (!uploadBlocked) return;
@@ -155,32 +155,7 @@ export default function UploadArea() {
         onConfirm={(decisions) => { resolveDuplicateConflicts(conflicts, decisions); setConflicts([]); }}
         onClose={() => { resolveDuplicateConflicts(conflicts, {}); setConflicts([]); }}
       />
-      <div className="rounded-[28px] border border-[var(--paper-border)] bg-[var(--paper-soft)] px-4 py-3 shadow-[0_8px_24px_rgba(114,90,56,0.08)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="eyebrow">{t('upload.noteLabel')}</p>
-            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              {billing.loading
-                ? t('auth.loading')
-                : billing.hasUnlimitedScans
-                  ? t('upload.proQuotaReady')
-                  : t('upload.freeQuota', {
-                    remaining: billing.remainingFreeScans ?? 0,
-                    limit: billing.freeScanLimit,
-                  })}
-            </p>
-          </div>
-          {planLabel && (
-            <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-              billing.hasUnlimitedScans
-                ? 'bg-[var(--accent-strong)] text-white'
-                : 'bg-[var(--paper)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
-            }`}>
-              {planLabel}
-            </div>
-          )}
-        </div>
-      </div>
+      <PlanStatus variant="compact" />
       <input type="file" accept="image/*" multiple ref={ref} onChange={handleFiles} className="hidden" id="receipt-upload" />
       <label
         htmlFor="receipt-upload"

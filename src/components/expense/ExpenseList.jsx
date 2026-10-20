@@ -7,7 +7,7 @@ import { resolveAssigneeDisplay } from '../../utils/people';
 import { detectDuplicates } from '../../utils/duplicates';
 import { hasPricingRelatedChanges } from '../../utils/expensePricing';
 import ExpenseCard from './ExpenseCard';
-import DeleteConfirmDialog from './DeleteConfirmDialog';
+import ConfirmDeleteDialog from '../ui/ConfirmDeleteDialog';
 import EditExpenseDialog from './EditExpenseDialog';
 
 export default function ExpenseList() {
@@ -81,9 +81,9 @@ export default function ExpenseList() {
         )}
       </div>
 
-      <DeleteConfirmDialog
+      <ConfirmDeleteDialog
         open={!!deleteTarget}
-        expense={deleteTarget}
+        name={deleteTarget ? getExpenseStoreDisplay(deleteTarget, i18n.language, t) : ''}
         onConfirm={() => { removeExpense(deleteTarget.id); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />

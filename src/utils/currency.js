@@ -35,10 +35,54 @@ export function resolveReceiptCurrency(parsed, accountingCode, tripCurrency) {
   return 'HKD';
 }
 
+const numberFormatters = new Map();
+
+function numberFormatter(decimals) {
+  const raw = Number(decimals);
+  const d = Number.isFinite(raw) && raw > 0 ? Math.min(20, Math.floor(raw)) : 0;
+  let fmt = numberFormatters.get(d);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+      useGrouping: true,
+    });
+    numberFormatters.set(d, fmt);
+  }
+  return fmt;
+}
+
+function asFinite(value) {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+/** Bare grouped number. Non-finite values render as 0. Sign sits before the digits. */
+export function formatNumber(n, decimals = 0) {
+  return numberFormatter(decimals).format(asFinite(n));
+}
+
+/**
+ * Grouped money. `HKD $12,345` with a code, `$12,345` without, `12,345` when prefix is empty.
+ * Negatives keep the sign in front of the code: `-HKD $1,234`.
+ * @param {number} amount
+ * @param {{ code?: string, decimals?: number, prefix?: string }} [options]
+ */
+export function formatMoney(amount, options) {
+  const { code, decimals = 0, prefix = '$' } = options || {};
+  const value = asFinite(amount);
+  const sign = value < 0 ? '-' : '';
+  const digits = formatNumber(Math.abs(value), decimals);
+  const body = `${prefix}${digits}`;
+  return code ? `${sign}${code} ${body}` : `${sign}${body}`;
+}
+
+/** Same shape as formatMoney without a currency code. Grouping comes from formatNumber. */
 export function formatCurrency(amount, options = {}) {
-  const { decimals = 0, prefix = '$' } = options;
-  const rounded = decimals > 0 ? amount.toFixed(decimals) : Math.round(amount);
-  return `${prefix}${Number(rounded).toLocaleString()}`;
+  const { decimals = 0, prefix = '$' } = options || {};
+  const value = asFinite(amount);
+  const sign = value < 0 ? '-' : '';
+  return `${sign}${prefix}${formatNumber(Math.abs(value), decimals)}`;
 }
 
 export function getCurrencyLabel(code) {

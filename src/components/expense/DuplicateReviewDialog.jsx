@@ -9,9 +9,13 @@ import {
   duplicateReviewReduce,
   shouldShowReplaceConfirm,
 } from '../../utils/duplicateDecisions';
+import { formatNumber } from '../../utils/currency';
 
 function summarize(expense, t, lang) {
-  const amount = Number(expense.originalAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const numeric = Number(expense.originalAmount) || 0;
+  const frac = Math.abs(numeric % 1);
+  const decimals = frac > 1e-6 && frac < 1 - 1e-6 ? 2 : 0;
+  const amount = formatNumber(numeric, decimals);
   return t('duplicateDialog.summary', {
     store: getExpenseStoreDisplay(expense, lang, t),
     date: expense.date,

@@ -159,6 +159,7 @@
     "billingRefreshed": "已更新方案狀態。",
     "billingRefreshError": "目前無法更新方案狀態，請稍後再試。",
     "billingLoadWarning": "方案資料暫時無法自動更新，但你已儲存的旅程資料不受影響。",
+    "billingPillError": "未能載入",
     "planFree": "免費",
     "planPro": "Pro",
     "billingPlanLabel": "目前方案",
@@ -320,6 +321,7 @@
     "fixed": "固定",
     "fixedTitle": "不參與退稅分攤（如手續費）",
     "removeItem": "刪除此細項",
+    "itemOrdinal": "第 {{n}} 項",
     "add": "新增",
     "cancel": "取消",
     "save": "儲存"
@@ -355,6 +357,8 @@
   "deleteDialog": {
     "title": "確認刪除",
     "message": "確定要刪除「{{store}}」這筆記錄嗎？",
+    "messageNamed": "確定要刪除「{{name}}」嗎？此操作無法復原。",
+    "lineItemFallback": "第 {{n}} 項",
     "cancel": "取消",
     "confirm": "刪除"
   },
@@ -371,6 +375,7 @@
     "create": "創建",
     "deleteTitle": "刪除旅程",
     "deleteMessage": "確定要刪除「{{name}}」嗎？所有記錄將永久刪除。",
+    "deleteDetail": "此旅程的所有記錄將永久刪除。",
     "enterName": "請輸入旅程名稱",
     "cannotDeleteCurrent": "無法刪除當前旅程，請先切換到其他旅程",
     "keepOne": "至少需要保留一個旅程",

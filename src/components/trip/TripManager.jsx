@@ -9,6 +9,7 @@ import {
   tripCurrencyOptions,
 } from '../../utils/tripMoney';
 import Dialog from '../ui/Dialog';
+import ConfirmDeleteDialog from '../ui/ConfirmDeleteDialog';
 import { Globe, Edit, Trash2 } from '../ui/Icons';
 
 export default function TripManager() {
@@ -516,19 +517,15 @@ export default function TripManager() {
         </div>
       </Dialog>
 
-      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)} size="sm">
-        <div className="text-center mb-4">
-          <div className="mx-auto w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-3">
-            <span className="text-2xl">⚠️</span>
-          </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-1">{t('trip.deleteTitle')}</h3>
-          <p className="text-sm text-slate-600">{t('trip.deleteMessage', { name: tripToDelete?.name })}</p>
-        </div>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => setDeleteId(null)} className="btn-secondary flex-1">{t('editExpense.cancel')}</button>
-          <button type="button" onClick={confirmDelete} className="btn-danger flex-1">{t('settings.confirmDelete')}</button>
-        </div>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={!!deleteId}
+        title={t('trip.deleteTitle')}
+        name={tripToDelete?.name || ''}
+        description={t('trip.deleteDetail')}
+        confirmLabel={t('settings.confirmDelete')}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+      />
     </section>
   );
 }

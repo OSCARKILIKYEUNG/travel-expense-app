@@ -15,9 +15,10 @@ import {
 import { canFetchLiveRates } from '../utils/tripMoney';
 import { formatExchangeRateInputValue } from '../utils/rateDisplay';
 import TripManager from '../components/trip/TripManager';
+import PlanStatus from '../components/billing/PlanStatus';
 import { Copy, Download, FileText, Upload, Trash2, Edit, RefreshCw } from '../components/ui/Icons';
 import Dialog from '../components/ui/Dialog';
-import { visiblePlanLabel } from '../utils/planBadge';
+import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -30,6 +31,7 @@ export default function Settings() {
   const {
     settings,
     billing,
+    planView,
     refreshBilling,
     updateSettings,
     people,
@@ -64,12 +66,13 @@ export default function Settings() {
     else if (v === 'cancelled') notify(t('settings.billingCancelled'), 'info');
     if (v === 'success') {
       window.setTimeout(() => {
-        refreshBilling().catch(() => {});
+        refreshBilling();
       }, 1800);
     }
     navigate('/settings', { replace: true });
   }, [searchParams, navigate, notify, refreshBilling, t]);
 
+  const [deleteCategory, setDeleteCategory] = useState(null);
   const [newCustomCategory, setNewCustomCategory] = useState('');
   const customExpenseCategories = settings?.customExpenseCategories || [];
 
@@ -80,7 +83,6 @@ export default function Settings() {
   const [editPersonName, setEditPersonName] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
   const [addManualCode, setAddManualCode] = useState('');
-  const [billingRefreshing, setBillingRefreshing] = useState(false);
 
   const rateGridCodes = [
     ...FRANKFURTER_GRID_CODES,
@@ -317,16 +319,26 @@ export default function Settings() {
   };
 
   const handleRefreshBilling = async () => {
-    setBillingRefreshing(true);
-    try {
-      await refreshBilling();
-      notify(t('settings.billingRefreshed'));
-    } catch {
+    const view = await refreshBilling();
+    if (!view || view.state === 'error' || view.stale) {
       notify(t('settings.billingRefreshError'), 'error');
-    } finally {
-      setBillingRefreshing(false);
+      return;
     }
+    if (view.state === 'loading') return;
+    notify(t('settings.billingRefreshed'));
   };
+
+  const stripePlanCard = STRIPE_UI_ENABLED && (planView.state === 'pro' || planView.state === 'free') ? (
+    <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingNextLabel')}</p>
+      <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+        {planView.state === 'pro' ? t('settings.billingEnjoyPro') : t('settings.billingUpgradePrompt')}
+      </p>
+      <p className="mt-2 text-xs text-[color:var(--ink-muted)]">
+        {planView.state === 'pro' ? t('settings.billingEnjoyProHint') : t('settings.billingUpgradeHint')}
+      </p>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -350,91 +362,36 @@ export default function Settings() {
       </section>
 
       <section className="paper-panel p-5 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="eyebrow">{t('settings.billingEyebrow')}</p>
-            <h2 className="section-title">{t('settings.billingTitle')}</h2>
-            {STRIPE_UI_ENABLED && (
-              <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
-            )}
-          </div>
-          <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-            billing.hasUnlimitedScans
-              ? 'bg-[var(--accent-strong)] text-white'
-              : 'bg-[var(--paper-soft)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
-          }`}>
-            {visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') }) || t('auth.loading')}
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingPlanLabel')}</p>
-            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">{visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') }) || t('auth.loading')}</p>
-            <p className="mt-1 text-xs text-[color:var(--ink-muted)]">
-              {billing.subscriptionStatus
-                ? t('settings.billingStatusValue', { status: billing.subscriptionStatus })
-                : t('settings.billingStatusFree')}
-            </p>
-          </div>
-
-          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingUsageLabel')}</p>
-            <p className="mt-2 text-2xl font-semibold text-[color:var(--ink)]">
-              {billing.hasUnlimitedScans
-                ? t('settings.billingUnlimited')
-                : t('settings.billingRemainingValue', { count: billing.remainingFreeScans ?? 0 })}
-            </p>
-            <p className="mt-1 text-xs text-[color:var(--ink-muted)]">
-              {billing.hasUnlimitedScans
-                ? t('settings.billingUnlimitedHint')
-                : t('settings.billingUsedValue', {
-                  used: billing.usedReceiptScans ?? 0,
-                  limit: billing.freeScanLimit ?? 5,
-                })}
-            </p>
-          </div>
-
+        <PlanStatus variant="panel" extra={stripePlanCard} onRetry={handleRefreshBilling}>
+          <p className="eyebrow">{t('settings.billingEyebrow')}</p>
+          <h2 className="section-title">{t('settings.billingTitle')}</h2>
           {STRIPE_UI_ENABLED && (
-          <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingNextLabel')}</p>
-            <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-              {billing.hasUnlimitedScans ? t('settings.billingEnjoyPro') : t('settings.billingUpgradePrompt')}
-            </p>
-            <p className="mt-2 text-xs text-[color:var(--ink-muted)]">
-              {billing.hasUnlimitedScans ? t('settings.billingEnjoyProHint') : t('settings.billingUpgradeHint')}
-            </p>
-          </div>
+            <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
           )}
-        </div>
-
+        </PlanStatus>
         <div className="flex flex-wrap gap-2">
           {STRIPE_UI_ENABLED && (
-          <button
-            type="button"
-            className="btn-primary text-sm !py-2"
-            onClick={handleStartCheckout}
-            disabled={checkoutLoading || !session?.access_token || billing.hasUnlimitedScans}
-          >
-            {billing.hasUnlimitedScans
-              ? t('settings.billingSubscribed')
-              : checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
-          </button>
+            <button
+              type="button"
+              className="btn-primary text-sm !py-2"
+              onClick={handleStartCheckout}
+              disabled={checkoutLoading || !session?.access_token || planView.state === 'pro'}
+            >
+              {planView.state === 'pro'
+                ? t('settings.billingSubscribed')
+                : checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
+            </button>
           )}
           <button
             type="button"
             className="btn-secondary text-sm !py-2 flex items-center gap-2"
             onClick={handleRefreshBilling}
-            disabled={billingRefreshing || billing.loading}
+            disabled={billing.refreshing}
           >
-            <RefreshCw size={16} className={billingRefreshing || billing.loading ? 'animate-spin-slow' : ''} />
-            {billingRefreshing || billing.loading ? t('settings.billingRefreshing') : t('settings.billingRefresh')}
+            <RefreshCw size={16} className={billing.refreshing ? 'animate-spin-slow' : ''} />
+            {billing.refreshing ? t('settings.billingRefreshing') : t('settings.billingRefresh')}
           </button>
         </div>
-
-        {billing.error && (
-          <p className="text-xs text-amber-700">{t('settings.billingLoadWarning')}</p>
-        )}
       </section>
 
       <section className="paper-panel p-5 space-y-3">
@@ -595,7 +552,7 @@ export default function Settings() {
               <span className="flex-1 text-sm text-slate-800">{cat}</span>
               <button
                 type="button"
-                onClick={() => handleRemoveCustomCategory(cat)}
+                onClick={() => setDeleteCategory(cat)}
                 className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                 aria-label={t('settings.customCategoryRemoveAria', { name: cat })}
               >
@@ -687,32 +644,39 @@ export default function Settings() {
         </div>
       </Dialog>
 
-      <Dialog open={!!deletePerson} onClose={() => { setDeletePerson(null); setDeleteReassignTo(''); }} size="sm">
-        <div className="text-center mb-4">
-          <div className="mx-auto w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-3">
-            <span className="text-2xl">⚠️</span>
-          </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-1">{t('settings.deletePersonTitle', { name: deletePerson })}</h3>
-          <p className="text-sm text-slate-600">{t('settings.deletePersonHint')}</p>
-        </div>
-        <div className="mb-4">
-          <label htmlFor="delete-reassign" className="block text-sm font-medium text-slate-700 mb-1 text-left">{t('settings.deletePersonReassignLabel')}</label>
-          <select
-            id="delete-reassign"
-            value={deleteReassignTo}
-            onChange={(e) => setDeleteReassignTo(e.target.value)}
-            className="input-field w-full"
-          >
-            {people.filter((p) => p !== deletePerson).map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => { setDeletePerson(null); setDeleteReassignTo(''); }} className="btn-secondary flex-1">{t('settings.cancel')}</button>
-          <button type="button" onClick={confirmDeletePerson} disabled={!deleteReassignTo} className="btn-danger flex-1 disabled:opacity-50">{t('settings.confirmDelete')}</button>
-        </div>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={!!deletePerson}
+        title={t('settings.deletePersonTitle', { name: deletePerson || '' })}
+        name={deletePerson || ''}
+        description={t('settings.deletePersonHint')}
+        confirmLabel={t('settings.confirmDelete')}
+        confirmDisabled={!deleteReassignTo}
+        onConfirm={confirmDeletePerson}
+        onCancel={() => { setDeletePerson(null); setDeleteReassignTo(''); }}
+      >
+        <label htmlFor="delete-reassign" className="block text-sm font-medium text-slate-700 mb-1 text-left">{t('settings.deletePersonReassignLabel')}</label>
+        <select
+          id="delete-reassign"
+          value={deleteReassignTo}
+          onChange={(e) => setDeleteReassignTo(e.target.value)}
+          className="input-field w-full"
+        >
+          {people.filter((p) => p !== deletePerson).map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+      </ConfirmDeleteDialog>
+
+      <ConfirmDeleteDialog
+        open={!!deleteCategory}
+        name={deleteCategory || ''}
+        description={t('settings.customCategoriesHint')}
+        onConfirm={() => {
+          handleRemoveCustomCategory(deleteCategory);
+          setDeleteCategory(null);
+        }}
+        onCancel={() => setDeleteCategory(null)}
+      />
     </div>
   );
 }
