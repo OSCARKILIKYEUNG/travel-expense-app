@@ -1,10 +1,14 @@
 import { useState, useRef } from 'react';
+import { STRIPE_UI_ENABLED } from '../../config/features';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../store/AppContext';
 import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
 import { buildAllowedExpenseCategories } from '../../utils/expenseCategories';
 import { getExchangeRate, resolveReceiptCurrency } from '../../utils/currency';
+import { splitBatchByDuplicates } from '../../utils/duplicates';
+import DuplicateReviewDialog from './DuplicateReviewDialog';
+import { visiblePlanLabel } from '../../utils/planBadge';
 import { ImageIcon, RefreshCw } from '../ui/Icons';
 
 export default function UploadArea() {
@@ -13,6 +17,8 @@ export default function UploadArea() {
   const {
     exchangeRates,
     addExpenses,
+    expenses,
+    resolveDuplicateConflicts,
     notify,
     tripCurrency,
     defaultAssignee,
@@ -29,12 +35,16 @@ export default function UploadArea() {
   const [step, setStep] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const ref = useRef(null);
+  const [conflicts, setConflicts] = useState([]);
+  const expensesRef = useRef(expenses);
+  expensesRef.current = expenses;
   const uploadBlocked = !loading && !billing.hasUnlimitedScans && (billing.remainingFreeScans ?? 0) <= 0;
+  const planLabel = visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') });
 
   const handleOpenPicker = (e) => {
     if (!uploadBlocked) return;
     e.preventDefault();
-    notify(t('settings.billingUpgradePrompt'), 'warning');
+    notify(STRIPE_UI_ENABLED ? t('settings.billingUpgradePrompt') : t('upload.scanLimitReached'), 'warning');
   };
 
   const handleFiles = async (e) => {
@@ -75,7 +85,10 @@ export default function UploadArea() {
     }
 
     if (results.length > 0) {
-      addExpenses(results);
+      // Compare against the current trip (and earlier receipts in this batch). Non-duplicates are added now.
+      const { clean, conflicts: found } = splitBatchByDuplicates(results, expensesRef.current);
+      if (clean.length > 0) addExpenses(clean);
+      if (found.length > 0) setConflicts(found);
       setStep(t('upload.success', { ok: results.length, total: files.length }));
       setTimeout(() => { setLoading(false); setStep(''); }, 1500);
     } else {
@@ -89,26 +102,37 @@ export default function UploadArea() {
 
   return (
     <div className="space-y-3">
+      <DuplicateReviewDialog
+        open={conflicts.length > 0}
+        conflicts={conflicts}
+        existing={expenses}
+        onConfirm={(decisions) => { resolveDuplicateConflicts(conflicts, decisions); setConflicts([]); }}
+        onClose={() => { resolveDuplicateConflicts(conflicts, {}); setConflicts([]); }}
+      />
       <div className="rounded-[28px] border border-[var(--paper-border)] bg-[var(--paper-soft)] px-4 py-3 shadow-[0_8px_24px_rgba(114,90,56,0.08)]">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="eyebrow">{t('upload.noteLabel')}</p>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              {billing.hasUnlimitedScans
-                ? t('upload.proQuotaReady')
-                : t('upload.freeQuota', {
-                  remaining: billing.remainingFreeScans ?? 0,
-                  limit: billing.freeScanLimit,
-                })}
+              {billing.loading
+                ? t('auth.loading')
+                : billing.hasUnlimitedScans
+                  ? t('upload.proQuotaReady')
+                  : t('upload.freeQuota', {
+                    remaining: billing.remainingFreeScans ?? 0,
+                    limit: billing.freeScanLimit,
+                  })}
             </p>
           </div>
-          <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-            billing.hasUnlimitedScans
-              ? 'bg-[var(--accent-strong)] text-white'
-              : 'bg-[var(--paper)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
-          }`}>
-            {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
-          </div>
+          {planLabel && (
+            <div className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+              billing.hasUnlimitedScans
+                ? 'bg-[var(--accent-strong)] text-white'
+                : 'bg-[var(--paper)] text-[var(--ink-soft)] border border-[var(--paper-border)]'
+            }`}>
+              {planLabel}
+            </div>
+          )}
         </div>
       </div>
       <input type="file" accept="image/*" multiple ref={ref} onChange={handleFiles} className="hidden" id="receipt-upload" />
@@ -138,7 +162,7 @@ export default function UploadArea() {
               <ImageIcon size={28} />
             </div>
             <p className="font-semibold tracking-[-0.01em] text-[color:var(--ink)] text-base">
-              {uploadBlocked ? t('settings.billingUpgradePrompt') : t('upload.batch')}
+              {uploadBlocked ? (STRIPE_UI_ENABLED ? t('settings.billingUpgradePrompt') : t('upload.scanLimitReached')) : t('upload.batch')}
             </p>
             <p className="text-[color:var(--ink-muted)] text-xs max-w-[18rem]">{t('upload.hint')}</p>
           </div>

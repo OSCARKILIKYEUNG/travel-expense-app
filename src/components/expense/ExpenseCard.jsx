@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
 import { getCategoryColor } from '../../utils/expenseCategories';
 import { SHOW_RECEIPT_TYPE_UI } from '../../utils/constants';
+import { shouldShowListSubtotal, shouldShowSeparateDiscount } from '../../services/AIService';
 import { getExpenseLocationDisplay, getExpenseStoreDisplay, getItemDisplayName } from '../../utils/displayNames';
 import {
   getPartialMatchPersonShareHKD,
@@ -13,13 +14,14 @@ import {
 } from '../../utils/personShare';
 import { MapPin, Edit, Trash2 } from '../ui/Icons';
 import { resolveAssigneeDisplay } from '../../utils/people';
+import { expenseDateLabel } from '../../utils/date';
 
 function refundEpsilon(currency) {
   const c = (currency || 'HKD').toUpperCase();
   return ['JPY', 'KRW', 'VND', 'CLP'].includes(c) ? 1 : 0.01;
 }
 
-export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) {
+export default function ExpenseCard({ expense, isDuplicate, duplicateOf, onDismissDuplicate, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
   const { filterPerson, exchangeRates, homeCurrencyCode, tripCurrency, people, defaultAssignee } = useApp();
   const cat = expense.category || '未分類';
@@ -102,10 +104,23 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
       {isDuplicate && (
         <div className="bg-amber-50 border-b-2 border-amber-300 px-4 py-2 flex items-center gap-2">
           <span className="text-lg">⚠️</span>
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-amber-800 text-xs font-bold">{t('expenseCard.duplicateTitle')}</p>
-            <p className="text-amber-600 text-[10px]">{t('expenseCard.duplicateHint')}</p>
+            <p className="text-amber-600 text-[10px]">
+              {duplicateOf
+                ? t('expenseCard.duplicateHintWith', { date: duplicateOf.date, store: duplicateOf.store })
+                : t('expenseCard.duplicateHint')}
+            </p>
           </div>
+          {onDismissDuplicate && (
+            <button
+              type="button"
+              onClick={() => onDismissDuplicate(expense)}
+              className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              {t('expenseCard.notDuplicate')}
+            </button>
+          )}
         </div>
       )}
 
@@ -135,7 +150,7 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 {t(`receiptTypes.${expense.receiptType}`, { defaultValue: expense.receiptType })}
               </span>
             )}
-            <span className="text-slate-400 text-[10px]">{expense.date}</span>
+            <span className="text-slate-400 text-[10px]">{expenseDateLabel(expense.date)}</span>
           </div>
           <h3 className="font-bold text-slate-800 truncate">{storeDisplay}</h3>
           <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
@@ -231,7 +246,13 @@ export default function ExpenseCard({ expense, isDuplicate, onEdit, onDelete }) 
                 );
               })}
             </ul>
-            {Math.abs(discountAmount) > refundEpsilon(expense.currency) && (
+            {shouldShowListSubtotal(expense) && (
+              <div className="flex justify-between items-center text-xs text-slate-600 mb-2 pt-1 border-t border-slate-200/80">
+                <span>{t('editExpense.subtotal')}</span>
+                <span className="font-mono tabular-nums">{Number(expense.subtotal).toLocaleString()}</span>
+              </div>
+            )}
+            {shouldShowSeparateDiscount(expense, refundRowsMeta.eff) && (
               <div className="flex justify-between items-center text-xs text-amber-800 font-medium mb-2 pt-1 border-t border-slate-200/80">
                 <span>{t('expenseCard.discountLine')}</span>
                 <span className="font-mono tabular-nums">- {Math.abs(discountAmount).toLocaleString()}</span>

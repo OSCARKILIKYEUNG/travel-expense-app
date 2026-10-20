@@ -4,6 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { getCategoryColor } from '../../utils/expenseCategories';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
+import { expenseDateKey, expenseDateLabel } from '../../utils/date';
 
 export default function DailyChart() {
   const { t } = useTranslation();
@@ -11,23 +12,23 @@ export default function DailyChart() {
 
   const { data, categories, max } = useMemo(() => {
     const map = {};
+    const addAmount = (date, cat, amount) => {
+      const day = expenseDateKey(date);
+      if (!map[day]) map[day] = {};
+      map[day][cat] = (map[day][cat] || 0) + amount;
+    };
     for (const e of expenses) {
+      const cat = e.category || '未分類';
       if (filterPerson) {
         const whole = resolveAssigneeDisplay(e.assignedTo, people) === filterPerson;
         if (whole) {
-          if (!map[e.date]) map[e.date] = {};
-          const cat = e.category || '未分類';
-          map[e.date][cat] = (map[e.date][cat] || 0) + e.hkdAmount;
+          addAmount(e.date, cat, e.hkdAmount);
         } else if (e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, people)) === filterPerson)) {
-          if (!map[e.date]) map[e.date] = {};
-          const cat = e.category || '未分類';
           const share = getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates, defaultAssignee);
-          map[e.date][cat] = (map[e.date][cat] || 0) + share;
+          addAmount(e.date, cat, share);
         }
       } else {
-        if (!map[e.date]) map[e.date] = {};
-        const cat = e.category || '未分類';
-        map[e.date][cat] = (map[e.date][cat] || 0) + e.hkdAmount;
+        addAmount(e.date, cat, e.hkdAmount);
       }
     }
 
@@ -118,7 +119,7 @@ export default function DailyChart() {
                   })}
                   <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{homeCurrencyCode} ${Math.round(d.total)}</text>
                   <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
-                    {d.date.replace('年', '/').replace('月', '/').replace('日', '')}
+                    {expenseDateLabel(d.date).replace('年', '/').replace('月', '/').replace('日', '')}
                   </text>
                 </g>
               );
@@ -147,7 +148,7 @@ export default function DailyChart() {
           <tbody>
             {data.map((d, i) => (
               <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                <td className="px-2 py-1.5 font-medium text-slate-700">{d.date}</td>
+                <td className="px-2 py-1.5 font-medium text-slate-700">{expenseDateLabel(d.date)}</td>
                 {categories.map((c) => (
                   <td key={c} className="px-2 py-1.5 text-right text-slate-500">
                     {d.categories[c] ? `${homeCurrencyCode} $${Math.round(d.categories[c])}` : '-'}

@@ -6,6 +6,7 @@ import DailyChart from '../components/chart/DailyChart';
 import PersonChart from '../components/chart/PersonChart';
 import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 import { resolveAssigneeDisplay } from '../utils/people';
+import { expenseDateKey } from '../utils/date';
 
 export default function Charts() {
   const { t } = useTranslation();
@@ -26,7 +27,7 @@ export default function Charts() {
       } else {
         total += e.hkdAmount;
       }
-      dates.add(e.date);
+      dates.add(expenseDateKey(e.date));
     }
     const days = dates.size;
     return { total, days, avg: days > 0 ? total / days : 0 };

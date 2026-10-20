@@ -91,6 +91,7 @@
     "copyFailed": "Copy failed"
   },
   "upload": {
+    "scanLimitReached": "Free AI scans used up. Manual entry is still available.",
     "noteLabel": "Receipt note",
     "batch": "Upload receipts",
     "hint": "Drop in receipt photos and let AI turn them into notebook entries.",
@@ -102,6 +103,7 @@
   },
   "errors": {
     "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
+    "parseReceiptTimeout": "AI scan timed out. The receipt may be too long or complex. Please retry, or split it / retake a clearer photo.",
     "syncFailed": "Could not load or save cloud data: {{message}}",
     "syncRetry": "Reload",
     "persistFailed": "Could not sync to Supabase: {{message}} (Run supabase/migrations/001_user_app_data.sql in the SQL Editor, and ensure Vercel env matches your .env project.)"
@@ -340,7 +342,9 @@
     "edit": "Edit",
     "delete": "Delete",
     "editAria": "Edit {{store}}",
-    "deleteAria": "Delete {{store}}"
+    "deleteAria": "Delete {{store}}",
+    "duplicateHintWith": "Similar to \"{{store}}\" on {{date}}",
+    "notDuplicate": "Not a duplicate"
   },
   "deleteDialog": {
     "title": "Delete?",
@@ -406,6 +410,34 @@
     "personDeleted": "Person removed",
     "personRenamed": "Person renamed",
     "customCategoryAdded": "Added category “{{name}}”",
-    "customCategoryRemoved": "Removed “{{name}}”; related expenses moved to “other”"
+    "customCategoryRemoved": "Removed “{{name}}”; related expenses moved to “other”",
+    "duplicateResolved": "Duplicates handled: {{skipped}} skipped, {{kept}} kept, {{replaced}} replaced",
+    "duplicateDecideLater": "Kept the new record and marked it as a possible duplicate",
+    "replaceUndone": "Old record restored"
+  },
+  "duplicateDialog": {
+    "title": "Possible duplicate receipts found",
+    "body": "{{count}} receipt(s) look similar to existing records. Choose what to do with each.",
+    "existing": "Existing",
+    "scanned": "New scan",
+    "summary": "{{store}} · {{date}} · {{amount}} · {{count}} item(s)",
+    "hintStrong": "Same date, store, amount and item count",
+    "hintLikely": "Same date, store and amount; item count differs",
+    "existingMissing": "(existing record no longer exists)",
+    "editedBadge": "(edited by you)",
+    "choice_skip": "Skip",
+    "choice_keep": "Keep both",
+    "choice_replace": "Replace old",
+    "confirm": "Confirm",
+    "decideLater": "Decide later",
+    "closeNote": "Closing without choosing keeps the new records and shows the duplicate banner. Nothing is deleted.",
+    "replaceConfirmTitle": "Replace the old record?",
+    "replaceConfirmMessage": "{{count}} old record(s) will be removed and replaced by the new scan.",
+    "editedWarning": "The old record was edited by you; your edits will be removed.",
+    "undoNote": "You can tap Undo for a short while after replacing.",
+    "back": "Back",
+    "replaceConfirm": "Replace",
+    "replacedToast": "Replaced {{count}} old record(s)",
+    "undo": "Undo"
   }
 }

@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_PROMPT, USER_TEXT } from './receipt-prompt.js';
 import { mergeExpenseCategoriesForPrompt } from './expense-categories-merge.js';
 import { buildBillingSnapshot } from '../shared/billing.js';
+import { generateReceiptText } from '../shared/geminiReceipt.js';
 
-const MODEL_ID = 'gemini-2.5-flash';
 
 /** Vercel 有時未注入 req.body，僅在 body 為 null/undefined 時讀 raw stream（避免重複讀流） */
 async function readJsonBody(req) {
@@ -68,6 +68,7 @@ function createServerSupabaseClient(url, key) {
  * 本地：`vercel dev` 並在 .env.local 設定 GEMINI_API_KEY
  */
 export default async function handler(req, res) {
+  const startedAt = Date.now();
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   if (req.method !== 'POST') {
@@ -188,28 +189,12 @@ category 僅能從下列擇一（須完全一致）：${expenseCategoryList.join
 
   try {
     const genAI = new GoogleGenerativeAI(key);
-    let text;
-
-    try {
-      const model = genAI.getGenerativeModel({
-        model: MODEL_ID,
-        systemInstruction,
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      });
-      const result = await model.generateContent(textParts);
-      text = result.response?.text();
-    } catch (firstErr) {
-      const model = genAI.getGenerativeModel({
-        model: MODEL_ID,
-        systemInstruction,
-        generationConfig: { temperature: 0.1 },
-      });
-      const result = await model.generateContent(textParts);
-      text = result.response?.text();
-    }
+    const text = await generateReceiptText({
+      genAI,
+      systemInstruction,
+      parts: textParts,
+      startedAt,
+    });
     if (!text) {
       res.statusCode = 502;
       return res.end(JSON.stringify({ error: 'Gemini 回傳內容為空' }));
@@ -256,6 +241,10 @@ category 僅能從下列擇一（須完全一致）：${expenseCategoryList.join
     }));
   } catch (err) {
     console.error('[parse-receipt]', err);
+    if (err?.code === 'gemini_timeout') {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: 'AI 掃描逾時，請稍後再試。', code: 'gemini_timeout' }));
+    }
     const msg = err?.message || String(err);
     res.statusCode = 502;
     return res.end(JSON.stringify({ error: msg }));

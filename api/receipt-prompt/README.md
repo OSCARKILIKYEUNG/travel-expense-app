@@ -4,7 +4,7 @@
 
 - **基底**：任何國家小票；**先** `detected_market` + `market_evidence`，**再**稅型與金額。
 - **附件 A**（`markets/generic.js`）：非日本補充與範例 E、F。
-- **附件 B**（`markets/jp.js`）：日本專章與範例 A～D；模型僅在 `detected_market === JP` 時應採用其日文前提。
+- **附件 B**（`markets/jp.js`）：日本專章與範例 A～F（E＝唐吉訶德免税額、F＝LAWSON 內稅多稅率）；模型僅在 `detected_market === JP` 時應採用其日文前提。
 
 ## 檔案
 

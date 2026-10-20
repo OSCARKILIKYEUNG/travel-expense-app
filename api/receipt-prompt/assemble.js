@@ -16,7 +16,7 @@ export function buildSystemPrompt() {
 ${MARKET_GENERIC}
 
 ══════════════════════════════════════════
-附件 B — 日本市場專用（僅當 detected_market 為 JP 時啟用下列細則與範例 A～D）
+附件 B — 日本市場專用（僅當 detected_market 為 JP 時啟用下列細則與範例 A～F）
 ══════════════════════════════════════════
 ${MARKET_JP}`;
 }

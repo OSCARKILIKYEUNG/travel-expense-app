@@ -10,9 +10,13 @@ export function buildMarketBasePrompt() {
 嚴格規則：
 1. 只回傳純 JSON 字串。
 2. 不要使用 markdown code block (不要用 \`\`\`json)。
-3. 商品名稱與地點：同時提供「繁體中文」與「英文」。
-   - 欄位：name（繁中品名）、name_en（英文品名）；location（繁中）、location_en（英文）；store（繁中店名）、store_en（英文店名）。
-   - items 每一筆必須有 name 與 name_en（英文為簡短商品描述，與收據語言無關時亦須翻譯）。
+3. 商品名稱與地點：顯示用欄位必須是「繁體中文」，並另存原文與英文。
+   - 欄位：name（**繁中品名，必填顯示用**）、original_name（收據該行印出的原文）、name_en（英文品名）；
+     location（繁中）、location_en（英文）；
+     store（**繁中店名，必填顯示用**）、store_original（收據印出的店名原文）、store_en（英文店名）。
+   - items 每一筆必須有 name 與 name_en；收據有印字時必須填 original_name。
+   - **禁止**把日文／韓文等收據原文直接放進 name 或 store（那些進 original_name／store_original）。
+   - 看不清時：可見片段放 original_name；name 只填能確定譯出的部分；**禁止臆造**完整品名或店名。
 
 ═══════════════════════════════════════════
 工作流程（必須遵守順序）
@@ -45,6 +49,11 @@ has_bundle — 套裝／組合價（通用）
 ═══════════════════════════════════════════
 若收據有組合價、SET、bundle、セット、多買優惠等，使「個別標價加總 ≠ 小計」，設 has_bundle 為 true。
 處理方式：將該組合歸為 **一個合併品項**，price = 組合實付價；組合內單品**不要**再逐行重複列出（避免加總膨脹）。
+■ 套裝／multipack 規則（必守，順序不拘）：
+  - 「套裝／セット金額／SET／N點／×N」行 + 其成分子行（成分行本身**沒有自己的價格**、只有 @單價 或品號，可能排在套裝行**之前**或**之後**）= **只算一個品項**，price = 套裝價。
+  - 成分子行（無自身印價、或單價加總會併入套裝價者）**絕對不可**另外列成品項。
+  - items 的 price 加總必須 ≈ 收據印的小計（subtotal，免稅／折扣扣除**之前**）。小計 = 品項加總，與 tax_refund 無關。
+  - 輸出前自我檢查：把 items 逐筆加總；若比 subtotal 多出 N×單價（N 件 @單價），代表成分行重複列出，必須刪除那 N 行。
 
 ═══════════════════════════════════════════
 金額語意（通用，最重要）
@@ -62,9 +71,10 @@ has_bundle — 套裝／組合價（通用）
 ■ subtotal — 收據「小計／Subtotal」（以印字為準）；未印可省略。
 ■ tax — 收據單列的稅額；外稅時常等於 合計 − 小計。
 ■ total_amount — 顧客**實際支付**（Total / AMOUNT DUE）。
-■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。
+■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。同一筆不要再填進 discount。
 ■ receipt_tax_exemption_amount（選填，正數）— 收據印製的免稅額／Tax exemption 等展示用數字。
-■ discount — 一般折扣（Coupon 等），**負數**。
+■ discount — 一般折扣（Coupon 等），**負數**。即時免稅差額不是折扣。
+■ 品名 — name = 繁體中文翻譯（顯示用）；original_name = 收據該行印出原文。禁止用「商品A」「Item 1」等代稱；看不清時可見原文放 original_name，禁止臆造。
 ■ 不要為了讓 items 加總 = total_amount 而改寫 price。
 
 ═══════════════════════════════════════════
@@ -73,10 +83,10 @@ JSON 欄位清單
 - detected_market: 見上（必填）
 - market_evidence: 字串陣列（建議）
 - date: YYYY年MM月DD日（或收據上日期如實轉寫）
-- location, location_en, store, store_en, category — **見 system 末段「支出類別清單」**；字串須與清單**完全一致**擇一；無法判斷填「其他」
+- location, location_en, store, store_original, store_en, category — **見 system 末段「支出類別清單」**；字串須與清單**完全一致**擇一；無法判斷填「其他」
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
-- items: [{ "name", "name_en", "price", "price_actual"?, "original_name"?, "exclude_from_refund_split"? }]
+- items: [{ "name", "name_en", "original_name", "price", "price_actual"?, "exclude_from_refund_split"? }]
 - subtotal, tax, tax_refund, receipt_tax_exemption_amount, discount, total_amount
 - currency: ISO 4217（如 JPY, EUR, USD, TWD）
 - payment_method
@@ -91,5 +101,6 @@ JSON 欄位清單
 4. 外稅單：tax 是否 ≈ 合計 − 小計？
 5. 雙欄定價：相關品項是否填了 price_actual？
 6. category 是否落在「支出類別清單」內？否則改為「其他」。
+7. store 與 items[].name 是否為繁體中文？收據原文是否已放進 store_original／original_name？
 `.trim();
 }

@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DataService from '../services/DataService';
-import { bootstrapUserAppData, persistUserAppData } from '../services/syncSupabase';
+import { bootstrapUserAppData, enqueuePersistUserAppData } from '../services/syncSupabase';
 import { supabase } from '../lib/supabaseClient';
 import { sortExpenses } from '../utils/date';
 import { toHome } from '../utils/currency';
@@ -17,6 +17,16 @@ import {
   validateNewCustomExpenseCategory,
 } from '../utils/expenseCategories';
 import { buildBillingSnapshot } from '../../shared/billing';
+import {
+  applyDuplicateDecisions,
+  createUndoState,
+  isUndoActive,
+  undoReplace,
+  dismissDuplicate,
+  reconcileUndoState,
+  duplicateResolutionToastKey,
+} from '../utils/duplicateDecisions';
+import { replaceUndoStorageKey } from '../utils/persistMerge';
 
 const AppContext = createContext(null);
 
@@ -191,7 +201,10 @@ function AppProviderInner({ children, userId }) {
   const setExpenses = useCallback((val) => {
     setExpensesState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
+      // Write the trip blob in the same turn as the expenses cache. The cloud
+      // payload is trips_data, and the debounced upsert must not read the pre-replace list.
       DataService.saveExpenses(next);
+      DataService.updateCurrentTripExpenses(next);
       return next;
     });
   }, []);
@@ -217,7 +230,9 @@ function AppProviderInner({ children, userId }) {
 
   useEffect(() => {
     const id = setTimeout(() => {
-      persistUserAppData(userId).catch((err) => {
+      // Snapshot is taken when the queued upload runs, after trip expenses
+      // have been written. Overlapping uploads are serialized.
+      enqueuePersistUserAppData(userId).catch((err) => {
         console.error('[sync]', err);
         const msg =
           err?.message ||
@@ -362,6 +377,7 @@ function AppProviderInner({ children, userId }) {
   const updateExpense = useCallback((updated) => {
     const withHkd = {
       ...updated,
+      editedAt: Date.now(),
       hkdAmount: toHome(updated.originalAmount, updated.currency, exchangeRates),
     };
     setExpenses((prev) => sortExpenses(prev.map((e) => (e.id === withHkd.id ? withHkd : e))));
@@ -372,6 +388,68 @@ function AppProviderInner({ children, userId }) {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     notify(i18n.t('toast.expenseDeleted'));
   }, [notify]);
+
+  // ---- Duplicate review: resolve conflicts, replace undo ----
+  const undoStorageKey = replaceUndoStorageKey(userId);
+  const expensesRef = useRef(expenses);
+  expensesRef.current = expenses;
+
+  const [replaceUndo, setReplaceUndoState] = useState(() => {
+    try {
+      const raw = localStorage.getItem(undoStorageKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const tripId = DataService.loadTripsData().currentTripId;
+      const next = reconcileUndoState(parsed, DataService.loadExpenses(), tripId);
+      if (!next) {
+        if (raw) localStorage.removeItem(undoStorageKey);
+        return null;
+      }
+      if (next !== parsed) localStorage.setItem(undoStorageKey, JSON.stringify(next));
+      return next;
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  const setReplaceUndo = useCallback((state) => {
+    setReplaceUndoState(state);
+    try {
+      if (state) localStorage.setItem(undoStorageKey, JSON.stringify(state));
+      else localStorage.removeItem(undoStorageKey);
+    } catch { /* ignore quota errors; undo stays in memory */ }
+  }, [undoStorageKey]);
+
+  // Drop the recoverable copy once the undo window has passed.
+  useEffect(() => {
+    if (!replaceUndo) return undefined;
+    const ms = replaceUndo.expiresAt - Date.now();
+    if (ms <= 0) { setReplaceUndo(null); return undefined; }
+    const timer = setTimeout(() => setReplaceUndo(null), ms);
+    return () => clearTimeout(timer);
+  }, [replaceUndo, setReplaceUndo]);
+
+  const resolveDuplicateConflicts = useCallback((conflicts, decisions) => {
+    const result = applyDuplicateDecisions(expensesRef.current, conflicts, decisions);
+    setExpenses(sortExpenses(result.expenses));
+    setReplaceUndo(createUndoState(result.undoEntries, currentTripId));
+    const { skipped, kept, replaced, pending } = result.summary;
+    const toastKey = duplicateResolutionToastKey(result.summary);
+    notify(toastKey === 'toast.duplicateDecideLater'
+      ? i18n.t(toastKey)
+      : i18n.t(toastKey, { skipped, kept: kept + pending, replaced }));
+    return result.summary;
+  }, [currentTripId, notify, setExpenses, setReplaceUndo]);
+
+  const undoLastReplace = useCallback(() => {
+    if (!isUndoActive(replaceUndo, currentTripId)) { setReplaceUndo(null); return; }
+    const result = undoReplace(expensesRef.current, replaceUndo);
+    setExpenses(sortExpenses(result.expenses));
+    setReplaceUndo(null);
+    notify(i18n.t('toast.replaceUndone'));
+  }, [replaceUndo, currentTripId, notify, setExpenses, setReplaceUndo]);
+
+  const dismissExpenseDuplicate = useCallback((id) => {
+    setExpenses((prev) => dismissDuplicate(prev, id));
+  }, [setExpenses]);
 
   const addCustomExpenseCategory = useCallback(
     (raw) => {
@@ -415,6 +493,7 @@ function AppProviderInner({ children, userId }) {
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
+    resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     filterPerson, setFilterPerson,
     toast, notify,
@@ -428,6 +507,7 @@ function AppProviderInner({ children, userId }) {
     defaultAssignee,
     updateSettings, refreshBilling, applyBillingSnapshot, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
+    resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     setFilterPerson, notify,
   ]);

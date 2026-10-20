@@ -91,6 +91,7 @@
     "copyFailed": "複製失敗"
   },
   "upload": {
+    "scanLimitReached": "免費 AI 掃描已用完，仍可手動記帳。",
     "noteLabel": "收據筆記",
     "batch": "批量上傳單據",
     "hint": "放入收據照片，讓 AI 把它們整理成你的旅遊筆記條目。",
@@ -102,6 +103,7 @@
   },
   "errors": {
     "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
+    "parseReceiptTimeout": "AI 掃描逾時，這張單據可能太長或太複雜。請稍後再試一次，或把單據拆開、拍得更清楚後重新掃描。",
     "syncFailed": "無法從雲端載入或儲存資料：{{message}}",
     "syncRetry": "重新載入",
     "persistFailed": "無法同步到 Supabase：{{message}}（請確認已在 SQL Editor 執行 supabase/migrations/001_user_app_data.sql，且 Vercel 環境變數與本機 .env 指向同一專案）"
@@ -340,7 +342,9 @@
     "edit": "編輯",
     "delete": "刪除",
     "editAria": "編輯 {{store}}",
-    "deleteAria": "刪除 {{store}}"
+    "deleteAria": "刪除 {{store}}",
+    "duplicateHintWith": "與 {{date}} 的「{{store}}」相似",
+    "notDuplicate": "不是重複"
   },
   "deleteDialog": {
     "title": "確認刪除",
@@ -406,6 +410,34 @@
     "personDeleted": "已刪除人物",
     "personRenamed": "人物名稱已更新",
     "customCategoryAdded": "已新增類別「{{name}}」",
-    "customCategoryRemoved": "已刪除類別「{{name}}」，相關支出已改為「其他」"
+    "customCategoryRemoved": "已刪除類別「{{name}}」，相關支出已改為「其他」",
+    "duplicateResolved": "已處理重複單據：略過 {{skipped}} 張，保留 {{kept}} 張，取代 {{replaced}} 張",
+    "duplicateDecideLater": "已保留新記錄並標示可能重複",
+    "replaceUndone": "已還原舊記錄"
+  },
+  "duplicateDialog": {
+    "title": "發現可能重複的單據",
+    "body": "以下 {{count}} 張單據與已有記錄相似，請選擇如何處理。",
+    "existing": "已有記錄",
+    "scanned": "新掃描",
+    "summary": "{{store}}・{{date}}・{{amount}}・{{count}} 項",
+    "hintStrong": "日期、店舖、金額與商品數相同",
+    "hintLikely": "日期、店舖及金額相同，商品數不同",
+    "existingMissing": "（已有記錄已不存在）",
+    "editedBadge": "（曾被你編輯）",
+    "choice_skip": "略過",
+    "choice_keep": "兩筆都保留",
+    "choice_replace": "取代舊記錄",
+    "confirm": "確認",
+    "decideLater": "稍後再決定",
+    "closeNote": "未選擇就關閉視窗時，新記錄會保留並顯示重複提示，不會刪除任何資料。",
+    "replaceConfirmTitle": "確定取代舊記錄？",
+    "replaceConfirmMessage": "取代後，{{count}} 筆舊記錄會被移除，並由新掃描的記錄取代。",
+    "editedWarning": "舊記錄曾被你編輯過，取代後你的修改會被移除。",
+    "undoNote": "取代後有一段時間可按「還原」復原。",
+    "back": "返回",
+    "replaceConfirm": "取代",
+    "replacedToast": "已取代 {{count}} 筆舊記錄",
+    "undo": "還原"
   }
 }

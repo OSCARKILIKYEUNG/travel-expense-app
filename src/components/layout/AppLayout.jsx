@@ -3,12 +3,14 @@ import Header from './Header';
 import BottomNav from './BottomNav';
 import Sidebar from './Sidebar';
 import Toast from '../ui/Toast';
+import ReplaceUndoBar from '../expense/ReplaceUndoBar';
 
 export default function AppLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--paper)] text-[var(--ink)]">
       <Header />
       <Toast />
+      <ReplaceUndoBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-y-auto pb-20 lg:pb-8">

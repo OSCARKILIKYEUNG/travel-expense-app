@@ -7,6 +7,8 @@ import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
 export const KEYS = {
   TRIPS: 'travel_trips_data',
   EXPENSES: 'travel_expenses_data',
+  EXPENSES_UPDATED_AT: 'travel_expenses_updated_at',
+  LOCAL_UPDATED_AT: 'travel_local_updated_at',
   SETTINGS: 'travel_app_settings',
   PEOPLE: 'travel_people_list',
 };
@@ -36,6 +38,21 @@ function readLogical(logicalKey) {
 
 function writeLogical(logicalKey, data) {
   localStorage.setItem(physicalKey(logicalKey), JSON.stringify(data));
+}
+
+function expenseListsEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/** Bump the local content clock. Cloud bootstrap must not treat an older row as newer. */
+function markLocalUpdated(at) {
+  writeLogical(KEYS.LOCAL_UPDATED_AT, at);
 }
 
 /** 從所有旅程掃描曾用記帳幣／旅程幣，供首次填入全域重用清單 */
@@ -216,7 +233,10 @@ const DataService = {
   },
 
   saveTripsData(data) {
+    const updatedAt = new Date().toISOString();
+    data.updatedAt = updatedAt;
     writeLogical(KEYS.TRIPS, data);
+    markLocalUpdated(updatedAt);
   },
 
   getCurrentTrip(tripsData) {
@@ -315,10 +335,11 @@ const DataService = {
   updateCurrentTripExpenses(expenses) {
     const tripsData = this.loadTripsData();
     const current = this.getCurrentTrip(tripsData);
-    if (current) {
-      current.expenses = expenses;
-      this.saveTripsData(tripsData);
-    }
+    if (!current) return;
+    // Skip identical writes so a reload does not stamp "now" and look newer than cloud.
+    if (expenseListsEqual(current.expenses, expenses)) return;
+    current.expenses = expenses;
+    this.saveTripsData(tripsData);
   },
 
   /**
@@ -390,7 +411,10 @@ const DataService = {
   },
 
   saveExpenses(expenses) {
+    const updatedAt = new Date().toISOString();
     writeLogical(KEYS.EXPENSES, expenses);
+    writeLogical(KEYS.EXPENSES_UPDATED_AT, updatedAt);
+    markLocalUpdated(updatedAt);
   },
 
   // ── Settings ───────────────────────────────────────

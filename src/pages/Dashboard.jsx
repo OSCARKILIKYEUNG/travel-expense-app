@@ -8,6 +8,7 @@ import { Plus } from '../components/ui/Icons';
 import PersonFilter from '../components/expense/PersonFilter';
 import ExpenseList from '../components/expense/ExpenseList';
 import UploadArea from '../components/expense/UploadArea';
+import { visiblePlanLabel } from '../utils/planBadge';
 
 /**
  * 首頂摘要卡曾含：備份／列印／複製／圖表捷徑，已移至「設定 → 資料管理」或底部導航。
@@ -17,6 +18,7 @@ import UploadArea from '../components/expense/UploadArea';
 export default function Dashboard() {
   const { t } = useTranslation();
   const { expenses, filterPerson, exchangeRates, homeCurrencyCode, people, defaultAssignee, currentTrip, billing } = useApp();
+  const planLabel = visiblePlanLabel(billing, { pro: t('settings.planPro'), free: t('settings.planFree') });
 
   const totalHKD = useMemo(() => {
     if (!filterPerson) return expenses.reduce((a, c) => a + c.hkdAmount, 0);
@@ -78,15 +80,17 @@ export default function Dashboard() {
 
             <div className="rounded-[24px] border border-[color:var(--paper-border)] bg-white/50 px-4 py-3 text-right min-w-[180px]">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">
-                {billing.hasUnlimitedScans ? t('settings.planPro') : t('settings.planFree')}
+                {planLabel || t('auth.loading')}
               </p>
               <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-                {billing.hasUnlimitedScans
-                  ? t('upload.proQuotaReady')
-                  : t('upload.freeQuota', {
-                    remaining: billing.remainingFreeScans ?? 0,
-                    limit: billing.freeScanLimit ?? 5,
-                  })}
+                {billing.loading
+                  ? t('auth.loading')
+                  : billing.hasUnlimitedScans
+                    ? t('upload.proQuotaReady')
+                    : t('upload.freeQuota', {
+                      remaining: billing.remainingFreeScans ?? 0,
+                      limit: billing.freeScanLimit ?? 5,
+                    })}
               </p>
             </div>
           </div>
