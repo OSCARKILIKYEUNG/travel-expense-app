@@ -251,6 +251,7 @@ export function buildExpenseFromAI(
   tripCurrency,
   defaultAssignee = '共同',
   allowedExpenseCategories = null,
+  sourceHash = '',
 ) {
   const receiptType = normalizeReceiptType(result.receipt_type);
   const rawMarket = result.detected_market ?? result.detectedMarket ?? '';
@@ -502,6 +503,8 @@ export function buildExpenseFromAI(
       ? normalizeExpenseCategoryFromAi(result.category, allowedExpenseCategories)
       : String(result.category || '').trim() || '未分類';
 
+  const normalizedSourceHash = typeof sourceHash === 'string' ? sourceHash.trim().toLowerCase() : '';
+
   return {
     id: Date.now() + index,
     assignedTo: defaultAssignee,
@@ -528,5 +531,6 @@ export function buildExpenseFromAI(
     ...(currencyMismatch ? { currencyMismatch: true, aiDetectedCurrency: rawAiCurrency } : {}),
     ...(aiDetectedMarket ? { aiDetectedMarket } : {}),
     ...(aiMarketEvidence.length > 0 ? { aiMarketEvidence } : {}),
+    ...(normalizedSourceHash ? { sourceHash: normalizedSourceHash } : {}),
   };
 }

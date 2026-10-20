@@ -99,7 +99,13 @@
     "success": "成功處理 {{ok}}/{{total}} 張單據",
     "allFailed": "所有單據處理失敗，請檢查圖片或稍後再試",
     "freeQuota": "尚餘 {{remaining}} / {{limit}} 次免費 AI 掃描",
-    "proQuotaReady": "你已是 Pro，可隨時繼續使用 AI 掃描。"
+    "proQuotaReady": "你已是 Pro，可隨時繼續使用 AI 掃描。",
+    "dupHashTitle": "發現相同的單據檔案",
+    "dupHashBody": "這張單據似乎已上傳過（{{store}}・{{date}}）。",
+    "dupHashSameFileBody": "這張單據似乎已上傳過（同一檔案）。",
+    "dupHashSkip": "略過（不用額度）",
+    "dupHashScan": "仍然掃描",
+    "dupHashContinue": "繼續"
   },
   "errors": {
     "parseReceipt": "伺服器回傳異常（{{status}}）。若使用「加到主畫面」的 PWA，請關閉分頁重開或清除網站資料後再試。",
