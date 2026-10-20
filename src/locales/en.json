@@ -99,7 +99,13 @@
     "success": "Processed {{ok}} / {{total}} receipts",
     "allFailed": "Could not process receipts. Check images or try again.",
     "freeQuota": "{{remaining}} of {{limit}} free AI scans left",
-    "proQuotaReady": "Pro is active. AI scans are ready whenever you are."
+    "proQuotaReady": "Pro is active. AI scans are ready whenever you are.",
+    "dupHashTitle": "This file looks already uploaded",
+    "dupHashBody": "This receipt looks like one already uploaded ({{store}} · {{date}}).",
+    "dupHashSameFileBody": "This receipt looks like one already uploaded (same file).",
+    "dupHashSkip": "Skip (no scan credit)",
+    "dupHashScan": "Scan anyway",
+    "dupHashContinue": "Continue"
   },
   "errors": {
     "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
