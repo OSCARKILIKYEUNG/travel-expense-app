@@ -10,7 +10,7 @@ export default function ReplaceUndoBar() {
   if (!active) return null;
   return (
     <div
-      className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-3 bg-slate-800 text-white animate-slide-up"
+      className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-3 bg-ink text-white animate-slide-up"
       role="status"
       aria-live="polite"
     >

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../store/AppContext';
-import { PERSON_COLORS, PERSON_BG_CLASSES } from '../../utils/constants';
+import { PERSON_COLORS } from '../../utils/constants';
 import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { formatMoney } from '../../utils/currency';
@@ -30,7 +30,7 @@ export default function PersonChart() {
 
   const entries = Object.entries(totals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0 || totalAll === 0) {
-    return <div className="text-center py-8 text-slate-400 text-sm">{t('chartsPage.noChartData')}</div>;
+    return <div className="text-center py-8 text-ink-muted text-sm">{t('chartsPage.noChartData')}</div>;
   }
 
   // Pie chart arcs
@@ -52,7 +52,7 @@ export default function PersonChart() {
 
   return (
     <div className="space-y-6">
-      <h4 className="text-sm font-bold text-slate-700">{t('personChart.title')}</h4>
+      <h4 className="text-sm font-bold text-ink-soft">{t('personChart.title')}</h4>
       <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="w-44 h-44 shrink-0">
           <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -64,10 +64,13 @@ export default function PersonChart() {
         <div className="flex-1 space-y-2">
           {entries.map(([person, amount], idx) => (
             <div key={person} className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${PERSON_BG_CLASSES[idx % PERSON_BG_CLASSES.length]}`} />
+              <div
+                className="w-3 h-3 rounded-full shrink-0"
+                style={{ backgroundColor: PERSON_COLORS[idx % PERSON_COLORS.length] }}
+              />
               <span className="text-sm font-medium flex-1">{person}</span>
-              <span className="text-sm text-slate-600">{formatMoney(amount, { code: homeCurrencyCode })}</span>
-              <span className="text-[10px] text-slate-400">({((amount / totalAll) * 100).toFixed(1)}%)</span>
+              <span className="text-sm text-ink-soft">{formatMoney(amount, { code: homeCurrencyCode })}</span>
+              <span className="text-meta text-ink-muted">({((amount / totalAll) * 100).toFixed(1)}%)</span>
             </div>
           ))}
         </div>

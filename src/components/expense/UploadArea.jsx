@@ -169,29 +169,29 @@ export default function UploadArea() {
         className={`paper-panel relative flex flex-col items-center justify-center gap-3 p-7 text-center cursor-pointer transition-all
           ${loading ? 'opacity-90' : uploadBlocked ? 'opacity-70 border-dashed' : 'hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(114,90,56,0.14)]'}`}
       >
-        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--paper-border),transparent)]" />
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-[linear-gradient(90deg,transparent,rgb(var(--c-line)),transparent)]" />
         {loading ? (
           <div className="text-center">
-            <RefreshCw className="animate-spin-slow text-[color:var(--accent-strong)] mx-auto mb-2" size={28} />
-            <p className="text-[color:var(--accent-strong)] font-medium text-sm">{step}</p>
+            <RefreshCw className="animate-spin-slow text-teal-strong mx-auto mb-2" size={28} />
+            <p className="text-teal-strong font-medium text-sm">{step}</p>
             {progress.total > 0 && (
               <div className="mt-3 w-48 mx-auto">
-                <div className="bg-[var(--paper-border)] rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-[var(--accent-strong)] h-full transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
+                <div className="bg-line rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-teal-strong h-full transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
                 </div>
-                <p className="text-[10px] text-[color:var(--ink-muted)] mt-1">{progress.current} / {progress.total}</p>
+                <p className="text-meta text-ink-muted mt-1">{progress.current} / {progress.total}</p>
               </div>
             )}
           </div>
         ) : (
           <div className="text-center">
-            <div className="bg-[var(--accent-soft)] p-3 rounded-full text-[var(--accent-strong)] inline-block mb-2">
+            <div className="bg-teal-soft p-3 rounded-full text-teal-strong inline-block mb-2">
               <ImageIcon size={28} />
             </div>
-            <p className="font-semibold tracking-[-0.01em] text-[color:var(--ink)] text-base">
+            <p className="font-semibold tracking-[-0.01em] text-ink text-base">
               {uploadBlocked ? (STRIPE_UI_ENABLED ? t('settings.billingUpgradePrompt') : t('upload.scanLimitReached')) : t('upload.batch')}
             </p>
-            <p className="text-[color:var(--ink-muted)] text-xs max-w-[18rem]">{t('upload.hint')}</p>
+            <p className="text-ink-muted text-sm max-w-[18rem]">{t('upload.hint')}</p>
           </div>
         )}
       </label>

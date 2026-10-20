@@ -13,9 +13,7 @@ import { formatNumber } from '../../utils/currency';
 
 function summarize(expense, t, lang) {
   const numeric = Number(expense.originalAmount) || 0;
-  const frac = Math.abs(numeric % 1);
-  const decimals = frac > 1e-6 && frac < 1 - 1e-6 ? 2 : 0;
-  const amount = formatNumber(numeric, decimals);
+  const amount = formatNumber(numeric, 'auto');
   return t('duplicateDialog.summary', {
     store: getExpenseStoreDisplay(expense, lang, t),
     date: expense.date,
@@ -74,24 +72,24 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
     return (
       <Dialog open onClose={onClose} size="sm">
         <div data-review-step="confirm" className="flex items-center gap-3 mb-4">
-          <div className="bg-red-100 p-3 rounded-full">
-            <AlertCircle className="text-red-600" size={24} />
+          <div className="bg-coral-soft p-3 rounded-full">
+            <AlertCircle className="text-coral-ink" size={24} />
           </div>
-          <h3 className="text-xl font-bold text-slate-900">{t('duplicateDialog.replaceConfirmTitle')}</h3>
+          <h3 className="text-xl font-bold text-ink">{t('duplicateDialog.replaceConfirmTitle')}</h3>
         </div>
-        <p className="text-slate-600 mb-3">{t('duplicateDialog.replaceConfirmMessage', { count: replaceRows.length })}</p>
-        <ul className="mb-3 space-y-1 text-sm text-[color:var(--ink-soft)]">
+        <p className="text-ink-soft mb-3">{t('duplicateDialog.replaceConfirmMessage', { count: replaceRows.length })}</p>
+        <ul className="mb-3 space-y-1 text-sm text-ink-soft">
           {replaceRows.map((c) => (
             <li key={c.record.id}>
               {summarize(byId.get(c.matchId), t, i18n.language)}
               {isUserEdited(byId.get(c.matchId)) && (
-                <span className="ml-1 text-amber-700 font-semibold">{t('duplicateDialog.editedBadge')}</span>
+                <span className="ml-1 text-mustard-ink font-semibold">{t('duplicateDialog.editedBadge')}</span>
               )}
             </li>
           ))}
         </ul>
-        {anyEdited && <p className="text-sm text-amber-700 mb-3">{t('duplicateDialog.editedWarning')}</p>}
-        <p className="text-xs text-[color:var(--ink-muted)] mb-5">{t('duplicateDialog.undoNote')}</p>
+        {anyEdited && <p className="text-sm text-mustard-ink mb-3">{t('duplicateDialog.editedWarning')}</p>}
+        <p className="text-sm text-ink-muted mb-5">{t('duplicateDialog.undoNote')}</p>
         <div className="flex gap-3">
           <button type="button" onClick={() => setReview((s) => duplicateReviewReduce(s, { type: 'back' }))} className="btn-secondary flex-1">
             {t('duplicateDialog.back')}
@@ -107,7 +105,7 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
   return (
     <Dialog open onClose={onClose} title={t('duplicateDialog.title')} size="lg">
       <div className="p-5 pt-3 space-y-4" data-review-step="choose">
-        <p className="text-sm text-[color:var(--ink-soft)]">
+        <p className="text-sm text-ink-soft">
           {t('duplicateDialog.body', { count: conflicts.length })}
         </p>
         <ul className="space-y-3 max-h-[55vh] overflow-y-auto">
@@ -115,20 +113,20 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
             const old = byId.get(c.matchId);
             const choice = choiceOf(c.record.id);
             return (
-              <li key={c.record.id} className="rounded-2xl border border-[var(--paper-border)] bg-[var(--paper-soft)] p-3 space-y-2">
+              <li key={c.record.id} className="rounded-2xl border border-line bg-cream-soft p-3 space-y-2">
                 <div className="text-xs space-y-1">
                   <p>
-                    <span className="font-semibold text-[color:var(--ink-muted)]">{t('duplicateDialog.existing')}</span>{' '}
+                    <span className="font-semibold text-ink-muted">{t('duplicateDialog.existing')}</span>{' '}
                     {old ? summarize(old, t, i18n.language) : t('duplicateDialog.existingMissing')}
                     {old && isUserEdited(old) && (
-                      <span className="ml-1 text-amber-700 font-semibold">{t('duplicateDialog.editedBadge')}</span>
+                      <span className="ml-1 text-mustard-ink font-semibold">{t('duplicateDialog.editedBadge')}</span>
                     )}
                   </p>
                   <p>
-                    <span className="font-semibold text-[color:var(--accent-strong)]">{t('duplicateDialog.scanned')}</span>{' '}
+                    <span className="font-semibold text-teal-strong">{t('duplicateDialog.scanned')}</span>{' '}
                     {summarize(c.record, t, i18n.language)}
                   </p>
-                  <p className="text-amber-700">
+                  <p className="text-mustard-ink">
                     {c.level === 'strong' ? t('duplicateDialog.hintStrong') : t('duplicateDialog.hintLikely')}
                   </p>
                 </div>
@@ -139,11 +137,11 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
                     const base = 'rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors disabled:opacity-40';
                     const tone = selected
                       ? key === 'replace'
-                        ? 'bg-red-600 text-white border-red-600'
-                        : 'bg-[var(--accent-strong)] text-white border-[var(--accent-strong)]'
+                        ? 'bg-coral-ink text-white border-coral-ink'
+                        : 'bg-teal-strong text-white border-teal-strong'
                       : key === 'replace'
-                        ? 'bg-white text-red-600 border-red-300'
-                        : 'bg-white text-[color:var(--ink-soft)] border-[var(--paper-border)]';
+                        ? 'bg-white text-coral-ink border-coral-ink/30'
+                        : 'bg-white text-ink-soft border-line';
                     return (
                       <button
                         key={key}
@@ -163,7 +161,7 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
             );
           })}
         </ul>
-        <p className="text-xs text-[color:var(--ink-muted)]">{t('duplicateDialog.closeNote')}</p>
+        <p className="text-sm text-ink-muted">{t('duplicateDialog.closeNote')}</p>
         <div className="flex gap-3">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">{t('duplicateDialog.decideLater')}</button>
           <button type="button" onClick={handleConfirm} className="btn-primary flex-1">{t('duplicateDialog.confirm')}</button>

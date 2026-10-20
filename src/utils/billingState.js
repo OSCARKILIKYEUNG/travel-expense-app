@@ -1,19 +1,28 @@
 /**
- * Billing envelope transitions. `requestId` is monotonic: an older refresh
- * cannot overwrite a newer success or a snapshot applied from an upload.
+ * Billing envelope transitions.
+ *
+ * Two clocks, because "which request is newest" and "which snapshot is newest"
+ * are different questions:
+ * - `activeId`: id of the most recently started refresh. Only its failure is
+ *   reported; an older refresh failing while a newer one runs is noise.
+ * - `settledId`: id of the snapshot on screen. A success/apply is accepted when
+ *   its id is newer than the settled one, even if a later refresh has started,
+ *   so an in-flight newer request can't make an older good answer disappear.
+ * Ids come from one monotonic counter shared by refreshes and upload-applied
+ * snapshots.
  *
  * @typedef {object} BillingState
  * @property {'loading'|'ready'|'error'} phase
  * @property {object|null} snapshot
- * @property {boolean} refreshing
- * @property {string} error
- * @property {number} requestId
+ * @property {boolean} refreshing   a started refresh newer than the snapshot is pending
+ * @property {string} error         last failure of the active refresh ('' when none)
+ * @property {number} activeId
+ * @property {number} settledId
  *
  * @typedef {{ type: 'start', requestId: number }} BillingStartAction
- * @typedef {{ type: 'success', requestId: number, snapshot: object }} BillingSuccessAction
+ * @typedef {{ type: 'success'|'apply', requestId: number, snapshot: object }} BillingSettleAction
  * @typedef {{ type: 'failure', requestId: number, error?: string }} BillingFailureAction
- * @typedef {{ type: 'apply', requestId: number, snapshot: object }} BillingApplyAction
- * @typedef {BillingStartAction|BillingSuccessAction|BillingFailureAction|BillingApplyAction} BillingAction
+ * @typedef {BillingStartAction|BillingSettleAction|BillingFailureAction} BillingAction
  */
 
 export const initialBillingState = {
@@ -21,7 +30,8 @@ export const initialBillingState = {
   snapshot: null,
   refreshing: true,
   error: '',
-  requestId: 0,
+  activeId: 0,
+  settledId: 0,
 };
 
 /**
@@ -30,47 +40,48 @@ export const initialBillingState = {
  * @returns {BillingState}
  */
 export function billingReducer(state, action) {
-  const requestId = Number(action?.requestId) || 0;
-  if (requestId < (state?.requestId || 0)) return state;
-
-  switch (action.type) {
+  const id = Number(action?.requestId) || 0;
+  switch (action?.type) {
     case 'start':
-      return {
-        phase: state.snapshot ? 'ready' : 'loading',
-        snapshot: state.snapshot,
-        refreshing: true,
-        error: '',
-        requestId,
-      };
+      if (id <= state.activeId) return state;
+      return { ...state, activeId: id, refreshing: true, error: '' };
     case 'success':
-    case 'apply':
+    case 'apply': {
+      if (id <= state.settledId) return state;
       return {
+        ...state,
         phase: 'ready',
         snapshot: action.snapshot ?? null,
-        refreshing: false,
+        settledId: id,
+        // Still refreshing only if a newer refresh than this snapshot is pending.
+        refreshing: state.activeId > id && state.refreshing,
         error: '',
-        requestId,
       };
+    }
     case 'failure': {
+      // Only the newest refresh reports; and a newer snapshot already answers it.
+      if (id !== state.activeId || id <= state.settledId) return state;
       const error = action.error || 'billing failed';
-      if (state.snapshot) {
-        return {
-          phase: 'ready',
-          snapshot: state.snapshot,
-          refreshing: false,
-          error,
-          requestId,
-        };
-      }
       return {
-        phase: 'error',
-        snapshot: null,
+        ...state,
+        phase: state.snapshot ? 'ready' : 'error',
         refreshing: false,
         error,
-        requestId,
       };
     }
     default:
       return state;
   }
+}
+
+/**
+ * Outcome of one refresh as seen by its caller.
+ * @param {BillingState} state after the refresh's own action was reduced
+ * @param {number} requestId
+ * @returns {'ok'|'failed'|'superseded'}
+ */
+export function refreshOutcome(state, requestId) {
+  if (state.settledId >= requestId) return 'ok';
+  if (state.activeId === requestId && state.error) return 'failed';
+  return 'superseded';
 }

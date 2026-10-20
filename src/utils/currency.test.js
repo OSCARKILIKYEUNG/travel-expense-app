@@ -54,3 +54,18 @@ describe('formatNumber / formatMoney', () => {
     expect(formatCurrency(12.5, { decimals: 2, prefix: '' })).toBe('12.50');
   });
 });
+
+describe('formatMoney auto decimals and sign (interrogate A2)', () => {
+  it('keeps cents for fractional receipts and none for whole ones', async () => {
+    const { formatMoney, autoDecimals } = await import('./currency.js');
+    expect(formatMoney(13.75, { code: 'USD', decimals: 'auto' })).toBe('USD $13.75');
+    expect(formatMoney(2360, { code: 'JPY', decimals: 'auto' })).toBe('JPY $2,360');
+    expect(formatMoney(1234567.5, { code: 'EUR', decimals: 'auto' })).toBe('EUR $1,234,567.50');
+    expect(autoDecimals(10)).toBe(0);
+  });
+  it('drops the minus sign when the rounded value is zero', async () => {
+    const { formatMoney } = await import('./currency.js');
+    expect(formatMoney(-0.2, { code: 'HKD' })).toBe('HKD $0');
+    expect(formatMoney(-1234.4, { code: 'HKD' })).toBe('-HKD $1,234');
+  });
+});

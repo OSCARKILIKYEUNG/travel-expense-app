@@ -6,6 +6,7 @@ import { getPartialMatchPersonShareHKD } from '../../utils/personShare';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { expenseDateKey, expenseDateLabel } from '../../utils/date';
 import { formatMoney } from '../../utils/currency';
+import { chartTheme } from '../../theme/tokens';
 
 export default function DailyChart() {
   const { t } = useTranslation();
@@ -43,11 +44,11 @@ export default function DailyChart() {
   }, [expenses, filterPerson, exchangeRates, people, defaultAssignee]);
 
   if (data.length === 0) {
-    return <div className="text-center py-12 text-slate-400">{t('chartsPage.noData')}</div>;
+    return <div className="text-center py-12 text-sm text-ink-muted">{t('chartsPage.noData')}</div>;
   }
 
-  /** 左側留空給 Y 軸刻度（含「HKD $12345」）；標籤用 textAnchor=end 靠右對齊至此線左側，避免與長條圖重疊 */
-  const MARGIN_LEFT = 112;
+  /** Left margin fits Y ticks like "HKD $12,345" (right-aligned to the axis). Bar-top labels drop the currency code ("$12,345") so they fit the 80px slot; the axis and table keep the code. */
+  const MARGIN_LEFT = 156;
   const MARGIN_RIGHT = 20;
   const BAR_SLOT = 80;
   const BAR_WIDTH = 50;
@@ -62,7 +63,7 @@ export default function DailyChart() {
         {categories.map((c) => (
           <div key={c} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: getCategoryColor(c) }} />
-            <span className="text-xs text-slate-600">{t(`categories.${c}`, { defaultValue: c })}</span>
+            <span className="text-xs text-ink-soft">{t(`categories.${c}`, { defaultValue: c })}</span>
           </div>
         ))}
       </div>
@@ -70,7 +71,7 @@ export default function DailyChart() {
       {/* SVG Chart */}
       <div className="overflow-x-auto -mx-4 px-4">
         <div style={{ minWidth: `${chartW}px` }}>
-          <svg width="100%" height="350" viewBox={`0 0 ${chartW} 350`} preserveAspectRatio="xMidYMid meet">
+          <svg className="font-sans" width="100%" height="400" viewBox={`0 0 ${chartW} 400`} preserveAspectRatio="xMidYMid meet">
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
               const y = 300 - ratio * 260;
               const tick = formatMoney(max * ratio, { code: homeCurrencyCode });
@@ -81,15 +82,15 @@ export default function DailyChart() {
                     y1={y}
                     x2={chartW - MARGIN_RIGHT}
                     y2={y}
-                    stroke="#E2E8F0"
+                    stroke={chartTheme.grid}
                     strokeWidth="1"
                     strokeDasharray={ratio === 0 ? '0' : '4 4'}
                   />
                   <text
-                    x={MARGIN_LEFT - 10}
+                    x={MARGIN_LEFT - 8}
                     y={y + 4}
-                    fontSize="10"
-                    fill="#94A3B8"
+                    fontSize={chartTheme.axisFontSize}
+                    fill={chartTheme.axis}
                     textAnchor="end"
                   >
                     {tick}
@@ -102,7 +103,7 @@ export default function DailyChart() {
               y1="300"
               x2={chartW - MARGIN_RIGHT}
               y2="300"
-              stroke="#64748B"
+              stroke={chartTheme.baseline}
               strokeWidth="1.5"
             />
 
@@ -118,8 +119,8 @@ export default function DailyChart() {
                     curY = sy;
                     return <rect key={j} x={x} y={sy} width={bw} height={h} rx="3" fill={getCategoryColor(cat)} opacity="0.85"><title>{`${t(`categories.${cat}`, { defaultValue: cat })}: ${formatMoney(amt, { code: homeCurrencyCode })}`}</title></rect>;
                   })}
-                  <text x={x + bw / 2} y={curY - 6} fontSize="10" fill="#7C3AED" textAnchor="middle" fontWeight="bold">{formatMoney(d.total, { code: homeCurrencyCode })}</text>
-                  <text x={x + bw / 2} y="320" fontSize="9" fill="#64748B" textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 320)`}>
+                  <text x={x + bw / 2} y={curY - 8} fontSize={chartTheme.labelFontSize} fill={chartTheme.barLabel} textAnchor="middle" fontWeight="600">{formatMoney(d.total)}</text>
+                  <text x={x + bw / 2} y="348" fontSize={chartTheme.labelFontSize} fill={chartTheme.axis} textAnchor="end" transform={`rotate(-40 ${x + bw / 2} 348)`}>
                     {expenseDateLabel(d.date).replace('年', '/').replace('月', '/').replace('日', '')}
                   </text>
                 </g>
@@ -131,42 +132,42 @@ export default function DailyChart() {
 
       {/* Data table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-slate-50">
+        <table className="w-full text-sm">
+          <thead className="bg-beige">
             <tr>
-              <th className="px-2 py-2 text-left font-semibold text-slate-600">{t('dailyChart.date')}</th>
+              <th className="px-2 py-2 text-left font-semibold text-ink-soft">{t('dailyChart.date')}</th>
               {categories.map((c) => (
-                <th key={c} className="px-2 py-2 text-right font-semibold text-slate-600">
+                <th key={c} className="px-2 py-2 text-right font-semibold text-ink-soft">
                   <span className="inline-flex items-center gap-1">
                     <span className="w-2 h-2 rounded" style={{ backgroundColor: getCategoryColor(c) }} />
                     {t(`categories.${c}`, { defaultValue: c })}
                   </span>
                 </th>
               ))}
-              <th className="px-2 py-2 text-right font-semibold text-violet-600">{t('dailyChart.total')}</th>
+              <th className="px-2 py-2 text-right font-semibold text-teal-strong">{t('dailyChart.total')}</th>
             </tr>
           </thead>
           <tbody>
             {data.map((d, i) => (
-              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                <td className="px-2 py-1.5 font-medium text-slate-700">{expenseDateLabel(d.date)}</td>
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-cream/50'}>
+                <td className="px-2 py-1.5 font-medium text-ink-soft">{expenseDateLabel(d.date)}</td>
                 {categories.map((c) => (
-                  <td key={c} className="px-2 py-1.5 text-right text-slate-500">
+                  <td key={c} className="px-2 py-1.5 text-right text-ink-muted">
                     {d.categories[c] ? formatMoney(d.categories[c], { code: homeCurrencyCode }) : '-'}
                   </td>
                 ))}
-                <td className="px-2 py-1.5 text-right font-bold text-violet-600">{formatMoney(d.total, { code: homeCurrencyCode })}</td>
+                <td className="px-2 py-1.5 text-right font-bold text-teal-strong">{formatMoney(d.total, { code: homeCurrencyCode })}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-violet-50 font-bold">
+          <tfoot className="bg-teal-soft font-bold">
             <tr>
-              <td className="px-2 py-2 text-slate-700">{t('dailyChart.grandTotal')}</td>
+              <td className="px-2 py-2 text-ink-soft">{t('dailyChart.grandTotal')}</td>
               {categories.map((c) => {
                 const columnTotal = data.reduce((s, d) => s + (d.categories[c] || 0), 0);
-                return <td key={c} className="px-2 py-2 text-right text-slate-600">{formatMoney(columnTotal, { code: homeCurrencyCode })}</td>;
+                return <td key={c} className="px-2 py-2 text-right text-ink-soft">{formatMoney(columnTotal, { code: homeCurrencyCode })}</td>;
               })}
-              <td className="px-2 py-2 text-right text-violet-700">{formatMoney(data.reduce((s, d) => s + d.total, 0), { code: homeCurrencyCode })}</td>
+              <td className="px-2 py-2 text-right text-teal-strong">{formatMoney(data.reduce((s, d) => s + d.total, 0), { code: homeCurrencyCode })}</td>
             </tr>
           </tfoot>
         </table>

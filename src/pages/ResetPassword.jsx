@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin } from '../components/ui/Icons';
+import { BrandRibbon, NotebookBackdrop } from '../components/ui/Doodles';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -125,30 +125,27 @@ export default function ResetPassword() {
 
   if (!supabaseConfigured) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-10">
-        <div className="card max-w-md w-full p-6 shadow-xl border-slate-200">
-          <p className="text-sm text-slate-600">{t('auth.configMissingBody')}</p>
+      <NotebookBackdrop>
+        <div className="card max-w-md w-full p-6">
+          <p className="text-sm text-ink-soft">{t('auth.configMissingBody')}</p>
         </div>
-      </div>
+      </NotebookBackdrop>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-10">
-      <div className="card max-w-md w-full p-6 shadow-xl border-slate-200">
-        <div className="flex items-center gap-2 mb-6 text-indigo-600">
-          <MapPin size={22} className="text-pink-500" />
-          <span className="font-bold text-lg">{t('app.brand')}</span>
-        </div>
+    <NotebookBackdrop>
+      <div className="card max-w-md w-full p-6">
+        <BrandRibbon name={t('app.brand')} />
 
         {phase === 'checking' && (
-          <p className="text-sm text-slate-600">{t('auth.resetPasswordVerifying')}</p>
+          <p className="text-sm text-ink-soft">{t('auth.resetPasswordVerifying')}</p>
         )}
 
         {phase === 'invalid' && (
           <div className="space-y-4">
-            <h1 className="text-lg font-semibold text-slate-800">{t('auth.resetPasswordInvalidTitle')}</h1>
-            <p className="text-sm text-slate-600">{t('auth.resetPasswordInvalidBody')}</p>
+            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.resetPasswordInvalidTitle')}</h1>
+            <p className="text-sm text-ink-soft">{t('auth.resetPasswordInvalidBody')}</p>
             <button type="button" className="btn-primary w-full" onClick={() => navigate('/login', { replace: true })}>
               {t('auth.resetPasswordGoLogin')}
             </button>
@@ -157,12 +154,12 @@ export default function ResetPassword() {
 
         {phase === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <h1 className="text-lg font-semibold text-slate-800">{t('auth.resetPasswordTitle')}</h1>
+            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.resetPasswordTitle')}</h1>
             {inlineError && (
-              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{inlineError}</p>
+              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2">{inlineError}</p>
             )}
             <div>
-              <label htmlFor="reset-new-password" className="block text-xs font-medium text-slate-600 mb-1">
+              <label htmlFor="reset-new-password" className="block text-sm font-medium text-ink-soft mb-1">
                 {t('auth.newPassword')}
               </label>
               <input
@@ -175,7 +172,7 @@ export default function ResetPassword() {
               />
             </div>
             <div>
-              <label htmlFor="reset-confirm-password" className="block text-xs font-medium text-slate-600 mb-1">
+              <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-ink-soft mb-1">
                 {t('auth.confirmPassword')}
               </label>
               <input
@@ -193,6 +190,6 @@ export default function ResetPassword() {
           </form>
         )}
       </div>
-    </div>
+    </NotebookBackdrop>
   );
 }

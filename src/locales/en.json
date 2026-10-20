@@ -2,7 +2,8 @@
   "common": {
     "unknownLocation": "Unknown location",
     "unknownStore": "Unknown store",
-    "unnamedStore": "Unnamed"
+    "unnamedStore": "Unnamed",
+    "close": "Close"
   },
   "export": {
     "reportTitle": "Travel expense report",
@@ -105,7 +106,8 @@
     "dupHashSameFileBody": "This receipt looks like one already uploaded (same file).",
     "dupHashSkip": "Skip (no scan credit)",
     "dupHashScan": "Scan anyway",
-    "dupHashContinue": "Continue"
+    "dupHashContinue": "Continue",
+    "proQuotaReadyShort": "Unlimited AI scans, ready when you are."
   },
   "errors": {
     "parseReceipt": "Server response error ({{status}}). If you use the PWA “Add to Home Screen”, close the tab and clear site data, then retry.",
@@ -159,7 +161,6 @@
     "billingRefreshed": "Plan status refreshed.",
     "billingRefreshError": "Could not refresh plan status right now.",
     "billingLoadWarning": "Plan data could not be refreshed automatically. Your saved data is safe.",
-    "billingPillError": "Unavailable",
     "planFree": "Free",
     "planPro": "Pro",
     "billingPlanLabel": "Current plan",
@@ -229,7 +230,8 @@
     "deletePersonHint": "Whole expenses and line items assigned to this person will be reassigned to the person you select below.",
     "deletePersonReassignLabel": "Reassign to",
     "cancel": "Cancel",
-    "confirmDelete": "Delete"
+    "confirmDelete": "Delete",
+    "deleteCategoryDetail": "Expenses in this category will move to “Other”."
   },
   "currency": {
     "HKD": "HKD",
@@ -321,7 +323,6 @@
     "fixed": "Fixed",
     "fixedTitle": "Excluded from refund split (e.g. fee)",
     "removeItem": "Remove line",
-    "itemOrdinal": "Item {{n}}",
     "add": "Add",
     "cancel": "Cancel",
     "save": "Save"
@@ -356,11 +357,12 @@
   },
   "deleteDialog": {
     "title": "Delete?",
-    "message": "Delete this expense for “{{store}}”?",
     "messageNamed": "Delete “{{name}}”? This cannot be undone.",
     "lineItemFallback": "Item {{n}}",
     "cancel": "Cancel",
-    "confirm": "Delete"
+    "confirm": "Delete",
+    "lineItemMessage": "Remove the line “{{name}}”? Until you save, cancelling the edit brings it back.",
+    "removeLine": "Remove line"
   },
   "trip": {
     "title": "Trips",
@@ -374,7 +376,6 @@
     "startDate": "Start date",
     "create": "Create",
     "deleteTitle": "Delete trip",
-    "deleteMessage": "Delete “{{name}}”? All expenses in this trip will be removed.",
     "deleteDetail": "All expenses in this trip will be removed.",
     "enterName": "Enter a trip name",
     "cannotDeleteCurrent": "Switch to another trip before deleting this one",

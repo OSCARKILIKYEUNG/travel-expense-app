@@ -13,8 +13,8 @@ export default function RequireAuth({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <p className="text-slate-600 text-sm">{t('auth.loading')}</p>
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4">
+        <p className="text-ink-soft text-sm">{t('auth.loading')}</p>
       </div>
     );
   }

@@ -11,6 +11,7 @@ export default function ConfirmDeleteDialog({
   open,
   title,
   name,
+  message,
   description,
   confirmLabel,
   children,
@@ -20,20 +21,20 @@ export default function ConfirmDeleteDialog({
 }) {
   const { t } = useTranslation();
   const dialog = (
-    <Dialog open={open} onClose={onCancel} size="sm">
+    <Dialog open={open} onClose={onCancel} size="sm" ariaLabel={title || t('deleteDialog.title')}>
       <div className="flex items-center gap-3 mb-4">
-        <div className="bg-red-100 p-3 rounded-full">
-          <AlertCircle className="text-red-600" size={24} />
+        <div className="bg-coral-soft p-3 rounded-full">
+          <AlertCircle className="text-coral-ink" size={24} />
         </div>
-        <h3 className="text-xl font-bold text-slate-900">{title || t('deleteDialog.title')}</h3>
+        <h3 className="text-xl font-bold text-ink">{title || t('deleteDialog.title')}</h3>
       </div>
-      <p className="text-slate-600 mb-4">
-        {t('deleteDialog.messageNamed', { name: name || '' })}
+      <p className="text-ink-soft mb-4">
+        {message || t('deleteDialog.messageNamed', { name: name || '' })}
       </p>
-      {description ? <p className="text-sm text-slate-600 mb-4">{description}</p> : null}
+      {description ? <p className="text-sm text-ink-soft mb-4">{description}</p> : null}
       {children ? <div className="mb-4">{children}</div> : null}
       <div className="flex gap-3">
-        <button type="button" onClick={onCancel} className="btn-secondary flex-1">{t('deleteDialog.cancel')}</button>
+        <button type="button" autoFocus onClick={onCancel} className="btn-secondary flex-1">{t('deleteDialog.cancel')}</button>
         <button
           type="button"
           onClick={onConfirm}

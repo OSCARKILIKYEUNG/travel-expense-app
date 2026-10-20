@@ -31,7 +31,7 @@ export default function ExpenseList() {
 
   if (filtered.length === 0) {
     return (
-      <div className="text-center py-16 text-slate-400">
+      <div className="text-center py-16 text-ink-muted">
         <p className="text-lg mb-1">{t('list.emptyTitle')}</p>
         <p className="text-sm">{t('list.emptyHint')}</p>
       </div>
@@ -55,11 +55,11 @@ export default function ExpenseList() {
         {rows.map((row) =>
           row.type === 'divider' ? (
             <div key={row.key} className="flex items-center gap-3 pt-4 pb-1">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+              <div className="flex-1 h-px bg-line" />
+              <span className="text-xs font-bold text-ink-muted bg-beige px-3 py-1 rounded-full">
                 {row.date}
               </span>
-              <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex-1 h-px bg-line" />
             </div>
           ) : (
             <ExpenseCard

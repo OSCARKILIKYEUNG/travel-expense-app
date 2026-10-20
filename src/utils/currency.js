@@ -57,32 +57,46 @@ function asFinite(value) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-/** Bare grouped number. Non-finite values render as 0. Sign sits before the digits. */
+/** 2 when the value has cents, else 0. For original receipt amounts (USD 13.75 vs JPY 2,360). */
+export function autoDecimals(n) {
+  const frac = Math.abs(asFinite(n) % 1);
+  return frac > 1e-6 && frac < 1 - 1e-6 ? 2 : 0;
+}
+
+function resolveDecimals(n, decimals) {
+  return decimals === 'auto' ? autoDecimals(n) : decimals;
+}
+
+/**
+ * Bare grouped number. Non-finite values render as 0. Sign sits before the digits.
+ * @param {number} n
+ * @param {number|'auto'} [decimals=0]
+ */
 export function formatNumber(n, decimals = 0) {
-  return numberFormatter(decimals).format(asFinite(n));
+  return numberFormatter(resolveDecimals(n, decimals)).format(asFinite(n));
 }
 
 /**
  * Grouped money. `HKD $12,345` with a code, `$12,345` without, `12,345` when prefix is empty.
- * Negatives keep the sign in front of the code: `-HKD $1,234`.
+ * Negatives keep the sign in front of the code: `-HKD $1,234`. The sign is decided after
+ * rounding, so -0.2 at 0 decimals renders `HKD $0`, not `-HKD $0`.
  * @param {number} amount
- * @param {{ code?: string, decimals?: number, prefix?: string }} [options]
+ * @param {{ code?: string, decimals?: number|'auto', prefix?: string }} [options]
  */
 export function formatMoney(amount, options) {
   const { code, decimals = 0, prefix = '$' } = options || {};
   const value = asFinite(amount);
-  const sign = value < 0 ? '-' : '';
-  const digits = formatNumber(Math.abs(value), decimals);
+  const d = resolveDecimals(value, decimals);
+  const digits = formatNumber(Math.abs(value), d);
+  const sign = value < 0 && /[1-9]/.test(digits) ? '-' : '';
   const body = `${prefix}${digits}`;
   return code ? `${sign}${code} ${body}` : `${sign}${body}`;
 }
 
-/** Same shape as formatMoney without a currency code. Grouping comes from formatNumber. */
+/** formatMoney without a currency code (kept for existing callers/tests). */
 export function formatCurrency(amount, options = {}) {
   const { decimals = 0, prefix = '$' } = options || {};
-  const value = asFinite(amount);
-  const sign = value < 0 ? '-' : '';
-  return `${sign}${prefix}${formatNumber(Math.abs(value), decimals)}`;
+  return formatMoney(amount, { decimals, prefix });
 }
 
 export function getCurrencyLabel(code) {

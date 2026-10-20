@@ -49,19 +49,19 @@ export default function HashDuplicateDialog({ open, conflicts, onConfirm, onClos
             return (
               <li
                 key={`${conflict.index}:${conflict.hash}`}
-                className="rounded-2xl border border-[var(--paper-border)] bg-[var(--paper-soft)] p-3 space-y-2"
+                className="rounded-2xl border border-line bg-cream-soft p-3 space-y-2"
               >
-                <p className="text-sm text-[color:var(--ink-soft)]">{conflictMessage(conflict, t, i18n.language)}</p>
+                <p className="text-sm text-ink-soft">{conflictMessage(conflict, t, i18n.language)}</p>
                 {conflict.file?.name && (
-                  <p className="text-[11px] text-[color:var(--ink-muted)]">{conflict.file.name}</p>
+                  <p className="text-meta text-ink-muted">{conflict.file.name}</p>
                 )}
                 <div className="flex flex-wrap gap-2" role="group">
                   {CHOICES.map((key) => {
                     const selected = choice === key;
                     const base = 'rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors';
                     const tone = selected
-                      ? 'bg-[var(--accent-strong)] text-white border-[var(--accent-strong)]'
-                      : 'bg-white text-[color:var(--ink-soft)] border-[var(--paper-border)]';
+                      ? 'bg-teal-strong text-white border-teal-strong'
+                      : 'bg-white text-ink-soft border-line';
                     return (
                       <button
                         key={key}

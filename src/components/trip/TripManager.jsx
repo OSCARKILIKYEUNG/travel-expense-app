@@ -243,7 +243,7 @@ export default function TripManager() {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-700">{t('trip.title')}</h3>
+        <h3 className="text-sm font-bold text-ink-soft">{t('trip.title')}</h3>
         <button type="button" onClick={openCreate} className="btn-primary !py-1.5 !px-3 text-xs">
           {t('trip.addTrip')}
         </button>
@@ -255,55 +255,55 @@ export default function TripManager() {
             <div className="flex items-start justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <Globe size={14} className="text-slate-400 shrink-0" />
+                  <Globe size={14} className="text-ink-muted shrink-0" />
                   <span className="font-medium text-sm truncate">{trip.name}</span>
                   {trip.id === currentTripId && (
-                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">{t('trip.current')}</span>
+                    <span className="text-meta font-bold bg-teal-soft text-teal-strong px-2 py-0.5 rounded-full shrink-0">{t('trip.current')}</span>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 ml-5">
+                <p className="text-meta text-ink-muted ml-5">
                   {trip.startDate} · {t('trip.accountingShort', { ac: getAccountingCode(trip) })} · {getTripCurrencyCode(trip)} · {t('trip.records', { count: trip.expenses?.length || 0 })}
                 </p>
               </div>
-              <div className="flex gap-1 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 {trip.id !== currentTripId && (
-                  <button type="button" onClick={() => switchTrip(trip.id)} className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-medium">
+                  <button type="button" onClick={() => switchTrip(trip.id)} className="min-h-[36px] px-3 text-sm rounded-lg bg-teal-soft text-teal-strong hover:bg-beige transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
                     {t('trip.switch')}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => openEdit(trip)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                  className="btn-icon"
                   aria-label={`${t('expenseCard.edit')} ${trip.name}`}
                 >
-                  <Edit size={14} />
+                  <Edit size={16} />
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDelete(trip.id)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-colors"
+                  className="btn-icon-danger"
                   aria-label={`${t('expenseCard.delete')} ${trip.name}`}
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
 
             {editId === trip.id && (
-              <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
+              <div className="mt-2 p-3 bg-teal-soft rounded-lg border border-teal/40 space-y-2">
                 <div>
-                  <label htmlFor={`trip-edit-name-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripName')}</label>
+                  <label htmlFor={`trip-edit-name-${trip.id}`} className="block text-sm text-ink-soft mb-0.5">{t('trip.tripName')}</label>
                   <input
                     id={`trip-edit-name-${trip.id}`}
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="input-field w-full text-xs"
+                    className="input-field w-full"
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label htmlFor={`trip-edit-accounting-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.accountingCurrency')}</label>
+                  <label htmlFor={`trip-edit-accounting-${trip.id}`} className="block text-sm text-ink-soft mb-0.5">{t('trip.accountingCurrency')}</label>
                   <select
                     id={`trip-edit-accounting-${trip.id}`}
                     value={editAccountingSelect}
@@ -311,7 +311,7 @@ export default function TripManager() {
                       setEditAccountingSelect(e.target.value);
                       if (e.target.value !== 'OTHER') setEditOtherCode('');
                     }}
-                    className="input-field w-full text-xs"
+                    className="input-field w-full"
                   >
                     {accountingOptionsFor(trip).map((code) => (
                       <option key={code} value={code}>
@@ -322,34 +322,34 @@ export default function TripManager() {
                   </select>
                   {editAccountingSelect === 'OTHER' && (
                     <div className="mt-1.5">
-                      <label htmlFor={`trip-edit-other-${trip.id}`} className="block text-[9px] text-slate-500 mb-0.5">{t('trip.accountingOtherCode')}</label>
+                      <label htmlFor={`trip-edit-other-${trip.id}`} className="block text-sm text-ink-muted mb-0.5">{t('trip.accountingOtherCode')}</label>
                       <input
                         id={`trip-edit-other-${trip.id}`}
                         type="text"
                         value={editOtherCode}
                         onChange={(e) => setEditOtherCode(e.target.value.toUpperCase())}
                         maxLength={3}
-                        className="input-field w-full text-xs uppercase"
+                        className="input-field w-full uppercase"
                         placeholder="CHF"
                         autoComplete="off"
                       />
                     </div>
                   )}
-                  <p className="text-[9px] text-slate-500 mt-1">{t('trip.accountingCurrencyHint')}</p>
+                  <p className="text-sm text-ink-muted mt-1">{t('trip.accountingCurrencyHint')}</p>
                   {(trip.customAccountingCodes || []).length > 0 && (
                     <div className="mt-2">
-                      <p className="text-[9px] text-slate-600 mb-1">{t('trip.savedCustomAccounting')}</p>
+                      <p className="text-meta text-ink-soft mb-1">{t('trip.savedCustomAccounting')}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {(trip.customAccountingCodes || []).map((code) => (
                           <span
                             key={code}
-                            className="inline-flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-0.5"
+                            className="inline-flex items-center gap-1 text-meta bg-white border border-line rounded-lg px-2 py-0.5"
                           >
                             {code}
                             <button
                               type="button"
                               onClick={() => handleRemoveCustomAccountingCode(trip, code)}
-                              className="text-slate-400 hover:text-red-600 font-bold leading-none"
+                              className="text-ink-muted hover:text-coral-ink font-bold leading-none"
                               aria-label={t('trip.removeCustomAccountingAria', { code })}
                             >
                               ×
@@ -357,12 +357,12 @@ export default function TripManager() {
                           </span>
                         ))}
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-1">{t('trip.removeCustomAccountingHint')}</p>
+                      <p className="text-sm text-ink-muted mt-1">{t('trip.removeCustomAccountingHint')}</p>
                     </div>
                   )}
                 </div>
                 <div>
-                  <label htmlFor={`trip-edit-currency-${trip.id}`} className="block text-[10px] text-slate-600 mb-0.5">{t('trip.tripCurrency')}</label>
+                  <label htmlFor={`trip-edit-currency-${trip.id}`} className="block text-sm text-ink-soft mb-0.5">{t('trip.tripCurrency')}</label>
                   <select
                     id={`trip-edit-currency-${trip.id}`}
                     value={editTripCurrencySelect}
@@ -370,7 +370,7 @@ export default function TripManager() {
                       setEditTripCurrencySelect(e.target.value);
                       if (e.target.value !== 'OTHER') setEditTripOtherCode('');
                     }}
-                    className="input-field w-full text-xs"
+                    className="input-field w-full"
                   >
                     {tripCurrencyOptionsFor(trip).map((code) => (
                       <option key={code} value={code}>
@@ -381,34 +381,34 @@ export default function TripManager() {
                   </select>
                   {editTripCurrencySelect === 'OTHER' && (
                     <div className="mt-1.5">
-                      <label htmlFor={`trip-edit-trip-other-${trip.id}`} className="block text-[9px] text-slate-500 mb-0.5">{t('trip.tripCurrencyOtherCode')}</label>
+                      <label htmlFor={`trip-edit-trip-other-${trip.id}`} className="block text-sm text-ink-muted mb-0.5">{t('trip.tripCurrencyOtherCode')}</label>
                       <input
                         id={`trip-edit-trip-other-${trip.id}`}
                         type="text"
                         value={editTripOtherCode}
                         onChange={(e) => setEditTripOtherCode(e.target.value.toUpperCase())}
                         maxLength={3}
-                        className="input-field w-full text-xs uppercase"
+                        className="input-field w-full uppercase"
                         placeholder="CHF"
                         autoComplete="off"
                       />
                     </div>
                   )}
-                  <p className="text-[9px] text-slate-500 mt-1">{t('trip.tripCurrencyHint')}</p>
+                  <p className="text-sm text-ink-muted mt-1">{t('trip.tripCurrencyHint')}</p>
                   {(trip.customTripCurrencyCodes || []).length > 0 && (
                     <div className="mt-2">
-                      <p className="text-[9px] text-slate-600 mb-1">{t('trip.savedCustomTripCurrency')}</p>
+                      <p className="text-meta text-ink-soft mb-1">{t('trip.savedCustomTripCurrency')}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {(trip.customTripCurrencyCodes || []).map((code) => (
                           <span
                             key={code}
-                            className="inline-flex items-center gap-1 text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-0.5"
+                            className="inline-flex items-center gap-1 text-meta bg-white border border-line rounded-lg px-2 py-0.5"
                           >
                             {code}
                             <button
                               type="button"
                               onClick={() => handleRemoveCustomTripCurrencyCode(trip, code)}
-                              className="text-slate-400 hover:text-red-600 font-bold leading-none"
+                              className="text-ink-muted hover:text-coral-ink font-bold leading-none"
                               aria-label={t('trip.removeCustomTripCurrencyAria', { code })}
                             >
                               ×
@@ -416,7 +416,7 @@ export default function TripManager() {
                           </span>
                         ))}
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-1">{t('trip.removeCustomTripCurrencyHint')}</p>
+                      <p className="text-sm text-ink-muted mt-1">{t('trip.removeCustomTripCurrencyHint')}</p>
                     </div>
                   )}
                 </div>
@@ -433,15 +433,15 @@ export default function TripManager() {
       <Dialog open={showCreate} onClose={() => setShowCreate(false)} title={t('trip.createTitle')} size="sm">
         <div className="space-y-4">
           <div>
-            <label htmlFor="trip-name" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.tripName')}</label>
+            <label htmlFor="trip-name" className="block text-sm font-medium text-ink-soft mb-1">{t('trip.tripName')}</label>
             <input id="trip-name" type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t('trip.tripNamePlaceholder')} className="input-field" autoComplete="off" />
           </div>
           <div>
-            <label htmlFor="trip-date" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.startDate')}</label>
+            <label htmlFor="trip-date" className="block text-sm font-medium text-ink-soft mb-1">{t('trip.startDate')}</label>
             <input id="trip-date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input-field" />
           </div>
           <div>
-            <label htmlFor="trip-new-accounting" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.accountingCurrency')}</label>
+            <label htmlFor="trip-new-accounting" className="block text-sm font-medium text-ink-soft mb-1">{t('trip.accountingCurrency')}</label>
             <select
               id="trip-new-accounting"
               value={newAccountingSelect}
@@ -460,7 +460,7 @@ export default function TripManager() {
             </select>
             {newAccountingSelect === 'OTHER' && (
               <div className="mt-2">
-                <label htmlFor="trip-new-other" className="block text-xs text-slate-600 mb-1">{t('trip.accountingOtherCode')}</label>
+                <label htmlFor="trip-new-other" className="block text-sm text-ink-soft mb-1">{t('trip.accountingOtherCode')}</label>
                 <input
                   id="trip-new-other"
                   type="text"
@@ -473,10 +473,10 @@ export default function TripManager() {
                 />
               </div>
             )}
-            <p className="text-[10px] text-slate-500 mt-1">{t('trip.accountingCurrencyHint')}</p>
+            <p className="text-sm text-ink-muted mt-1">{t('trip.accountingCurrencyHint')}</p>
           </div>
           <div>
-            <label htmlFor="trip-currency" className="block text-sm font-medium text-slate-700 mb-1">{t('trip.tripCurrency')}</label>
+            <label htmlFor="trip-currency" className="block text-sm font-medium text-ink-soft mb-1">{t('trip.tripCurrency')}</label>
             <select
               id="trip-currency"
               value={newTripCurrencySelect}
@@ -495,7 +495,7 @@ export default function TripManager() {
             </select>
             {newTripCurrencySelect === 'OTHER' && (
               <div className="mt-2">
-                <label htmlFor="trip-new-trip-other" className="block text-xs text-slate-600 mb-1">{t('trip.tripCurrencyOtherCode')}</label>
+                <label htmlFor="trip-new-trip-other" className="block text-sm text-ink-soft mb-1">{t('trip.tripCurrencyOtherCode')}</label>
                 <input
                   id="trip-new-trip-other"
                   type="text"
@@ -508,7 +508,7 @@ export default function TripManager() {
                 />
               </div>
             )}
-            <p className="text-[10px] text-slate-500 mt-1">{t('trip.tripCurrencyHint')}</p>
+            <p className="text-sm text-ink-muted mt-1">{t('trip.tripCurrencyHint')}</p>
           </div>
         </div>
         <div className="flex gap-3 mt-6">

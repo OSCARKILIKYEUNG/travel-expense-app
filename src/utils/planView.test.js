@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FREE_RECEIPT_SCAN_LIMIT, buildBillingSnapshot } from '../../shared/billing.js';
-import { billingReducer, initialBillingState } from './billingState';
+import { billingReducer, initialBillingState, refreshOutcome } from './billingState';
 import { derivePlanView, isUploadBlocked } from './planView';
 
 const proSnapshot = buildBillingSnapshot({
@@ -105,7 +105,7 @@ describe('billingReducer request order', () => {
       requestId: 1,
       snapshot: buildBillingSnapshot({ usedReceiptScans: 1 }),
     });
-    expect(state.requestId).toBe(2);
+    expect(state.settledId).toBe(2);
     expect(state.phase).toBe('ready');
     expect(state.snapshot).toBe(proSnapshot);
     expect(derivePlanView(state)).toEqual({
@@ -153,4 +153,35 @@ describe('billingReducer request order', () => {
     expect(derivePlanView(empty)).toEqual({ state: 'error', error: 'offline' });
     expect(derivePlanView(empty)).not.toHaveProperty('remainingFreeScans');
   });
+  it('keeps an older good answer when a newer refresh starts first and then fails (interrogate A1)', () => {
+    let state = billingReducer(initialBillingState, { type: 'start', requestId: 1 });
+    state = billingReducer(state, { type: 'start', requestId: 2 });
+    state = billingReducer(state, { type: 'success', requestId: 1, snapshot: proSnapshot });
+    expect(state.snapshot).toBe(proSnapshot);
+    expect(refreshOutcome(state, 1)).toBe('ok');
+    expect(derivePlanView(state)).toMatchObject({ state: 'pro', stale: true });
+    state = billingReducer(state, { type: 'failure', requestId: 2, error: 'offline' });
+    expect(refreshOutcome(state, 2)).toBe('failed');
+    expect(derivePlanView(state)).toEqual({ state: 'pro', subscriptionStatus: 'active', stale: true });
+  });
+
+  it('reports a refresh overtaken by a newer one as superseded, not failed', () => {
+    let state = billingReducer(initialBillingState, { type: 'start', requestId: 1 });
+    state = billingReducer(state, { type: 'start', requestId: 2 });
+    state = billingReducer(state, { type: 'failure', requestId: 1, error: 'late' });
+    expect(refreshOutcome(state, 1)).toBe('superseded');
+    expect(state.refreshing).toBe(true);
+    state = billingReducer(state, { type: 'success', requestId: 2, snapshot: proSnapshot });
+    expect(refreshOutcome(state, 2)).toBe('ok');
+    expect(state.refreshing).toBe(false);
+  });
+
+  it('a failure older than an upload-applied snapshot is ignored', () => {
+    let state = billingReducer(initialBillingState, { type: 'start', requestId: 1 });
+    state = billingReducer(state, { type: 'apply', requestId: 2, snapshot: proSnapshot });
+    const after = billingReducer(state, { type: 'failure', requestId: 1, error: 'late' });
+    expect(after).toBe(state);
+    expect(derivePlanView(after)).toEqual({ state: 'pro', subscriptionStatus: 'active', stale: false });
+  });
 });
+

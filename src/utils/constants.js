@@ -39,15 +39,7 @@ export const CURRENCY_NAMES = {
   CAD: '加元',
 };
 
-export const CATEGORY_COLORS = {
-  '飲食': '#EF4444',
-  '交通': '#3B82F6',
-  '購物': '#10B981',
-  '住宿': '#F59E0B',
-  '娛樂': '#8B5CF6',
-  '其他': '#6B7280',
-  '未分類': '#9CA3AF',
-};
+export { categoryPalette as CATEGORY_COLORS, personPalette as PERSON_COLORS } from '../theme/tokens.js';
 
 export const CATEGORIES = ['飲食', '交通', '購物', '住宿', '娛樂', '其他'];
 
@@ -74,16 +66,6 @@ export const RECEIPT_TYPE_OPTIONS = [
 
 /** 設為 true 可恢復「單據類型」下拉與卡片 tag；資料與計價仍使用 receiptType。 */
 export const SHOW_RECEIPT_TYPE_UI = false;
-
-export const PERSON_COLORS = [
-  '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
-  '#3B82F6', '#EF4444', '#6366F1', '#14B8A6',
-];
-
-export const PERSON_BG_CLASSES = [
-  'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-emerald-500',
-  'bg-blue-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500',
-];
 
 export const PRESET_TRIPS_DATA = {
   trips: [

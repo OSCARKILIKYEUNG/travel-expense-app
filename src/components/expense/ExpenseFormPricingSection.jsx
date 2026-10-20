@@ -93,7 +93,7 @@ export default function ExpenseFormPricingSection({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor={`${idPrefix}-currency`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor={`${idPrefix}-currency`} className="block text-sm font-medium text-ink-soft mb-1">
             {t('editExpense.currency')}
           </label>
           <select
@@ -110,7 +110,7 @@ export default function ExpenseFormPricingSection({
           </select>
         </div>
         <div>
-          <label htmlFor={`${idPrefix}-amount`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor={`${idPrefix}-amount`} className="block text-sm font-medium text-ink-soft mb-1">
             {t('editExpense.amountPaid')}
           </label>
           <input
@@ -124,12 +124,12 @@ export default function ExpenseFormPricingSection({
         </div>
       </div>
 
-      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-        <p className="text-xs font-bold text-slate-500 mb-1">{t('editExpense.taxSection')}</p>
-        <p className="text-[10px] text-slate-400 mb-2 leading-snug">{t('editExpense.taxHint')}</p>
+      <div className="bg-cream rounded-xl p-3 border border-line">
+        <p className="text-xs font-bold text-ink-muted mb-1">{t('editExpense.taxSection')}</p>
+        <p className="text-sm text-ink-muted mb-2 leading-snug">{t('editExpense.taxHint')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div>
-            <label htmlFor={`${idPrefix}-subtotal`} className="block text-[10px] text-slate-500 mb-0.5">
+            <label htmlFor={`${idPrefix}-subtotal`} className="block text-meta text-ink-muted mb-0.5">
               {t('editExpense.subtotal')}
             </label>
             <input
@@ -138,11 +138,11 @@ export default function ExpenseFormPricingSection({
               step="0.01"
               value={form.subtotal || ''}
               onChange={(e) => patch({ subtotal: parseFloat(e.target.value) || 0 })}
-              className="input-field text-xs"
+              className="input-field"
             />
           </div>
           <div>
-            <label htmlFor={`${idPrefix}-tax`} className="block text-[10px] text-slate-500 mb-0.5">
+            <label htmlFor={`${idPrefix}-tax`} className="block text-meta text-ink-muted mb-0.5">
               {t('addExpense.tax')}
             </label>
             <input
@@ -151,11 +151,11 @@ export default function ExpenseFormPricingSection({
               step="0.01"
               value={form.tax || ''}
               onChange={(e) => patch({ tax: parseFloat(e.target.value) || 0 })}
-              className="input-field text-xs"
+              className="input-field"
             />
           </div>
           <div>
-            <label htmlFor={`${idPrefix}-taxrefund`} className="block text-[10px] text-slate-500 mb-0.5">
+            <label htmlFor={`${idPrefix}-taxrefund`} className="block text-meta text-ink-muted mb-0.5">
               {t('editExpense.taxRefund')}
             </label>
             <input
@@ -165,11 +165,11 @@ export default function ExpenseFormPricingSection({
               value={form.taxRefund || ''}
               onChange={(e) => patch({ taxRefund: parseFloat(e.target.value) || 0 })}
               placeholder={t('addExpense.taxRefundPlaceholder')}
-              className="input-field text-xs"
+              className="input-field"
             />
           </div>
           <div>
-            <label htmlFor={`${idPrefix}-discount`} className="block text-[10px] text-slate-500 mb-0.5">
+            <label htmlFor={`${idPrefix}-discount`} className="block text-meta text-ink-muted mb-0.5">
               {t('editExpense.discount')}
             </label>
             <input
@@ -179,12 +179,12 @@ export default function ExpenseFormPricingSection({
               value={form.discount || ''}
               onChange={(e) => patch({ discount: parseFloat(e.target.value) || 0 })}
               placeholder={t('addExpense.discountPlaceholder')}
-              className="input-field text-xs"
+              className="input-field"
             />
           </div>
         </div>
-        <div className="mt-2 pt-2 border-t border-slate-200/80">
-          <label htmlFor={`${idPrefix}-receipt-exemption`} className="block text-[10px] text-slate-500 mb-0.5">
+        <div className="mt-2 pt-2 border-t border-line/80">
+          <label htmlFor={`${idPrefix}-receipt-exemption`} className="block text-meta text-ink-muted mb-0.5">
             {t('editExpense.receiptExemption')}
           </label>
           <input
@@ -199,19 +199,19 @@ export default function ExpenseFormPricingSection({
               else patch({ receiptTaxExemptionAmount: Math.max(0, parseFloat(v) || 0) });
             }}
             placeholder={t('editExpense.receiptExemptionPlaceholder')}
-            className="input-field text-xs"
+            className="input-field"
           />
-          <p className="text-[10px] text-slate-400 mt-1 leading-snug">{t('editExpense.receiptExemptionHelp')}</p>
+          <p className="text-sm text-ink-muted mt-1 leading-snug">{t('editExpense.receiptExemptionHelp')}</p>
         </div>
       </div>
 
       <div>
-        <p className="text-sm font-medium text-slate-700 mb-0.5">{t('editExpense.itemsTitle')}</p>
-        <p className="text-[10px] text-slate-400 mb-2 leading-snug">{t('editExpense.itemsHelp')}</p>
+        <p className="text-sm font-medium text-ink-soft mb-0.5">{t('editExpense.itemsTitle')}</p>
+        <p className="text-sm text-ink-muted mb-2 leading-snug">{t('editExpense.itemsHelp')}</p>
         <div className="overflow-x-auto -mx-0.5 px-0.5">
           <div className="min-w-[280px] sm:min-w-[26rem] space-y-1.5">
             <div
-              className={`${ITEM_ROW_GRID} px-1.5 pb-1 text-[10px] text-slate-500 font-medium`}
+              className={`${ITEM_ROW_GRID} px-1.5 pb-1 text-meta text-ink-muted font-medium`}
               aria-hidden="true"
             >
               <span className="truncate">{t('editExpense.itemColName')}</span>
@@ -222,13 +222,13 @@ export default function ExpenseFormPricingSection({
             </div>
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {(form.items || []).map((item, idx) => (
-                <div key={idx} className={`${ITEM_ROW_GRID} bg-white p-1.5 rounded-lg border border-slate-200`}>
+                <div key={idx} className={`${ITEM_ROW_GRID} bg-white p-1.5 rounded-lg border border-line`}>
                   <input
                     type="text"
                     value={item.name || ''}
                     onChange={(e) => patchItem(idx, { name: e.target.value })}
                     placeholder={t('editExpense.itemNamePlaceholder')}
-                    className="input-field min-w-0 w-full !py-1.5 text-xs"
+                    className="input-field min-w-0 w-full !py-1.5"
                     aria-label={t('editExpense.itemColName')}
                   />
                   <input
@@ -236,13 +236,13 @@ export default function ExpenseFormPricingSection({
                     step="0.01"
                     value={item.price || ''}
                     onChange={(e) => patchItem(idx, { price: parseFloat(e.target.value) || 0 })}
-                    className="input-field w-full min-w-0 !py-1.5 text-xs"
+                    className="input-field w-full min-w-0 !py-1.5"
                     aria-label={t('editExpense.itemColTagPrice')}
                   />
                   <select
                     value={item.assignedTo || form.assignedTo || defaultAssignee}
                     onChange={(e) => patchItem(idx, { assignedTo: e.target.value })}
-                    className="input-field w-full min-w-0 !py-1.5 text-xs"
+                    className="input-field w-full min-w-0 !py-1.5"
                   >
                     {people.map((p) => (
                       <option key={p} value={p}>
@@ -251,12 +251,12 @@ export default function ExpenseFormPricingSection({
                     ))}
                   </select>
                   <label
-                    className="flex items-center justify-center gap-0.5 text-[9px] text-slate-500 cursor-pointer whitespace-nowrap"
+                    className="flex items-center justify-center gap-0.5 text-meta text-ink-muted cursor-pointer whitespace-nowrap"
                     title={t('editExpense.fixedTitle')}
                   >
                     <input
                       type="checkbox"
-                      className="rounded border-slate-300 shrink-0"
+                      className="rounded border-line shrink-0"
                       checked={
                         item.excludeFromRefundSplit === true ||
                         (item.excludeFromRefundSplit !== false && inferFixedFeeFromName(item.name))
@@ -269,7 +269,7 @@ export default function ExpenseFormPricingSection({
                     <button
                       type="button"
                       onClick={() => requestRemoveItem(idx)}
-                      className="text-red-400 hover:text-red-600 w-8 h-8 flex items-center justify-center font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded-lg"
+                      className="btn-icon-danger"
                       aria-label={t('editExpense.removeItem')}
                     >
                       ×
@@ -278,12 +278,12 @@ export default function ExpenseFormPricingSection({
                 </div>
               ))}
             </div>
-            <div className={`${ITEM_ROW_GRID} bg-slate-50/90 p-1.5 rounded-lg border border-dashed border-slate-200`}>
+            <div className={`${ITEM_ROW_GRID} bg-cream/90 p-1.5 rounded-lg border border-dashed border-line`}>
               <input
                 ref={newNameRef}
                 type="text"
                 placeholder={t('editExpense.itemNamePlaceholder')}
-                className="input-field min-w-0 w-full text-xs"
+                className="input-field min-w-0 w-full"
                 aria-label={t('editExpense.itemColName')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -297,7 +297,7 @@ export default function ExpenseFormPricingSection({
                 type="number"
                 step="0.01"
                 placeholder={t('editExpense.itemPricePlaceholder')}
-                className="input-field w-full min-w-0 text-xs"
+                className="input-field w-full min-w-0"
                 aria-label={t('editExpense.itemColTagPrice')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -309,7 +309,7 @@ export default function ExpenseFormPricingSection({
               <select
                 value={draftItemAssign}
                 onChange={(e) => setDraftItemAssign(e.target.value)}
-                className="input-field w-full min-w-0 text-xs"
+                className="input-field w-full min-w-0"
                 aria-label={t('editExpense.assignTo')}
               >
                 {people.map((p) => (
@@ -319,12 +319,12 @@ export default function ExpenseFormPricingSection({
                 ))}
               </select>
               <label
-                className="flex items-center justify-center gap-0.5 text-[9px] text-slate-500 cursor-pointer whitespace-nowrap"
+                className="flex items-center justify-center gap-0.5 text-meta text-ink-muted cursor-pointer whitespace-nowrap"
                 title={t('editExpense.fixedTitle')}
               >
                 <input
                   type="checkbox"
-                  className="rounded border-slate-300 shrink-0"
+                  className="rounded border-line shrink-0"
                   checked={draftItemFixed}
                   onChange={(e) => setDraftItemFixed(e.target.checked)}
                 />
@@ -342,6 +342,8 @@ export default function ExpenseFormPricingSection({
       <ConfirmDeleteDialog
         open={pendingItem != null}
         name={pendingName}
+        message={t('deleteDialog.lineItemMessage', { name: pendingName })}
+        confirmLabel={t('deleteDialog.removeLine')}
         onConfirm={() => {
           if (pendingRemove != null) removeItem(pendingRemove);
           setPendingRemove(null);

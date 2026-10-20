@@ -2,10 +2,10 @@ import { useApp } from '../../store/AppContext';
 import { Check, AlertCircle, X } from './Icons';
 
 const STYLES = {
-  success: 'bg-emerald-600 text-white',
-  error: 'bg-red-600 text-white',
-  warning: 'bg-amber-500 text-white',
-  info: 'bg-indigo-600 text-white',
+  success: 'bg-teal-strong text-white',
+  error: 'bg-coral-ink text-white',
+  warning: 'bg-mustard-soft text-mustard-ink',
+  info: 'bg-ink text-cream',
 };
 
 const ICONS = {

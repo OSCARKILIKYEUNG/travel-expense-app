@@ -36,30 +36,30 @@ export default function Charts() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-slate-900">{t('chartsPage.title')}</h1>
+      <h1 className="font-display text-2xl font-normal text-ink">{t('chartsPage.title')}</h1>
 
       {/* Stats summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center">
-          <p className="text-[10px] text-slate-400 font-medium mb-0.5">
+          <p className="text-meta text-ink-muted font-medium mb-0.5">
             {t('chartsPage.totalSpend', { currency: homeCurrencyCode })}{filterPerson ? ` (${filterPerson})` : ''}
           </p>
-          <p className="text-xl font-bold text-violet-600 tabular-nums">{formatMoney(stats.total, { code: homeCurrencyCode })}</p>
+          <p className="text-xl font-bold text-teal-strong tabular-nums">{formatMoney(stats.total, { code: homeCurrencyCode })}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.days')}</p>
-          <p className="text-xl font-bold text-blue-600 tabular-nums">{stats.days}</p>
+          <p className="text-meta text-ink-muted font-medium mb-0.5">{t('chartsPage.days')}</p>
+          <p className="text-xl font-bold text-ink tabular-nums">{stats.days}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('chartsPage.dailyAvg')}</p>
-          <p className="text-xl font-bold text-emerald-600 tabular-nums">{formatMoney(stats.avg, { code: homeCurrencyCode })}</p>
+          <p className="text-meta text-ink-muted font-medium mb-0.5">{t('chartsPage.dailyAvg')}</p>
+          <p className="text-xl font-bold text-ink tabular-nums">{formatMoney(stats.avg, { code: homeCurrencyCode })}</p>
         </div>
       </div>
 
       <PersonFilter />
 
       <section className="card p-5">
-        <h3 className="font-bold text-slate-700 mb-4">{t('chartsPage.dailyTrend')}</h3>
+        <h3 className="font-bold text-ink-soft mb-4">{t('chartsPage.dailyTrend')}</h3>
         <DailyChart />
       </section>
 

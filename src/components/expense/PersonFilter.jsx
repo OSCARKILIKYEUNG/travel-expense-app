@@ -22,14 +22,14 @@ export default function PersonFilter() {
 
   return (
     <div className="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label={t('filter.label')}>
-      <span className="text-xs text-slate-500 font-medium self-center">{t('filter.label')}</span>
+      <span className="text-sm text-ink-muted font-medium self-center">{t('filter.label')}</span>
       <button
         onClick={() => setFilterPerson(null)}
         role="radio"
         aria-checked={filterPerson === null}
-        className={`px-3 py-1 rounded-full text-xs font-medium transition-all
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400
-          ${filterPerson === null ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+        className={`min-h-[36px] px-3 inline-flex items-center rounded-full text-sm font-medium transition-all
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal
+          ${filterPerson === null ? 'bg-teal-strong text-white shadow-md' : 'bg-beige text-ink-soft hover:bg-line'}`}
       >
         {t('filter.all', { count: expenses.length })}
       </button>
@@ -42,11 +42,11 @@ export default function PersonFilter() {
             onClick={() => setFilterPerson(person)}
             role="radio"
             aria-checked={filterPerson === person}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-all
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+            className={`min-h-[36px] px-3 inline-flex items-center rounded-full text-sm font-medium transition-all
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal
               ${filterPerson === person
-                ? 'bg-violet-600 text-white shadow-md'
-                : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200'}`}
+                ? 'bg-teal-strong text-white shadow-md'
+                : 'bg-teal-soft text-teal-strong hover:bg-beige border border-teal/40'}`}
           >
             {person} ({c})
           </button>

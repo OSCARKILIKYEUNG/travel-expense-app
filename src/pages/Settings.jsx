@@ -319,22 +319,19 @@ export default function Settings() {
   };
 
   const handleRefreshBilling = async () => {
-    const view = await refreshBilling();
-    if (!view || view.state === 'error' || view.stale) {
-      notify(t('settings.billingRefreshError'), 'error');
-      return;
-    }
-    if (view.state === 'loading') return;
-    notify(t('settings.billingRefreshed'));
+    const { outcome } = await refreshBilling();
+    // A superseded refresh says nothing: the newer one will report.
+    if (outcome === 'failed') notify(t('settings.billingRefreshError'), 'error');
+    else if (outcome === 'ok') notify(t('settings.billingRefreshed'));
   };
 
   const stripePlanCard = STRIPE_UI_ENABLED && (planView.state === 'pro' || planView.state === 'free') ? (
-    <div className="rounded-[22px] bg-[var(--paper-soft)] border border-[var(--paper-border)] p-4">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)]">{t('settings.billingNextLabel')}</p>
-      <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+    <div className="rounded-[22px] bg-cream-soft border border-line p-4">
+      <p className="eyebrow">{t('settings.billingNextLabel')}</p>
+      <p className="mt-2 text-sm font-semibold text-ink">
         {planView.state === 'pro' ? t('settings.billingEnjoyPro') : t('settings.billingUpgradePrompt')}
       </p>
-      <p className="mt-2 text-xs text-[color:var(--ink-muted)]">
+      <p className="mt-2 text-sm text-ink-muted">
         {planView.state === 'pro' ? t('settings.billingEnjoyProHint') : t('settings.billingUpgradeHint')}
       </p>
     </div>
@@ -344,13 +341,13 @@ export default function Settings() {
     <div className="space-y-6">
       <div className="space-y-2">
         <p className="eyebrow">{t('settings.pageEyebrow')}</p>
-        <h1 className="display-title text-[color:var(--ink)]">{t('settings.title')}</h1>
-        <p className="text-sm text-[color:var(--ink-muted)] max-w-2xl">{t('settings.pageIntro')}</p>
+        <h1 className="display-title text-ink">{t('settings.title')}</h1>
+        <p className="text-sm text-ink-muted max-w-2xl">{t('settings.pageIntro')}</p>
       </div>
 
       <section className="paper-panel p-5 space-y-2">
         <h2 className="section-title">{t('settings.accountTitle')}</h2>
-        <p className="text-xs text-[color:var(--ink-soft)] break-all">{user?.email ?? '—'}</p>
+        <p className="text-sm text-ink-soft break-all">{user?.email ?? '—'}</p>
         <button
           type="button"
           className="btn-secondary text-sm !py-2"
@@ -366,11 +363,12 @@ export default function Settings() {
           <p className="eyebrow">{t('settings.billingEyebrow')}</p>
           <h2 className="section-title">{t('settings.billingTitle')}</h2>
           {STRIPE_UI_ENABLED && (
-            <p className="text-sm text-[color:var(--ink-muted)] max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
+            <p className="text-sm text-ink-muted max-w-xl leading-relaxed">{t('settings.billingHint')}</p>
           )}
         </PlanStatus>
         <div className="flex flex-wrap gap-2">
-          {STRIPE_UI_ENABLED && (
+          {/* Checkout only once the plan is known; never offer it to a Pro still loading. */}
+          {STRIPE_UI_ENABLED && (planView.state === 'free' || planView.state === 'pro') && (
             <button
               type="button"
               className="btn-primary text-sm !py-2"
@@ -382,6 +380,8 @@ export default function Settings() {
                 : checkoutLoading ? t('settings.billingLoading') : t('settings.billingSubscribe')}
             </button>
           )}
+          {/* In the error state PlanStatus renders its own retry; don't show two. */}
+          {planView.state !== 'error' && (
           <button
             type="button"
             className="btn-secondary text-sm !py-2 flex items-center gap-2"
@@ -391,6 +391,7 @@ export default function Settings() {
             <RefreshCw size={16} className={billing.refreshing ? 'animate-spin-slow' : ''} />
             {billing.refreshing ? t('settings.billingRefreshing') : t('settings.billingRefresh')}
           </button>
+          )}
         </div>
       </section>
 
@@ -413,10 +414,10 @@ export default function Settings() {
       <section className="paper-panel p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="text-sm font-bold text-slate-700">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
-            <p className="text-[10px] text-slate-500">{t('settings.ratesHintTrip')}</p>
+            <h2 className="section-title">{t('settings.ratesTitle', { home: homeCurrencyCode })}</h2>
+            <p className="text-sm text-ink-muted">{t('settings.ratesHintTrip')}</p>
             {exchangeRatesUpdatedAt && (
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-sm text-ink-muted mt-1">
                 {t('settings.ratesLastUpdated')}: {new Date(exchangeRatesUpdatedAt).toLocaleString(i18n.language?.startsWith('en') ? 'en' : 'zh-TW')}
               </p>
             )}
@@ -433,7 +434,7 @@ export default function Settings() {
 
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[140px]">
-            <label htmlFor="add-manual-rate" className="block text-[10px] text-slate-600 mb-0.5">{t('settings.addManualLabel')}</label>
+            <label htmlFor="add-manual-rate" className="block text-meta text-ink-soft mb-0.5">{t('settings.addManualLabel')}</label>
             <div className="flex gap-2">
               <input
                 id="add-manual-rate"
@@ -442,14 +443,14 @@ export default function Settings() {
                 onChange={(e) => setAddManualCode(e.target.value.toUpperCase())}
                 maxLength={3}
                 placeholder="TWD"
-                className="input-field text-xs uppercase flex-1"
+                className="input-field uppercase flex-1"
                 autoComplete="off"
               />
               <button type="button" onClick={handleAddManualRate} className="btn-secondary !py-2 !px-3 text-xs shrink-0">
                 {t('settings.addManual')}
               </button>
             </div>
-            <p className="text-[9px] text-slate-400 mt-1">{t('settings.addManualHint')}</p>
+            <p className="text-sm text-ink-muted mt-1">{t('settings.addManualHint')}</p>
           </div>
         </div>
 
@@ -465,14 +466,14 @@ export default function Settings() {
               exchangeRateUserEditedCodes,
             );
             return (
-              <div key={code} className="bg-slate-50 p-2 rounded-lg border border-slate-200 relative">
+              <div key={code} className="bg-cream p-2 rounded-lg border border-line relative">
                 <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <label className="block text-[10px] text-slate-500">{code}</label>
+                  <label className="block text-meta text-ink-muted">{code}</label>
                   {isManual && (
-                    <span className="text-[8px] font-bold text-amber-700 bg-amber-100 px-1 rounded">{t('settings.rateManualBadge')}</span>
+                    <span className="text-meta font-bold text-mustard-ink bg-mustard-soft px-1 rounded">{t('settings.rateManualBadge')}</span>
                   )}
                 </div>
-                <p className="text-[9px] text-slate-400 mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
+                <p className="text-meta text-ink-muted mb-0.5 tabular-nums">{t('settings.rateOneHomeLabel', { home: homeCurrencyCode })}</p>
                 <input
                   key={`${code}-${exchangeRates[code]}-${isManual ? 'm' : 'a'}-${userEdited ? 'e' : 's'}`}
                   type="number"
@@ -480,13 +481,13 @@ export default function Settings() {
                   defaultValue={displayStr}
                   disabled={code === homeCurrencyCode}
                   onBlur={(e) => handleRateBlur(code, e.target.value)}
-                  className="w-full p-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:bg-slate-100 disabled:text-slate-500"
+                  className="w-full p-1.5 text-sm border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-teal disabled:bg-beige disabled:text-ink-muted"
                 />
                 {isManual && (
                   <button
                     type="button"
                     onClick={() => handleRemoveManualRate(code)}
-                    className="mt-1 text-[9px] text-red-500 hover:underline w-full text-left"
+                    className="mt-1 text-sm text-coral-ink hover:underline w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink rounded"
                   >
                     {t('settings.removeManual')}
                   </button>
@@ -501,25 +502,25 @@ export default function Settings() {
         <h2 className="section-title">{t('settings.peopleTitle')}</h2>
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {people.map((person) => (
-            <div key={person} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <div key={person} className="flex items-center gap-2 bg-cream p-2 rounded-lg border border-line">
               <span className="flex-1 text-sm">{person}</span>
-              <div className="flex items-center gap-0.5 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => openEditPerson(person)}
-                  className="text-slate-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                  className="btn-icon"
                   aria-label={`${t('settings.editPersonTitle')}: ${person}`}
                 >
-                  <Edit size={14} />
+                  <Edit size={16} />
                 </button>
                 {people.length > 1 && (
                   <button
                     type="button"
                     onClick={() => openDeletePerson(person)}
-                    className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                    className="btn-icon-danger"
                     aria-label={`${t('settings.confirmDelete')} ${person}`}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                   </button>
                 )}
               </div>
@@ -542,26 +543,26 @@ export default function Settings() {
 
       <section className="paper-panel p-5 space-y-3">
         <h2 className="section-title">{t('settings.customCategoriesTitle')}</h2>
-        <p className="text-[10px] text-[color:var(--ink-muted)] leading-snug">{t('settings.customCategoriesHint')}</p>
+        <p className="text-sm text-ink-muted leading-snug">{t('settings.customCategoriesHint')}</p>
         <div className="space-y-1.5 max-h-36 overflow-y-auto">
           {customExpenseCategories.map((cat) => (
             <div
               key={cat}
-              className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200"
+              className="flex items-center gap-2 bg-cream p-2 rounded-lg border border-line"
             >
-              <span className="flex-1 text-sm text-slate-800">{cat}</span>
+              <span className="flex-1 text-sm text-ink">{cat}</span>
               <button
                 type="button"
                 onClick={() => setDeleteCategory(cat)}
-                className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                className="btn-icon-danger shrink-0"
                 aria-label={t('settings.customCategoryRemoveAria', { name: cat })}
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
             </div>
           ))}
           {customExpenseCategories.length === 0 && (
-            <p className="text-xs text-slate-400 py-1">{t('settings.customCategoriesEmpty')}</p>
+            <p className="text-sm text-ink-muted py-1">{t('settings.customCategoriesEmpty')}</p>
           )}
         </div>
         <div className="flex gap-2">
@@ -589,18 +590,18 @@ export default function Settings() {
 
       <section className="paper-panel p-5 space-y-3">
         <h2 className="section-title">{t('settings.dataTitle')}</h2>
-        <p className="text-[10px] text-[color:var(--ink-muted)] leading-snug">
+        <p className="text-sm text-ink-muted leading-snug">
           {t('settings.dataHint')}
         </p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => exportExpenses(expenses)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm">
+          <button type="button" onClick={() => exportExpenses(expenses)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-line text-sm">
             <Download size={16} /> {t('settings.export')}
           </button>
-          <label className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm cursor-pointer">
+          <label className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-line text-sm cursor-pointer">
             <Upload size={16} /> {t('settings.import')}
             <input type="file" accept=".json" ref={importRef} onChange={handleImport} className="hidden" />
           </label>
-          <button type="button" onClick={() => exportFullBackup(expenses, settings)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-slate-200 text-sm">
+          <button type="button" onClick={() => exportFullBackup(expenses, settings)} className="btn-ghost flex-1 min-w-[100px] flex items-center justify-center gap-2 border border-line text-sm">
             <Download size={16} /> {t('settings.fullBackup')}
           </button>
         </div>
@@ -608,13 +609,13 @@ export default function Settings() {
           type="button"
           onClick={handleCopyReport}
           disabled={!expenses.length}
-          className="btn-ghost w-full flex items-center justify-center gap-2 border border-slate-200 text-sm disabled:opacity-50"
+          className="btn-ghost w-full flex items-center justify-center gap-2 border border-line text-sm disabled:opacity-50"
         >
           <Copy size={16} /> {t('settings.copyReport')}
         </button>
         <button
           type="button"
-          className="hidden w-full flex items-center justify-center gap-2 border border-slate-200 text-sm rounded-xl py-2.5 text-slate-600 hover:bg-slate-50"
+          className="hidden w-full flex items-center justify-center gap-2 border border-line text-sm rounded-xl py-2.5 text-ink-soft hover:bg-beige"
           onClick={() => window.print()}
           disabled={!expenses.length}
         >
@@ -624,9 +625,9 @@ export default function Settings() {
 
       <Dialog open={!!editPerson} onClose={() => setEditPerson(null)} size="sm">
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900">{t('settings.editPersonTitle')}</h3>
+          <h3 className="text-lg font-bold text-ink">{t('settings.editPersonTitle')}</h3>
           <div>
-            <label htmlFor="edit-person-name" className="block text-sm font-medium text-slate-700 mb-1">{t('settings.editPersonNameLabel')}</label>
+            <label htmlFor="edit-person-name" className="block text-sm font-medium text-ink-soft mb-1">{t('settings.editPersonNameLabel')}</label>
             <input
               id="edit-person-name"
               type="text"
@@ -648,13 +649,13 @@ export default function Settings() {
         open={!!deletePerson}
         title={t('settings.deletePersonTitle', { name: deletePerson || '' })}
         name={deletePerson || ''}
-        description={t('settings.deletePersonHint')}
+        message={t('settings.deletePersonHint')}
         confirmLabel={t('settings.confirmDelete')}
         confirmDisabled={!deleteReassignTo}
         onConfirm={confirmDeletePerson}
         onCancel={() => { setDeletePerson(null); setDeleteReassignTo(''); }}
       >
-        <label htmlFor="delete-reassign" className="block text-sm font-medium text-slate-700 mb-1 text-left">{t('settings.deletePersonReassignLabel')}</label>
+        <label htmlFor="delete-reassign" className="block text-sm font-medium text-ink-soft mb-1 text-left">{t('settings.deletePersonReassignLabel')}</label>
         <select
           id="delete-reassign"
           value={deleteReassignTo}
@@ -670,7 +671,7 @@ export default function Settings() {
       <ConfirmDeleteDialog
         open={!!deleteCategory}
         name={deleteCategory || ''}
-        description={t('settings.customCategoriesHint')}
+        description={t('settings.deleteCategoryDetail')}
         onConfirm={() => {
           handleRemoveCustomCategory(deleteCategory);
           setDeleteCategory(null);

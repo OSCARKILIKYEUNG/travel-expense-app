@@ -5,6 +5,7 @@ import { useApp } from '../store/AppContext';
 import { getPartialMatchPersonShareHKD, getPartialMatchPersonShareOriginal } from '../utils/personShare';
 import { resolveAssigneeDisplay } from '../utils/people';
 import { Plus } from '../components/ui/Icons';
+import { CornerBlob, DashedRoute } from '../components/ui/Doodles';
 import PersonFilter from '../components/expense/PersonFilter';
 import ExpenseList from '../components/expense/ExpenseList';
 import UploadArea from '../components/expense/UploadArea';
@@ -64,27 +65,28 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <section className="paper-panel relative overflow-hidden p-6 lg:p-7">
-        <div className="absolute inset-y-0 right-0 w-32 bg-[radial-gradient(circle_at_top,rgba(179,109,72,0.18),transparent_62%)]" />
-        <div className="relative z-10 space-y-5">
+        <CornerBlob className="absolute -right-16 -top-20 h-48 w-48" tone="sage" />
+        <DashedRoute className="absolute bottom-4 right-3 hidden h-12 w-40 sm:block" />
+        <div className="relative z-10 space-y-5 sm:pr-36">
           <div className="space-y-2">
             <p className="eyebrow">{currentTrip?.name || t('nav.home')}</p>
             <h2 className="display-title">
               {formatMoney(totalHKD, { code: homeCurrencyCode })}
             </h2>
-            <p className="text-sm text-[color:var(--ink-muted)]">
+            <p className="text-sm text-ink-muted">
               {t('dashboard.totalSpend', { currency: homeCurrencyCode })}{filterPerson && ` · ${filterPerson}`}
             </p>
           </div>
 
-          <p className="text-xs text-[color:var(--ink-muted)]">{t('dashboard.recordsCount', { count: recordCount })}</p>
+          <p className="text-sm text-ink-muted">{t('dashboard.recordsCount', { count: recordCount })}</p>
 
           {currencySums.length > 0 && (
-            <div className="border-t border-[color:var(--paper-border)] pt-4">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--ink-muted)] mb-2">{t('dashboard.originalTotals')}</p>
+            <div className="border-t border-line pt-4">
+              <p className="eyebrow mb-2">{t('dashboard.originalTotals')}</p>
               {currencySums.map(([curr, amount]) => (
                 <div key={curr} className="flex justify-between items-center text-sm mb-1">
-                  <span className="text-[color:var(--ink-muted)]">{t(`currency.${curr}`, { defaultValue: curr })}</span>
-                  <span className="font-semibold text-[color:var(--ink)]">{formatMoney(amount, { code: curr })}</span>
+                  <span className="text-ink-muted">{t(`currency.${curr}`, { defaultValue: curr })}</span>
+                  <span className="font-semibold text-ink">{formatMoney(amount, { code: curr })}</span>
                 </div>
               ))}
             </div>

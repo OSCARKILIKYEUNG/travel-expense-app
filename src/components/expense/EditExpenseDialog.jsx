@@ -25,7 +25,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
     <Dialog open={open} onClose={onCancel} title={t('editExpense.title')} size="lg">
       <div className="space-y-4">
         <div>
-          <label htmlFor="edit-date" className="block text-sm font-medium text-slate-700 mb-1">{t('addExpense.date')}</label>
+          <label htmlFor="edit-date" className="block text-sm font-medium text-ink-soft mb-1">{t('addExpense.date')}</label>
           <input
             id="edit-date"
             type="date"
@@ -36,18 +36,18 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
         </div>
 
         <div>
-          <label htmlFor="edit-store" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.storeName')}</label>
+          <label htmlFor="edit-store" className="block text-sm font-medium text-ink-soft mb-1">{t('editExpense.storeName')}</label>
           <input id="edit-store" type="text" defaultValue={form.store} onBlur={(e) => patch({ store: e.target.value })} className="input-field" />
         </div>
 
         <div>
-          <label htmlFor="edit-location" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.location')}</label>
+          <label htmlFor="edit-location" className="block text-sm font-medium text-ink-soft mb-1">{t('editExpense.location')}</label>
           <input id="edit-location" type="text" defaultValue={form.location} onBlur={(e) => patch({ location: e.target.value })} className="input-field" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="edit-category" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.category')}</label>
+            <label htmlFor="edit-category" className="block text-sm font-medium text-ink-soft mb-1">{t('editExpense.category')}</label>
             <select id="edit-category" defaultValue={form.category} onChange={(e) => patch({ category: e.target.value })} className="input-field">
               {getCategorySelectOptions(settings, form.category).map((c) => (
                 <option key={c} value={c}>{t(`categories.${c}`, { defaultValue: c })}</option>
@@ -55,7 +55,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
             </select>
           </div>
           <div>
-            <label htmlFor="edit-person" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.assignTo')}</label>
+            <label htmlFor="edit-person" className="block text-sm font-medium text-ink-soft mb-1">{t('editExpense.assignTo')}</label>
             <select id="edit-person" value={form.assignedTo || defaultAssignee} onChange={(e) => patch({ assignedTo: e.target.value })} className="input-field">
               {people.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -64,7 +64,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
 
         {SHOW_RECEIPT_TYPE_UI && (
           <div>
-            <label htmlFor="edit-receipt-type" className="block text-sm font-medium text-slate-700 mb-1">{t('editExpense.receiptType')}</label>
+            <label htmlFor="edit-receipt-type" className="block text-sm font-medium text-ink-soft mb-1">{t('editExpense.receiptType')}</label>
             <select
               id="edit-receipt-type"
               value={form.receiptType || ''}
@@ -89,7 +89,7 @@ export default function EditExpenseDialog({ open, expense, onSave, onCancel }) {
         />
       </div>
 
-      <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200">
+      <div className="flex gap-3 mt-6 pt-4 border-t border-line">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1">{t('editExpense.cancel')}</button>
         <button type="button" onClick={() => onSave(form)} className="btn-primary flex-1 flex items-center justify-center gap-2">
           <Check size={18} /> {t('editExpense.save')}

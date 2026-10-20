@@ -7,7 +7,7 @@ import ReplaceUndoBar from '../expense/ReplaceUndoBar';
 
 export default function AppLayout() {
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--paper)] text-[var(--ink)]">
+    <div className="min-h-screen flex flex-col bg-cream text-ink">
       <Header />
       <Toast />
       <ReplaceUndoBar />

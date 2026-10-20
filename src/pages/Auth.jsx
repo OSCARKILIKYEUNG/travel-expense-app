@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin } from '../components/ui/Icons';
+import { BrandRibbon, NotebookBackdrop } from '../components/ui/Doodles';
 import { useAuth } from '../context/AuthContext';
 import { formatAuthError } from '../lib/authErrors';
+import { palette } from '../theme/tokens';
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -155,50 +156,44 @@ export default function Auth() {
 
   if (supabaseConfigured && authLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-        <p className="text-slate-400 text-sm">{t('auth.loading')}</p>
-      </div>
+      <NotebookBackdrop>
+        <p className="text-ink-muted text-sm">{t('auth.loading')}</p>
+      </NotebookBackdrop>
     );
   }
 
   if (!supabaseConfigured) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-10">
-        <div className="card max-w-md w-full p-6 shadow-xl border-slate-200">
-          <div className="flex items-center gap-2 mb-4 text-indigo-600">
-            <MapPin size={22} className="text-pink-500" />
-            <span className="font-bold text-lg">{t('app.brand')}</span>
-          </div>
-          <h1 className="text-lg font-semibold text-slate-800 mb-2">{t('auth.configMissingTitle')}</h1>
-          <p className="text-sm text-slate-600 mb-4">{t('auth.configMissingBody')}</p>
-          <pre className="text-xs bg-slate-100 rounded-lg p-3 overflow-x-auto text-slate-700">
+      <NotebookBackdrop>
+        <div className="card max-w-md w-full p-6">
+          <BrandRibbon name={t('app.brand')} />
+          <h1 className="font-display text-2xl font-normal text-ink mb-2">{t('auth.configMissingTitle')}</h1>
+          <p className="text-sm text-ink-soft mb-4">{t('auth.configMissingBody')}</p>
+          <pre className="text-xs bg-beige rounded-lg p-3 overflow-x-auto text-ink-soft">
             VITE_SUPABASE_URL=…{'\n'}
             VITE_SUPABASE_ANON_KEY=…
           </pre>
         </div>
-      </div>
+      </NotebookBackdrop>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-10">
-      <div className="card max-w-md w-full p-6 shadow-xl border-slate-200">
-        <div className="flex items-center gap-2 mb-6 text-indigo-600">
-          <MapPin size={22} className="text-pink-500" />
-          <span className="font-bold text-lg">{t('app.brand')}</span>
-        </div>
+    <NotebookBackdrop>
+      <div className="card max-w-md w-full p-6">
+        <BrandRibbon name={t('app.brand')} />
 
         {pendingPasswordReset ? (
           <div className="space-y-4">
-            <h1 className="text-lg font-semibold text-slate-800">{t('auth.forgotPasswordCheckTitle')}</h1>
-            <p className="text-sm text-slate-600">{t('auth.forgotPasswordSent')}</p>
+            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.forgotPasswordCheckTitle')}</h1>
+            <p className="text-sm text-ink-soft">{t('auth.forgotPasswordSent')}</p>
             {inlineSuccess && (
-              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+              <p className="text-sm text-teal-strong bg-teal-soft border border-teal/30 rounded-xl px-3 py-2">
                 {inlineSuccess}
               </p>
             )}
             {inlineError && (
-              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{inlineError}</p>
+              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2">{inlineError}</p>
             )}
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
@@ -226,15 +221,15 @@ export default function Auth() {
           </div>
         ) : pendingEmail ? (
           <div className="space-y-4">
-            <h1 className="text-lg font-semibold text-slate-800">{t('auth.checkInboxTitle')}</h1>
-            <p className="text-sm text-slate-600">{t('auth.checkInboxBody', { email: pendingEmail })}</p>
+            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.checkInboxTitle')}</h1>
+            <p className="text-sm text-ink-soft">{t('auth.checkInboxBody', { email: pendingEmail })}</p>
             {inlineSuccess && (
-              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+              <p className="text-sm text-teal-strong bg-teal-soft border border-teal/30 rounded-xl px-3 py-2">
                 {inlineSuccess}
               </p>
             )}
             {inlineError && (
-              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{inlineError}</p>
+              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2">{inlineError}</p>
             )}
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
@@ -266,30 +261,30 @@ export default function Auth() {
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={oauthGoogleLoading || submitting}
-                  className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  className="w-full flex items-center justify-center gap-2.5 min-h-[40px] py-2.5 px-4 rounded-xl border border-line bg-white text-ink text-sm font-semibold shadow-sm hover:bg-beige transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2"
                 >
                   <GoogleIcon className="shrink-0" />
                   {oauthGoogleLoading ? t('auth.submitting') : t('auth.googleSignIn')}
                 </button>
-                <div className="flex items-center gap-3 text-[10px] text-slate-400 uppercase tracking-wider">
-                  <span className="flex-1 h-px bg-slate-200" />
+                <div className="flex items-center gap-3 text-meta text-ink-muted tracking-[0.12em]">
+                  <span className="flex-1 h-px bg-line" />
                   {t('auth.orDivider')}
-                  <span className="flex-1 h-px bg-slate-200" />
+                  <span className="flex-1 h-px bg-line" />
                 </div>
               </div>
             )}
 
             {inlineError && (
-              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
+              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2 mb-4">
                 {inlineError}
               </p>
             )}
 
-            <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+            <div className="flex rounded-xl bg-beige p-1 mb-6">
               <button
                 type="button"
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  mode === 'signin' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  mode === 'signin' ? 'bg-white text-teal-strong shadow-sm' : 'text-ink-soft'
                 }`}
                 onClick={() => {
                   setMode('signin');
@@ -302,7 +297,7 @@ export default function Auth() {
               <button
                 type="button"
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  mode === 'signup' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  mode === 'signup' ? 'bg-white text-teal-strong shadow-sm' : 'text-ink-soft'
                 }`}
                 onClick={() => {
                   setMode('signup');
@@ -316,10 +311,10 @@ export default function Auth() {
 
             {showForgotPassword ? (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <p className="text-sm text-slate-600">{t('auth.forgotPasswordHint')}</p>
-                <p className="text-xs text-slate-500">{t('auth.forgotPasswordGoogleHint')}</p>
+                <p className="text-sm text-ink-soft">{t('auth.forgotPasswordHint')}</p>
+                <p className="text-sm text-ink-muted">{t('auth.forgotPasswordGoogleHint')}</p>
                 <div>
-                  <label htmlFor="auth-forgot-email" className="block text-xs font-medium text-slate-600 mb-1">
+                  <label htmlFor="auth-forgot-email" className="block text-sm font-medium text-ink-soft mb-1">
                     {t('auth.email')}
                   </label>
                   <input
@@ -348,7 +343,7 @@ export default function Auth() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="auth-email" className="block text-xs font-medium text-slate-600 mb-1">
+                  <label htmlFor="auth-email" className="block text-sm font-medium text-ink-soft mb-1">
                     {t('auth.email')}
                   </label>
                   <input
@@ -361,7 +356,7 @@ export default function Auth() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="auth-password" className="block text-xs font-medium text-slate-600 mb-1">
+                  <label htmlFor="auth-password" className="block text-sm font-medium text-ink-soft mb-1">
                     {t('auth.password')}
                   </label>
                   <input
@@ -376,7 +371,7 @@ export default function Auth() {
                     <div className="flex justify-end mt-1.5">
                       <button
                         type="button"
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded"
+                        className="text-sm font-medium text-teal-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded"
                         onClick={() => {
                           setShowForgotPassword(true);
                           setInlineError('');
@@ -389,7 +384,7 @@ export default function Auth() {
                 </div>
 
                 {mode === 'signup' && (
-                  <p className="text-xs text-slate-500">{t('auth.verifyHint')}</p>
+                  <p className="text-sm text-ink-muted">{t('auth.verifyHint')}</p>
                 )}
 
                 <button type="submit" className="btn-primary w-full" disabled={submitting}>
@@ -401,27 +396,27 @@ export default function Auth() {
         )}
 
       </div>
-    </div>
+    </NotebookBackdrop>
   );
 }
 
 function GoogleIcon({ className }) {
   return (
-    <svg className={className} width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+    <svg className={className} width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
       <path
-        fill="#FFC107"
+        fill={palette.mustard}
         d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
       />
       <path
-        fill="#FF3D00"
+        fill={palette.coral}
         d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
       />
       <path
-        fill="#4CAF50"
+        fill={palette.sage}
         d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
       />
       <path
-        fill="#1976D2"
+        fill={palette['teal-strong']}
         d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
       />
     </svg>

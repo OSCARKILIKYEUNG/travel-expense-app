@@ -1,9 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from './Icons';
 
 const dialogEscapeStack = [];
+// Saved when the first dialog opens and restored when the last one closes, so
+// nested dialogs unmounting in any order can't leave the page scroll-locked.
+let bodyOverflowBeforeDialogs = '';
 
-export default function Dialog({ open, onClose, title, children, size = 'md' }) {
+export default function Dialog({ open, onClose, title, ariaLabel, children, size = 'md' }) {
+  const { t } = useTranslation();
   const panelRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -19,14 +24,14 @@ export default function Dialog({ open, onClose, title, children, size = 'md' }) 
       onCloseRef.current?.();
     };
     document.addEventListener('keydown', handler);
-    const previousOverflow = document.body.style.overflow;
+    if (dialogEscapeStack.length === 1) bodyOverflowBeforeDialogs = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handler);
       const index = dialogEscapeStack.indexOf(entry);
       if (index >= 0) dialogEscapeStack.splice(index, 1);
       if (dialogEscapeStack.length === 0) {
-        document.body.style.overflow = previousOverflow || '';
+        document.body.style.overflow = bodyOverflowBeforeDialogs || '';
       }
     };
   }, [open]);
@@ -41,7 +46,7 @@ export default function Dialog({ open, onClose, title, children, size = 'md' }) 
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={title || ariaLabel}
     >
       <div
         ref={panelRef}
@@ -50,11 +55,12 @@ export default function Dialog({ open, onClose, title, children, size = 'md' }) 
       >
         {title && (
           <div className="flex items-center justify-between p-5 pb-0">
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            <h2 className="text-xl font-normal text-ink">{title}</h2>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-              aria-label="關閉"
+              className="btn-icon"
+              aria-label={t('common.close', { defaultValue: '關閉' })}
             >
               <X size={20} />
             </button>

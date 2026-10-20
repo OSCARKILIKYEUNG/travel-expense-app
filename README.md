@@ -148,6 +148,18 @@ vercel
 
 ---
 
+## Theming (UX/UI Round 1, 2026-10-20)
+
+- **Single source of colour, fonts, radii:** `src/theme/tokens.js`. Hex values live only there.
+- **Tailwind replaces its default palette** with the token names (`tailwind.config.js` imports tokens and writes `:root { --c-<token>: r g b }`). Use semantic utilities: `bg-cream`, `bg-cream-soft`, `border-line`, `text-ink`, `text-ink-soft`, `text-ink-muted`, `bg-teal-strong`, `text-coral-ink`, `bg-mustard-soft`, `text-sakura-ink`, … Default classes like `text-slate-600` / `bg-indigo-50` no longer exist (they silently render nothing).
+- **Text tokens** (`ink*`, `teal-strong`, `coral-ink`, `mustard-ink`, `sakura-ink`) are ≥ 4.5:1 on cream. `teal`, `coral`, `mustard`, `sakura`, `sage` are **fill/decoration only**, never small text.
+- **Type scale:** body ≥ 14px (`text-sm`), meta ≥ 12px (`text-meta` / `text-xs`); nothing smaller. Headings use `font-display` (Huninn, `@fontsource/huninn`), decorative English uses `.script-accent` (Caveat). Fonts are bundled, no CDN.
+- **JS/SVG colours** (charts, person/category swatches) import `chartTheme`, `personPalette`, `categoryPalette` from tokens (`CATEGORY_COLORS`/`PERSON_COLORS` in `utils/constants.js` re-export them).
+- **Money:** always `formatMoney(amount, { code, decimals })` / `formatNumber` from `utils/currency.js` (pinned en-US grouping; `decimals: 'auto'` for original receipt amounts).
+- **Deletes:** trigger with `.btn-danger-soft` or `.btn-icon-danger` (≥ 40px), confirm with `components/ui/ConfirmDeleteDialog` (names the thing). Store mutators never confirm.
+- **Plan status:** read `planView` from `useApp()` and render with `components/billing/PlanStatus` only.
+- **Guard:** `src/theme/themeGuard.test.js` fails the test run on default palette classes, sub-12px text, hex literals in components/pages, theme-color drift, or token contrast below AA.
+
 ## 專案結構
 
 ```

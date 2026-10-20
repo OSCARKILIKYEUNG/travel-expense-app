@@ -17,7 +17,7 @@ import {
   validateNewCustomExpenseCategory,
 } from '../utils/expenseCategories';
 import { buildBillingSnapshot } from '../../shared/billing';
-import { billingReducer, initialBillingState } from '../utils/billingState';
+import { billingReducer, initialBillingState, refreshOutcome } from '../utils/billingState';
 import { derivePlanView } from '../utils/planView';
 import {
   applyDuplicateDecisions,
@@ -61,8 +61,8 @@ export function AppProvider({ children, userId }) {
 
   if (bootError) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 gap-3">
-        <p className="text-sm text-red-700 text-center max-w-md">{t('errors.syncFailed', { message: bootError })}</p>
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4 gap-3">
+        <p className="text-sm text-coral-ink text-center max-w-md">{t('errors.syncFailed', { message: bootError })}</p>
         <button
           type="button"
           className="btn-primary text-sm"
@@ -76,8 +76,8 @@ export function AppProvider({ children, userId }) {
 
   if (!ready) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <p className="text-slate-600 text-sm">{t('auth.loading')}</p>
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4">
+        <p className="text-ink-soft text-sm">{t('auth.loading')}</p>
       </div>
     );
   }
@@ -127,11 +127,12 @@ function AppProviderInner({ children, userId }) {
   const refreshBilling = useCallback(async () => {
     const requestId = ++billingRequestRef.current;
     if (!supabase || !userId) {
-      return derivePlanView(commitBilling({
+      const next = commitBilling({
         type: 'success',
         requestId,
         snapshot: buildBillingSnapshot(),
-      }));
+      });
+      return { outcome: refreshOutcome(next, requestId), view: derivePlanView(next) };
     }
 
     commitBilling({ type: 'start', requestId });
@@ -157,7 +158,7 @@ function AppProviderInner({ children, userId }) {
           requestId,
           error: err?.message || 'billing failed',
         });
-        return derivePlanView(next);
+        return { outcome: refreshOutcome(next, requestId), view: derivePlanView(next) };
       }
 
       const next = commitBilling({
@@ -168,7 +169,7 @@ function AppProviderInner({ children, userId }) {
           usedReceiptScans: usageCount || 0,
         }),
       });
-      return derivePlanView(next);
+      return { outcome: refreshOutcome(next, requestId), view: derivePlanView(next) };
     } catch (err) {
       console.error('[billing]', err);
       const next = commitBilling({
@@ -176,7 +177,7 @@ function AppProviderInner({ children, userId }) {
         requestId,
         error: err?.message || 'billing failed',
       });
-      return derivePlanView(next);
+      return { outcome: refreshOutcome(next, requestId), view: derivePlanView(next) };
     }
   }, [userId, commitBilling]);
 
