@@ -68,10 +68,10 @@ describe('theme guard', () => {
     expect(problems).toEqual([]);
   });
 
-  it('rejects hex colour literals in components and pages', () => {
+  it('rejects hex colour literals in components, pages and proto', () => {
     const problems = [];
     for (const file of files) {
-      const inUi = file.includes(`${path.sep}components${path.sep}`) || file.includes(`${path.sep}pages${path.sep}`);
+      const inUi = file.includes(`${path.sep}components${path.sep}`) || file.includes(`${path.sep}pages${path.sep}`) || file.includes(`${path.sep}proto${path.sep}`);
       if (!inUi) continue;
       const text = fs.readFileSync(file, 'utf8');
       if (HEX.test(text)) problems.push(path.relative(repoRoot, file));
