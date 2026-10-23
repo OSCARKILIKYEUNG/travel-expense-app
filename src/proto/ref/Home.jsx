@@ -61,7 +61,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                     type="button"
                     onClick={() => setShowJpy((v) => !v)}
                     aria-expanded={showJpy}
-                    className="inline-flex min-h-[30px] items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/85 px-3 py-1 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige"
+                    className="inline-flex min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/85 px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                   >
                     <span>
                       {fmtJPY(jpy)} · {trip.expenses.length} 筆
@@ -73,7 +73,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                 </div>
                 <div
                   data-testid="today-line"
-                  className=" whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
+                  className="whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
                 >
                   {counter.label}
                   {counter.phase === 'during' ? ` · 今日 ${fmtHKD(todaySpend)}` : ''}
@@ -96,14 +96,14 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                 type="button"
                 data-testid="today-row"
                 onClick={() => onOpenDay(today)}
-                className="flex min-h-[42px] w-full items-center justify-between gap-2 px-4 py-2 text-left transition-colors hover:bg-beige/55"
+                className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-beige/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
               >
                 <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
                   <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
                     今日手札
                   </span>
-                  <span className="min-w-0 whitespace-nowrap font-display text-xs text-ink">
+                  <span className="min-w-0 truncate whitespace-nowrap font-display text-xs text-ink">
                     Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
                   </span>
                 </span>
@@ -116,14 +116,14 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
 
       {/* Quick scan / manual add ribbon */}
       <div
-        className="relative flex h-[52px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-mustard-ink/30 bg-mustard-soft px-2.5 shadow-sm"
+        className="relative flex min-h-[56px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-mustard-ink/30 bg-mustard-soft px-2.5 py-1.5 shadow-sm"
         style={mustardStripe}
       >
         <button
           type="button"
           data-testid="home-scan"
           onClick={onScan}
-          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm"
+          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           {Icon.camera('h-[15px] w-[15px] shrink-0')}
           <span>掃描收據</span>
@@ -132,7 +132,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
           type="button"
           data-testid="home-add"
           onClick={onAdd}
-          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft"
+          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
           <span>記一筆</span>
@@ -153,7 +153,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
   };
   const inTrip = (iso) => iso >= trip.startDate && iso <= trip.endDate;
   const spent = new Set(trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date)));
-  const tripMonth = trip.startDate.slice(0, 7);
+  const tripStartMonth = trip.startDate.slice(0, 7);
   const hasTripInMonth = weeks.some((w) => w.some((c) => c.inMonth && inTrip(c.iso)));
 
   return (
@@ -166,7 +166,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
           type="button"
           aria-label="上個月"
           onClick={() => shift(-1)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink"
+          className="flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           ‹
         </button>
@@ -175,11 +175,11 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
             {y}年{m}月
             <span className="font-script text-teal-strong"> · {MONTH_EN[m - 1]}</span>
           </h3>
-          {!hasTripInMonth && month !== tripMonth && (
+          {!hasTripInMonth && month !== tripStartMonth && (
             <button
               type="button"
-              onClick={() => setMonth(tripMonth)}
-              className="shrink-0 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong"
+              onClick={() => setMonth(tripStartMonth)}
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3 py-1.5 text-meta font-bold text-teal-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               回到旅程月
             </button>
@@ -189,7 +189,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
           type="button"
           aria-label="下個月"
           onClick={() => shift(1)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink"
+          className="flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           ›
         </button>
@@ -230,7 +230,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
                   data-testid={`day-cell-${c.iso}`}
                   onClick={() => onOpenDay(c.iso)}
                   aria-label={`${Number(c.iso.slice(5, 7))}月${n}日${day?.title ? ` ${day.title}` : ''}`}
-                  className="relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left"
+                  className="relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
                   {t && (
                     <span

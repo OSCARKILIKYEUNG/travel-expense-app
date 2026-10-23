@@ -52,7 +52,7 @@ export function createRefTrip() {
     endDate: '2026-10-27',
     tripCurrency: 'JPY',
     accountingCurrency: 'HKD',
-    settings: { people: REF_PEOPLE },
+    settings: { people: [...REF_PEOPLE], rate: REF_RATE },
     days: {
       '2026-10-18': { title: '抵達東京', note: '成田', sticker: null, journal: '', itinerary: [stop('s1', '15:10', '成田機場 Skyliner'), stop('s2', '18:00', '入住淺草酒店')] },
       '2026-10-19': { title: '淺草散步', note: '淺草', sticker: null, journal: '', itinerary: [stop('s3', '09:00', '雷門打卡'), stop('s4', '16:00', '晴空塔展望台')] },
@@ -96,6 +96,78 @@ export function createRefTrip() {
       exp('2026-10-22', '天上山纜車', '河口湖', '娛樂', '共同', 8250, false),
     ],
   };
+}
+
+function osakaExp(id, date, store, place, category, assignedTo, jpy, scanned) {
+  return {
+    id,
+    date,
+    store,
+    place,
+    category,
+    assignedTo,
+    currency: 'JPY',
+    originalCurrency: 'JPY',
+    originalAmount: jpy,
+    hkdAmount: Math.round(jpy * REF_RATE),
+    scanned,
+    items: [],
+  };
+}
+
+export function createOsakaTrip() {
+  return {
+    id: 'trip-ref-osaka-weekend',
+    name: '大阪週末',
+    startDate: '2026-11-13',
+    endDate: '2026-11-15',
+    tripCurrency: 'JPY',
+    accountingCurrency: 'HKD',
+    settings: { people: [...REF_PEOPLE], rate: REF_RATE },
+    days: {
+      '2026-11-13': {
+        title: '抵達大阪・道頓堀',
+        note: '難波',
+        sticker: 'ramen',
+        journal: '先去食章魚燒同拉麵。',
+        itinerary: [
+          stop('os1', '14:30', '關西機場 南海電鐵'),
+          stop('os2', '18:00', '道頓堀 固力果跑跑人'),
+        ],
+      },
+      '2026-11-14': {
+        title: '環球影城一日遊',
+        note: '環球',
+        sticker: 'wheel',
+        journal: '一早入園衝瑪利歐園區。',
+        itinerary: [
+          stop('os3', '08:30', '日本環球影城 入園'),
+          stop('os4', '19:30', '梅田 燒肉晚餐'),
+        ],
+      },
+      '2026-11-15': {
+        title: '黑門市場・回程',
+        note: '回程',
+        sticker: 'plane',
+        journal: '',
+        itinerary: [
+          stop('os5', '10:00', '黑門市場 海鮮早午餐'),
+          stop('os6', '16:00', '關西機場 回港'),
+        ],
+      },
+    },
+    expenses: [
+      osakaExp('o1', '2026-11-13', '南海電鐵 Rapi:t', '關西機場', '交通', '共同', 2900, true),
+      osakaExp('o2', '2026-11-13', '道頓堀 くくる章魚燒', '難波', '飲食', 'Oscar', 1200, true),
+      osakaExp('o3', '2026-11-13', '難波 東急 STAY 酒店', '難波', '住宿', '共同', 24000, false),
+      osakaExp('o4', '2026-11-14', '日本環球影城 門票', '此花區', '娛樂', '共同', 18800, true),
+      osakaExp('o5', '2026-11-15', '黑門三平 海鮮丼', '日本橋', '飲食', '阿明', 3600, true),
+    ],
+  };
+}
+
+export function createRefTrips() {
+  return [createRefTrip(), createOsakaTrip()];
 }
 
 /** Sunday-first weeks for the month of isoDate, including faded adjacent-month days. */

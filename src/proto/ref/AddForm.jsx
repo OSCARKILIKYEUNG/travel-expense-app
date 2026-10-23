@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { REF_CATEGORIES, REF_PEOPLE, REF_RATE } from './mockRefTrip';
+import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sakura, Tape } from './parts';
 import { fmtHKD, zhDate } from './refLogic';
 import { normalizeDate } from '../../utils/duplicates';
@@ -8,9 +8,18 @@ import { normalizeDate } from '../../utils/duplicates';
  * Add / edit expense form:
  * - Scan banner at top
  * - 金額與細項 first (big amount + currency), then 基本資料 (店舖, zh-HK 日期, 地點, 類別, 分配給, 進階)
- * - Action bar sits below the cards in normal flow so it never covers any field.
+ * - Sticky save bar sits fixed directly above BottomNav; form has bottom padding + scroll-padding so no field is covered.
  */
-export default function AddForm({ initial, defaultDate, startScan, onCancel, onSave }) {
+export default function AddForm({
+  initial,
+  defaultDate,
+  startScan,
+  people = ['共同'],
+  rate = 0.0526,
+  onCancel,
+  onSave,
+}) {
+  const defaultAssignee = people.includes('共同') ? '共同' : people[0] || '共同';
   const [f, setF] = useState(() =>
     initial
       ? {
@@ -30,7 +39,7 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
           date: defaultDate || '',
           place: '',
           category: '飲食',
-          assignedTo: '共同',
+          assignedTo: defaultAssignee,
           subtotal: '',
           tax: '',
           taxRefund: '',
@@ -44,7 +53,8 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
 
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amt = Number(f.amount) || 0;
-  const hkd = f.currency === 'HKD' ? amt : Math.round(amt * REF_RATE);
+  const activeRate = Number(rate) > 0 ? Number(rate) : 0.0526;
+  const hkd = f.currency === 'HKD' ? amt : Math.round(amt * activeRate);
 
   const scan = () => {
     setF((s) => ({
@@ -65,9 +75,9 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
     if (startScan && !initial) scan();
   }, []);
 
-  const valid = amt > 0 && f.store.trim();
+  const valid = amt > 0 && Boolean(f.store.trim());
   const field =
-    'w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal';
+    'min-h-11 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal';
   const label = 'mb-1 block whitespace-nowrap text-sm font-medium text-ink-soft';
 
   const submit = (e) => {
@@ -82,7 +92,12 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
   };
 
   return (
-    <form onSubmit={submit} data-testid="expense-form" className="space-y-3.5 px-4 pb-8 pt-4">
+    <form
+      onSubmit={submit}
+      data-testid="expense-form"
+      className="space-y-3.5 px-4 pb-44 pt-4 scroll-pb-44"
+      style={{ scrollPaddingBottom: '11rem' }}
+    >
       <div className="relative flex items-center gap-3">
         <Sakura className="absolute -right-1 -top-1 h-7 w-7 opacity-70" />
         <button
@@ -90,7 +105,7 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
           data-testid="back"
           aria-label="返回"
           onClick={onCancel}
-          className="btn-icon shrink-0"
+          className="btn-icon h-11 w-11 min-h-11 min-w-11 shrink-0"
         >
           {Icon.back('h-5 w-5')}
         </button>
@@ -107,14 +122,14 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
           type="button"
           data-testid="form-scan"
           onClick={scan}
-          className="flex w-full items-center gap-2.5 rounded-2xl border border-dashed border-teal/60 bg-teal-soft/75 px-3 py-2 text-left shadow-sm transition-colors hover:bg-teal-soft"
+          className="flex min-h-11 w-full items-center gap-2.5 rounded-2xl border border-dashed border-teal/60 bg-teal-soft/75 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-teal-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-strong text-white">
             {Icon.camera('h-4 w-4')}
           </span>
           <span className="min-w-0">
             <span className="block whitespace-nowrap text-sm font-bold text-teal-strong">掃描收據自動填寫</span>
-            <span className="block whitespace-nowrap text-meta text-ink-muted">
+            <span className="block truncate whitespace-nowrap text-meta text-ink-muted">
               {scanMsg || '影相或揀相，金額、店舖自動填好'}
             </span>
           </span>
@@ -183,9 +198,21 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
         </div>
 
         <div>
-          <label htmlFor="ref-date" className={label}>
-            日期
-          </label>
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor="ref-date" className="whitespace-nowrap text-sm font-medium text-ink-soft">
+              日期
+            </label>
+            {f.date && (
+              <button
+                type="button"
+                data-testid="form-clear-date"
+                onClick={() => setF((s) => ({ ...s, date: '' }))}
+                className="-my-2 inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-meta font-semibold text-teal-strong hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              >
+                設為未有日期
+              </button>
+            )}
+          </div>
           <div className={`${field} relative flex items-center justify-between`}>
             <span className={f.date ? 'whitespace-nowrap text-ink' : 'whitespace-nowrap text-ink-muted'}>
               {zhDate(f.date)}
@@ -234,7 +261,7 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
               分配給
             </label>
             <select id="ref-who" className={field} value={f.assignedTo} onChange={set('assignedTo')}>
-              {REF_PEOPLE.map((p) => (
+              {people.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -248,7 +275,7 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
             type="button"
             aria-expanded={advanced}
             onClick={() => setAdvanced((v) => !v)}
-            className="flex w-full items-center justify-between whitespace-nowrap px-3 py-2 text-left text-sm font-bold text-ink-soft"
+            className="flex min-h-11 w-full items-center justify-between whitespace-nowrap px-3 py-2.5 text-left text-sm font-bold text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
           >
             <span>進階</span>
             <span className={`transition-transform ${advanced ? 'rotate-180' : ''}`}>
@@ -319,19 +346,29 @@ export default function AddForm({ initial, defaultDate, startScan, onCancel, onS
         </div>
       </div>
 
-      <div className="flex gap-3 pt-1">
-        <button type="button" onClick={onCancel} className="btn-secondary flex-1 whitespace-nowrap !py-2.5 text-sm">
-          取消
-        </button>
-        <button
-          type="submit"
-          data-testid="form-save"
-          disabled={!valid}
-          className="btn-primary flex-1 gap-1.5 whitespace-nowrap !py-2.5 text-sm"
-        >
-          {Icon.check('h-4 w-4')}
-          <span>儲存</span>
-        </button>
+      {/* Sticky save bar directly above BottomNav */}
+      <div
+        data-testid="form-save-bar"
+        className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-line bg-cream-soft px-4 py-2.5 shadow-sm"
+      >
+        <div className="mx-auto flex max-w-5xl gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="btn-secondary min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            data-testid="form-save"
+            disabled={!valid}
+            className="btn-primary min-h-11 flex-1 gap-1.5 whitespace-nowrap !py-2.5 text-sm"
+          >
+            {Icon.check('h-4 w-4')}
+            <span>儲存</span>
+          </button>
+        </div>
       </div>
     </form>
   );

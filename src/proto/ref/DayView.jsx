@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { capCellNote, dayCounter } from '../shared/display';
-import { STICKERS, REF_PEOPLE } from './mockRefTrip';
+import { STICKERS } from './mockRefTrip';
 import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import { dayStats, dayStrip, expensesOn, fmtHKD, matchesPerson, personCounts } from './refLogic';
+import { dayNav, parseHHMM, sortStops } from './refRules';
 
 const PANES = ['itinerary', 'expenses'];
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const hasSticker = (id) => STICKERS.some((s) => s.id === id);
-
-function addDaysIso(iso, n) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const t = new Date(y, m - 1, d + n);
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-}
 
 function usePager(index, setIndex) {
   const track = useRef(null);
@@ -70,6 +65,7 @@ export default function DayView({
   iso,
   pane,
   editing,
+  highlightId,
   onPane,
   onEditToggle,
   onBack,
@@ -86,15 +82,17 @@ export default function DayView({
   const day = trip.days[iso] || { title: '', note: '', sticker: null, journal: '', itinerary: [] };
   const [y, m, d] = iso.split('-').map(Number);
   const weekday = WEEK[new Date(y, m - 1, d).getDay()];
-  const inTrip = iso >= trip.startDate && iso <= trip.endDate;
+  const nav = dayNav(trip, iso);
+  const { inTrip } = nav;
+  const nearestTripDay = nav.next || nav.prev || trip.startDate;
   const dayN = inTrip ? dayCounter(trip, iso).n : null;
   const stats = dayStats(trip.expenses, iso);
   const strip = dayStrip({ n: dayN, title: day.title, hkd: stats.total });
   const hints = ['左滑看消費', '右滑回行程'];
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [iso]);
+    if (!highlightId) window.scrollTo(0, 0);
+  }, [iso, highlightId]);
 
   return (
     <div data-testid="day-view" className="space-y-2.5 px-4 pt-4">
@@ -109,7 +107,7 @@ export default function DayView({
           type="button"
           data-testid="back"
           onClick={onBack}
-          className="h-10 min-h-[40px] min-w-[40px] shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-bold text-ink"
+          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           ← 月曆
         </button>
@@ -131,16 +129,20 @@ export default function DayView({
           <button
             type="button"
             aria-label="前一日"
-            onClick={() => onDay(addDaysIso(iso, -1))}
-            className="inline-flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink"
+            disabled={!nav.prev}
+            aria-disabled={!nav.prev}
+            onClick={() => nav.prev && onDay(nav.prev)}
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-40"
           >
             ‹
           </button>
           <button
             type="button"
             aria-label="後一日"
-            onClick={() => onDay(addDaysIso(iso, 1))}
-            className="inline-flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink"
+            disabled={!nav.next}
+            aria-disabled={!nav.next}
+            onClick={() => nav.next && onDay(nav.next)}
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-40"
           >
             ›
           </button>
@@ -161,7 +163,7 @@ export default function DayView({
               aria-selected={index === i}
               data-testid={`tab-${id}`}
               onClick={() => setIndex(i)}
-              className={`min-h-[44px] min-w-0 whitespace-nowrap rounded-xl px-2 text-sm font-bold transition-colors ${
+              className={`min-h-11 min-w-0 whitespace-nowrap rounded-xl px-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                 index === i
                   ? 'border border-teal/40 bg-cream-soft text-teal-strong shadow-sm'
                   : 'text-ink-soft hover:bg-cream-soft/50 hover:text-ink'
@@ -192,7 +194,7 @@ export default function DayView({
             aria-hidden={index !== 0}
             className="w-full shrink-0 touch-pan-y px-4 pb-6"
           >
-            <DayStrip text={strip} />
+            <DayStrip text={strip} nav={nav} onDay={onDay} />
             {editing ? (
               <ItineraryEditor
                 day={day}
@@ -205,6 +207,8 @@ export default function DayView({
                 m={m}
                 d={d}
                 dayN={dayN}
+                inTrip={inTrip}
+                onReturnToTrip={() => onDay(nearestTripDay)}
                 onEdit={() => onEditToggle(true)}
                 onScan={() => onScan?.(iso)}
                 onAdd={() => onAdd?.(iso)}
@@ -217,11 +221,14 @@ export default function DayView({
             aria-hidden={index !== 1}
             className="w-full shrink-0 touch-pan-y px-4 pb-6"
           >
-            <DayStrip text={strip} />
+            <DayStrip text={strip} nav={nav} onDay={onDay} />
             <DayExpenses
               trip={trip}
               iso={iso}
+              inTrip={inTrip}
               stats={stats}
+              highlightId={highlightId}
+              onReturnToTrip={() => onDay(nearestTripDay)}
               onAdd={onAdd}
               onEdit={onEditExpense}
               onDelete={onDeleteExpense}
@@ -233,10 +240,25 @@ export default function DayView({
   );
 }
 
-function DayStrip({ text }) {
+function DayStrip({ text, nav, onDay }) {
+  const startX = useRef(null);
   return (
     <div
       data-testid="day-strip"
+      data-noswipe
+      onPointerDown={(e) => {
+        startX.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        if (startX.current == null) return;
+        const dx = e.clientX - startX.current;
+        startX.current = null;
+        if (dx > 48 && nav?.prev) onDay?.(nav.prev);
+        else if (dx < -48 && nav?.next) onDay?.(nav.next);
+      }}
+      onPointerCancel={() => {
+        startX.current = null;
+      }}
       className="mb-2.5 whitespace-nowrap rounded-xl border border-dashed border-line bg-cream-soft/90 px-3 py-1 text-center text-meta font-semibold text-ink-soft"
     >
       {text}
@@ -244,10 +266,11 @@ function DayStrip({ text }) {
   );
 }
 
-function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
+function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan, onAdd }) {
   const stampTop = dayN ? `Day ${dayN}` : `${m}/${d}`;
   const stampBottom = `${MONTH_EN[m - 1]} ${d}`;
   const hasEmoji = day.sticker && hasSticker(day.sticker);
+  const orderedStops = useMemo(() => sortStops(day.itinerary), [day.itinerary]);
 
   return (
     <div
@@ -262,13 +285,13 @@ function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
           <p className="whitespace-nowrap text-meta text-ink-muted">
             今日主行程{day.note ? ` · ${day.note}` : ''}
           </p>
-          <h2 className="whitespace-nowrap font-display text-xl text-ink">{day.title || '未有標題'}</h2>
+          <h2 className="truncate whitespace-nowrap font-display text-xl text-ink">{day.title || '未有標題'}</h2>
         </div>
         <button
           type="button"
           data-testid="itinerary-edit"
           onClick={onEdit}
-          className="mt-3 shrink-0 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3 py-1.5 text-meta font-bold text-teal-strong shadow-sm"
+          className="mt-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3.5 py-2 text-meta font-bold text-teal-strong shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           ✎編輯
         </button>
@@ -277,22 +300,22 @@ function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
         <Tape tone="teal" className="-top-2.5 right-4 z-10 h-4 w-14 rotate-2" />
         <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-          <span className="whitespace-nowrap text-meta text-ink-muted">今日行程 · {day.itinerary.length} 站</span>
+          <span className="whitespace-nowrap text-meta text-ink-muted">今日行程 · {orderedStops.length} 站</span>
           {day.note && (
             <span className="whitespace-nowrap text-meta font-medium text-teal-strong">月曆小字：{day.note}</span>
           )}
         </div>
         <ul className="m-0 list-none space-y-1 p-0">
-          {day.itinerary.map((s) => (
+          {orderedStops.map((s) => (
             <li key={s.id} className="flex min-w-0 items-center gap-2">
-              <span className="w-14 shrink-0 whitespace-nowrap rounded-md bg-mustard-soft px-1 text-center font-mono text-meta text-mustard-ink">
-                {s.time || '—'}
+              <span className="w-12 shrink-0 whitespace-nowrap rounded-md bg-mustard-soft px-1 text-center font-mono text-meta tabular-nums text-mustard-ink">
+                {parseHHMM(s.time) || '—'}
               </span>
-              <span className="min-w-0 flex-1 whitespace-nowrap text-sm text-ink">{s.title}</span>
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-ink">{s.title}</span>
               {hasEmoji && <StickerGraphic id={day.sticker} className="shrink-0 text-sm leading-none" />}
             </li>
           ))}
-          {day.itinerary.length === 0 && (
+          {orderedStops.length === 0 && (
             <li className="whitespace-nowrap text-sm text-ink-muted">未有行程，按 ✎編輯 加入。</li>
           )}
         </ul>
@@ -300,46 +323,107 @@ function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
 
       <div className="rounded-2xl border border-line bg-cream px-3 py-2">
         <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">今日隨筆</span>
-        <p className="whitespace-nowrap text-sm text-ink-soft">{day.journal || '未有隨筆'}</p>
+        <p className="truncate whitespace-nowrap text-sm text-ink-soft">{day.journal || '未有隨筆'}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          data-testid="day-scan"
-          onClick={onScan}
-          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-3 py-3 text-base font-bold text-white shadow-sm transition-colors"
+      {inTrip ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-testid="day-scan"
+            onClick={onScan}
+            className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-3 py-3 text-base font-bold text-white shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            掃描收據
+          </button>
+          <button
+            type="button"
+            data-testid="itinerary-add"
+            onClick={onAdd}
+            className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-white px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            記一筆
+          </button>
+        </div>
+      ) : (
+        <div
+          data-testid="outside-trip-banner"
+          className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-line bg-cream px-3 py-2.5"
         >
-          掃描收據
-        </button>
-        <button
-          type="button"
-          data-testid="itinerary-add"
-          onClick={onAdd}
-          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-white px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft"
-        >
-          記一筆
-        </button>
-      </div>
+          <span className="whitespace-nowrap text-sm font-semibold text-ink-muted">旅程外 · 此日不計入旅程消費</span>
+          <button
+            type="button"
+            data-testid="back-to-trip"
+            onClick={onReturnToTrip}
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-3.5 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            回到旅程
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 function ItineraryEditor({ day, onChange, onDone }) {
-  const [time, setTime] = useState('09:30');
+  const [time, setTime] = useState('');
+  const [badTimeInput, setBadTimeInput] = useState(false);
+  const [timeError, setTimeError] = useState('');
   const [what, setWhat] = useState('');
+  const [editingStopId, setEditingStopId] = useState(null);
+  const [editingStopTime, setEditingStopTime] = useState('');
+
+  const rawTime = time.trim();
+  const parsedTime = rawTime ? parseHHMM(rawTime) : '';
+  const isTimeInvalid = badTimeInput || Boolean(rawTime && !parsedTime);
+
   const add = (e) => {
     if (e) e.preventDefault();
+    if (isTimeInvalid) {
+      setTimeError('請輸入 HH:MM 時間');
+      return;
+    }
     if (!what.trim()) return;
-    const cleanTime = time.trim();
-    const next = [...day.itinerary, { id: `s${Date.now()}`, time: cleanTime, title: what.trim(), done: false }].sort(
-      (a, b) => (a.time || '99').localeCompare(b.time || '99'),
-    );
+    const cleanTime = rawTime ? parseHHMM(rawTime) : '';
+    if (rawTime && !cleanTime) {
+      setTimeError('請輸入 HH:MM 時間');
+      return;
+    }
+    const next = sortStops([
+      ...day.itinerary,
+      { id: `s${Date.now()}`, time: cleanTime, title: what.trim(), done: false },
+    ]);
     onChange({ itinerary: next });
+    setTime('');
+    setBadTimeInput(false);
+    setTimeError('');
     setWhat('');
   };
+
+  const commitStopTime = (stopId, rawVal) => {
+    const trimmed = String(rawVal ?? '').trim();
+    if (!trimmed) {
+      const next = sortStops(day.itinerary.map((s) => (s.id === stopId ? { ...s, time: '' } : s)));
+      onChange({ itinerary: next });
+      setEditingStopId(null);
+      setTimeError('');
+      return;
+    }
+    const valid = parseHHMM(trimmed);
+    if (!valid) {
+      setTimeError('請輸入 HH:MM 時間');
+      return;
+    }
+    const next = sortStops(day.itinerary.map((s) => (s.id === stopId ? { ...s, time: valid } : s)));
+    onChange({ itinerary: next });
+    setEditingStopId(null);
+    setTimeError('');
+  };
+
   const field =
-    'h-10 w-full rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal';
+    'h-11 min-h-11 w-full rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal';
+
+  const orderedStops = useMemo(() => sortStops(day.itinerary), [day.itinerary]);
 
   return (
     <div
@@ -357,7 +441,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
             type="button"
             data-testid="itinerary-done"
             onClick={onDone}
-            className="whitespace-nowrap rounded-pill bg-teal-strong px-3 py-0.5 text-meta font-bold text-white shadow-sm"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             完成
           </button>
@@ -377,7 +461,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
           <button
             type="button"
             onClick={() => onChange({ sticker: null })}
-            className="whitespace-nowrap rounded-pill border border-line bg-beige px-2 py-0.5 text-meta text-ink-soft"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-line bg-beige px-3 py-2 text-meta font-semibold text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             清除
           </button>
@@ -396,7 +480,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
               aria-checked={day.sticker === s.id}
               aria-label={s.label}
               onClick={() => onChange({ sticker: s.id })}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-cream text-lg transition-all ${
+              className={`flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border-2 bg-cream text-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                 day.sticker === s.id ? 'border-teal-strong ring-2 ring-teal-strong' : 'border-white shadow-sm'
               }`}
             >
@@ -420,17 +504,46 @@ function ItineraryEditor({ day, onChange, onDone }) {
       </div>
 
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-        {day.itinerary.map((s) => (
+        {orderedStops.map((s) => (
           <li key={s.id} className="flex min-w-0 items-center gap-2">
-            <span className="inline-flex h-7 max-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2 text-meta text-teal-strong">
-              {s.time || '—'}
-            </span>
-            <span className="min-w-0 flex-1 whitespace-nowrap text-sm text-ink">{s.title}</span>
+            {editingStopId === s.id ? (
+              <input
+                type="time"
+                aria-label={`${s.title} 時間`}
+                value={editingStopTime}
+                onChange={(e) => setEditingStopTime(e.target.value)}
+                onBlur={() => commitStopTime(s.id, editingStopTime)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitStopTime(s.id, editingStopTime);
+                  } else if (e.key === 'Escape') {
+                    setEditingStopId(null);
+                    setTimeError('');
+                  }
+                }}
+                className="h-11 min-h-11 w-24 shrink-0 rounded-pill border border-teal-strong bg-white px-2 font-mono text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label={`修改時間 ${s.title}`}
+                onClick={() => {
+                  setEditingStopId(s.id);
+                  setEditingStopTime(parseHHMM(s.time) || '');
+                  setTimeError('');
+                }}
+                className="inline-flex h-11 min-h-11 min-w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2.5 font-mono text-meta tabular-nums text-teal-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              >
+                {parseHHMM(s.time) || '—'}
+              </button>
+            )}
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-ink">{s.title}</span>
             <button
               type="button"
               aria-label={`刪除 ${s.title}`}
               onClick={() => onChange({ itinerary: day.itinerary.filter((x) => x.id !== s.id) })}
-              className="btn-icon-danger shrink-0"
+              className="btn-icon-danger h-11 w-11 min-h-11 min-w-11 shrink-0"
             >
               ✕
             </button>
@@ -438,28 +551,40 @@ function ItineraryEditor({ day, onChange, onDone }) {
         ))}
       </ul>
 
-      <form onSubmit={add} className="flex min-w-0 items-center gap-1.5">
-        <input
-          aria-label="時間"
-          type="text"
-          placeholder="09:30"
-          className={`${field} !w-16 shrink-0 !px-2`}
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-        />
-        <input
-          aria-label="地點或活動"
-          placeholder="地點／活動"
-          className={`${field} min-w-0 flex-1 !px-2.5`}
-          value={what}
-          onChange={(e) => setWhat(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="h-10 shrink-0 whitespace-nowrap rounded-2xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige"
-        >
-          ＋加入
-        </button>
+      <form onSubmit={add} className="space-y-1.5" noValidate>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <input
+            aria-label="時間"
+            type="time"
+            placeholder="09:30"
+            className={`${field} !w-24 shrink-0 !px-2 font-mono tabular-nums`}
+            value={time}
+            onChange={(e) => {
+              setTime(e.target.value);
+              setBadTimeInput(Boolean(e.target.validity?.badInput));
+              setTimeError('');
+            }}
+          />
+          <input
+            aria-label="地點或活動"
+            placeholder="地點／活動"
+            className={`${field} min-w-0 flex-1 !px-2.5`}
+            value={what}
+            onChange={(e) => setWhat(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={!what.trim() || isTimeInvalid}
+            className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-2xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+          >
+            ＋加入
+          </button>
+        </div>
+        {(isTimeInvalid || timeError) && (
+          <p role="alert" data-testid="time-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+            {timeError || '請輸入 HH:MM 時間'}
+          </p>
+        )}
       </form>
 
       <div>
@@ -478,11 +603,12 @@ function ItineraryEditor({ day, onChange, onDone }) {
   );
 }
 
-function DayExpenses({ trip, iso, stats, onAdd, onEdit, onDelete }) {
+function DayExpenses({ trip, iso, inTrip, stats, highlightId, onReturnToTrip, onAdd, onEdit, onDelete }) {
   const [person, setPerson] = useState('全部');
+  const people = trip.settings?.people || ['共同'];
   const list = useMemo(() => expensesOn(trip.expenses, iso), [trip.expenses, iso]);
-  const counts = personCounts(list, REF_PEOPLE);
-  const shown = list.filter((e) => matchesPerson(e, person, REF_PEOPLE));
+  const counts = personCounts(list, people);
+  const shown = list.filter((e) => matchesPerson(e, person, people));
   return (
     <div className="space-y-2.5">
       <div className="rounded-2xl border border-line bg-cream-soft px-3.5 py-2.5 shadow-sm">
@@ -491,15 +617,17 @@ function DayExpenses({ trip, iso, stats, onAdd, onEdit, onDelete }) {
           <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-semibold text-teal-strong">
             掃描 {stats.scanned} · 手動 {stats.manual}
           </span>
-          <button
-            type="button"
-            data-testid="day-add"
-            aria-label="新增這日的消費"
-            onClick={() => onAdd(iso)}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-teal-strong text-white shadow-sm"
-          >
-            {Icon.plus('h-4 w-4')}
-          </button>
+          {inTrip && (
+            <button
+              type="button"
+              data-testid="day-add"
+              aria-label="新增這日的消費"
+              onClick={() => onAdd(iso)}
+              className="ml-auto flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-full bg-teal-strong text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            >
+              {Icon.plus('h-4 w-4')}
+            </button>
+          )}
         </div>
         <div className="mt-0.5 whitespace-nowrap text-xl font-bold text-ink">{fmtHKD(stats.total)}</div>
       </div>
@@ -508,7 +636,7 @@ function DayExpenses({ trip, iso, stats, onAdd, onEdit, onDelete }) {
         <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">篩選:</span>
         <div className="min-w-0 flex-1">
           <ChipRow label="篩選人物">
-            {['全部', ...REF_PEOPLE].map((p) => (
+            {['全部', ...people].map((p) => (
               <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
                 {p} ({counts[p] || 0})
               </Chip>
@@ -519,11 +647,29 @@ function DayExpenses({ trip, iso, stats, onAdd, onEdit, onDelete }) {
 
       <div className="space-y-2.5">
         {shown.map((e) => (
-          <ExpenseCard key={e.id} expense={e} onEdit={onEdit} onDelete={onDelete} />
+          <ExpenseCard
+            key={e.id}
+            expense={e}
+            highlighted={e.id === highlightId}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         ))}
-        {shown.length === 0 && (
-          <p className="py-6 text-center text-sm text-ink-muted">這日未有消費，按 ＋ 記一筆。</p>
-        )}
+        {shown.length === 0 &&
+          (inTrip ? (
+            <p className="py-6 text-center text-sm text-ink-muted">這日未有消費，按 ＋ 記一筆。</p>
+          ) : (
+            <div className="space-y-2.5 rounded-2xl border border-dashed border-line bg-cream-soft p-4 text-center">
+              <p className="whitespace-nowrap text-sm text-ink-muted">旅程外 · 這日未有消費</p>
+              <button
+                type="button"
+                onClick={onReturnToTrip}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              >
+                回到旅程
+              </button>
+            </div>
+          ))}
       </div>
     </div>
   );

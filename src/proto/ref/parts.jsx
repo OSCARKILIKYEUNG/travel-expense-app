@@ -279,7 +279,50 @@ export const Icon = {
       <path d="M20 6L9 17l-5-5" />
     </svg>
   ),
+  filter: (c = 'h-4 w-4') => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={c} {...S}>
+      <path d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  ),
 };
+
+export function Toast({ toast, onUndo, onDismiss }) {
+  if (!toast) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="toast"
+      className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 border-teal-strong bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl"
+    >
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-semibold text-ink">
+        {toast.message}
+      </span>
+      <div className="flex shrink-0 items-center gap-1">
+        {toast.undo && (
+          <button
+            type="button"
+            data-testid="toast-undo"
+            onClick={onUndo}
+            className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            撤銷
+          </button>
+        )}
+        {onDismiss && !toast.undo && (
+          <button
+            type="button"
+            aria-label="關閉提示"
+            onClick={onDismiss}
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            {Icon.x('h-4 w-4')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export const CATEGORY_DOT = {
   飲食: 'bg-coral',

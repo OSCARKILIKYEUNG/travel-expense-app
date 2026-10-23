@@ -1,0 +1,413 @@
+import { addDays, localISODate } from '../shared/dates';
+import { normalizeDate } from '../../utils/duplicates';
+import { REF_CATEGORIES } from './mockRefTrip';
+import {
+  buildAddHash,
+  fmtHKD,
+  fmtJPY,
+  groupLedger,
+  matchesPerson,
+  parseRoute,
+  zhDate,
+} from './refLogic';
+
+/** Check whether a string is a real calendar YYYY-MM-DD date. */
+export function isValidISODate(str) {
+  if (typeof str !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const [y, m, d] = str.split('-').map(Number);
+  if (y < 1900 || m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+/**
+ * P0-1: Parse raw HH:MM input into zero-padded 'HH:MM' (00:00..23:59).
+ * Rejects corrupted strings like '09:15:0030', '25:00', '12:60', '', 'abc' -> null.
+ */
+export function parseHHMM(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/**
+ * P0-1: Convert 'HH:MM' to minutes from midnight; untimed/invalid -> Infinity so they sort last.
+ */
+export function stopMinutes(time) {
+  const parsed = parseHHMM(time);
+  if (!parsed) return Infinity;
+  const [hh, mm] = parsed.split(':').map(Number);
+  return hh * 60 + mm;
+}
+
+/**
+ * P0-1: Stable sort stops by stopMinutes; untimed stops stay at the end in insertion order.
+ */
+export function sortStops(stops) {
+  if (!Array.isArray(stops)) return [];
+  return stops
+    .map((item, idx) => ({ item, idx, mins: stopMinutes(item?.time) }))
+    .sort((a, b) => (a.mins === b.mins ? a.idx - b.idx : a.mins - b.mins))
+    .map((x) => x.item);
+}
+
+/**
+ * P1-1: Resolve 'today' from URL search query (?today=YYYY-MM-DD when valid ISO),
+ * falling back to device-local YYYY-MM-DD from `now`.
+ */
+export function resolveToday(search, now = new Date()) {
+  const raw = String(search || '');
+  const qIndex = raw.indexOf('?');
+  const qs = qIndex >= 0 ? raw.slice(qIndex + 1) : raw;
+  const params = new URLSearchParams(qs);
+  const override = params.get('today');
+  if (override && isValidISODate(override)) return override;
+  if (typeof now === 'string' && isValidISODate(now)) return now;
+  const dt = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  return localISODate(dt);
+}
+
+/**
+ * P1-1: Default date for new expenses opened without an explicit day (e.g. from Ledger or Home).
+ *
+ * Proposed rule when `today` is outside `[trip.startDate, trip.endDate]`:
+ * Clamp `today` to the trip's nearest boundary date:
+ * - Before trip (`today < trip.startDate`) -> `trip.startDate` (Day 1, where pre-trip bookings & Day 1 items belong)
+ * - During trip (`trip.startDate <= today <= trip.endDate`) -> `today`
+ * - After trip (`today > trip.endDate`) -> `trip.endDate` (Final day, where post-trip catch-up receipts land)
+ *
+ * Why: Prevents 記一筆 / 掃描收據 from silently creating undated ('未有日期') or out-of-trip ('旅程外')
+ * orphan records when planning ahead, catching up after a trip, or switching to a future/past trip.
+ * The date field remains editable and can still be explicitly cleared to '未有日期'.
+ */
+export function defaultExpenseDate(trip, today) {
+  const start = trip?.startDate;
+  const end = trip?.endDate;
+  const validStart = isValidISODate(start) ? start : null;
+  const validEnd = isValidISODate(end) ? end : null;
+  const validToday = isValidISODate(today) ? today : null;
+
+  if (!validStart || !validEnd) return validToday || validStart || validEnd || null;
+  if (!validToday) return validStart;
+  if (validToday < validStart) return validStart;
+  if (validToday > validEnd) return validEnd;
+  return validToday;
+}
+
+/**
+ * P1-4: The single post-save routing rule.
+ * - Launched from ledger -> 'ledger'
+ * - Otherwise -> savedDate ? `day=${savedDate}&pane=expenses` : 'ledger'
+ */
+export function postSaveTarget({ origin, savedDate } = {}) {
+  if (origin === 'ledger') return 'ledger';
+  const iso = savedDate ? normalizeDate(savedDate) : null;
+  return iso ? `day=${iso}&pane=expenses` : 'ledger';
+}
+
+/**
+ * P1-3: Toast copy after add / edit / delete.
+ * e.g. '已記錄 HKD $88 · 10月22日' / '已更新 …' / '已刪除 …' (undated -> '未有日期').
+ */
+export function saveToastMessage({ kind, expense } = {}) {
+  const verb = kind === 'edit' ? '已更新' : kind === 'delete' ? '已刪除' : '已記錄';
+  const amountText = fmtHKD(expense?.hkdAmount ?? 0);
+  const iso = expense?.date ? normalizeDate(expense.date) : null;
+  let dateText = '未有日期';
+  if (iso && isValidISODate(iso)) {
+    const [, m, d] = iso.split('-').map(Number);
+    dateText = `${m}月${d}日`;
+  }
+  return `${verb} ${amountText} · ${dateText}`;
+}
+
+/**
+ * P1-6: Count active non-'全部' filters in the filter sheet (category + date).
+ */
+export function activeFilterCount({ category = '全部', date = '全部' } = {}) {
+  let count = 0;
+  if (category && category !== '全部') count += 1;
+  if (date && date !== '全部') count += 1;
+  return count;
+}
+
+/**
+ * P1-7: Compute target hash route when switching active trip.
+ * - Day route outside new trip range -> '' (home)
+ * - Add/edit route for an unknown expense id or out-of-range date -> '' (home)
+ * - Otherwise keep the current route hash.
+ */
+export function switchTripRoute(route, trip) {
+  if (!trip) return '';
+  const isString = typeof route === 'string';
+  const rawHash = isString ? route.replace(/^#/, '') : '';
+  const parsed = isString ? parseRoute(rawHash) : route || { screen: 'home' };
+
+  if (parsed.screen === 'day') {
+    const iso = parsed.day;
+    if (!iso || iso < trip.startDate || iso > trip.endDate) return '';
+    if (isString && rawHash) return rawHash;
+    const pane = parsed.pane === 'expenses' ? 'expenses' : 'itinerary';
+    return `day=${iso}&pane=${pane}${parsed.edit && pane === 'itinerary' ? '&edit=1' : ''}`;
+  }
+
+  if (parsed.screen === 'add') {
+    if (parsed.expenseId) {
+      const exists = (trip.expenses || []).some((e) => e.id === parsed.expenseId);
+      if (!exists) return '';
+    }
+    if (parsed.date && (parsed.date < trip.startDate || parsed.date > trip.endDate)) {
+      return '';
+    }
+    return isString && rawHash ? rawHash : buildAddHash({ date: parsed.date, scan: parsed.scan, id: parsed.expenseId });
+  }
+
+  if (['ledger', 'charts', 'settings'].includes(parsed.screen)) {
+    return isString && rawHash ? rawHash : parsed.screen;
+  }
+
+  return '';
+}
+
+/**
+ * P1-7: Calendar month (YYYY-MM) to show for a trip: today's month if today is inside the trip,
+ * otherwise the trip's start month.
+ */
+export function tripMonth(trip, today) {
+  if (!trip?.startDate) return today ? String(today).slice(0, 7) : '';
+  if (today && today >= trip.startDate && today <= trip.endDate) {
+    return String(today).slice(0, 7);
+  }
+  return trip.startDate.slice(0, 7);
+}
+
+/**
+ * P1-8: Single-trip JSON export payload.
+ */
+export function exportTripJSON(trip) {
+  return {
+    filename: `trip-${trip?.id || 'export'}.json`,
+    text: JSON.stringify(trip, null, 2),
+  };
+}
+
+/**
+ * P1-8: Multi-trip full backup JSON payload.
+ */
+export function exportBackupJSON(trips, now = new Date()) {
+  let dateStr;
+  let exportedAt;
+  if (typeof now === 'string' && isValidISODate(now.slice(0, 10))) {
+    dateStr = now.slice(0, 10);
+    exportedAt = now;
+  } else {
+    const dt = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+    dateStr = localISODate(dt);
+    exportedAt = dt.toISOString();
+  }
+  return {
+    filename: `travel-backup-${dateStr}.json`,
+    text: JSON.stringify(
+      {
+        version: 1,
+        exportedAt,
+        trips: Array.isArray(trips) ? trips : [],
+      },
+      null,
+      2,
+    ),
+  };
+}
+
+/**
+ * P1-8: Build a plain-text zh-HK summary report with trip name, dates, total HKD,
+ * per-person breakdown, per-category breakdown, and per-day breakdown.
+ */
+export function buildReport(trip) {
+  if (!trip) return '';
+  const expenses = trip.expenses || [];
+  const people = trip.settings?.people || ['共同'];
+  const totalHKD = expenses.reduce((s, e) => s + Number(e.hkdAmount || 0), 0);
+  const totalJPY = expenses
+    .filter((e) => (e.currency || e.originalCurrency) === 'JPY')
+    .reduce((s, e) => s + Number(e.originalAmount || 0), 0);
+
+  const lines = [
+    `【${trip.name}】花費報告`,
+    `日期：${trip.startDate} – ${trip.endDate}`,
+    `總花費：${fmtHKD(totalHKD)}（共 ${expenses.length} 筆，原幣 ${fmtJPY(totalJPY)}）`,
+    '',
+    '【人物花費】',
+  ];
+
+  for (const p of people) {
+    const items = expenses.filter((e) => matchesPerson(e, p, people));
+    const sum = items.reduce((s, e) => s + Number(e.hkdAmount || 0), 0);
+    lines.push(`- ${p}：${fmtHKD(sum)}（${items.length} 筆）`);
+  }
+
+  lines.push('', '【類別分佈】');
+  for (const cat of REF_CATEGORIES) {
+    const items = expenses.filter((e) => (e.category || '其他') === cat);
+    if (items.length > 0) {
+      const sum = items.reduce((s, e) => s + Number(e.hkdAmount || 0), 0);
+      lines.push(`- ${cat}：${fmtHKD(sum)}（${items.length} 筆）`);
+    }
+  }
+
+  lines.push('', '【每日花費】');
+  const groups = groupLedger(expenses);
+  for (const g of groups) {
+    const label = g.iso ? zhDate(g.iso) : '未有日期';
+    lines.push(`- ${label}：${fmtHKD(g.total)}（${g.items.length} 筆）`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * P1-8: Rename a person in `trip.settings.people` and update matching `expense.assignedTo` (and line items).
+ * Rejects blank, unchanged, '共同', or duplicate names by returning `trip` unchanged.
+ */
+export function renamePerson(trip, from, to) {
+  if (!trip) return trip;
+  const cleanFrom = String(from ?? '').trim();
+  const cleanTo = String(to ?? '').trim();
+  const people = trip.settings?.people || [];
+  if (!cleanFrom || !cleanTo || cleanFrom === '共同') return trip;
+  if (!people.includes(cleanFrom)) return trip;
+  if (cleanFrom === cleanTo || people.includes(cleanTo)) return trip;
+
+  return {
+    ...trip,
+    settings: {
+      ...trip.settings,
+      people: people.map((p) => (p === cleanFrom ? cleanTo : p)),
+    },
+    expenses: (trip.expenses || []).map((e) => ({
+      ...e,
+      assignedTo: e.assignedTo === cleanFrom ? cleanTo : e.assignedTo,
+      items: Array.isArray(e.items)
+        ? e.items.map((it) => (it?.assignedTo === cleanFrom ? { ...it, assignedTo: cleanTo } : it))
+        : e.items,
+    })),
+  };
+}
+
+/**
+ * P1-8: Add a new person to `trip.settings.people`.
+ * Rejects blank or duplicate names by returning `trip` unchanged.
+ */
+export function addPerson(trip, name) {
+  if (!trip) return trip;
+  const clean = String(name ?? '').trim();
+  const people = trip.settings?.people || [];
+  if (!clean || people.includes(clean)) return trip;
+  return {
+    ...trip,
+    settings: {
+      ...trip.settings,
+      people: [...people, clean],
+    },
+  };
+}
+
+/**
+ * P1-8: Remove a person from `trip.settings.people`.
+ * '共同' cannot be removed; expenses of the removed person are reassigned to '共同'.
+ */
+export function removePerson(trip, name) {
+  if (!trip) return trip;
+  const target = String(name ?? '').trim();
+  const people = trip.settings?.people || [];
+  if (!target || target === '共同' || !people.includes(target)) return trip;
+
+  return {
+    ...trip,
+    settings: {
+      ...trip.settings,
+      people: people.filter((p) => p !== target),
+    },
+    expenses: (trip.expenses || []).map((e) => ({
+      ...e,
+      assignedTo: e.assignedTo === target ? '共同' : e.assignedTo,
+      items: Array.isArray(e.items)
+        ? e.items.map((it) => (it?.assignedTo === target ? { ...it, assignedTo: '共同' } : it))
+        : e.items,
+    })),
+  };
+}
+
+/**
+ * P1-8: Update `trip.settings.rate` (must be finite and > 0) and recompute `hkdAmount`
+ * for all JPY expenses (`Math.round(originalAmount * rate)`) so totals stay consistent
+ * across Home, Ledger, Charts, and Settings. HKD expenses keep their original HKD amount.
+ */
+export function setRate(trip, rate) {
+  if (!trip) return trip;
+  const r = Number(rate);
+  if (!Number.isFinite(r) || r <= 0) return trip;
+
+  return {
+    ...trip,
+    settings: {
+      ...trip.settings,
+      rate: r,
+    },
+    expenses: (trip.expenses || []).map((e) => {
+      const curr = e.currency || e.originalCurrency || 'JPY';
+      if (curr === 'JPY') {
+        return {
+          ...e,
+          hkdAmount: Math.round(Number(e.originalAmount || 0) * r),
+        };
+      }
+      return e;
+    }),
+  };
+}
+
+/**
+ * P1-9: Bounded day navigation for DayView.
+ * - Inside `[startDate, endDate]`: `prev` is null on `startDate`, `next` is null on `endDate`.
+ * - Outside the trip: only the direction pointing back toward the nearest in-trip boundary is active
+ *   (`iso < startDate` -> `{ prev: null, next: startDate, inTrip: false }`;
+ *    `iso > endDate` -> `{ prev: endDate, next: null, inTrip: false }`).
+ */
+export function dayNav(trip, iso) {
+  if (!trip?.startDate || !trip?.endDate || !isValidISODate(iso)) {
+    return { prev: null, next: null, inTrip: false };
+  }
+  if (iso < trip.startDate) {
+    return { prev: null, next: trip.startDate, inTrip: false };
+  }
+  if (iso > trip.endDate) {
+    return { prev: trip.endDate, next: null, inTrip: false };
+  }
+  return {
+    prev: iso === trip.startDate ? null : addDays(iso, -1),
+    next: iso === trip.endDate ? null : addDays(iso, 1),
+    inTrip: true,
+  };
+}
+
+/** List all ISO dates in `[trip.startDate, trip.endDate]` inclusive. */
+export function tripDates(trip) {
+  if (!trip?.startDate || !trip?.endDate || !isValidISODate(trip.startDate) || !isValidISODate(trip.endDate)) {
+    return [];
+  }
+  const out = [];
+  let cur = trip.startDate;
+  let guard = 0;
+  while (cur <= trip.endDate && guard < 120) {
+    out.push(cur);
+    cur = addDays(cur, 1);
+    guard += 1;
+  }
+  return out;
+}

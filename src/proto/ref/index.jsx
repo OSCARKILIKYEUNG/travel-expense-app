@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { REF_CATEGORIES, REF_PEOPLE, REF_RATE, REF_TODAY, createRefTrip } from './mockRefTrip';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { REF_CATEGORIES, createRefTrips } from './mockRefTrip';
 import {
   buildAddHash,
   filterExpenses,
@@ -11,8 +11,23 @@ import {
   personCounts,
   zhDate,
 } from './refLogic';
+import {
+  addPerson,
+  buildReport,
+  defaultExpenseDate,
+  exportBackupJSON,
+  exportTripJSON,
+  postSaveTarget,
+  removePerson,
+  renamePerson,
+  resolveToday,
+  saveToastMessage,
+  setRate,
+  switchTripRoute,
+  tripMonth,
+} from './refRules';
 import { normalizeDate } from '../../utils/duplicates';
-import { CATEGORY_DOT, Icon, Sakura, Sparkle, Tape, paperDots, washiNav } from './parts';
+import { CATEGORY_DOT, Icon, Sakura, Sparkle, Tape, Toast, paperDots, washiNav } from './parts';
 import Home from './Home';
 import DayView from './DayView';
 import Ledger from './Ledger';
@@ -44,21 +59,131 @@ function useRoute() {
   return route;
 }
 
-export default function RefProto() {
-  const [trip, setTrip] = useState(createRefTrip);
-  const route = useRoute();
-  const [returnTo, setReturnTo] = useState('');
-  const [month, setMonth] = useState(() => createRefTrip().startDate.slice(0, 7));
-  const today = REF_TODAY;
+function downloadTextFile({ filename, text }) {
+  const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
 
-  const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
-  const openAdd = useCallback((opts = {}) => {
-    setReturnTo(window.location.hash.replace(/^#/, ''));
-    go(buildAddHash(opts));
+async function copyTextToClipboard(text) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to textarea fallback
+    }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return Boolean(ok);
+  } catch {
+    return false;
+  }
+}
+
+export default function RefProto() {
+  const [trips, setTrips] = useState(createRefTrips);
+  const [activeTripId, setActiveTripId] = useState(() => createRefTrips()[0].id);
+  const trip = useMemo(() => trips.find((t) => t.id === activeTripId) || trips[0], [trips, activeTripId]);
+
+  const route = useRoute();
+  const today = useMemo(() => resolveToday(window.location.search), []);
+  const [returnTo, setReturnTo] = useState('');
+  const [addOrigin, setAddOrigin] = useState(() => ({ origin: 'home', originDay: null }));
+  const [month, setMonth] = useState(() => tripMonth(createRefTrips()[0], resolveToday(window.location.search)));
+  const [toast, setToast] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+
+  const updateActiveTrip = useCallback(
+    (updater) => {
+      setTrips((prev) => prev.map((t) => (t.id === activeTripId ? (typeof updater === 'function' ? updater(t) : updater) : t)));
+    },
+    [activeTripId],
+  );
+
+  const showToast = useCallback((message, undo = null) => {
+    setToast({ id: Date.now() + Math.random(), message, undo });
   }, []);
 
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!highlightId) return undefined;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const raf = requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-expense-id="${highlightId}"]`);
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      }
+    });
+    const timer = setTimeout(() => setHighlightId(null), 1600);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, [highlightId, route.screen, route.day, route.pane]);
+
+  const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
+
+  const openAdd = useCallback(
+    (opts = {}) => {
+      const currentHash = window.location.hash.replace(/^#/, '');
+      const currentRoute = parseRoute(currentHash);
+      setReturnTo(currentHash);
+      const origin =
+        currentRoute.screen === 'ledger' ? 'ledger' : currentRoute.screen === 'day' ? 'day' : 'home';
+      setAddOrigin({ origin, originDay: currentRoute.screen === 'day' ? currentRoute.day : null });
+
+      const resolvedDate =
+        opts.id
+          ? undefined
+          : opts.date !== undefined
+            ? opts.date
+            : defaultExpenseDate(trip, today);
+
+      go(buildAddHash({ ...opts, date: resolvedDate }));
+    },
+    [trip, today],
+  );
+
+  const selectTrip = useCallback(
+    (nextTripId) => {
+      const target = trips.find((t) => t.id === nextTripId);
+      if (!target) return;
+      if (target.id === activeTripId) return;
+      setActiveTripId(target.id);
+      setMonth(tripMonth(target, today));
+      const nextHash = switchTripRoute(window.location.hash, target);
+      if (nextHash !== window.location.hash.replace(/^#/, '')) {
+        go(nextHash, true);
+      }
+      showToast(`已切換至 ${target.name}`);
+    },
+    [trips, activeTripId, today, showToast],
+  );
+
   const updateDay = (iso, patch) =>
-    setTrip((t) => ({
+    updateActiveTrip((t) => ({
       ...t,
       days: {
         ...t.days,
@@ -66,15 +191,49 @@ export default function RefProto() {
       },
     }));
 
-  const deleteExpense = (e) => setTrip((t) => ({ ...t, expenses: t.expenses.filter((x) => x.id !== e.id) }));
+  const deleteExpense = (e) => {
+    const tripId = trip.id;
+    const prevExpenses = [...trip.expenses];
+    updateActiveTrip((t) => ({ ...t, expenses: t.expenses.filter((x) => x.id !== e.id) }));
+    showToast(saveToastMessage({ kind: 'delete', expense: e }), () => {
+      setTrips((all) => all.map((t) => (t.id === tripId ? { ...t, expenses: prevExpenses } : t)));
+      setHighlightId(e.id);
+    });
+  };
 
   const saveExpense = (data) => {
-    setTrip((t) => {
-      if (data.id) return { ...t, expenses: t.expenses.map((x) => (x.id === data.id ? { ...x, ...data } : x)) };
-      return { ...t, expenses: [...t.expenses, { ...data, id: `n${Date.now()}`, items: [] }] };
+    const tripId = trip.id;
+    const prevExpenses = [...trip.expenses];
+    const isEdit = Boolean(data.id);
+    const savedId = isEdit ? data.id : `n${Date.now()}`;
+    const normalizedDate = data.date ? normalizeDate(data.date) || '' : '';
+    const savedRecord = isEdit
+      ? { ...(trip.expenses.find((x) => x.id === data.id) || {}), ...data, id: savedId, date: normalizedDate }
+      : { ...data, id: savedId, date: normalizedDate, items: [] };
+
+    updateActiveTrip((t) => {
+      if (isEdit) {
+        return { ...t, expenses: t.expenses.map((x) => (x.id === savedId ? savedRecord : x)) };
+      }
+      return { ...t, expenses: [...t.expenses, savedRecord] };
     });
-    const key = data.date ? normalizeDate(data.date) : null;
-    go(data.scanned && key ? `day=${key}&pane=expenses` : returnTo, true);
+
+    const targetHash = postSaveTarget({ origin: addOrigin.origin, savedDate: normalizedDate });
+    go(targetHash, true);
+    setHighlightId(savedId);
+
+    showToast(saveToastMessage({ kind: isEdit ? 'edit' : 'add', expense: savedRecord }), () => {
+      setTrips((all) => all.map((t) => (t.id === tripId ? { ...t, expenses: prevExpenses } : t)));
+      if (isEdit) setHighlightId(savedId);
+      else setHighlightId(null);
+    });
+  };
+
+  const handleUndo = () => {
+    if (toast?.undo) {
+      toast.undo();
+      setToast({ id: Date.now(), message: '已撤銷操作', undo: null });
+    }
   };
 
   let body;
@@ -86,6 +245,7 @@ export default function RefProto() {
         pane={route.pane}
         editing={route.edit}
         today={today}
+        highlightId={highlightId}
         onPane={(p) => go(`day=${route.day}&pane=${p}${route.edit && p === 'itinerary' ? '&edit=1' : ''}`, true)}
         onEditToggle={(on) => go(`day=${route.day}&pane=itinerary${on ? '&edit=1' : ''}`, true)}
         onBack={() => (window.history.state?.refPushed ? window.history.back() : go('', true))}
@@ -99,12 +259,15 @@ export default function RefProto() {
     );
   } else if (route.screen === 'add') {
     const initial = route.expenseId ? trip.expenses.find((e) => e.id === route.expenseId) : null;
+    const effectiveDefaultDate = route.date || defaultExpenseDate(trip, today);
     body = (
       <AddForm
-        key={window.location.hash}
+        key={`${trip.id}-${window.location.hash}`}
         initial={initial}
-        defaultDate={route.date}
+        defaultDate={effectiveDefaultDate}
         startScan={route.scan}
+        people={trip.settings?.people || ['共同']}
+        rate={trip.settings?.rate || 0.0526}
         onCancel={() => (window.history.state?.refPushed ? window.history.back() : go(returnTo, true))}
         onSave={saveExpense}
       />
@@ -113,8 +276,9 @@ export default function RefProto() {
     body = (
       <Ledger
         trip={trip}
-        onScan={() => openAdd({ scan: true })}
-        onAdd={() => openAdd()}
+        highlightId={highlightId}
+        onScan={() => openAdd({ scan: true, date: defaultExpenseDate(trip, today) })}
+        onAdd={() => openAdd({ date: defaultExpenseDate(trip, today) })}
         onEdit={(e) => openAdd({ id: e.id })}
         onDelete={deleteExpense}
         onOpenDay={(iso) => openDay(iso, 'expenses')}
@@ -123,8 +287,17 @@ export default function RefProto() {
   } else if (route.screen === 'charts') {
     body = <ChartsView trip={trip} onOpenDay={(iso) => openDay(iso, 'expenses')} />;
   } else if (route.screen === 'settings') {
-    body = <SettingsView trip={trip} />;
+    body = (
+      <SettingsView
+        trip={trip}
+        trips={trips}
+        onUpdateTrip={updateActiveTrip}
+        onSelectTrip={selectTrip}
+        onToast={showToast}
+      />
+    );
   } else {
+    const homeDefaultDate = defaultExpenseDate(trip, today);
     body = (
       <Home
         trip={trip}
@@ -132,8 +305,8 @@ export default function RefProto() {
         month={month}
         setMonth={setMonth}
         onOpenDay={(iso) => openDay(iso)}
-        onScan={() => openAdd({ scan: true, date: today })}
-        onAdd={() => openAdd({ date: today })}
+        onScan={() => openAdd({ scan: true, date: homeDefaultDate })}
+        onAdd={() => openAdd({ date: homeDefaultDate })}
       />
     );
   }
@@ -143,26 +316,51 @@ export default function RefProto() {
   else if (route.screen === 'ledger') tab = 'ledger';
   else if (route.screen === 'charts') tab = 'charts';
   else if (route.screen === 'settings') tab = 'settings';
-  else if (route.screen === 'add') tab = returnTo === 'ledger' ? 'ledger' : null;
+  else if (route.screen === 'add') tab = addOrigin.origin === 'ledger' ? 'ledger' : 'home';
 
   return (
     <div className="min-h-screen text-ink" style={paperDots}>
-      <Header trip={trip} />
-      <main className="mx-auto max-w-5xl pb-20">{body}</main>
+      <Header trip={trip} trips={trips} onSelectTrip={selectTrip} />
+      <main className="mx-auto max-w-5xl pb-24">{body}</main>
+      <Toast toast={toast} onUndo={handleUndo} onDismiss={() => setToast(null)} />
       <BottomNav tab={tab} />
     </div>
   );
 }
 
-function Header({ trip }) {
+function Header({ trip, trips, onSelectTrip }) {
   const [open, setOpen] = useState(false);
+  const menuWrapRef = useRef(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (e) => {
+      if (menuWrapRef.current && !menuWrapRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        btnRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-cream-soft/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <button
           type="button"
           onClick={() => go('')}
-          className="relative flex min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <Sparkle className="absolute left-0.5 top-0 h-3.5 w-3.5" />
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
@@ -178,13 +376,15 @@ function Header({ trip }) {
           </span>
         </button>
 
-        <div className="relative">
+        <div className="relative" ref={menuWrapRef}>
           <button
+            ref={btnRef}
             type="button"
             data-testid="trip-switcher"
+            aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta text-ink-soft transition-colors hover:bg-white/40 hover:text-ink"
+            className="flex h-11 min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {Icon.globe('h-3.5 w-3.5 shrink-0')}
             <span>{trip.name}</span>
@@ -194,27 +394,34 @@ function Header({ trip }) {
           {open && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-40 mt-2 min-w-[220px] rounded-card border border-line bg-cream-soft py-2 text-ink shadow-xl"
+              data-testid="trip-switcher-menu"
+              className="absolute right-0 top-full z-40 mt-2 min-w-[230px] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center justify-between whitespace-nowrap bg-teal-soft px-4 py-2 text-left text-sm font-semibold text-teal-strong"
-              >
-                <span>{trip.name}</span>
-                <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-1.5 py-0.5 text-meta text-teal-strong">
-                  當前
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center justify-between whitespace-nowrap px-4 py-2 text-left text-sm text-ink hover:bg-white/50"
-              >
-                <span>大阪週末</span>
-              </button>
+              {trips.map((t) => {
+                const isActive = t.id === trip.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="menuitem"
+                    data-testid={`switch-trip-${t.id}`}
+                    onClick={() => {
+                      setOpen(false);
+                      onSelectTrip(t.id);
+                    }}
+                    className={`flex min-h-11 w-full items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
+                      isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
+                    }`}
+                  >
+                    <span>{t.name}</span>
+                    {isActive && (
+                      <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
+                        當前
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -248,7 +455,7 @@ function BottomNav({ tab }) {
               data-testid={`nav-${id}`}
               aria-current={active ? 'page' : undefined}
               onClick={() => go(hash)}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-2 transition-colors ${
+              className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
                 active ? 'text-teal-strong' : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -264,8 +471,9 @@ function BottomNav({ tab }) {
 
 function ChartsView({ trip, onOpenDay }) {
   const [person, setPerson] = useState('全部');
-  const counts = useMemo(() => personCounts(trip.expenses, REF_PEOPLE), [trip.expenses]);
-  const list = useMemo(() => filterExpenses(trip.expenses, { person }, REF_PEOPLE), [trip.expenses, person]);
+  const people = trip.settings?.people || ['共同'];
+  const counts = useMemo(() => personCounts(trip.expenses, people), [trip.expenses, people]);
+  const list = useMemo(() => filterExpenses(trip.expenses, { person }, people), [trip.expenses, person, people]);
   const total = list.reduce((s, e) => s + e.hkdAmount, 0);
 
   const byCat = useMemo(() => {
@@ -276,16 +484,18 @@ function ChartsView({ trip, onOpenDay }) {
       map[k].total += e.hkdAmount;
       map[k].count += 1;
     }
-    return REF_CATEGORIES.map((c) => ({ cat: c, ...map[c] })).filter((x) => x.total > 0).sort((a, b) => b.total - a.total);
+    return REF_CATEGORIES.map((c) => ({ cat: c, ...map[c] }))
+      .filter((x) => x.total > 0)
+      .sort((a, b) => b.total - a.total);
   }, [list]);
 
   const byPerson = useMemo(
     () =>
-      REF_PEOPLE.map((p) => {
-        const items = trip.expenses.filter((e) => matchesPerson(e, p, REF_PEOPLE));
+      people.map((p) => {
+        const items = trip.expenses.filter((e) => matchesPerson(e, p, people));
         return { person: p, count: items.length, total: items.reduce((s, e) => s + e.hkdAmount, 0) };
       }),
-    [trip.expenses],
+    [trip.expenses, people],
   );
 
   const byDay = useMemo(() => groupLedger(list).filter((g) => g.iso).reverse(), [list]);
@@ -323,7 +533,7 @@ function ChartsView({ trip, onOpenDay }) {
         <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">篩選:</span>
         <div className="min-w-0 flex-1">
           <ChipRow label="篩選人物">
-            {['全部', ...REF_PEOPLE].map((p) => (
+            {['全部', ...people].map((p) => (
               <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
                 {p} ({counts[p] || 0})
               </Chip>
@@ -398,14 +608,16 @@ function ChartsView({ trip, onOpenDay }) {
                 key={d.iso}
                 type="button"
                 onClick={() => onOpenDay(d.iso)}
-                className="block w-full space-y-1 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/50"
+                className="block min-h-11 w-full space-y-1 rounded-xl border border-line/60 bg-cream px-3 py-2.5 text-left transition-colors hover:bg-beige/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
                 <div className="flex items-center justify-between text-meta">
-                  <span className="whitespace-nowrap font-bold text-ink">
+                  <span className="truncate whitespace-nowrap font-bold text-ink">
                     {zhDate(d.iso)}
                     {dayTitle ? ` · ${dayTitle}` : ''}
                   </span>
-                  <span className="whitespace-nowrap font-mono font-semibold text-teal-strong">{fmtHKD(d.total)}</span>
+                  <span className="ml-2 shrink-0 whitespace-nowrap font-mono font-semibold text-teal-strong">
+                    {fmtHKD(d.total)}
+                  </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-pill bg-beige">
                   <div className="h-full rounded-pill bg-teal-strong" style={{ width: `${Math.max(8, pct)}%` }} />
@@ -419,14 +631,103 @@ function ChartsView({ trip, onOpenDay }) {
   );
 }
 
-function SettingsView({ trip }) {
-  const [copied, setCopied] = useState('');
+function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
+  const people = trip.settings?.people || ['共同'];
+  const currentRate = trip.settings?.rate || 0.0526;
+
+  const [editingPerson, setEditingPerson] = useState(null);
+  const [editingName, setEditingName] = useState('');
+  const [newPerson, setNewPerson] = useState('');
+  const [personError, setPersonError] = useState('');
+  const [rateInput, setRateInput] = useState(() => String(currentRate));
+  const [rateError, setRateError] = useState('');
+
+  useEffect(() => {
+    setRateInput(String(currentRate));
+    setRateError('');
+  }, [currentRate, trip.id]);
+
   const totalHKD = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
-  const totalJPY = trip.expenses.filter((e) => e.currency === 'JPY').reduce((s, e) => s + e.originalAmount, 0);
-  const counts = personCounts(trip.expenses, REF_PEOPLE);
+  const totalJPY = trip.expenses
+    .filter((e) => (e.currency || e.originalCurrency) === 'JPY')
+    .reduce((s, e) => s + e.originalAmount, 0);
+  const counts = personCounts(trip.expenses, people);
+
+  const handleRenameSubmit = (from) => {
+    const clean = editingName.trim();
+    if (!clean) {
+      setPersonError('名稱不能為空');
+      return;
+    }
+    if (clean !== from && people.includes(clean)) {
+      setPersonError('人物名稱已存在');
+      return;
+    }
+    const next = renamePerson(trip, from, clean);
+    onUpdateTrip(next);
+    setEditingPerson(null);
+    setEditingName('');
+    setPersonError('');
+    if (clean !== from) onToast(`已將「${from}」改名為「${clean}」`);
+  };
+
+  const handleAddPerson = (e) => {
+    if (e) e.preventDefault();
+    const clean = newPerson.trim();
+    if (!clean) {
+      setPersonError('請輸入人物名稱');
+      return;
+    }
+    if (people.includes(clean)) {
+      setPersonError('人物名稱已存在');
+      return;
+    }
+    onUpdateTrip((t) => addPerson(t, clean));
+    setNewPerson('');
+    setPersonError('');
+    onToast(`已新增成員「${clean}」`);
+  };
+
+  const handleRemovePerson = (name) => {
+    if (name === '共同') return;
+    onUpdateTrip((t) => removePerson(t, name));
+    setPersonError('');
+    onToast(`已移除「${name}」，其消費已歸入共同`);
+  };
+
+  const handleSaveRate = (e) => {
+    if (e) e.preventDefault();
+    const r = Number(rateInput);
+    if (!Number.isFinite(r) || r <= 0) {
+      setRateError('請輸入大於 0 的有效匯率');
+      return;
+    }
+    onUpdateTrip((t) => setRate(t, r));
+    setRateError('');
+    onToast(`匯率已更新為 1 JPY = ${r} HKD`);
+  };
+
+  const handleExportTrip = () => {
+    const payload = exportTripJSON(trip);
+    downloadTextFile(payload);
+    onToast(`已下載 ${payload.filename}`);
+  };
+
+  const handleExportBackup = () => {
+    const payload = exportBackupJSON(trips, new Date());
+    downloadTextFile(payload);
+    onToast(`已下載完整備份 ${payload.filename}`);
+  };
+
+  const handleCopyReport = async () => {
+    const report = buildReport(trip);
+    const ok = await copyTextToClipboard(report);
+    if (ok) onToast('已複製報告');
+    else onToast('複製報告失敗，請重試');
+  };
 
   return (
-    <div data-testid="page-settings" className="space-y-4 px-4 pb-6 pt-4">
+    <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
       <div className="relative space-y-1">
         <Sparkle className="absolute right-2 top-2 h-4 w-4" />
         <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">旅遊手帳設定</p>
@@ -445,33 +746,159 @@ function SettingsView({ trip }) {
             當前旅程
           </span>
         </div>
-        <div className="rounded-2xl border border-teal/35 bg-teal-soft/65 p-3">
-          <div className="flex items-center justify-between">
-            <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{trip.name}</span>
-            <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
-              {trip.expenses.length} 筆記錄
-            </span>
-          </div>
-          <p className="mt-1 whitespace-nowrap text-meta text-ink-soft">
-            {trip.startDate} – {trip.endDate} · {fmtHKD(totalHKD)}
-          </p>
+        <div className="space-y-2">
+          {trips.map((t) => {
+            const active = t.id === trip.id;
+            const tTotal = t.expenses.reduce((s, e) => s + e.hkdAmount, 0);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectTrip(t.id)}
+                className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                  active
+                    ? 'border-teal/45 bg-teal-soft/65'
+                    : 'border-line bg-cream hover:bg-beige/55'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{t.name}</span>
+                  <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
+                    {t.expenses.length} 筆記錄
+                  </span>
+                </div>
+                <p className="mt-1 whitespace-nowrap text-meta text-ink-soft">
+                  {t.startDate} – {t.endDate} · {fmtHKD(tTotal)}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </section>
 
       {/* People / Members */}
       <section className="paper-panel space-y-2.5 p-4">
         <h2 className="whitespace-nowrap font-display text-lg text-ink">人物管理</h2>
-        <div className="space-y-1.5">
-          {REF_PEOPLE.map((p) => (
-            <div
-              key={p}
-              className="flex items-center justify-between rounded-xl border border-line bg-cream px-3 py-2 text-sm"
-            >
-              <span className="whitespace-nowrap font-semibold text-ink">{p}</span>
-              <span className="whitespace-nowrap text-meta font-medium text-ink-muted">{counts[p] || 0} 筆記錄</span>
-            </div>
-          ))}
+        <div className="space-y-2">
+          {people.map((p) => {
+            const isShared = p === '共同';
+            const isEditing = editingPerson === p;
+            return (
+              <div
+                key={p}
+                data-testid={`person-row-${p}`}
+                className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-line bg-cream px-3 py-1.5 text-sm"
+              >
+                {isEditing ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <input
+                      aria-label={`修改 ${p} 名稱`}
+                      data-testid={`rename-input-${p}`}
+                      value={editingName}
+                      onChange={(e) => {
+                        setEditingName(e.target.value);
+                        setPersonError('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleRenameSubmit(p);
+                        } else if (e.key === 'Escape') {
+                          setEditingPerson(null);
+                          setPersonError('');
+                        }
+                      }}
+                      className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-teal-strong bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                    />
+                    <button
+                      type="button"
+                      data-testid={`rename-save-${p}`}
+                      onClick={() => handleRenameSubmit(p)}
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white"
+                    >
+                      儲存
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPerson(null);
+                        setPersonError('');
+                      }}
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft"
+                    >
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <span className="whitespace-nowrap font-semibold text-ink">{p}</span>
+                      <span className="ml-2 whitespace-nowrap text-meta font-medium text-ink-muted">
+                        {counts[p] || 0} 筆記錄
+                      </span>
+                    </div>
+                    {isShared ? (
+                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 text-meta font-semibold text-ink-muted">
+                        預設
+                      </span>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          data-testid={`person-edit-${p}`}
+                          aria-label={`改名 ${p}`}
+                          onClick={() => {
+                            setEditingPerson(p);
+                            setEditingName(p);
+                            setPersonError('');
+                          }}
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                        >
+                          改名
+                        </button>
+                        <button
+                          type="button"
+                          data-testid={`person-remove-${p}`}
+                          aria-label={`移除 ${p}`}
+                          onClick={() => handleRemovePerson(p)}
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-meta font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
+
+        <form onSubmit={handleAddPerson} className="flex items-center gap-2 pt-1">
+          <input
+            aria-label="新增人物名稱"
+            data-testid="add-person-input"
+            value={newPerson}
+            onChange={(e) => {
+              setNewPerson(e.target.value);
+              setPersonError('');
+            }}
+            placeholder="新增成員名稱…"
+            className="h-11 min-h-11 min-w-0 flex-1 rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+          />
+          <button
+            type="submit"
+            data-testid="add-person-btn"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            ＋新增
+          </button>
+        </form>
+        {personError && (
+          <p role="alert" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+            {personError}
+          </p>
+        )}
       </section>
 
       {/* Currency & Exchange Rate */}
@@ -487,32 +914,72 @@ function SettingsView({ trip }) {
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">HKD 港幣</p>
           </div>
         </div>
-        <div className="flex items-center justify-between rounded-xl border border-line bg-cream px-3 py-2">
-          <span className="whitespace-nowrap font-mono text-meta font-semibold text-ink">
-            1 JPY = {REF_RATE} HKD
-          </span>
-          <span className="whitespace-nowrap rounded-md bg-mustard-soft px-2 py-0.5 text-meta font-bold text-mustard-ink">
-            示範匯率
-          </span>
-        </div>
+        <form onSubmit={handleSaveRate} className="space-y-1.5">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2">
+            <label htmlFor="ref-rate-input" className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">
+              1 JPY =
+            </label>
+            <input
+              id="ref-rate-input"
+              data-testid="rate-input"
+              aria-label="匯率"
+              type="number"
+              step="0.0001"
+              min="0.0001"
+              inputMode="decimal"
+              value={rateInput}
+              onChange={(e) => {
+                setRateInput(e.target.value);
+                setRateError('');
+              }}
+              className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+            <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">HKD</span>
+            <button
+              type="submit"
+              data-testid="rate-save"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            >
+              更新匯率
+            </button>
+          </div>
+          {rateError && (
+            <p role="alert" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+              {rateError}
+            </p>
+          )}
+        </form>
       </section>
 
       {/* Data & Export */}
       <section className="paper-panel space-y-2.5 p-4">
         <h2 className="whitespace-nowrap font-display text-lg text-ink">資料管理</h2>
         <div className="grid grid-cols-3 gap-2">
-          {['匯出 JSON', '完整備份', '複製報告'].map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setCopied(`已預備：${label}`)}
-              className="whitespace-nowrap rounded-xl border border-line bg-cream py-2 text-meta font-semibold text-ink-soft hover:bg-beige"
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            data-testid="export-json"
+            onClick={handleExportTrip}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            匯出 JSON
+          </button>
+          <button
+            type="button"
+            data-testid="export-backup"
+            onClick={handleExportBackup}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            完整備份
+          </button>
+          <button
+            type="button"
+            data-testid="copy-report"
+            onClick={handleCopyReport}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            複製報告
+          </button>
         </div>
-        {copied && <p className="whitespace-nowrap text-meta font-semibold text-teal-strong">{copied}</p>}
       </section>
 
       {/* About */}
