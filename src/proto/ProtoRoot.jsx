@@ -5,6 +5,10 @@ import { lazy, Suspense } from 'react';
  * Each option lives in its own folder and is built by a different model.
  */
 const OPTIONS = {
+  ref: {
+    label: 'Ref build — executor takeover (gemini-4-argon-high region-blocked)',
+    load: lazy(() => import('./ref/index.jsx')),
+  },
   grok: {
     label: 'Option G — executor takeover (grok-4.7-high stalled ×3)',
     load: lazy(() => import('./option-g-grok/index.jsx')),
