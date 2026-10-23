@@ -344,8 +344,11 @@ const DataService = {
 
   /**
    * 合併更新旅程欄位；變更記帳幣時自動重算或清空匯率表。
+   * 支援手帳擴充欄位：`endDate`、`days`（提供 `patch.days` 時以淺拷貝整份取代 `trip.days`，方便增刪改單日）、
+   * `lastPayment`、以及 `settings` 合併（含 `budget: number | null`，且保證不抹除既有 `people`）。
    */
   patchTrip(tripId, patch) {
+    if (!patch || typeof patch !== 'object') return false;
     const tripsData = this.loadTripsData();
     const trip = tripsData.trips.find((t) => t.id === tripId);
     if (!trip) return false;
@@ -356,6 +359,65 @@ const DataService = {
     if (patch.name != null) {
       const trimmed = String(patch.name).trim();
       if (trimmed) trip.name = trimmed;
+    }
+    if (patch.startDate !== undefined) {
+      const rawStart = patch.startDate == null ? '' : String(patch.startDate).trim();
+      if (rawStart) trip.startDate = rawStart;
+    }
+    if (patch.endDate !== undefined) {
+      const rawEnd = patch.endDate == null ? '' : String(patch.endDate).trim();
+      trip.endDate = rawEnd || null;
+    }
+    if (patch.days !== undefined) {
+      if (patch.days && typeof patch.days === 'object' && !Array.isArray(patch.days)) {
+        trip.days = { ...patch.days };
+      } else if (patch.days === null) {
+        trip.days = {};
+      }
+    }
+    if (patch.lastPayment !== undefined) {
+      if (patch.lastPayment === 'cash' || patch.lastPayment === 'card') {
+        trip.lastPayment = patch.lastPayment;
+      } else if (patch.lastPayment === null || patch.lastPayment === '') {
+        trip.lastPayment = null;
+      }
+    }
+    if (
+      (patch.settings && typeof patch.settings === 'object' && !Array.isArray(patch.settings)) ||
+      patch.budget !== undefined
+    ) {
+      const prevSettings =
+        trip.settings && typeof trip.settings === 'object' && !Array.isArray(trip.settings)
+          ? trip.settings
+          : {};
+      const prevPeople =
+        Array.isArray(prevSettings.people) && prevSettings.people.length > 0
+          ? [...prevSettings.people]
+          : ['共同'];
+      const incoming =
+        patch.settings && typeof patch.settings === 'object' && !Array.isArray(patch.settings)
+          ? patch.settings
+          : {};
+      const nextSettings = {
+        ...prevSettings,
+        ...incoming,
+        people:
+          Array.isArray(incoming.people) && incoming.people.length > 0
+            ? [...incoming.people]
+            : prevPeople,
+      };
+      const rawBudget = incoming.budget !== undefined ? incoming.budget : patch.budget;
+      if (rawBudget !== undefined) {
+        if (typeof rawBudget === 'number' && Number.isFinite(rawBudget) && rawBudget > 0) {
+          nextSettings.budget = rawBudget;
+        } else if (typeof rawBudget === 'string' && rawBudget.trim() !== '') {
+          const parsed = Number(rawBudget.replace(/[,\s]/g, ''));
+          nextSettings.budget = Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+        } else {
+          nextSettings.budget = null;
+        }
+      }
+      trip.settings = nextSettings;
     }
     if (patch.tripCurrency != null) {
       const code = String(patch.tripCurrency).toUpperCase().slice(0, 3);
