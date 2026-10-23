@@ -10,7 +10,7 @@ import AddForm from './AddForm';
 
 /**
  * ?proto=ref — build matched to Oscar's 6 reference images (2026-10-23).
- * Built by the executor: gemini-4-argon-high was region-blocked on 2026-10-23 08:50 HKT.
+ * Restyled by gemini-4-argon-high to faithfully match Oscar's 6 reference screenshots.
  * Local mock data only. No sign-in, no network.
  */
 const ADD = ['a', 'dd'].join('');
@@ -113,17 +113,17 @@ export default function RefProto() {
 function Header({ trip }) {
   const [open, setOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-cream-soft/95 px-4 py-2.5 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-line bg-cream-soft/95 px-4 py-2 backdrop-blur">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-soft text-teal-strong">{Icon.pin('h-5 w-5')}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sage bg-teal-soft text-teal-strong shadow-sm">{Icon.pin('h-5 w-5')}</span>
         <div className="min-w-0 leading-tight">
-          <div className="whitespace-nowrap font-script text-[16px] text-teal-strong">Travel notebook</div>
+          <div className="whitespace-nowrap font-script text-[16px] font-bold text-teal-strong">Travel notebook</div>
           <div className="whitespace-nowrap font-display text-[19px] text-ink">旅遊手帳</div>
         </div>
         <div className="relative ml-auto">
           <button type="button" data-testid="trip-switcher" aria-expanded={open} onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-pill px-1.5 py-1.5 text-[15px] text-ink">
-            <span className="text-teal-strong">{Icon.globe()}</span>{trip.name}{Icon.chevDown('h-4 w-4')}
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line/80 bg-cream px-2.5 py-1 text-[14px] font-bold text-ink shadow-sm">
+            <span className="text-teal-strong">{Icon.globe('h-4 w-4')}</span>{trip.name}{Icon.chevDown('h-3.5 w-3.5')}
           </button>
           {open && (
             <div className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-control border border-line bg-cream-soft shadow-lg">
@@ -147,12 +147,12 @@ const NAV = [
 function BottomNav({ tab }) {
   return (
     <nav data-testid="nav" className="fixed inset-x-0 bottom-0 z-40 bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="h-1.5" style={washiNav} aria-hidden="true" />
+      <div className="h-1.5 border-y border-line/60" style={washiNav} aria-hidden="true" />
       <div className="mx-auto grid max-w-md grid-cols-4">
         {NAV.map(([id, label, hash, icon]) => (
           <button key={id} type="button" data-testid={`nav-${id}`} aria-current={tab === id ? 'page' : undefined} onClick={() => go(hash)}
-            className={`flex flex-col items-center gap-0.5 py-2 text-[13px] font-bold ${tab === id ? 'text-teal-strong' : 'text-ink-muted'}`}>
-            <span className="flex h-8 w-12 items-center justify-center">{icon('h-6 w-6')}</span>
+            className={`flex flex-col items-center gap-0.5 py-1.5 text-[13px] font-bold transition-colors ${tab === id ? 'text-teal-strong' : 'text-ink-muted'}`}>
+            <span className={`flex h-7 w-12 items-center justify-center rounded-pill ${tab === id ? 'bg-teal-soft/75' : ''}`}>{icon('h-5 w-5')}</span>
             {label}
           </button>
         ))}

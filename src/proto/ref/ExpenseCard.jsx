@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CATEGORY_DOT, Icon, ZigZag } from './parts';
+import { CATEGORY_DOT, Icon, ZigZag, cardDots } from './parts';
 import { fmtHKD, fmtJPY } from './refLogic';
 
 /** Compact receipt card (approved refinement 2): 編輯／刪除 live in a ⋯ menu; delete asks first. */
@@ -17,15 +17,15 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
 
   return (
     <div className="relative" data-testid={`expense-${expense.id}`}>
-      <div className="flex gap-2 rounded-t-card border border-b-0 border-line bg-cream-soft px-3 pb-2 pt-2.5 shadow-sm">
+      <div className="flex gap-2 rounded-t-card border border-b-0 border-line px-3 pb-2 pt-2.5 shadow-sm" style={cardDots}>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-control border border-line bg-cream px-1.5 py-0.5 text-meta font-bold text-ink">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill border border-line bg-cream-soft px-2 py-0.5 text-meta font-bold text-ink">
               <span className={`h-2 w-2 rounded-full ${CATEGORY_DOT[expense.category] || 'bg-ink-muted'}`} />
               {expense.category}
             </span>
-            <span className="whitespace-nowrap rounded-control border border-sage bg-teal-soft px-1.5 py-0.5 text-meta font-bold text-teal-strong">{expense.assignedTo}</span>
-            <span className="whitespace-nowrap text-meta text-ink-muted">{expense.scanned ? '掃描' : '手動'}</span>
+            <span className="whitespace-nowrap rounded-pill border border-sage bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">{expense.assignedTo}</span>
+            <span className="whitespace-nowrap text-meta font-medium text-ink-muted">{expense.scanned ? '掃描' : '手動'}</span>
           </div>
           <div className="mt-1 whitespace-nowrap text-[16px] font-bold text-ink">{expense.store}</div>
           {expense.place && (
@@ -81,7 +81,7 @@ export function Chip({ active, onClick, children, testid }) {
       data-testid={testid}
       aria-pressed={active}
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[13px] font-bold ${active ? 'border-teal-strong bg-teal-strong text-white' : 'border-sage bg-teal-soft text-teal-strong'}`}
+      className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[13px] font-bold transition-colors ${active ? 'border-teal-strong bg-teal-strong text-white shadow-sm' : 'border-sage bg-teal-soft text-teal-strong'}`}
     >
       {children}
     </button>
