@@ -22,6 +22,7 @@ import {
   saveBlockReason,
   saveToastMessage,
   setRate,
+  shouldKeepToastOnRoute,
   sortStops,
   stopMinutes,
   switchTripRoute,
@@ -176,6 +177,20 @@ describe('P1-3 & P1-4: postSaveTarget & saveToastMessage', () => {
 
   it('uses a 6000 ms toast duration', () => {
     expect(TOAST_DURATION_MS).toBe(6000);
+  });
+
+  it('dismisses toast when entering add/edit route and keeps it across other routes', () => {
+    expect(shouldKeepToastOnRoute('home', 'add')).toBe(false);
+    expect(shouldKeepToastOnRoute('day', 'add')).toBe(false);
+    expect(shouldKeepToastOnRoute('ledger', 'add')).toBe(false);
+    expect(shouldKeepToastOnRoute('add', 'add')).toBe(false);
+    expect(shouldKeepToastOnRoute('#day=2026-10-22&pane=expenses', '#add&date=2026-10-22')).toBe(false);
+    expect(shouldKeepToastOnRoute({ screen: 'day' }, { screen: 'add' })).toBe(false);
+
+    expect(shouldKeepToastOnRoute('add', 'day')).toBe(true);
+    expect(shouldKeepToastOnRoute('add', 'ledger')).toBe(true);
+    expect(shouldKeepToastOnRoute('day', 'ledger')).toBe(true);
+    expect(shouldKeepToastOnRoute('home', 'day')).toBe(true);
   });
 });
 

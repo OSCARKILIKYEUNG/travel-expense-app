@@ -377,7 +377,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
 
   const isTimeInvalid = isTimeEntryInvalid({ value: time, badInput: badTimeInput });
 
-  const syncTimeFromInput = (target) => {
+  const syncTimeFromInput = (target, { showError = false } = {}) => {
     const el = target || timeInputRef.current;
     if (!el) return false;
     const nextVal = el.value ?? '';
@@ -385,7 +385,11 @@ function ItineraryEditor({ day, onChange, onDone }) {
     setTime(nextVal);
     setBadTimeInput(nextBad);
     const invalid = isTimeEntryInvalid({ value: nextVal, badInput: nextBad });
-    setTimeError(invalid ? '請輸入 HH:MM 時間' : '');
+    if (!invalid) {
+      setTimeError('');
+    } else if (showError) {
+      setTimeError('請輸入 HH:MM 時間');
+    }
     return invalid;
   };
 
@@ -536,7 +540,13 @@ function ItineraryEditor({ day, onChange, onDone }) {
                 type="time"
                 aria-label={`${s.title} 時間`}
                 value={editingStopTime}
-                onChange={(e) => setEditingStopTime(e.target.value)}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  setEditingStopTime(nextVal);
+                  if (!isTimeEntryInvalid({ value: nextVal, badInput: Boolean(e.target.validity?.badInput) })) {
+                    setTimeError('');
+                  }
+                }}
                 onBlur={(e) => commitStopTime(s.id, editingStopTime, e.target)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -594,16 +604,16 @@ function ItineraryEditor({ day, onChange, onDone }) {
               }
             }}
             onKeyUp={(e) => syncTimeFromInput(e.target)}
-            onBlur={(e) => syncTimeFromInput(e.target)}
+            onBlur={(e) => syncTimeFromInput(e.target, { showError: true })}
           />
           <input
             aria-label="地點或活動"
             placeholder="地點／活動"
             className={`${field} min-w-0 flex-1 !px-2.5`}
             value={what}
-            onFocus={() => syncTimeFromInput()}
+            onFocus={() => syncTimeFromInput(timeInputRef.current, { showError: true })}
             onChange={(e) => {
-              syncTimeFromInput();
+              syncTimeFromInput(timeInputRef.current, { showError: true });
               setWhat(e.target.value);
             }}
           />
@@ -615,9 +625,9 @@ function ItineraryEditor({ day, onChange, onDone }) {
             ＋加入
           </button>
         </div>
-        {(isTimeInvalid || timeError) && (
+        {timeError && (
           <p role="alert" data-testid="time-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
-            {timeError || '請輸入 HH:MM 時間'}
+            {timeError}
           </p>
         )}
       </form>

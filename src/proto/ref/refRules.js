@@ -126,6 +126,31 @@ export function postSaveTarget({ origin, savedDate } = {}) {
 
 export const TOAST_DURATION_MS = 6000;
 
+function resolveScreenName(s) {
+  if (!s) return 'home';
+  if (typeof s === 'object') return s.screen ? String(s.screen) : 'home';
+  const raw = String(s).trim();
+  if (['home', 'day', 'add', 'ledger', 'charts', 'settings'].includes(raw)) return raw;
+  return parseRoute(raw).screen;
+}
+
+/**
+ * Dismiss any visible toast when entering the add/edit form screen ('add') so it never
+ * sits over the sticky save bar; keep toasts on other transitions (e.g. add -> day/ledger after save).
+ */
+export function shouldKeepToastOnRoute(prevScreen, nextScreen) {
+  if (
+    prevScreen &&
+    typeof prevScreen === 'object' &&
+    nextScreen === undefined &&
+    ('prevScreen' in prevScreen || 'nextScreen' in prevScreen)
+  ) {
+    return shouldKeepToastOnRoute(prevScreen.prevScreen, prevScreen.nextScreen);
+  }
+  const next = resolveScreenName(nextScreen);
+  return next !== 'add';
+}
+
 /**
  * P1-3: Toast copy after add / edit / delete.
  * e.g. '已記錄 HKD $88 · 10月22日' / '已更新 …' / '已刪除 …' (undated -> '未有日期').

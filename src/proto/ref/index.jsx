@@ -28,6 +28,7 @@ import {
   resolveToday,
   saveToastMessage,
   setRate,
+  shouldKeepToastOnRoute,
   switchTripRoute,
   tripMonth,
 } from './refRules';
@@ -131,6 +132,17 @@ export default function RefProto() {
   }, []);
 
   const toastPaused = toastHover || toastFocus;
+  const prevScreenRef = useRef(route.screen);
+
+  useEffect(() => {
+    const prevScreen = prevScreenRef.current;
+    prevScreenRef.current = route.screen;
+    if (!shouldKeepToastOnRoute(prevScreen, route.screen)) {
+      setToast(null);
+      setToastHover(false);
+      setToastFocus(false);
+    }
+  }, [route.screen]);
 
   useEffect(() => {
     if (!toast || toastPaused) return undefined;
@@ -160,6 +172,11 @@ export default function RefProto() {
     (opts = {}) => {
       const currentHash = window.location.hash.replace(/^#/, '');
       const currentRoute = parseRoute(currentHash);
+      if (!shouldKeepToastOnRoute(currentRoute.screen, 'add')) {
+        setToast(null);
+        setToastHover(false);
+        setToastFocus(false);
+      }
       setReturnTo(currentHash);
       const origin =
         currentRoute.screen === 'ledger' ? 'ledger' : currentRoute.screen === 'day' ? 'day' : 'home';
@@ -354,6 +371,7 @@ export default function RefProto() {
       <main className="mx-auto max-w-5xl pb-24">{body}</main>
       <Toast
         toast={toast}
+        aboveSaveBar={route.screen === 'add'}
         onUndo={handleUndo}
         onDismiss={() => setToast(null)}
         onHoverChange={setToastHover}
