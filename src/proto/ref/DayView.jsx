@@ -75,6 +75,7 @@ export default function DayView({
   onBack,
   onDay,
   onUpdateDay,
+  onScan,
   onAdd,
   onEditExpense,
   onDeleteExpense,
@@ -199,7 +200,15 @@ export default function DayView({
                 onDone={() => onEditToggle(false)}
               />
             ) : (
-              <ItineraryRead day={day} m={m} d={d} dayN={dayN} onEdit={() => onEditToggle(true)} />
+              <ItineraryRead
+                day={day}
+                m={m}
+                d={d}
+                dayN={dayN}
+                onEdit={() => onEditToggle(true)}
+                onScan={() => onScan?.(iso)}
+                onAdd={() => onAdd?.(iso)}
+              />
             )}
           </section>
           <section
@@ -235,7 +244,7 @@ function DayStrip({ text }) {
   );
 }
 
-function ItineraryRead({ day, m, d, dayN, onEdit }) {
+function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
   const stampTop = dayN ? `Day ${dayN}` : `${m}/${d}`;
   const stampBottom = `${MONTH_EN[m - 1]} ${d}`;
   const hasEmoji = day.sticker && hasSticker(day.sticker);
@@ -292,6 +301,25 @@ function ItineraryRead({ day, m, d, dayN, onEdit }) {
       <div className="rounded-2xl border border-line bg-cream px-3 py-2">
         <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">今日隨筆</span>
         <p className="whitespace-nowrap text-sm text-ink-soft">{day.journal || '未有隨筆'}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          data-testid="day-scan"
+          onClick={onScan}
+          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-3 py-3 text-base font-bold text-white shadow-sm transition-colors"
+        >
+          掃描收據
+        </button>
+        <button
+          type="button"
+          data-testid="itinerary-add"
+          onClick={onAdd}
+          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-cream px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-beige"
+        >
+          記一筆
+        </button>
       </div>
     </div>
   );

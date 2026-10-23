@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { createRefTrip, REF_PEOPLE } from './mockRefTrip';
-import { dayStats, dayStrip, filterExpenses, fmtHKD, groupLedger, parseRoute, personCounts, shortenTitle, zhDate } from './refLogic';
+import { createRefTrip, REF_PEOPLE, REF_TODAY } from './mockRefTrip';
+import {
+  buildAddHash,
+  dayStats,
+  dayStrip,
+  filterExpenses,
+  fmtHKD,
+  groupLedger,
+  parseRoute,
+  personCounts,
+  shortenTitle,
+  zhDate,
+} from './refLogic';
 
 const trip = createRefTrip();
 
@@ -15,6 +26,24 @@ describe('ref routes (two-pane day view)', () => {
     expect(parseRoute('#add&date=2026-10-22&scan=1')).toEqual({ screen: 'add', date: '2026-10-22', scan: true, expenseId: null });
     expect(parseRoute('#ledger').screen).toBe('ledger');
     expect(parseRoute('').screen).toBe('home');
+  });
+  it('builds day-view 掃描收據 / 記一筆 routes with the selected day iso (not REF_TODAY)', () => {
+    const selectedIso = '2026-10-20';
+    expect(selectedIso).not.toBe(REF_TODAY);
+    const scanHash = buildAddHash({ scan: true, date: selectedIso });
+    expect(parseRoute(scanHash)).toEqual({
+      screen: 'add',
+      date: '2026-10-20',
+      scan: true,
+      expenseId: null,
+    });
+    const manualHash = buildAddHash({ date: selectedIso });
+    expect(parseRoute(manualHash)).toEqual({
+      screen: 'add',
+      date: '2026-10-20',
+      scan: false,
+      expenseId: null,
+    });
   });
 });
 

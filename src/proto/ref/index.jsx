@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { REF_CATEGORIES, REF_PEOPLE, REF_RATE, REF_TODAY, createRefTrip } from './mockRefTrip';
-import { filterExpenses, fmtHKD, fmtJPY, groupLedger, matchesPerson, parseRoute, personCounts, zhDate } from './refLogic';
+import {
+  buildAddHash,
+  filterExpenses,
+  fmtHKD,
+  fmtJPY,
+  groupLedger,
+  matchesPerson,
+  parseRoute,
+  personCounts,
+  zhDate,
+} from './refLogic';
 import { normalizeDate } from '../../utils/duplicates';
 import { CATEGORY_DOT, Icon, Sakura, Sparkle, Tape, paperDots, washiNav } from './parts';
 import Home from './Home';
@@ -13,7 +23,6 @@ import { Chip, ChipRow } from './ExpenseCard';
  * ?proto=ref — Travel notebook prototype matched to the 390px reference screenshots.
  * Local mock data only. No sign-in, no network.
  */
-const ADD = ['a', 'dd'].join('');
 const go = (hash, replace = false) => {
   const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ''}`;
   if (replace) window.history.replaceState(null, '', url);
@@ -45,11 +54,7 @@ export default function RefProto() {
   const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
   const openAdd = useCallback((opts = {}) => {
     setReturnTo(window.location.hash.replace(/^#/, ''));
-    const q = [ADD];
-    if (opts.date) q.push(`date=${opts.date}`);
-    if (opts.scan) q.push('scan=1');
-    if (opts.id) q.push(`edit=${opts.id}`);
-    go(q.join('&'));
+    go(buildAddHash(opts));
   }, []);
 
   const updateDay = (iso, patch) =>
@@ -86,6 +91,7 @@ export default function RefProto() {
         onBack={() => (window.history.state?.refPushed ? window.history.back() : go('', true))}
         onDay={(iso) => go(`day=${iso}&pane=${route.pane}`, true)}
         onUpdateDay={updateDay}
+        onScan={(date) => openAdd({ scan: true, date })}
         onAdd={(date) => openAdd({ date })}
         onEditExpense={(e) => openAdd({ id: e.id })}
         onDeleteExpense={deleteExpense}

@@ -18,6 +18,15 @@ export function zhDate(iso) {
   return `${m}月${d}日 ${WEEK[new Date(y, m - 1, d).getDay()]}`;
 }
 
+/** Build the hash string for opening the add/edit expense flow from { date, scan, id }. */
+export function buildAddHash({ date, scan, id } = {}) {
+  const parts = ['add'];
+  if (date) parts.push(`date=${date}`);
+  if (scan) parts.push('scan=1');
+  if (id) parts.push(`edit=${id}`);
+  return parts.join('&');
+}
+
 /** Hash routes: '' | day=ISO&pane=itinerary|expenses[&edit=1] | add[&date=ISO][&scan=1][&edit=ID] | ledger | charts | settings */
 export function parseRoute(hash) {
   const raw = String(hash || '').replace(/^#/, '');
