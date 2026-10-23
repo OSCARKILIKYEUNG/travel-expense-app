@@ -557,7 +557,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
                     setTimeError('');
                   }
                 }}
-                className="h-11 min-h-11 w-24 shrink-0 rounded-pill border border-teal-strong bg-white px-2 font-mono text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                className="h-11 min-h-11 w-36 shrink-0 rounded-pill border border-teal-strong bg-white px-2 font-mono text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-teal"
               />
             ) : (
               <button
@@ -593,7 +593,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
             aria-label="時間"
             type="time"
             placeholder="09:30"
-            className={`${field} !w-24 shrink-0 !px-2 font-mono tabular-nums`}
+            className={`${field} !w-36 shrink-0 !px-2 font-mono tabular-nums`}
             value={time}
             onChange={(e) => syncTimeFromInput(e.target)}
             onInput={(e) => syncTimeFromInput(e.target)}
