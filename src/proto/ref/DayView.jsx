@@ -316,7 +316,7 @@ function ItineraryRead({ day, m, d, dayN, onEdit, onScan, onAdd }) {
           type="button"
           data-testid="itinerary-add"
           onClick={onAdd}
-          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-cream px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-beige"
+          className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-white px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft"
         >
           記一筆
         </button>

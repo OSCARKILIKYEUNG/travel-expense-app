@@ -132,7 +132,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
           type="button"
           data-testid="home-add"
           onClick={onAdd}
-          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-bold text-ink shadow-sm"
+          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft"
         >
           <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
           <span>記一筆</span>
