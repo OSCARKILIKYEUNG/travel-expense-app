@@ -181,10 +181,18 @@ export function fromRefExpense(ref, { existing } = {}) {
   }
 
   let originalAmount = 0;
-  if (input.originalAmount !== undefined && input.originalAmount !== '') {
+  const hasExplicitAmount = input.amount !== undefined && input.amount !== null && String(input.amount).trim() !== '';
+  const hasExplicitOriginal =
+    input.originalAmount !== undefined &&
+    input.originalAmount !== null &&
+    String(input.originalAmount).trim() !== '';
+
+  if (hasExplicitOriginal && (!hasExplicitAmount || Number(input.originalAmount) !== Number(base.originalAmount))) {
     originalAmount = Number(input.originalAmount) || 0;
-  } else if (input.amount !== undefined && input.amount !== '') {
+  } else if (hasExplicitAmount) {
     originalAmount = Number(input.amount) || 0;
+  } else if (hasExplicitOriginal) {
+    originalAmount = Number(input.originalAmount) || 0;
   } else if (base.originalAmount !== undefined) {
     originalAmount = Number(base.originalAmount) || 0;
   }
@@ -203,11 +211,12 @@ export function fromRefExpense(ref, { existing } = {}) {
         ? String(base.date ?? '')
         : '';
 
-  const items = Array.isArray(input.items)
-    ? input.items
-    : Array.isArray(base.items)
-      ? base.items
-      : [];
+  const items =
+    Array.isArray(input.items) && (input.items.length > 0 || !Array.isArray(base.items))
+      ? input.items
+      : Array.isArray(base.items)
+        ? base.items
+        : [];
 
   const merged = {
     ...base,

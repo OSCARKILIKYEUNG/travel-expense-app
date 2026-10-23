@@ -54,19 +54,19 @@ export default function Dialog({ open, onClose, title, ariaLabel, children, size
         style={{ overscrollBehavior: 'contain' }}
       >
         {title && (
-          <div className="flex items-center justify-between p-5 pb-0">
-            <h2 className="text-xl font-normal text-ink">{title}</h2>
+          <div className="flex items-center justify-between px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
+            <h2 className="min-w-0 truncate text-xl font-normal text-ink">{title}</h2>
             <button
               type="button"
               onClick={onClose}
-              className="btn-icon"
+              className="btn-icon h-11 w-11 min-h-11 min-w-11 shrink-0"
               aria-label={t('common.close', { defaultValue: '關閉' })}
             >
               <X size={20} />
             </button>
           </div>
         )}
-        <div className="p-5">{children}</div>
+        <div className="p-4 sm:p-5">{children}</div>
       </div>
     </div>
   );

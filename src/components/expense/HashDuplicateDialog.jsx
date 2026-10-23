@@ -58,7 +58,7 @@ export default function HashDuplicateDialog({ open, conflicts, onConfirm, onClos
                 <div className="flex flex-wrap gap-2" role="group">
                   {CHOICES.map((key) => {
                     const selected = choice === key;
-                    const base = 'rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors';
+                    const base = 'inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold border transition-colors';
                     const tone = selected
                       ? 'bg-teal-strong text-white border-teal-strong'
                       : 'bg-white text-ink-soft border-line';
@@ -84,7 +84,7 @@ export default function HashDuplicateDialog({ open, conflicts, onConfirm, onClos
           type="button"
           data-choice="continue"
           onClick={() => onConfirm(hashDecisionsFromChoices(conflicts, choicesNow))}
-          className="btn-primary w-full"
+          className="btn-primary min-h-11 w-full whitespace-nowrap"
         >
           {t('upload.dupHashContinue')}
         </button>

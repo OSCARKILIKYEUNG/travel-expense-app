@@ -132,7 +132,11 @@ export function mergeDayPatch(days, iso, patch) {
 
 /**
  * Map a notebook form payload into a persisted store expense record.
- * - Preserves `existing` fields (including numeric or string `id`, `sourceHash`, `items`, tax fields).
+ * - Preserves `existing` fields (for edits) or `scanBase` fields (for new AI-scanned drafts,
+ *   keeping `isEdit === false` while preserving `items`, `sourceHash`, `aiDetectedMarket`,
+ *   `receiptType`, tax/refund fields, `nameEn`, etc.).
+ * - Form-edited fields (`amount`/`originalAmount`, `currency`, `store`, `place`, `category`,
+ *   `date`, `time`, `payer`, `payment`, `assignedTo`, `note`) win over `scanBase`/`existing`.
  * - Formats `date` via `normalizeDate` + `formatDateToDisplay` (`YYYY年M月D日`) to match classic
  *   `AddExpense` / `ExpenseList` / `EditExpenseDialog`, or `''` when undated.
  * - Computes `hkdAmount` and `rate` consistent with classic `toHome` when `exchangeRates` is available.
@@ -140,6 +144,7 @@ export function mergeDayPatch(days, iso, patch) {
  * @param {Record<string, any>} data
  * @param {{
  *   existing?: Record<string, any> | null,
+ *   scanBase?: Record<string, any> | null,
  *   tripCurrency?: string,
  *   exchangeRates?: Record<string, any> | null,
  *   now?: Date
@@ -147,19 +152,31 @@ export function mergeDayPatch(days, iso, patch) {
  */
 export function preparePersistedExpense(
   data,
-  { existing = null, tripCurrency = 'JPY', exchangeRates = null, now = new Date() } = {},
+  {
+    existing = null,
+    scanBase = null,
+    tripCurrency = 'JPY',
+    exchangeRates = null,
+    now = new Date(),
+  } = {},
 ) {
   const input = data && typeof data === 'object' ? data : {};
   const hasId = input.id !== undefined && input.id !== null && input.id !== '';
   const isEdit = Boolean(hasId && existing);
+  const mergeBase = existing || scanBase || null;
   const ts = now instanceof Date && !Number.isNaN(now.getTime()) ? now.getTime() : Date.now();
   const isoNow =
     now instanceof Date && !Number.isNaN(now.getTime()) ? now.toISOString() : new Date().toISOString();
 
   const savedId =
-    existing && existing.id !== undefined ? existing.id : hasId ? input.id : `exp-${ts}`;
+    existing && existing.id !== undefined
+      ? existing.id
+      : hasId
+        ? input.id
+        : `exp-${ts}`;
 
-  const isoDate = input.date ? normalizeDate(input.date) || '' : '';
+  const rawDateInput = input.date !== undefined ? input.date : mergeBase?.date;
+  const isoDate = rawDateInput ? normalizeDate(rawDateInput) || '' : '';
   const displayDate = isoDate ? formatDateToDisplay(isoDate) : '';
 
   const mapped = fromRefExpense(
@@ -167,8 +184,9 @@ export function preparePersistedExpense(
       ...input,
       id: savedId,
       date: displayDate,
+      ...(scanBase ? { scanned: true } : {}),
     },
-    { existing },
+    { existing: mergeBase },
   );
 
   const currency = String(mapped.currency || tripCurrency || 'JPY').toUpperCase();
@@ -185,9 +203,9 @@ export function preparePersistedExpense(
     : mapped.hkdAmount;
 
   const createdAt =
-    existing?.createdAt !== undefined
+    isEdit && existing?.createdAt !== undefined
       ? existing.createdAt
-      : mapped.createdAt || isoNow;
+      : input.createdAt || isoNow;
 
   const record = {
     ...mapped,
@@ -197,6 +215,9 @@ export function preparePersistedExpense(
     hkdAmount,
     createdAt,
   };
+  if ('aiDateMissing' in record) {
+    delete record.aiDateMissing;
+  }
 
   const lastPayment =
     record.payment === 'cash' || record.payment === 'card' ? record.payment : undefined;

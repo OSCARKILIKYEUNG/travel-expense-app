@@ -1,4 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { applyUndo, defaultPayer, parseRate, resolveToday } from '../proto/ref/refRules';
 import { useApp } from '../store/AppContext';
 import { getTripCurrencyCode } from '../utils/tripMoney';
@@ -10,13 +12,23 @@ import {
   refRateToForeignPerHome,
   tripRate,
 } from './tripRate';
+import { routeScannedSave, useReceiptScan } from './useReceiptScan';
+
+function useOptionalAuth() {
+  try {
+    return useAuth();
+  } catch {
+    return { session: null };
+  }
+}
 
 /**
- * Authenticated notebook shell: bridges `useApp()` real store state and writers
- * (`trips`, `currentTrip`, `expenses`, `people`, `exchangeRates`, `switchTrip`,
- * `updateTrip`, `addExpense`, `updateExpense`, `removeExpense`) into `NotebookApp`.
+ * Authenticated notebook shell: bridges `useApp()` real store state, writers,
+ * and the production AI receipt scan pipeline into `NotebookApp`.
  */
 export default function NotebookShell() {
+  const { t } = useTranslation();
+  const { session } = useOptionalAuth();
   const {
     trips,
     currentTrip,
@@ -28,12 +40,44 @@ export default function NotebookShell() {
     addExpense,
     updateExpense,
     removeExpense,
+    resolveDuplicateConflicts,
     people,
     setPeople,
     renamePerson,
     removePersonWithReassign,
     exchangeRates,
+    homeCurrencyCode,
+    tripCurrency,
+    defaultAssignee,
+    settings,
+    planView,
+    applyBillingSnapshot,
+    refreshBilling,
+    notify,
   } = useApp();
+
+  const notebookActionsRef = useRef(null);
+
+  const scanner = useReceiptScan({
+    planView,
+    expenses,
+    settings,
+    session,
+    homeCurrencyCode,
+    tripCurrency,
+    exchangeRates,
+    defaultAssignee,
+    applyBillingSnapshot,
+    refreshBilling,
+    notify,
+    t,
+    onOpenForm: ({ date, fromForm }) => {
+      notebookActionsRef.current?.openFormForScan?.({ date, fromForm });
+    },
+    onToast: (msg) => {
+      notebookActionsRef.current?.showToast?.(msg);
+    },
+  });
 
   const today = useMemo(
     () => resolveToday(typeof window !== 'undefined' ? window.location.search : ''),
@@ -52,10 +96,10 @@ export default function NotebookShell() {
 
   const refTrips = useMemo(() => {
     if (!Array.isArray(trips) || trips.length === 0) return [refTrip];
-    return trips.map((t) =>
-      String(t.id) === String(currentTripId)
+    return trips.map((tr) =>
+      String(tr.id) === String(currentTripId)
         ? refTrip
-        : adaptTripForNotebook(t, { exchangeRates: t.exchangeRates, today }),
+        : adaptTripForNotebook(tr, { exchangeRates: tr.exchangeRates, today }),
     );
   }, [trips, currentTripId, refTrip, today]);
 
@@ -66,7 +110,7 @@ export default function NotebookShell() {
 
   const handleSelectTrip = useCallback(
     (tripId) => {
-      const target = (trips || []).find((t) => String(t.id) === String(tripId));
+      const target = (trips || []).find((tr) => String(tr.id) === String(tripId));
       switchTrip(target ? target.id : tripId);
     },
     [trips, switchTrip],
@@ -82,31 +126,55 @@ export default function NotebookShell() {
   );
 
   const handleSaveExpense = useCallback(
-    (data) => {
+    (data, { scanBase } = {}) => {
       const existing =
         data?.id != null && data.id !== ''
           ? (expenses || []).find((x) => String(x.id) === String(data.id)) || null
           : null;
-      const tripCurrency = getTripCurrencyCode(currentTrip);
+      const effectiveScanBase = !existing ? scanBase || scanner.scanDraft || null : null;
+      const tripCurr = getTripCurrencyCode(currentTrip);
       const { record, refRecord, isEdit, lastPayment } = preparePersistedExpense(data, {
         existing,
-        tripCurrency,
+        scanBase: effectiveScanBase,
+        tripCurrency: tripCurr,
         exchangeRates,
       });
-
-      if (isEdit && existing) {
-        updateExpense(record);
-      } else {
-        addExpense(record);
-      }
 
       if (lastPayment && currentTripId) {
         updateTrip(currentTripId, { lastPayment });
       }
 
-      return { savedRecord: refRecord, isEdit };
+      const isScanned = Boolean(!isEdit && (effectiveScanBase || data?.scanned));
+      const routed = routeScannedSave(record, expenses, { isEdit, isScanned });
+      scanner.clearScan();
+
+      if (routed.action === 'update' && existing) {
+        updateExpense(record);
+        return { savedRecord: refRecord, isEdit: true, action: 'update', conflicts: [] };
+      }
+
+      if (routed.action === 'conflict') {
+        return {
+          savedRecord: refRecord,
+          isEdit: false,
+          action: 'conflict',
+          conflicts: routed.conflicts,
+        };
+      }
+
+      addExpense(record);
+      return { savedRecord: refRecord, isEdit: false, action: 'add', conflicts: [] };
     },
-    [expenses, currentTrip, currentTripId, exchangeRates, addExpense, updateExpense, updateTrip],
+    [
+      expenses,
+      currentTrip,
+      currentTripId,
+      exchangeRates,
+      scanner,
+      addExpense,
+      updateExpense,
+      updateTrip,
+    ],
   );
 
   const handleDeleteExpense = useCallback(
@@ -197,6 +265,10 @@ export default function NotebookShell() {
       trips={refTrips}
       today={today}
       rate={rate}
+      scanner={scanner}
+      rawExpenses={expenses}
+      onResolveDuplicateConflicts={resolveDuplicateConflicts}
+      actionsRef={notebookActionsRef}
       onSelectTrip={handleSelectTrip}
       onUpdateDay={handleUpdateDay}
       onSaveExpense={handleSaveExpense}

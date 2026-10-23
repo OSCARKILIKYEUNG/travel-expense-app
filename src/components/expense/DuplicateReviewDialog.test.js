@@ -48,4 +48,25 @@ describe('DuplicateReviewDialog (initial render)', () => {
     const html = renderToStaticMarkup(createElement(DuplicateReviewDialog, { open: false, conflicts: [], existing: [] }));
     expect(html).toBe('');
   });
+  it('wraps body and closeNote paragraphs and truncates per-conflict summary lines with title in English', async () => {
+    const longStore = 'Don Quijote Mega Store Shinjuku Kabukicho Flagship Branch';
+    const longOld = { ...old, store: longStore };
+    const longFresh = { ...fresh, store: longStore };
+    await i18n.changeLanguage('en');
+    const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n },
+      createElement(DuplicateReviewDialog, {
+        open: true,
+        conflicts: [{ record: longFresh, matchId: longOld.id, level: 'strong' }],
+        existing: [longOld],
+        onConfirm() {},
+        onClose() {},
+      })));
+    expect(html).toContain('<h2 class="min-w-0 truncate text-xl font-normal text-ink">Possible duplicate receipts found</h2>');
+    expect(html).toContain('<p class="text-xs text-ink-soft">');
+    expect(html).toContain('<p class="text-xs text-ink-muted">Closing without choosing');
+    expect(html).toContain(`class="min-w-0 truncate" title="Existing ${longStore}`);
+    expect(html).toContain(`class="min-w-0 truncate" title="New scan ${longStore}`);
+    expect(html).toContain('class="min-w-0 truncate text-mustard-ink" title="Same date, store, amount and item count"');
+    await i18n.changeLanguage('zh-TW');
+  });
 });

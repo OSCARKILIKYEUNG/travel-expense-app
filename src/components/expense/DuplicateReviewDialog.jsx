@@ -91,10 +91,10 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
         {anyEdited && <p className="text-sm text-mustard-ink mb-3">{t('duplicateDialog.editedWarning')}</p>}
         <p className="text-sm text-ink-muted mb-5">{t('duplicateDialog.undoNote')}</p>
         <div className="flex gap-3">
-          <button type="button" onClick={() => setReview((s) => duplicateReviewReduce(s, { type: 'back' }))} className="btn-secondary flex-1">
+          <button type="button" onClick={() => setReview((s) => duplicateReviewReduce(s, { type: 'back' }))} className="btn-secondary min-h-11 flex-1 whitespace-nowrap">
             {t('duplicateDialog.back')}
           </button>
-          <button type="button" onClick={finalize} className="btn-danger flex-1">
+          <button type="button" onClick={finalize} className="btn-danger min-h-11 flex-1 whitespace-nowrap">
             {t('duplicateDialog.replaceConfirm')}
           </button>
         </div>
@@ -104,37 +104,43 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
 
   return (
     <Dialog open onClose={onClose} title={t('duplicateDialog.title')} size="lg">
-      <div className="p-5 pt-3 space-y-4" data-review-step="choose">
-        <p className="text-sm text-ink-soft">
+      <div className="space-y-3" data-review-step="choose">
+        <p className="text-xs text-ink-soft">
           {t('duplicateDialog.body', { count: conflicts.length })}
         </p>
         <ul className="space-y-3 max-h-[55vh] overflow-y-auto">
           {conflicts.map((c) => {
             const old = byId.get(c.matchId);
             const choice = choiceOf(c.record.id);
+            const existingSummary = old ? summarize(old, t, i18n.language) : t('duplicateDialog.existingMissing');
+            const editedSuffix = old && isUserEdited(old) ? ` ${t('duplicateDialog.editedBadge')}` : '';
+            const existingFullText = `${t('duplicateDialog.existing')} ${existingSummary}${editedSuffix}`;
+            const scannedSummary = summarize(c.record, t, i18n.language);
+            const scannedFullText = `${t('duplicateDialog.scanned')} ${scannedSummary}`;
+            const hintFullText = c.level === 'strong' ? t('duplicateDialog.hintStrong') : t('duplicateDialog.hintLikely');
             return (
-              <li key={c.record.id} className="rounded-2xl border border-line bg-cream-soft p-3 space-y-2">
-                <div className="text-xs space-y-1">
-                  <p>
+              <li key={c.record.id} className="min-w-0 rounded-2xl border border-line bg-cream-soft p-3 space-y-2">
+                <div className="min-w-0 text-xs space-y-1">
+                  <p className="min-w-0 truncate" title={existingFullText}>
                     <span className="font-semibold text-ink-muted">{t('duplicateDialog.existing')}</span>{' '}
-                    {old ? summarize(old, t, i18n.language) : t('duplicateDialog.existingMissing')}
+                    {existingSummary}
                     {old && isUserEdited(old) && (
                       <span className="ml-1 text-mustard-ink font-semibold">{t('duplicateDialog.editedBadge')}</span>
                     )}
                   </p>
-                  <p>
+                  <p className="min-w-0 truncate" title={scannedFullText}>
                     <span className="font-semibold text-teal-strong">{t('duplicateDialog.scanned')}</span>{' '}
-                    {summarize(c.record, t, i18n.language)}
+                    {scannedSummary}
                   </p>
-                  <p className="text-mustard-ink">
-                    {c.level === 'strong' ? t('duplicateDialog.hintStrong') : t('duplicateDialog.hintLikely')}
+                  <p className="min-w-0 truncate text-mustard-ink" title={hintFullText}>
+                    {hintFullText}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2" role="group">
                   {CHOICES.map((key) => {
                     const selected = choice === key;
                     const disabled = key === 'replace' && !old;
-                    const base = 'rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors disabled:opacity-40';
+                    const base = 'inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold border transition-colors disabled:opacity-40';
                     const tone = selected
                       ? key === 'replace'
                         ? 'bg-coral-ink text-white border-coral-ink'
@@ -161,10 +167,10 @@ export default function DuplicateReviewDialog({ open, conflicts, existing, onCon
             );
           })}
         </ul>
-        <p className="text-sm text-ink-muted">{t('duplicateDialog.closeNote')}</p>
+        <p className="text-xs text-ink-muted">{t('duplicateDialog.closeNote')}</p>
         <div className="flex gap-3">
-          <button type="button" onClick={onClose} className="btn-secondary flex-1">{t('duplicateDialog.decideLater')}</button>
-          <button type="button" onClick={handleConfirm} className="btn-primary flex-1">{t('duplicateDialog.confirm')}</button>
+          <button type="button" onClick={onClose} className="btn-secondary min-h-11 flex-1 whitespace-nowrap">{t('duplicateDialog.decideLater')}</button>
+          <button type="button" onClick={handleConfirm} className="btn-primary min-h-11 flex-1 whitespace-nowrap">{t('duplicateDialog.confirm')}</button>
         </div>
       </div>
     </Dialog>

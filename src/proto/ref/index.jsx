@@ -103,7 +103,7 @@ async function copyTextToClipboard(text) {
   }
 }
 
-export default function RefProto() {
+export default function RefProto({ onRequestScan, scanState, scanDraft } = {}) {
   const [trips, setTrips] = useState(createRefTrips);
   const [activeTripId, setActiveTripId] = useState(() => createRefTrips()[0].id);
   const trip = useMemo(() => trips.find((t) => t.id === activeTripId) || trips[0], [trips, activeTripId]);
@@ -334,6 +334,9 @@ export default function RefProto() {
         rate={trip.settings?.rate || 0.0526}
         payerDefault={defaultPayer(people)}
         paymentDefault={defaultPayment(trip)}
+        onRequestScan={onRequestScan}
+        scanState={scanState}
+        scanDraft={scanDraft}
         onCancel={() => (window.history.state?.refPushed ? window.history.back() : go(returnTo, true))}
         onSave={saveExpense}
       />

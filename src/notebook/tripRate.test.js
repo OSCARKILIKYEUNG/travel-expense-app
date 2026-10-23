@@ -187,6 +187,94 @@ describe('preparePersistedExpense — classic & notebook write compatibility', (
     expect(record.hkdAmount).toBe(500);
     expect(lastPayment).toBe('card');
   });
+
+  it('merges scanBase on a new scanned draft: preserves items/sourceHash/AI fields, user-edited amount/category win, and isEdit is false', () => {
+    const scanBase = {
+      id: 1729650000888,
+      date: '2026年10月22日',
+      store: 'ローソン 河口湖駅前店',
+      storeOriginal: 'ローソン 河口湖駅前店',
+      storeEn: 'LAWSON Kawaguchiko Station',
+      location: '河口湖',
+      locationEn: 'Kawaguchiko',
+      category: '飲食',
+      assignedTo: '共同',
+      currency: 'JPY',
+      originalAmount: 1680,
+      hkdAmount: 88.42,
+      rate: 19,
+      subtotal: 1680,
+      tax: 124,
+      taxRefund: 0,
+      discount: 0,
+      paymentMethod: '現金',
+      receiptType: 'tax_inclusive',
+      aiDetectedMarket: 'JP',
+      aiMarketEvidence: ['￥', '内消費税'],
+      sourceHash: 'deadbeefcafebabe1234567890',
+      items: [
+        { name: '炸雞塊', originalName: 'からあげクン', nameEn: 'Karaage-kun', price: 248 },
+        { name: '幕之內便當', originalName: '幕の内弁当', nameEn: 'Makunouchi Bento', price: 1432 },
+      ],
+    };
+
+    const now = new Date('2026-10-22T13:10:00.000Z');
+    const { record, refRecord, isEdit, lastPayment } = preparePersistedExpense(
+      {
+        currency: 'JPY',
+        amount: '2100',
+        originalAmount: 2100,
+        store: 'ローソン 河口湖駅前店',
+        place: '河口湖站',
+        category: '購物',
+        assignedTo: 'Oscar',
+        payer: 'Oscar',
+        payment: 'card',
+        date: '2026-10-22',
+        time: '13:05',
+        subtotal: '',
+        tax: '',
+        taxRefund: '',
+        discount: '',
+        note: '買手信同零食',
+        scanned: true,
+      },
+      {
+        scanBase,
+        tripCurrency: 'JPY',
+        exchangeRates: { HKD: 1, JPY: 21 },
+        now,
+      },
+    );
+
+    expect(isEdit).toBe(false);
+    expect(lastPayment).toBe('card');
+    expect(record.id).toBe(`exp-${now.getTime()}`);
+    expect(record.createdAt).toBe('2026-10-22T13:10:00.000Z');
+    expect(record.originalAmount).toBe(2100);
+    expect(record.hkdAmount).toBe(100);
+    expect(record.category).toBe('購物');
+    expect(record.place).toBe('河口湖站');
+    expect(record.location).toBe('河口湖站');
+    expect(record.payer).toBe('Oscar');
+    expect(record.payment).toBe('card');
+    expect(record.paymentMethod).toBe('card');
+    expect(record.assignedTo).toBe('Oscar');
+    expect(record.time).toBe('13:05');
+    expect(record.scanned).toBe(true);
+    // Preserved AI fields from scanBase
+    expect(record.items).toEqual(scanBase.items);
+    expect(record.items[0].nameEn).toBe('Karaage-kun');
+    expect(record.sourceHash).toBe('deadbeefcafebabe1234567890');
+    expect(record.aiDetectedMarket).toBe('JP');
+    expect(record.receiptType).toBe('tax_inclusive');
+    expect(record.storeEn).toBe('LAWSON Kawaguchiko Station');
+    expect(record.locationEn).toBe('Kawaguchiko');
+    expect(record.subtotal).toBe(1680);
+    expect(record.tax).toBe(124);
+    expect(refRecord.scanned).toBe(true);
+    expect(refRecord.items).toHaveLength(2);
+  });
 });
 
 describe('adaptTripForNotebook & NotebookApp smoke render', () => {

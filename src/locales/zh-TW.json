@@ -442,7 +442,7 @@
     "choice_replace": "取代舊記錄",
     "confirm": "確認",
     "decideLater": "稍後再決定",
-    "closeNote": "未選擇就關閉視窗時，新記錄會保留並顯示重複提示，不會刪除任何資料。",
+    "closeNote": "未選擇就關閉時，新記錄會保留並標示重複，不會刪除資料。",
     "replaceConfirmTitle": "確定取代舊記錄？",
     "replaceConfirmMessage": "取代後，{{count}} 筆舊記錄會被移除，並由新掃描的記錄取代。",
     "editedWarning": "舊記錄曾被你編輯過，取代後你的修改會被移除。",

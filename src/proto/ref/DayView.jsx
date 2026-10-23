@@ -72,10 +72,18 @@ export default function DayView({
   onDay,
   onUpdateDay,
   onScan,
+  onRequestScan,
   onAdd,
   onEditExpense,
   onDeleteExpense,
 }) {
+  const handleScan = (targetIso) => {
+    if (typeof onRequestScan === 'function') {
+      onRequestScan(targetIso);
+      return;
+    }
+    onScan?.(targetIso);
+  };
   const index = Math.max(0, PANES.indexOf(pane));
   const setIndex = (i) => onPane(PANES[i]);
   const { track, handlers, style } = usePager(index, setIndex);
@@ -210,7 +218,7 @@ export default function DayView({
                 inTrip={inTrip}
                 onReturnToTrip={() => onDay(nearestTripDay)}
                 onEdit={() => onEditToggle(true)}
-                onScan={() => onScan?.(iso)}
+                onScan={() => handleScan(iso)}
                 onAdd={() => onAdd?.(iso)}
               />
             )}

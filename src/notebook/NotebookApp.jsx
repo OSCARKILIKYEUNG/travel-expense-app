@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toRefExpense } from '../adapters/refDataAdapter';
+import DuplicateReviewDialog from '../components/expense/DuplicateReviewDialog';
+import HashDuplicateDialog from '../components/expense/HashDuplicateDialog';
 import { createRefTrips } from '../proto/ref/mockRefTrip';
 import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import {
@@ -16,6 +19,7 @@ import {
   tripMonth,
 } from '../proto/ref/refRules';
 import { ledgerHash } from '../proto/ref/refCharts';
+import { applyDuplicateDecisions } from '../utils/duplicateDecisions';
 import { normalizeDate } from '../utils/duplicates';
 import { Icon, Sparkle, Toast, paperDots, washiNav } from '../proto/ref/parts';
 import Home from '../proto/ref/Home';
@@ -24,7 +28,24 @@ import Ledger from '../proto/ref/Ledger';
 import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
 import SettingsView from './SettingsView';
-import { adaptTripForNotebook, mergeDayPatch } from './tripRate';
+import {
+  FIXTURE_ERROR_MESSAGE,
+  FIXTURE_SCAN_DELAY_MS,
+  buildFixtureExpense,
+  resolveScanFixtureMode,
+} from './scanFixture';
+import {
+  adaptTripForNotebook,
+  mergeDayPatch,
+  preparePersistedExpense,
+  refRateToForeignPerHome,
+} from './tripRate';
+import {
+  SCAN_LOADING_TEXT,
+  SCAN_READY_TEXT,
+  routeScannedSave,
+  scanResultToFormFields,
+} from './useReceiptScan';
 
 export const go = (hash, replace = false) => {
   if (typeof window === 'undefined') return;
@@ -61,8 +82,8 @@ function useRoute(initialHash = '') {
 
 /**
  * Presentation shell for the travel notebook redesign UI.
- * Used both by `NotebookShell` (with real `useApp()` data & handlers)
- * and by `?proto=notebook` (integrate preview mock without login) / unit tests.
+ * Used both by `NotebookShell` (with real `useApp()` data & production scanner)
+ * and by `?proto=notebook` (integrate preview mock with fixture scanner) / unit tests.
  */
 export default function NotebookApp({
   trip: controlledTrip,
@@ -70,6 +91,10 @@ export default function NotebookApp({
   today: propToday,
   rate: propRate,
   initialHash = '',
+  scanner,
+  rawExpenses,
+  onResolveDuplicateConflicts,
+  actionsRef,
   onSelectTrip,
   onUpdateDay,
   onSaveExpense,
@@ -116,13 +141,55 @@ export default function NotebookApp({
   const [toastFocus, setToastFocus] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
 
+  const [dupConflicts, setDupConflicts] = useState([]);
+  const [pendingDupTargetHash, setPendingDupTargetHash] = useState('');
+
+  // Fixture scanner state for ?proto=notebook (when no external scanner prop is supplied)
+  const fixtureTimerRef = useRef(null);
+  const [fixtureScanState, setFixtureScanState] = useState({
+    status: 'idle',
+    message: '',
+    draft: null,
+    token: 0,
+  });
+  const [fixtureScanDraft, setFixtureScanDraft] = useState(null);
+
+  const effectiveRate = propRate || trip.settings?.rate || 0.0526;
+
+  const clearFixtureScan = useCallback(() => {
+    if (fixtureTimerRef.current) {
+      clearTimeout(fixtureTimerRef.current);
+      fixtureTimerRef.current = null;
+    }
+    setFixtureScanDraft(null);
+    setFixtureScanState({ status: 'idle', message: '', draft: null, token: 0 });
+  }, []);
+
+  const clearActiveScan = useCallback(() => {
+    if (scanner?.clearScan) {
+      scanner.clearScan();
+    } else {
+      clearFixtureScan();
+    }
+  }, [scanner, clearFixtureScan]);
+
+  useEffect(
+    () => () => {
+      if (fixtureTimerRef.current) {
+        clearTimeout(fixtureTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const prevTripIdRef = useRef(String(trip.id));
   useEffect(() => {
     if (String(trip.id) !== prevTripIdRef.current) {
       prevTripIdRef.current = String(trip.id);
       setMonth(tripMonth(trip, today));
+      clearActiveScan();
     }
-  }, [trip, today]);
+  }, [trip, today, clearActiveScan]);
 
   const updateActiveMockTrip = useCallback(
     (updater) => {
@@ -160,7 +227,10 @@ export default function NotebookApp({
       setToastHover(false);
       setToastFocus(false);
     }
-  }, [route.screen]);
+    if (prevScreen === 'add' && route.screen !== 'add') {
+      clearActiveScan();
+    }
+  }, [route.screen, clearActiveScan]);
 
   useEffect(() => {
     if (!toast || toastPaused) return undefined;
@@ -202,10 +272,12 @@ export default function NotebookApp({
         setToastHover(false);
         setToastFocus(false);
       }
-      setReturnTo(currentHash);
-      const origin =
-        currentRoute.screen === 'ledger' ? 'ledger' : currentRoute.screen === 'day' ? 'day' : 'home';
-      setAddOrigin({ origin, originDay: currentRoute.screen === 'day' ? currentRoute.day : null });
+      if (currentRoute.screen !== 'add') {
+        setReturnTo(currentHash);
+        const origin =
+          currentRoute.screen === 'ledger' ? 'ledger' : currentRoute.screen === 'day' ? 'day' : 'home';
+        setAddOrigin({ origin, originDay: currentRoute.screen === 'day' ? currentRoute.day : null });
+      }
 
       const resolvedDate =
         opts.id
@@ -217,6 +289,123 @@ export default function NotebookApp({
       go(buildAddHash({ ...opts, date: resolvedDate }));
     },
     [trip, today],
+  );
+
+  const openFormForScan = useCallback(
+    ({ date } = {}) => {
+      const currentHash = currentWindowHash().replace(/^#/, '');
+      const currentRoute = parseRoute(currentHash);
+      if (currentRoute.screen === 'add') return;
+      openAdd({ date: date || defaultExpenseDate(trip, today) });
+    },
+    [openAdd, trip, today],
+  );
+
+  useEffect(() => {
+    if (!actionsRef) return;
+    actionsRef.current = {
+      openFormForScan,
+      showToast,
+    };
+  }, [actionsRef, openFormForScan, showToast]);
+
+  const startFixtureScan = useCallback(
+    ({ date } = {}) => {
+      if (fixtureTimerRef.current) {
+        clearTimeout(fixtureTimerRef.current);
+      }
+      const targetDate = date || defaultExpenseDate(trip, today) || '2026-10-22';
+      const people = trip.settings?.people || ['共同'];
+      const defaultAssignee = people.includes('共同') ? '共同' : people[0] || '共同';
+      const storeRate = refRateToForeignPerHome(effectiveRate) || 1 / 0.0526;
+
+      setFixtureScanDraft(null);
+      setFixtureScanState({
+        status: 'loading',
+        message: SCAN_LOADING_TEXT,
+        draft: null,
+        token: Date.now(),
+      });
+
+      fixtureTimerRef.current = setTimeout(() => {
+        fixtureTimerRef.current = null;
+        const mode = resolveScanFixtureMode(
+          currentWindowSearch(),
+          currentWindowHash(initialHash),
+        );
+        if (mode === 'error') {
+          showToast(FIXTURE_ERROR_MESSAGE);
+          setFixtureScanState({
+            status: 'error',
+            message: FIXTURE_ERROR_MESSAGE,
+            draft: null,
+            token: Date.now(),
+          });
+          return;
+        }
+
+        const draft = buildFixtureExpense({
+          mode,
+          date: targetDate,
+          existingExpenses: trip.expenses,
+          rate: storeRate,
+          tripCurrency: trip.tripCurrency || 'JPY',
+          defaultAssignee,
+        });
+        setFixtureScanDraft(draft);
+        setFixtureScanState({
+          status: 'ready',
+          message: SCAN_READY_TEXT,
+          draft,
+          token: Date.now(),
+        });
+
+        if (mode === 'dup') {
+          const formFields = scanResultToFormFields(draft, {
+            defaultDate: targetDate,
+            payerDefault: defaultPayer(people),
+            paymentDefault: defaultPayment(trip),
+            defaultAssignee,
+          });
+          const { record } = preparePersistedExpense(formFields, {
+            scanBase: draft,
+            tripCurrency: trip.tripCurrency || 'JPY',
+            exchangeRates: { [trip.tripCurrency || 'JPY']: storeRate },
+          });
+          const routed = routeScannedSave(record, trip.expenses, {
+            isEdit: false,
+            isScanned: true,
+          });
+          if (routed.conflicts.length > 0) {
+            setDupConflicts(routed.conflicts);
+            setPendingDupTargetHash(
+              postSaveTarget({
+                origin: addOrigin.origin,
+                savedDate: normalizeDate(formFields.date) || '',
+              }),
+            );
+          }
+        }
+      }, FIXTURE_SCAN_DELAY_MS);
+    },
+    [trip, today, effectiveRate, initialHash, showToast, addOrigin.origin],
+  );
+
+  const handleRequestScan = useCallback(
+    ({ date, fromForm = false, auto = false } = {}) => {
+      const targetDate = date || defaultExpenseDate(trip, today);
+      if (scanner) {
+        if (auto) return false;
+        return scanner.requestScan({ date: targetDate, fromForm });
+      }
+      if (!fromForm) {
+        openAdd({ scan: true, date: targetDate });
+        return true;
+      }
+      startFixtureScan({ date: targetDate });
+      return true;
+    },
+    [scanner, trip, today, openAdd, startFixtureScan],
   );
 
   const selectTrip = useCallback(
@@ -279,6 +468,9 @@ export default function NotebookApp({
     [trip.id, trip.expenses, onDeleteExpense, updateActiveMockTrip, showToast],
   );
 
+  const activeScanState = scanner ? scanner.scanState : fixtureScanState;
+  const activeScanDraft = scanner ? scanner.scanDraft : fixtureScanDraft;
+
   const saveExpense = useCallback(
     (data) => {
       const tripId = trip.id;
@@ -287,12 +479,18 @@ export default function NotebookApp({
         ? trip.expenses.find((x) => String(x.id) === String(data.id)) || null
         : null;
       const normalizedDate = data.date ? normalizeDate(data.date) || '' : '';
+      const targetHash = postSaveTarget({ origin: addOrigin.origin, savedDate: normalizedDate });
 
       let savedRecord;
       let savedId;
 
       if (onSaveExpense) {
-        const res = onSaveExpense(data);
+        const res = onSaveExpense(data, { scanBase: activeScanDraft });
+        if (res?.action === 'conflict' && Array.isArray(res.conflicts) && res.conflicts.length > 0) {
+          setDupConflicts(res.conflicts);
+          setPendingDupTargetHash(targetHash);
+          return;
+        }
         savedRecord = res?.savedRecord || {
           ...(previousRecord || {}),
           ...data,
@@ -301,34 +499,74 @@ export default function NotebookApp({
         };
         savedId = savedRecord.id;
       } else {
-        savedId = isEdit && previousRecord ? previousRecord.id : data.id || `n${Date.now()}`;
-        savedRecord = isEdit
-          ? {
-              ...(previousRecord || {}),
-              ...data,
-              id: savedId,
-              date: normalizedDate,
-              ...(previousRecord?.createdAt !== undefined ? { createdAt: previousRecord.createdAt } : {}),
-            }
-          : { ...data, id: savedId, date: normalizedDate, createdAt: new Date().toISOString(), items: [] };
-
         const nextLastPayment =
           data.payment === 'cash' || data.payment === 'card' ? data.payment : undefined;
 
-        updateActiveMockTrip((t) => {
-          const patch = nextLastPayment ? { lastPayment: nextLastPayment } : {};
-          if (isEdit) {
-            return {
-              ...t,
-              ...patch,
-              expenses: t.expenses.map((x) => (String(x.id) === String(savedId) ? savedRecord : x)),
-            };
+        if (!isEdit && (activeScanDraft || data.scanned)) {
+          const storeRate = refRateToForeignPerHome(effectiveRate) || 1 / 0.0526;
+          const { record, refRecord } = preparePersistedExpense(data, {
+            existing: null,
+            scanBase: activeScanDraft,
+            tripCurrency: trip.tripCurrency || 'JPY',
+            exchangeRates: { [trip.tripCurrency || 'JPY']: storeRate },
+          });
+          if (nextLastPayment) {
+            updateActiveMockTrip((t) => ({ ...t, lastPayment: nextLastPayment }));
           }
-          return { ...t, ...patch, expenses: [...t.expenses, savedRecord] };
-        });
+          const routed = routeScannedSave(record, trip.expenses, {
+            isEdit: false,
+            isScanned: true,
+          });
+          clearActiveScan();
+          if (routed.action === 'conflict' && routed.conflicts.length > 0) {
+            setDupConflicts(routed.conflicts);
+            setPendingDupTargetHash(targetHash);
+            return;
+          }
+          savedRecord = refRecord;
+          savedId = savedRecord.id;
+          updateActiveMockTrip((t) => ({
+            ...t,
+            ...(nextLastPayment ? { lastPayment: nextLastPayment } : {}),
+            expenses: [...t.expenses, savedRecord],
+          }));
+        } else {
+          savedId = isEdit && previousRecord ? previousRecord.id : data.id || `n${Date.now()}`;
+          savedRecord = isEdit
+            ? {
+                ...(previousRecord || {}),
+                ...data,
+                id: savedId,
+                date: normalizedDate,
+                ...(previousRecord?.createdAt !== undefined
+                  ? { createdAt: previousRecord.createdAt }
+                  : {}),
+              }
+            : {
+                ...data,
+                id: savedId,
+                date: normalizedDate,
+                createdAt: new Date().toISOString(),
+                items: [],
+              };
+
+          updateActiveMockTrip((t) => {
+            const patch = nextLastPayment ? { lastPayment: nextLastPayment } : {};
+            if (isEdit) {
+              return {
+                ...t,
+                ...patch,
+                expenses: t.expenses.map((x) =>
+                  String(x.id) === String(savedId) ? savedRecord : x,
+                ),
+              };
+            }
+            return { ...t, ...patch, expenses: [...t.expenses, savedRecord] };
+          });
+        }
       }
 
-      const targetHash = postSaveTarget({ origin: addOrigin.origin, savedDate: normalizedDate });
+      clearActiveScan();
       go(targetHash, true);
       setHighlightId(savedId);
 
@@ -342,7 +580,50 @@ export default function NotebookApp({
         highlightId: isEdit ? savedId : null,
       });
     },
-    [trip.id, trip.expenses, addOrigin.origin, onSaveExpense, updateActiveMockTrip, showToast],
+    [
+      trip.id,
+      trip.expenses,
+      trip.tripCurrency,
+      addOrigin.origin,
+      onSaveExpense,
+      activeScanDraft,
+      effectiveRate,
+      updateActiveMockTrip,
+      clearActiveScan,
+      showToast,
+    ],
+  );
+
+  const finalizeDuplicateDialog = useCallback(
+    (decisions) => {
+      const currentConflicts = dupConflicts;
+      setDupConflicts([]);
+      clearActiveScan();
+      if (onResolveDuplicateConflicts) {
+        onResolveDuplicateConflicts(currentConflicts, decisions);
+      } else {
+        updateActiveMockTrip((t) => {
+          const resolved = applyDuplicateDecisions(t.expenses, currentConflicts, decisions);
+          return {
+            ...t,
+            expenses: resolved.expenses.map((e) => toRefExpense(e)),
+          };
+        });
+      }
+      const nextHash = pendingDupTargetHash || 'ledger';
+      setPendingDupTargetHash('');
+      if (parseRoute(currentWindowHash(initialHash)).screen === 'add') {
+        go(nextHash, true);
+      }
+    },
+    [
+      dupConflicts,
+      clearActiveScan,
+      onResolveDuplicateConflicts,
+      updateActiveMockTrip,
+      pendingDupTargetHash,
+      initialHash,
+    ],
   );
 
   const handleUndo = () => {
@@ -367,8 +648,6 @@ export default function NotebookApp({
     setToast({ id: Date.now(), message: '已撤銷操作', undo: null });
   };
 
-  const effectiveRate = propRate || trip.settings?.rate || 0.0526;
-
   let body;
   if (route.screen === 'day') {
     body = (
@@ -386,7 +665,7 @@ export default function NotebookApp({
         }
         onDay={(iso) => go(`day=${iso}&pane=${route.pane}`, true)}
         onUpdateDay={updateDay}
-        onScan={(date) => openAdd({ scan: true, date })}
+        onScan={(date) => handleRequestScan({ date })}
         onAdd={(date) => openAdd({ date })}
         onEditExpense={(e) => openAdd({ id: e.id })}
         onDeleteExpense={deleteExpense}
@@ -408,11 +687,23 @@ export default function NotebookApp({
         rate={effectiveRate}
         payerDefault={defaultPayer(people)}
         paymentDefault={defaultPayment(trip)}
-        onCancel={() =>
-          typeof window !== 'undefined' && window.history.state?.refPushed
-            ? window.history.back()
-            : go(returnTo, true)
+        onRequestScan={(opts) =>
+          handleRequestScan({
+            date: opts?.date || effectiveDefaultDate,
+            fromForm: true,
+            auto: Boolean(opts?.auto),
+          })
         }
+        scanState={activeScanState}
+        scanDraft={activeScanDraft}
+        onCancel={() => {
+          clearActiveScan();
+          if (typeof window !== 'undefined' && window.history.state?.refPushed) {
+            window.history.back();
+          } else {
+            go(returnTo, true);
+          }
+        }}
         onSave={saveExpense}
       />
     );
@@ -423,7 +714,7 @@ export default function NotebookApp({
         trip={trip}
         initialFilters={route.filters}
         highlightId={highlightId}
-        onScan={() => openAdd({ scan: true, date: defaultExpenseDate(trip, today) })}
+        onScan={() => handleRequestScan({ date: defaultExpenseDate(trip, today) })}
         onAdd={() => openAdd({ date: defaultExpenseDate(trip, today) })}
         onEdit={(e) => openAdd({ id: e.id })}
         onDelete={deleteExpense}
@@ -463,7 +754,7 @@ export default function NotebookApp({
         month={month}
         setMonth={setMonth}
         onOpenDay={(iso) => openDay(iso)}
-        onScan={() => openAdd({ scan: true, date: homeDefaultDate })}
+        onScan={() => handleRequestScan({ date: homeDefaultDate })}
         onAdd={() => openAdd({ date: homeDefaultDate })}
       />
     );
@@ -476,8 +767,34 @@ export default function NotebookApp({
   else if (route.screen === 'settings') tab = 'settings';
   else if (route.screen === 'add') tab = addOrigin.origin === 'ledger' ? 'ledger' : 'home';
 
+  const hashConflicts = scanner?.hashConflicts || [];
+  const dialogExisting = Array.isArray(rawExpenses) ? rawExpenses : trip.expenses;
+
   return (
     <div className="min-h-screen text-ink" style={paperDots}>
+      {scanner && (
+        <input
+          ref={scanner.fileInputRef}
+          type="file"
+          accept="image/*"
+          data-testid="notebook-scan-input"
+          onChange={scanner.handleFileChange}
+          className="hidden"
+        />
+      )}
+      <HashDuplicateDialog
+        open={hashConflicts.length > 0}
+        conflicts={hashConflicts}
+        onConfirm={(decisions) => scanner?.confirmHashConflicts?.(decisions)}
+        onClose={() => scanner?.closeHashConflicts?.()}
+      />
+      <DuplicateReviewDialog
+        open={dupConflicts.length > 0}
+        conflicts={dupConflicts}
+        existing={dialogExisting}
+        onConfirm={(decisions) => finalizeDuplicateDialog(decisions)}
+        onClose={() => finalizeDuplicateDialog({})}
+      />
       <Header trip={trip} trips={trips} onSelectTrip={selectTrip} />
       <main className="mx-auto max-w-5xl pb-24">{body}</main>
       <Toast

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { scanResultToFormFields } from '../../notebook/useReceiptScan';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sakura, Tape } from './parts';
 import { fmtHKD, zhDate } from './refLogic';
@@ -20,6 +21,9 @@ export default function AddForm({
   payerDefault,
   paymentDefault,
   now,
+  onRequestScan,
+  scanState,
+  scanDraft,
   onCancel,
   onSave,
 }) {
@@ -27,50 +31,66 @@ export default function AddForm({
   const resolvedPayerDefault = payerDefault !== undefined ? payerDefault : defaultPayer(people);
   const resolvedPaymentDefault = paymentDefault || 'cash';
   const payers = people.filter((p) => p && p !== '共同');
+  const hasExternalScanner = typeof onRequestScan === 'function';
+  const activeDraft = scanDraft || scanState?.draft || null;
 
-  const [f, setF] = useState(() =>
-    initial
-      ? {
-          ...initial,
-          date: normalizeDate(initial.date) || '',
-          time: initial.time || initial.receiptTime || '',
-          payer: initial.payer || resolvedPayerDefault,
-          payment: initial.payment || resolvedPaymentDefault,
-          amount: String(initial.originalAmount),
-          subtotal: initial.subtotal ? String(initial.subtotal) : '',
-          tax: initial.tax ? String(initial.tax) : '',
-          taxRefund: initial.taxRefund ? String(initial.taxRefund) : '',
-          discount: initial.discount ? String(initial.discount) : '',
-          note: initial.note || '',
-        }
-      : {
-          currency: 'JPY',
-          amount: '',
-          store: '',
-          date: defaultDate || '',
-          time: defaultTime(now),
-          payer: resolvedPayerDefault,
-          payment: resolvedPaymentDefault,
-          place: '',
-          category: '飲食',
-          assignedTo: defaultAssignee,
-          subtotal: '',
-          tax: '',
-          taxRefund: '',
-          discount: '',
-          note: '',
-          scanned: false,
-        },
-  );
+  const [f, setF] = useState(() => {
+    if (initial) {
+      return {
+        ...initial,
+        date: normalizeDate(initial.date) || '',
+        time: initial.time || initial.receiptTime || '',
+        payer: initial.payer || resolvedPayerDefault,
+        payment: initial.payment || resolvedPaymentDefault,
+        amount: String(initial.originalAmount),
+        subtotal: initial.subtotal ? String(initial.subtotal) : '',
+        tax: initial.tax ? String(initial.tax) : '',
+        taxRefund: initial.taxRefund ? String(initial.taxRefund) : '',
+        discount: initial.discount ? String(initial.discount) : '',
+        note: initial.note || '',
+      };
+    }
+    const baseForm = {
+      currency: 'JPY',
+      amount: '',
+      store: '',
+      date: defaultDate || '',
+      time: defaultTime(now),
+      payer: resolvedPayerDefault,
+      payment: resolvedPaymentDefault,
+      place: '',
+      category: '飲食',
+      assignedTo: defaultAssignee,
+      subtotal: '',
+      tax: '',
+      taxRefund: '',
+      discount: '',
+      note: '',
+      scanned: false,
+    };
+    if (activeDraft) {
+      return scanResultToFormFields(activeDraft, {
+        defaultDate,
+        now,
+        currentForm: baseForm,
+        payerDefault: resolvedPayerDefault,
+        paymentDefault: resolvedPaymentDefault,
+        defaultAssignee,
+      });
+    }
+    return baseForm;
+  });
   const [advanced, setAdvanced] = useState(false);
-  const [scanMsg, setScanMsg] = useState(startScan ? '已讀取收據（示範資料），請核對。' : '');
+  const [scanMsg, setScanMsg] = useState(
+    startScan && !hasExternalScanner ? '已讀取收據（示範資料），請核對。' : '',
+  );
 
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amt = Number(f.amount) || 0;
   const activeRate = Number(rate) > 0 ? Number(rate) : 0.0526;
   const hkd = f.currency === 'HKD' ? amt : Math.round(amt * activeRate);
 
-  const scan = () => {
+  const mockScan = () => {
     setF((s) => ({
       ...s,
       currency: 'JPY',
@@ -85,10 +105,53 @@ export default function AddForm({
     setScanMsg('已讀取收據（示範資料），請核對。');
   };
 
+  const handleScanClick = () => {
+    if (hasExternalScanner) {
+      onRequestScan({ date: f.date || defaultDate || '', fromForm: true, currentForm: f });
+      return;
+    }
+    mockScan();
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (startScan && !initial) scan();
+    if (!startScan || initial) return;
+    if (hasExternalScanner) {
+      onRequestScan({ date: defaultDate || '', fromForm: true, auto: true });
+    } else {
+      mockScan();
+    }
   }, []);
+
+  const appliedTokenRef = useRef(
+    !initial && activeDraft ? scanState?.token || activeDraft : null,
+  );
+
+  useEffect(() => {
+    if (!activeDraft || initial) return;
+    const tokenKey = scanState?.token || activeDraft;
+    if (appliedTokenRef.current === tokenKey) return;
+    appliedTokenRef.current = tokenKey;
+    setF((prev) =>
+      scanResultToFormFields(activeDraft, {
+        defaultDate,
+        now,
+        currentForm: prev,
+        payerDefault: resolvedPayerDefault,
+        paymentDefault: resolvedPaymentDefault,
+        defaultAssignee,
+      }),
+    );
+  }, [
+    activeDraft,
+    scanState?.token,
+    initial,
+    defaultDate,
+    now,
+    resolvedPayerDefault,
+    resolvedPaymentDefault,
+    defaultAssignee,
+  ]);
 
   const saveBarRef = useRef(null);
 
@@ -181,7 +244,7 @@ export default function AddForm({
         <button
           type="button"
           data-testid="form-scan"
-          onClick={scan}
+          onClick={handleScanClick}
           className="flex min-h-11 w-full items-center gap-2.5 rounded-2xl border border-dashed border-teal/60 bg-teal-soft/75 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-teal-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-strong text-white">
@@ -189,8 +252,13 @@ export default function AddForm({
           </span>
           <span className="min-w-0">
             <span className="block whitespace-nowrap text-sm font-bold text-teal-strong">掃描收據自動填寫</span>
-            <span className="block truncate whitespace-nowrap text-meta text-ink-muted">
-              {scanMsg || '影相或揀相，金額、店舖自動填好'}
+            <span
+              data-testid="form-scan-status"
+              className={`block whitespace-nowrap text-meta ${
+                scanState?.status === 'error' ? 'font-semibold text-coral-ink' : 'text-ink-muted'
+              }`}
+            >
+              {scanState?.message || (activeDraft ? '已讀取收據，請核對。' : '') || scanMsg || '影相或揀相，金額、店舖自動填好'}
             </span>
           </span>
         </button>
@@ -219,6 +287,9 @@ export default function AddForm({
             >
               <option value="JPY">JPY - 日元</option>
               <option value="HKD">HKD - 港幣</option>
+              {f.currency && f.currency !== 'JPY' && f.currency !== 'HKD' && (
+                <option value={f.currency}>{f.currency}</option>
+              )}
             </select>
           </div>
           <div>
@@ -400,6 +471,9 @@ export default function AddForm({
                   {c}
                 </option>
               ))}
+              {f.category && !REF_CATEGORIES.includes(f.category) && (
+                <option value={f.category}>{f.category}</option>
+              )}
             </select>
           </div>
           <div>

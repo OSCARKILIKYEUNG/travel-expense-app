@@ -504,11 +504,14 @@ export function buildExpenseFromAI(
       : String(result.category || '').trim() || '未分類';
 
   const normalizedSourceHash = typeof sourceHash === 'string' ? sourceHash.trim().toLowerCase() : '';
+  const hasExplicitDate = Boolean(result.date && String(result.date).trim());
+  const rawTime = String(result.time ?? result.receipt_time ?? result.receiptTime ?? '').trim();
 
-  return {
+  const built = {
     id: Date.now() + index,
     assignedTo: defaultAssignee,
     date: result.date || new Date().toLocaleDateString('zh-TW'),
+    ...(rawTime ? { time: rawTime, receiptTime: rawTime } : {}),
     location: result.location || '未知地點',
     ...(locationEn ? { locationEn } : {}),
     store: result.store || '未知店舖',
@@ -533,4 +536,14 @@ export function buildExpenseFromAI(
     ...(aiMarketEvidence.length > 0 ? { aiMarketEvidence } : {}),
     ...(normalizedSourceHash ? { sourceHash: normalizedSourceHash } : {}),
   };
+
+  if (!hasExplicitDate) {
+    Object.defineProperty(built, 'aiDateMissing', {
+      value: true,
+      enumerable: false,
+      configurable: true,
+    });
+  }
+
+  return built;
 }
