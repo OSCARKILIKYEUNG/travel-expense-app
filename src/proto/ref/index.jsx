@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { REF_TODAY, createRefTrip } from './mockRefTrip';
 import { parseRoute } from './refLogic';
+import { normalizeDate } from '../../utils/duplicates';
 import { Icon, Sakura, paperDots, washiNav } from './parts';
 import Home from './Home';
 import DayView from './DayView';
@@ -16,7 +17,7 @@ const ADD = ['a', 'dd'].join('');
 const go = (hash, replace = false) => {
   const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ''}`;
   if (replace) window.history.replaceState(null, '', url);
-  else window.history.pushState(null, '', url);
+  else window.history.pushState({ refPushed: true }, '', url);
   window.dispatchEvent(new HashChangeEvent('hashchange'));
 };
 
@@ -35,6 +36,7 @@ export default function RefProto() {
   const [trip, setTrip] = useState(createRefTrip);
   const route = useRoute();
   const [returnTo, setReturnTo] = useState('');
+  const [month, setMonth] = useState(() => createRefTrip().startDate.slice(0, 7)); // kept across day visits (F5)
   const today = REF_TODAY;
 
   const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
@@ -56,7 +58,9 @@ export default function RefProto() {
       if (data.id) return { ...t, expenses: t.expenses.map((x) => (x.id === data.id ? { ...x, ...data } : x)) };
       return { ...t, expenses: [...t.expenses, { ...data, id: `n${Date.now()}`, items: [] }] };
     });
-    go(returnTo, true);
+    // Interrogate F6 / 10-23 §13.9: a scanned receipt returns to that day's 當日消費.
+    const key = data.date ? normalizeDate(data.date) : null;
+    go(data.scanned && key ? `day=${key}&pane=expenses` : returnTo, true);
   };
 
   let body;
@@ -66,7 +70,7 @@ export default function RefProto() {
         trip={trip} iso={route.day} pane={route.pane} editing={route.edit} today={today}
         onPane={(p) => go(`day=${route.day}&pane=${p}${route.edit && p === 'itinerary' ? '&edit=1' : ''}`, true)}
         onEditToggle={(on) => go(`day=${route.day}&pane=itinerary${on ? '&edit=1' : ''}`, true)}
-        onBack={() => go('')}
+        onBack={() => (window.history.state?.refPushed ? window.history.back() : go('', true))}
         onDay={(iso) => go(`day=${iso}&pane=${route.pane}`, true)}
         onUpdateDay={updateDay}
         onAdd={(date) => openAdd({ date })}
@@ -89,7 +93,7 @@ export default function RefProto() {
     body = <Placeholder screen={route.screen} />;
   } else {
     body = (
-      <Home trip={trip} today={today} onOpenDay={(iso) => openDay(iso)}
+      <Home trip={trip} today={today} month={month} setMonth={setMonth} onOpenDay={(iso) => openDay(iso)}
         onScan={() => openAdd({ scan: true, date: today })} onAdd={() => openAdd({ date: today })} />
     );
   }

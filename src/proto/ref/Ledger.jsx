@@ -1,3 +1,4 @@
+import { expenseDateKey } from '../../utils/date';
 import { useMemo, useState } from 'react';
 import { REF_CATEGORIES, REF_PEOPLE } from './mockRefTrip';
 import { Icon, mustardStripe } from './parts';
@@ -10,7 +11,7 @@ export default function Ledger({ trip, onScan, onAdd, onEdit, onDelete, onOpenDa
   const [person, setPerson] = useState('全部');
   const [category, setCategory] = useState('全部');
   const [date, setDate] = useState('全部');
-  const dates = useMemo(() => [...new Set(trip.expenses.map((e) => e.date).filter(Boolean))].sort().reverse(), [trip.expenses]);
+  const dates = useMemo(() => [...new Set(trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date)))].sort().reverse(), [trip.expenses]);
   const shown = filterExpenses(trip.expenses, { person, category, date, query }, REF_PEOPLE);
   const groups = groupLedger(shown);
   const total = shown.reduce((s, e) => s + e.hkdAmount, 0);

@@ -49,7 +49,7 @@ export function dayStrip({ n, title, hkd }, max = 8) {
 }
 
 export function dayStats(expenses, iso) {
-  const list = (expenses || []).filter((e) => e.date === iso);
+  const list = (expenses || []).filter((e) => e.date && expenseDateKey(e.date) === iso);
   return {
     count: list.length,
     total: list.reduce((s, e) => s + Number(e.hkdAmount || 0), 0),
@@ -71,10 +71,10 @@ export function personCounts(expenses, people) {
 export function filterExpenses(list, { person = '全部', category = '全部', date = '全部', query = '' } = {}, people = []) {
   const q = query.trim().toLowerCase();
   return list.filter((e) => {
-    if (person !== '全部' && resolveAssigneeDisplay(e.assignedTo, people) !== person) return false;
+    if (!matchesPerson(e, person, people)) return false;
     if (category !== '全部' && e.category !== category) return false;
     if (date === 'undated' && e.date) return false;
-    if (date !== '全部' && date !== 'undated' && e.date !== date) return false;
+    if (date !== '全部' && date !== 'undated' && expenseDateKey(e.date) !== date) return false;
     if (q && !`${e.store} ${e.place} ${e.category}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -96,4 +96,16 @@ export function groupLedger(list) {
     g.items.push(e);
   }
   return groups.map((g) => ({ ...g, total: g.items.reduce((s, e) => s + Number(e.hkdAmount || 0), 0) }));
+}
+
+/** One person predicate for day chips, day list and ledger (F8): blank assignee counts as 共同; line-item assignees also match. */
+export function matchesPerson(e, person, people = []) {
+  if (person === '全部') return true;
+  if (resolveAssigneeDisplay(e.assignedTo, people) === person) return true;
+  return (e.items || []).some((it) => it && it.assignedTo && resolveAssigneeDisplay(it.assignedTo, people) === person);
+}
+
+/** Expenses on a calendar day, joined by expenseDateKey so stored '2026年10月22日' strings match '2026-10-22' (F1). */
+export function expensesOn(expenses, iso) {
+  return (expenses || []).filter((e) => e.date && expenseDateKey(e.date) === iso);
 }

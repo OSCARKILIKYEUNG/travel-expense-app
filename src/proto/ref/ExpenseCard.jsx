@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CATEGORY_DOT, Icon, ZigZag } from './parts';
 import { fmtHKD, fmtJPY } from './refLogic';
 
@@ -48,7 +49,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
         </div>
       </div>
       <ZigZag />
-      {confirm && (
+      {confirm && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" role="dialog" aria-modal="true" aria-label="刪除確認">
           <div className="w-full max-w-xs rounded-card border border-line bg-cream-soft p-4 shadow-xl">
             <p className="whitespace-nowrap font-display text-[18px] text-ink">刪除這筆消費？</p>
@@ -59,7 +60,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

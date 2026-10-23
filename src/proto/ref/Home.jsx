@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { capCellNote, dayCounter, spendOnDate } from '../shared/display';
+import { useState } from 'react'; // month state is lifted to index.jsx (interrogate F5)
+import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, monthGridSunday } from './mockRefTrip';
 import { Icon, RoundStamp, Sakura, Tape, airmail, cardDots, mustardStripe } from './parts';
-import { fmtHKD, fmtJPY } from './refLogic';
+import { dayStats, fmtHKD, fmtJPY } from './refLogic';
+import { expenseDateKey } from '../../utils/date';
 
 const stickerEmoji = (id) => STICKERS.find((s) => s.id === id)?.emoji || '';
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function Home({ trip, today, onOpenDay, onScan, onAdd }) {
-  const [month, setMonth] = useState(trip.startDate.slice(0, 7));
+export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, onAdd }) {
   const [showJpy, setShowJpy] = useState(false);
   const total = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
   const jpy = trip.expenses.filter((e) => e.currency === 'JPY').reduce((s, e) => s + e.originalAmount, 0);
   const counter = dayCounter(trip, today);
-  const todaySpend = spendOnDate(trip.expenses, today);
+  const todaySpend = dayStats(trip.expenses, today).total;
   const todayDay = trip.days[today];
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = counter.phase === 'during'
@@ -75,7 +75,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
     setMonth(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`);
   };
   const inTrip = (iso) => iso >= trip.startDate && iso <= trip.endDate;
-  const spent = new Set(trip.expenses.map((e) => e.date).filter(Boolean));
+  const spent = new Set(trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date)));
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
       <Tape tone="sage" className="-top-2 right-8 rotate-2" />
@@ -88,14 +88,14 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
         </div>
         <button type="button" aria-label="下個月" onClick={() => shift(1)} className="flex h-10 w-10 items-center justify-center rounded-control border border-line bg-cream-soft text-ink-soft shadow-sm">{Icon.chevR()}</button>
       </div>
-      <div className="mt-2 grid grid-cols-7 border-b border-line pb-1 text-center text-meta font-bold">
+      <div className="-mx-2 mt-2 grid grid-cols-7 border-b border-line pb-1 text-center text-meta font-bold">
         {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
           <div key={w} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-soft'}>{w}</div>
         ))}
       </div>
-      <div className="mt-1 space-y-1">
+      <div className="-mx-2 mt-1 space-y-1">
         {weeks.map((week) => (
-          <div key={week[0].iso} className="grid grid-cols-7">
+          <div key={week[0].iso} className="grid grid-cols-[repeat(7,minmax(0,1fr))]">
             {week.map((c, i) => {
               const day = trip.days[c.iso];
               const t = inTrip(c.iso);
@@ -111,7 +111,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
                   className={`relative flex h-[54px] min-w-0 flex-col items-center justify-start pt-1 ${t ? 'border-y border-sage bg-sage/30' : ''} ${startSeg ? 'rounded-l-control border-l' : ''} ${endSeg ? 'rounded-r-control border-r' : ''}`}>
                   {isToday && <span aria-hidden="true" className="absolute inset-x-0.5 inset-y-0.5 -rotate-3 rounded-[50%] border-2 border-mustard" />}
                   <span className={`text-[15px] font-bold leading-6 ${c.inMonth ? (i === 0 ? 'text-coral-ink' : 'text-ink') : 'text-ink-muted/60'} ${t ? '' : 'font-medium'}`}>{n}</span>
-                  {note && <span className="max-w-full overflow-hidden whitespace-nowrap px-0.5 text-meta leading-5 text-ink">{note}</span>}
+                  {note && <span data-cell-note className="whitespace-nowrap text-meta leading-5 tracking-[-0.02em] text-ink">{note}</span>}
                   {!note && sticker && <span className="text-[16px] leading-5" aria-hidden="true">{sticker}</span>}
                   {spent.has(c.iso) && <span className="absolute bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-coral" aria-hidden="true" />}
                 </button>

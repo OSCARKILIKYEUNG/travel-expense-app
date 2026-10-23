@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { REF_CATEGORIES, REF_PEOPLE, REF_RATE } from './mockRefTrip';
 import { Icon, Sakura, Tape, cardDots } from './parts';
 import { fmtHKD, zhDate } from './refLogic';
+import { normalizeDate } from '../../utils/duplicates';
 
 /**
  * Add / edit expense (approved refinement 4): scan entry on top, then amount + currency (big),
@@ -9,7 +10,7 @@ import { fmtHKD, zhDate } from './refLogic';
  */
 export default function AddForm({ initial, defaultDate, startScan, onCancel, onSave }) {
   const [f, setF] = useState(() => initial ? {
-    ...initial, amount: String(initial.originalAmount), note: initial.note || '',
+    ...initial, date: normalizeDate(initial.date) || '', amount: String(initial.originalAmount), note: initial.note || '',
   } : {
     currency: 'JPY', amount: '', store: '', date: defaultDate || '', place: '', category: '飲食', assignedTo: '共同', note: '', scanned: false,
   });

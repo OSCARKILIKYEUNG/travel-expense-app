@@ -3,7 +3,7 @@ import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, REF_PEOPLE } from './mockRefTrip';
 import { Icon, Sparkle, Tape, cardDots, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
-import { dayStats, dayStrip, fmtHKD, personCounts } from './refLogic';
+import { dayStats, dayStrip, expensesOn, fmtHKD, matchesPerson, personCounts } from './refLogic';
 
 const PANES = ['itinerary', 'expenses']; // Oscar 08:51: two panes, 行程手札 first
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
@@ -23,7 +23,10 @@ function usePager(index, setIndex) {
   const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const handlers = {
     onPointerDown: (e) => {
-      if (e.target.closest('input,textarea,select,[data-noswipe]')) return;
+      // Interrogate F3: ignore form fields, chip/sticker rows, scrollers, menus, dialogs, and a 24px edge dead zone (OS back gesture).
+      if (e.target.closest('input,textarea,select,[data-noswipe],.overflow-x-auto,[role=dialog],[role=menu]')) return;
+      if (document.querySelector('[role=dialog][aria-modal=true]')) return;
+      if (e.clientX < 24 || e.clientX > window.innerWidth - 24) return;
       g.current = { x: e.clientX, y: e.clientY, id: e.pointerId, axis: null };
       dxRef.current = 0;
     },
@@ -113,13 +116,13 @@ export default function DayView({ trip, iso, pane, editing, today, onPane, onEdi
       {/* Pager */}
       <div className="-mx-4 mt-2 overflow-hidden">
         <div ref={track} className="flex touch-pan-y" style={style} {...handlers}>
-          <section data-testid="pane-itinerary" aria-hidden={index !== 0} className="w-full shrink-0 touch-pan-y px-4 pb-6">
+          <section data-testid="pane-itinerary" ref={(el) => el && el.toggleAttribute('inert', index !== 0)} aria-hidden={index !== 0} className="w-full shrink-0 touch-pan-y px-4 pb-6">
             <DayStrip text={strip} />
             {editing
               ? <ItineraryEditor day={day} onChange={(patch) => onUpdateDay(iso, patch)} onDone={() => onEditToggle(false)} />
               : <ItineraryRead day={day} onEdit={() => onEditToggle(true)} />}
           </section>
-          <section data-testid="pane-expenses" aria-hidden={index !== 1} className="w-full shrink-0 touch-pan-y px-4 pb-6">
+          <section data-testid="pane-expenses" ref={(el) => el && el.toggleAttribute('inert', index !== 1)} aria-hidden={index !== 1} className="w-full shrink-0 touch-pan-y px-4 pb-6">
             <DayStrip text={strip} />
             <DayExpenses trip={trip} iso={iso} stats={stats} onAdd={onAdd} onEdit={onEditExpense} onDelete={onDeleteExpense} />
           </section>
@@ -230,9 +233,9 @@ function ItineraryEditor({ day, onChange, onDone }) {
 
 function DayExpenses({ trip, iso, stats, onAdd, onEdit, onDelete }) {
   const [person, setPerson] = useState('全部');
-  const list = useMemo(() => trip.expenses.filter((e) => e.date === iso), [trip.expenses, iso]);
+  const list = useMemo(() => expensesOn(trip.expenses, iso), [trip.expenses, iso]);
   const counts = personCounts(list, REF_PEOPLE);
-  const shown = person === '全部' ? list : list.filter((e) => e.assignedTo === person);
+  const shown = list.filter((e) => matchesPerson(e, person, REF_PEOPLE));
   return (
     <div>
       <div className="rounded-card border border-line bg-mustard-soft/70 px-3.5 py-2.5 shadow-sm">
