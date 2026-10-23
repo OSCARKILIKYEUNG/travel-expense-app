@@ -1,7 +1,19 @@
-import { useState } from 'react'; // month state is lifted to index.jsx (interrogate F5)
+import { useState } from 'react';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, monthGridSunday } from './mockRefTrip';
-import { HandRing, Icon, RoundStamp, Sakura, Sparkle, StickerGraphic, Tape, airmail, cardDots, mustardStripe } from './parts';
+import {
+  HandRing,
+  Icon,
+  RoundStamp,
+  Sakura,
+  Sparkle,
+  StickerGraphic,
+  Tape,
+  airmail,
+  cardDots,
+  mustardStripe,
+  ruledPaper,
+} from './parts';
 import { dayStats, fmtHKD, fmtJPY, shortenTitle } from './refLogic';
 import { expenseDateKey } from '../../utils/date';
 
@@ -16,54 +28,118 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
   const todaySpend = dayStats(trip.expenses, today).total;
   const todayDay = trip.days[today];
   const pad = (n) => String(n).padStart(2, '0');
-  const stamp = counter.phase === 'during'
-    ? { top: `DAY ${pad(counter.n)}`, bottom: `${counter.total} DAYS` }
-    : counter.phase === 'before' ? { top: '倒數', bottom: `${counter.n} 日` } : { top: '完成', bottom: `${counter.total} DAYS` };
-  const [sy, sm, sd] = trip.startDate.split('-').map(Number);
+  const stamp =
+    counter.phase === 'during'
+      ? { top: `DAY ${pad(counter.n)}`, bottom: `${counter.total} DAYS` }
+      : counter.phase === 'before'
+        ? { top: '出發前', bottom: `${counter.total} DAYS` }
+        : { top: '已完成', bottom: `${counter.total} DAYS` };
+  const [, sm, sd] = trip.startDate.split('-').map(Number);
   const [, em, ed] = trip.endDate.split('-').map(Number);
 
   return (
-    <div data-testid="home" className="space-y-3.5 px-4 pt-3">
-      {/* Summary card (airmail border) */}
-      <div className="relative rounded-card p-[6px] shadow-md" style={airmail} data-testid="summary">
-        <Tape tone="coral" className="-top-2.5 left-1/2 -translate-x-1/2 -rotate-2" />
-        <Sparkle className="absolute right-2.5 top-2.5 z-10 h-4 w-4" />
-        <div className={`relative flex items-center gap-3 px-4 py-3.5 ${counter.phase === 'during' ? 'rounded-t-[18px]' : 'rounded-[18px]'}`} style={cardDots}>
-          <div className="min-w-0 flex-1">
-            <div className="whitespace-nowrap text-[13px] font-bold text-ink-soft">{trip.name} · {sm}/{sd}–{em}/{ed}</div>
-            <div className="mt-0.5 whitespace-nowrap text-[34px] font-bold leading-tight tracking-tight text-ink" data-testid="trip-total">{fmtHKD(total)}</div>
-            <button type="button" onClick={() => setShowJpy((v) => !v)} aria-expanded={showJpy} className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-pill border border-sage bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
-              {fmtJPY(jpy)} · {trip.expenses.length} 筆 {Icon.chevDown('h-3.5 w-3.5')}
-            </button>
-            {showJpy && <div className="mt-1 whitespace-nowrap text-meta text-ink-muted">匯率（示範）1 JPY ≈ 0.0526 HKD</div>}
-            <div className="mt-1.5 whitespace-nowrap text-meta font-medium text-ink-soft" data-testid="today-line">
-              {counter.label}{counter.phase === 'during' ? ` · 今日 ${fmtHKD(todaySpend)}` : ''}
+    <div data-testid="home" className="space-y-4 px-4 pb-6 pt-5">
+      {/* Airmail summary postcard */}
+      <section data-testid="summary" className="relative rounded-card p-[5px] shadow-sm" style={airmail}>
+        <Tape tone="coral" className="-top-2.5 left-1/2 z-20 h-5 w-28 -translate-x-1/2 -rotate-2" />
+        <div className="relative overflow-hidden rounded-[20px] border border-line bg-cream-soft">
+          <div className="relative p-4">
+            <Sparkle className="absolute right-24 top-3 h-3.5 w-3.5 opacity-75" />
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="whitespace-nowrap text-meta font-medium tracking-[0.06em] text-ink-muted">
+                  {trip.name} · {sm}/{sd}–{em}/{ed}
+                </p>
+                <h2
+                  data-testid="trip-total"
+                  className="whitespace-nowrap font-display text-[26px] leading-[1.1] text-ink"
+                >
+                  {fmtHKD(total)}
+                </h2>
+                <div className="pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowJpy((v) => !v)}
+                    aria-expanded={showJpy}
+                    className="inline-flex min-h-[30px] items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/85 px-3 py-1 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige"
+                  >
+                    <span>
+                      {fmtJPY(jpy)} · {trip.expenses.length} 筆
+                    </span>
+                    <span className={`shrink-0 transition-transform ${showJpy ? 'rotate-180' : ''}`}>
+                      {Icon.chevDown('h-3.5 w-3.5')}
+                    </span>
+                  </button>
+                </div>
+                <div
+                  data-testid="today-line"
+                  className=" whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
+                >
+                  {counter.label}
+                  {counter.phase === 'during' ? ` · 今日 ${fmtHKD(todaySpend)}` : ''}
+                </div>
+              </div>
+              <RoundStamp top={stamp.top} bottom={stamp.bottom} className="mt-0.5" />
             </div>
-          </div>
-          <RoundStamp top={stamp.top} bottom={stamp.bottom} />
-        </div>
-        {/* 今日手札 row: real today only (naming decision 08:50) */}
-        {counter.phase === 'during' && (
-          <button type="button" data-testid="today-row" onClick={() => onOpenDay(today)} className="flex w-full items-center gap-2 rounded-b-[18px] border-t border-dashed border-line bg-cream-soft px-3.5 py-2.5 text-left transition-colors active:bg-beige/60">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-coral-soft text-coral-ink">{Icon.pin('h-3.5 w-3.5')}</span>
-            <span className="whitespace-nowrap rounded-control border border-coral bg-coral-soft px-2 py-0.5 text-[13px] font-bold text-coral-ink">今日手札</span>
-            <span className="min-w-0 flex-1 whitespace-nowrap text-[15px] font-medium text-ink">Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}</span>
-            <span className="text-ink-muted">{Icon.chevR('h-4 w-4')}</span>
-          </button>
-        )}
-      </div>
 
-      {/* Scan / add pair */}
-      <div className="rounded-card p-[5px] shadow-sm" style={mustardStripe}>
-        <div className="flex gap-2 rounded-[19px] bg-cream-soft/75 p-1.5">
-          <button type="button" data-testid="home-scan" onClick={onScan} className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control bg-teal-strong py-3 text-[16px] font-bold text-white shadow-sm">{Icon.camera()}掃描收據</button>
-          <button type="button" data-testid="home-add" onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-line bg-cream-soft py-3 text-[16px] font-bold text-ink shadow-sm">{Icon.plus()}記一筆</button>
+            {showJpy && (
+              <div className="mt-2.5 flex items-center justify-between border-t border-dashed border-line pt-2 text-meta">
+                <span className="whitespace-nowrap font-medium text-ink-muted">JPY 原幣合計</span>
+                <span className="whitespace-nowrap font-mono font-semibold text-ink">{fmtJPY(jpy)}</span>
+              </div>
+            )}
+          </div>
+
+          {counter.phase === 'during' && (
+            <div className="border-t border-line bg-cream/70" style={ruledPaper}>
+              <button
+                type="button"
+                data-testid="today-row"
+                onClick={() => onOpenDay(today)}
+                className="flex min-h-[42px] w-full items-center justify-between gap-2 px-4 py-2 text-left transition-colors hover:bg-beige/55"
+              >
+                <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
+                  <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
+                    今日手札
+                  </span>
+                  <span className="min-w-0 whitespace-nowrap font-display text-xs text-ink">
+                    Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
+                  </span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-meta font-semibold text-teal-strong">›</span>
+              </button>
+            </div>
+          )}
         </div>
+      </section>
+
+      {/* Quick scan / manual add ribbon */}
+      <div
+        className="relative flex h-[52px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-mustard-ink/30 bg-mustard-soft px-2.5 shadow-sm"
+        style={mustardStripe}
+      >
+        <button
+          type="button"
+          data-testid="home-scan"
+          onClick={onScan}
+          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm"
+        >
+          {Icon.camera('h-[15px] w-[15px] shrink-0')}
+          <span>掃描收據</span>
+        </button>
+        <button
+          type="button"
+          data-testid="home-add"
+          onClick={onAdd}
+          className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-bold text-ink shadow-sm"
+        >
+          <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
+          <span>記一筆</span>
+        </button>
       </div>
 
       <Calendar trip={trip} today={today} month={month} setMonth={setMonth} onOpenDay={onOpenDay} />
-
-      <div className="pb-3 text-center text-meta text-ink-muted">Ref build · gemini-4-argon-high</div>
     </div>
   );
 }
@@ -77,48 +153,115 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
   };
   const inTrip = (iso) => iso >= trip.startDate && iso <= trip.endDate;
   const spent = new Set(trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date)));
+  const tripMonth = trip.startDate.slice(0, 7);
+  const hasTripInMonth = weeks.some((w) => w.some((c) => c.inMonth && inTrip(c.iso)));
+
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
-      <Tape tone="sage" className="-top-2.5 right-7 rotate-2" />
-      <Sakura className="absolute -bottom-2 -right-1 h-7 w-7" />
-      <div className="flex items-center justify-between px-1">
-        <button type="button" aria-label="上個月" onClick={() => shift(-1)} className="flex h-9 w-9 items-center justify-center rounded-control border border-line bg-cream-soft text-ink-soft shadow-sm">{Icon.chevL()}</button>
-        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-display text-[20px] text-ink">{y}年{m}月</span>
-          <span className="font-script text-[21px] font-bold text-teal-strong">· {MONTH_EN[m - 1]}</span>
+      <Tape tone="teal" className="-top-2 right-8 h-4 w-20 rotate-1 opacity-85" />
+      <Sakura className="absolute -bottom-2 -right-2 h-8 w-8 opacity-60" />
+
+      <div className="mb-2.5 flex min-w-0 items-center justify-between gap-1.5">
+        <button
+          type="button"
+          aria-label="上個月"
+          onClick={() => shift(-1)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink"
+        >
+          ‹
+        </button>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+          <h3 className="whitespace-nowrap font-display text-base text-ink">
+            {y}年{m}月
+            <span className="font-script text-teal-strong"> · {MONTH_EN[m - 1]}</span>
+          </h3>
+          {!hasTripInMonth && month !== tripMonth && (
+            <button
+              type="button"
+              onClick={() => setMonth(tripMonth)}
+              className="shrink-0 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong"
+            >
+              回到旅程月
+            </button>
+          )}
         </div>
-        <button type="button" aria-label="下個月" onClick={() => shift(1)} className="flex h-9 w-9 items-center justify-center rounded-control border border-line bg-cream-soft text-ink-soft shadow-sm">{Icon.chevR()}</button>
+        <button
+          type="button"
+          aria-label="下個月"
+          onClick={() => shift(1)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink"
+        >
+          ›
+        </button>
       </div>
-      <div className="-mx-2 mt-2 grid grid-cols-7 border-b border-line pb-1 text-center text-meta font-bold">
+
+      <div className="-mx-2 mb-1 grid grid-cols-7 border-b border-line/70 pb-1 text-center text-meta font-bold">
         {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
-          <div key={w} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-soft'}>{w}</div>
+          <div key={w} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-muted'}>
+            {w}
+          </div>
         ))}
       </div>
-      <div className="-mx-2 mt-1.5 space-y-1">
+
+      <div className="-mx-2 space-y-1">
         {weeks.map((week) => (
           <div key={week[0].iso} className="grid grid-cols-[repeat(7,minmax(0,1fr))]">
             {week.map((c, i) => {
               const day = trip.days[c.iso];
               const t = inTrip(c.iso);
-              const startSeg = t && (i === 0 || !inTrip(week[i - 1].iso));
-              const endSeg = t && (i === 6 || !inTrip(week[i + 1].iso));
+              const startSeg = t && (i === 0 || c.iso === trip.startDate || !inTrip(week[i - 1].iso));
+              const endSeg = t && (i === 6 || c.iso === trip.endDate || !inTrip(week[i + 1].iso));
               const isToday = c.iso === today;
               const note = day?.note ? capCellNote(day.note) : '';
               const stickerId = day?.sticker && hasSticker(day.sticker) ? day.sticker : '';
               const n = Number(c.iso.slice(8));
+              const dayTone = isToday
+                ? 'font-extrabold text-mustard-ink'
+                : t
+                  ? 'font-bold text-ink'
+                  : c.inMonth
+                    ? 'font-bold text-ink-muted opacity-75'
+                    : 'font-bold text-ink-muted opacity-45';
+
               return (
-                <button key={c.iso} type="button" data-testid={`day-cell-${c.iso}`} onClick={() => onOpenDay(c.iso)}
+                <button
+                  key={c.iso}
+                  type="button"
+                  data-testid={`day-cell-${c.iso}`}
+                  onClick={() => onOpenDay(c.iso)}
                   aria-label={`${Number(c.iso.slice(5, 7))}月${n}日${day?.title ? ` ${day.title}` : ''}`}
-                  className={`relative flex h-[54px] min-w-0 flex-col items-center justify-start pt-1 ${t ? 'border-y border-sage bg-teal-soft/70' : ''} ${startSeg ? 'rounded-l-control border-l' : ''} ${endSeg ? 'rounded-r-control border-r' : ''}`}>
-                  {isToday && <HandRing />}
-                  <span className={`relative z-10 text-[15px] font-bold leading-5 ${c.inMonth ? (i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink') : 'text-ink-muted/55'} ${t ? '' : 'font-medium'}`}>{n}</span>
-                  {note && <span data-cell-note className="relative z-10 mt-0.5 whitespace-nowrap text-meta leading-4 tracking-[-0.02em] text-ink">{note}</span>}
-                  {!note && stickerId && (
-                    <span className="relative z-10 mt-0.5 flex h-5 w-5 items-center justify-center" aria-hidden="true">
-                      <StickerGraphic id={stickerId} className="h-4 w-4" />
-                    </span>
+                  className="relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left"
+                >
+                  {t && (
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute inset-x-0 inset-y-0.5 border-y border-teal/35 bg-teal-soft/80 ${
+                        startSeg ? 'ml-0.5 rounded-l-xl border-l' : ''
+                      } ${endSeg ? 'mr-0.5 rounded-r-xl border-r' : ''}`}
+                    />
                   )}
-                  {spent.has(c.iso) && <span className="absolute bottom-0.5 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-coral" aria-hidden="true" />}
+                  {isToday && <HandRing className="z-20" />}
+                  <span className={`relative z-10 pl-1.5 text-meta leading-none ${dayTone}`}>{n}</span>
+                  {note ? (
+                    <span
+                      data-cell-note
+                      className="relative z-10 block w-full whitespace-nowrap text-center text-meta leading-tight tracking-[-0.02em] text-ink-soft"
+                    >
+                      {note}
+                    </span>
+                  ) : stickerId ? (
+                    <span className="relative z-10 flex items-center justify-center">
+                      <StickerGraphic id={stickerId} className="text-sm leading-none" />
+                    </span>
+                  ) : (
+                    <span className="block h-3" aria-hidden="true" />
+                  )}
+                  {spent.has(c.iso) && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-0.5 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-coral"
+                    />
+                  )}
                 </button>
               );
             })}
