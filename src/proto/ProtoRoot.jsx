@@ -9,6 +9,10 @@ const OPTIONS = {
     label: 'Ref build — executor takeover (gemini-4-argon-high region-blocked)',
     load: lazy(() => import('./ref/index.jsx')),
   },
+  notebook: {
+    label: 'Notebook — integrate preview mock (gemini-4-argon-high)',
+    load: lazy(() => import('../notebook/NotebookApp.jsx')),
+  },
   grok: {
     label: 'Option G — executor takeover (grok-4.7-high stalled ×3)',
     load: lazy(() => import('./option-g-grok/index.jsx')),
