@@ -4,7 +4,7 @@ import { STICKERS } from './mockRefTrip';
 import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import { dayStats, dayStrip, expensesOn, fmtHKD, matchesPerson, personCounts } from './refLogic';
-import { dayNav, parseHHMM, sortStops } from './refRules';
+import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
 
 const PANES = ['itinerary', 'expenses'];
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
@@ -372,18 +372,36 @@ function ItineraryEditor({ day, onChange, onDone }) {
   const [what, setWhat] = useState('');
   const [editingStopId, setEditingStopId] = useState(null);
   const [editingStopTime, setEditingStopTime] = useState('');
+  const timeInputRef = useRef(null);
+  const editStopInputRef = useRef(null);
 
-  const rawTime = time.trim();
-  const parsedTime = rawTime ? parseHHMM(rawTime) : '';
-  const isTimeInvalid = badTimeInput || Boolean(rawTime && !parsedTime);
+  const isTimeInvalid = isTimeEntryInvalid({ value: time, badInput: badTimeInput });
+
+  const syncTimeFromInput = (target) => {
+    const el = target || timeInputRef.current;
+    if (!el) return false;
+    const nextVal = el.value ?? '';
+    const nextBad = Boolean(el.validity?.badInput);
+    setTime(nextVal);
+    setBadTimeInput(nextBad);
+    const invalid = isTimeEntryInvalid({ value: nextVal, badInput: nextBad });
+    setTimeError(invalid ? '請輸入 HH:MM 時間' : '');
+    return invalid;
+  };
 
   const add = (e) => {
     if (e) e.preventDefault();
-    if (isTimeInvalid) {
+    const el = timeInputRef.current;
+    const currentVal = el ? el.value : time;
+    const currentBad = Boolean(el?.validity?.badInput) || badTimeInput;
+    if (isTimeEntryInvalid({ value: currentVal, badInput: currentBad })) {
+      setTime(currentVal);
+      setBadTimeInput(currentBad);
       setTimeError('請輸入 HH:MM 時間');
       return;
     }
     if (!what.trim()) return;
+    const rawTime = String(currentVal ?? '').trim();
     const cleanTime = rawTime ? parseHHMM(rawTime) : '';
     if (rawTime && !cleanTime) {
       setTimeError('請輸入 HH:MM 時間');
@@ -394,13 +412,19 @@ function ItineraryEditor({ day, onChange, onDone }) {
       { id: `s${Date.now()}`, time: cleanTime, title: what.trim(), done: false },
     ]);
     onChange({ itinerary: next });
+    if (el) el.value = '';
     setTime('');
     setBadTimeInput(false);
     setTimeError('');
     setWhat('');
   };
 
-  const commitStopTime = (stopId, rawVal) => {
+  const commitStopTime = (stopId, rawVal, inputEl = editStopInputRef.current) => {
+    const bad = Boolean(inputEl?.validity?.badInput);
+    if (isTimeEntryInvalid({ value: rawVal, badInput: bad })) {
+      setTimeError('請輸入 HH:MM 時間');
+      return;
+    }
     const trimmed = String(rawVal ?? '').trim();
     if (!trimmed) {
       const next = sortStops(day.itinerary.map((s) => (s.id === stopId ? { ...s, time: '' } : s)));
@@ -508,15 +532,16 @@ function ItineraryEditor({ day, onChange, onDone }) {
           <li key={s.id} className="flex min-w-0 items-center gap-2">
             {editingStopId === s.id ? (
               <input
+                ref={editStopInputRef}
                 type="time"
                 aria-label={`${s.title} 時間`}
                 value={editingStopTime}
                 onChange={(e) => setEditingStopTime(e.target.value)}
-                onBlur={() => commitStopTime(s.id, editingStopTime)}
+                onBlur={(e) => commitStopTime(s.id, editingStopTime, e.target)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    commitStopTime(s.id, editingStopTime);
+                    commitStopTime(s.id, editingStopTime, e.target);
                   } else if (e.key === 'Escape') {
                     setEditingStopId(null);
                     setTimeError('');
@@ -554,23 +579,33 @@ function ItineraryEditor({ day, onChange, onDone }) {
       <form onSubmit={add} className="space-y-1.5" noValidate>
         <div className="flex min-w-0 items-center gap-1.5">
           <input
+            ref={timeInputRef}
             aria-label="時間"
             type="time"
             placeholder="09:30"
             className={`${field} !w-24 shrink-0 !px-2 font-mono tabular-nums`}
             value={time}
-            onChange={(e) => {
-              setTime(e.target.value);
-              setBadTimeInput(Boolean(e.target.validity?.badInput));
-              setTimeError('');
+            onChange={(e) => syncTimeFromInput(e.target)}
+            onInput={(e) => syncTimeFromInput(e.target)}
+            onKeyDown={(e) => {
+              const target = e.target;
+              if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => syncTimeFromInput(target));
+              }
             }}
+            onKeyUp={(e) => syncTimeFromInput(e.target)}
+            onBlur={(e) => syncTimeFromInput(e.target)}
           />
           <input
             aria-label="地點或活動"
             placeholder="地點／活動"
             className={`${field} min-w-0 flex-1 !px-2.5`}
             value={what}
-            onChange={(e) => setWhat(e.target.value)}
+            onFocus={() => syncTimeFromInput()}
+            onChange={(e) => {
+              syncTimeFromInput();
+              setWhat(e.target.value);
+            }}
           />
           <button
             type="submit"

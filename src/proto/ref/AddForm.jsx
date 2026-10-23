@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sakura, Tape } from './parts';
 import { fmtHKD, zhDate } from './refLogic';
+import { saveBlockReason } from './refRules';
 import { normalizeDate } from '../../utils/duplicates';
 
 /**
@@ -75,7 +76,48 @@ export default function AddForm({
     if (startScan && !initial) scan();
   }, []);
 
-  const valid = amt > 0 && Boolean(f.store.trim());
+  const saveBarRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.scrollPaddingBottom;
+    const prevBody = body.style.scrollPaddingBottom;
+    html.style.scrollPaddingBottom = '12rem';
+    body.style.scrollPaddingBottom = '12rem';
+    return () => {
+      html.style.scrollPaddingBottom = prevHtml;
+      body.style.scrollPaddingBottom = prevBody;
+    };
+  }, []);
+
+  const ensureFieldAboveSaveBar = (target) => {
+    if (!target || typeof window === 'undefined') return;
+    if (saveBarRef.current && saveBarRef.current.contains(target)) return;
+    const rect = target.getBoundingClientRect?.();
+    if (!rect) return;
+    const barRect = saveBarRef.current?.getBoundingClientRect?.();
+    const barTop = barRect && barRect.top > 0 ? barRect.top : window.innerHeight - 160;
+    const safeBottom = barTop - 16;
+    const safeTop = 76;
+    if (rect.bottom > safeBottom) {
+      window.scrollBy({ top: rect.bottom - safeBottom, behavior: 'auto' });
+    } else if (rect.top < safeTop) {
+      window.scrollBy({ top: rect.top - safeTop, behavior: 'auto' });
+    }
+  };
+
+  const handleFocusCapture = (e) => {
+    const target = e.target;
+    ensureFieldAboveSaveBar(target);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => ensureFieldAboveSaveBar(target));
+    }
+  };
+
+  const blockReason = saveBlockReason({ amount: f.amount, store: f.store });
+  const valid = !blockReason;
   const field =
     'min-h-11 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal';
   const label = 'mb-1 block whitespace-nowrap text-sm font-medium text-ink-soft';
@@ -94,9 +136,10 @@ export default function AddForm({
   return (
     <form
       onSubmit={submit}
+      onFocusCapture={handleFocusCapture}
       data-testid="expense-form"
-      className="space-y-3.5 px-4 pb-44 pt-4 scroll-pb-44"
-      style={{ scrollPaddingBottom: '11rem' }}
+      className="space-y-3.5 px-4 pb-52 pt-4 scroll-pb-48"
+      style={{ scrollPaddingBottom: '12rem' }}
     >
       <div className="relative flex items-center gap-3">
         <Sakura className="absolute -right-1 -top-1 h-7 w-7 opacity-70" />
@@ -213,7 +256,7 @@ export default function AddForm({
               </button>
             )}
           </div>
-          <div className={`${field} relative flex items-center justify-between`}>
+          <div className={`${field} relative flex min-h-[46px] items-center justify-between`}>
             <span className={f.date ? 'whitespace-nowrap text-ink' : 'whitespace-nowrap text-ink-muted'}>
               {zhDate(f.date)}
             </span>
@@ -223,7 +266,7 @@ export default function AddForm({
               type="date"
               value={f.date}
               onChange={set('date')}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              className="absolute inset-0 h-full min-h-11 w-full cursor-pointer opacity-0"
               aria-label="日期"
             />
           </div>
@@ -348,14 +391,23 @@ export default function AddForm({
 
       {/* Sticky save bar directly above BottomNav */}
       <div
+        ref={saveBarRef}
         data-testid="form-save-bar"
-        className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-line bg-cream-soft px-4 py-2.5 shadow-sm"
+        className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-line bg-cream-soft px-4 py-2 shadow-sm"
       >
+        {blockReason && (
+          <p
+            data-testid="form-save-hint"
+            className="mx-auto mb-1.5 max-w-5xl whitespace-nowrap text-center text-meta font-semibold text-ink-muted"
+          >
+            {blockReason}
+          </p>
+        )}
         <div className="mx-auto flex max-w-5xl gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="btn-secondary min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
+            className="btn-secondary h-11 min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
           >
             取消
           </button>
@@ -363,7 +415,7 @@ export default function AddForm({
             type="submit"
             data-testid="form-save"
             disabled={!valid}
-            className="btn-primary min-h-11 flex-1 gap-1.5 whitespace-nowrap !py-2.5 text-sm"
+            className="btn-primary h-11 min-h-11 flex-1 gap-1.5 whitespace-nowrap !py-2.5 text-sm"
           >
             {Icon.check('h-4 w-4')}
             <span>儲存</span>

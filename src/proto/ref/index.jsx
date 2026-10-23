@@ -12,11 +12,16 @@ import {
   zhDate,
 } from './refLogic';
 import {
+  TOAST_DURATION_MS,
   addPerson,
+  applyUndo,
   buildReport,
+  countRecomputed,
   defaultExpenseDate,
   exportBackupJSON,
   exportTripJSON,
+  makeUndo,
+  parseRate,
   postSaveTarget,
   removePerson,
   renamePerson,
@@ -108,6 +113,8 @@ export default function RefProto() {
   const [addOrigin, setAddOrigin] = useState(() => ({ origin: 'home', originDay: null }));
   const [month, setMonth] = useState(() => tripMonth(createRefTrips()[0], resolveToday(window.location.search)));
   const [toast, setToast] = useState(null);
+  const [toastHover, setToastHover] = useState(false);
+  const [toastFocus, setToastFocus] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
 
   const updateActiveTrip = useCallback(
@@ -118,14 +125,18 @@ export default function RefProto() {
   );
 
   const showToast = useCallback((message, undo = null) => {
+    setToastHover(false);
+    setToastFocus(false);
     setToast({ id: Date.now() + Math.random(), message, undo });
   }, []);
 
+  const toastPaused = toastHover || toastFocus;
+
   useEffect(() => {
-    if (!toast) return undefined;
-    const timer = setTimeout(() => setToast(null), 4000);
+    if (!toast || toastPaused) return undefined;
+    const timer = setTimeout(() => setToast(null), TOAST_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [toast, toastPaused]);
 
   useEffect(() => {
     if (!highlightId) return undefined;
@@ -193,22 +204,27 @@ export default function RefProto() {
 
   const deleteExpense = (e) => {
     const tripId = trip.id;
-    const prevExpenses = [...trip.expenses];
+    const idx = trip.expenses.findIndex((x) => x.id === e.id);
+    const undoOp = makeUndo('delete', {
+      expense: e,
+      index: idx >= 0 ? idx : trip.expenses.length,
+    });
     updateActiveTrip((t) => ({ ...t, expenses: t.expenses.filter((x) => x.id !== e.id) }));
-    showToast(saveToastMessage({ kind: 'delete', expense: e }), () => {
-      setTrips((all) => all.map((t) => (t.id === tripId ? { ...t, expenses: prevExpenses } : t)));
-      setHighlightId(e.id);
+    showToast(saveToastMessage({ kind: 'delete', expense: e }), {
+      ...undoOp,
+      tripId,
+      highlightId: e.id,
     });
   };
 
   const saveExpense = (data) => {
     const tripId = trip.id;
-    const prevExpenses = [...trip.expenses];
     const isEdit = Boolean(data.id);
     const savedId = isEdit ? data.id : `n${Date.now()}`;
+    const previousRecord = isEdit ? trip.expenses.find((x) => x.id === data.id) || null : null;
     const normalizedDate = data.date ? normalizeDate(data.date) || '' : '';
     const savedRecord = isEdit
-      ? { ...(trip.expenses.find((x) => x.id === data.id) || {}), ...data, id: savedId, date: normalizedDate }
+      ? { ...(previousRecord || {}), ...data, id: savedId, date: normalizedDate }
       : { ...data, id: savedId, date: normalizedDate, items: [] };
 
     updateActiveTrip((t) => {
@@ -222,18 +238,32 @@ export default function RefProto() {
     go(targetHash, true);
     setHighlightId(savedId);
 
-    showToast(saveToastMessage({ kind: isEdit ? 'edit' : 'add', expense: savedRecord }), () => {
-      setTrips((all) => all.map((t) => (t.id === tripId ? { ...t, expenses: prevExpenses } : t)));
-      if (isEdit) setHighlightId(savedId);
-      else setHighlightId(null);
+    const undoOp = isEdit
+      ? makeUndo('edit', { expense: savedRecord, previous: previousRecord })
+      : makeUndo('add', { expense: savedRecord });
+
+    showToast(saveToastMessage({ kind: isEdit ? 'edit' : 'add', expense: savedRecord }), {
+      ...undoOp,
+      tripId,
+      highlightId: isEdit ? savedId : null,
     });
   };
 
   const handleUndo = () => {
-    if (toast?.undo) {
+    if (!toast?.undo) return;
+    if (typeof toast.undo === 'function') {
       toast.undo();
-      setToast({ id: Date.now(), message: '已撤銷操作', undo: null });
+    } else {
+      const undoOp = toast.undo;
+      const targetTripId = undoOp.tripId || activeTripId;
+      setTrips((all) =>
+        all.map((t) => (t.id === targetTripId ? { ...t, expenses: applyUndo(t.expenses, undoOp) } : t)),
+      );
+      setHighlightId(undoOp.highlightId ?? null);
     }
+    setToastHover(false);
+    setToastFocus(false);
+    setToast({ id: Date.now(), message: '已撤銷操作', undo: null });
   };
 
   let body;
@@ -322,7 +352,13 @@ export default function RefProto() {
     <div className="min-h-screen text-ink" style={paperDots}>
       <Header trip={trip} trips={trips} onSelectTrip={selectTrip} />
       <main className="mx-auto max-w-5xl pb-24">{body}</main>
-      <Toast toast={toast} onUndo={handleUndo} onDismiss={() => setToast(null)} />
+      <Toast
+        toast={toast}
+        onUndo={handleUndo}
+        onDismiss={() => setToast(null)}
+        onHoverChange={setToastHover}
+        onFocusChange={setToastFocus}
+      />
       <BottomNav tab={tab} />
     </div>
   );
@@ -695,16 +731,20 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
     onToast(`已移除「${name}」，其消費已歸入共同`);
   };
 
+  const parsedRate = parseRate(rateInput);
+  const isRateInvalid = parsedRate === null;
+
   const handleSaveRate = (e) => {
     if (e) e.preventDefault();
-    const r = Number(rateInput);
-    if (!Number.isFinite(r) || r <= 0) {
-      setRateError('請輸入大於 0 的有效匯率');
+    const r = parseRate(rateInput);
+    if (r === null) {
+      setRateError('請輸入大於 0 的匯率');
       return;
     }
+    const recomputed = countRecomputed(trip);
     onUpdateTrip((t) => setRate(t, r));
     setRateError('');
-    onToast(`匯率已更新為 1 JPY = ${r} HKD`);
+    onToast(`匯率已更新 · 已重新計算 ${recomputed} 筆`);
   };
 
   const handleExportTrip = () => {
@@ -914,7 +954,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">HKD 港幣</p>
           </div>
         </div>
-        <form onSubmit={handleSaveRate} className="space-y-1.5">
+        <form onSubmit={handleSaveRate} noValidate className="space-y-1.5">
           <div className="flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2">
             <label htmlFor="ref-rate-input" className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">
               1 JPY =
@@ -923,14 +963,13 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
               id="ref-rate-input"
               data-testid="rate-input"
               aria-label="匯率"
-              type="number"
-              step="0.0001"
-              min="0.0001"
+              type="text"
               inputMode="decimal"
               value={rateInput}
               onChange={(e) => {
-                setRateInput(e.target.value);
-                setRateError('');
+                const nextVal = e.target.value;
+                setRateInput(nextVal);
+                setRateError(parseRate(nextVal) === null ? '請輸入大於 0 的匯率' : '');
               }}
               className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
             />
@@ -938,14 +977,15 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             <button
               type="submit"
               data-testid="rate-save"
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              disabled={isRateInvalid}
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
             >
               更新匯率
             </button>
           </div>
-          {rateError && (
-            <p role="alert" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
-              {rateError}
+          {(isRateInvalid || rateError) && (
+            <p role="alert" data-testid="rate-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+              {rateError || '請輸入大於 0 的匯率'}
             </p>
           )}
         </form>

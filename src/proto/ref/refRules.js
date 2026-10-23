@@ -36,6 +36,20 @@ export function parseHHMM(raw) {
 }
 
 /**
+ * P0-1: Check whether a time input entry is invalid.
+ * - empty + not badInput -> false (valid untimed stop)
+ * - empty + badInput -> true (partial native time input, e.g. only hour typed)
+ * - non-empty -> must be strict 2-digit HH:MM and valid in parseHHMM ('09:30' valid; '9:5', '25:00' invalid)
+ */
+export function isTimeEntryInvalid({ value = '', badInput = false } = {}) {
+  if (badInput) return true;
+  const s = String(value ?? '').trim();
+  if (!s) return false;
+  if (!/^\d{2}:\d{2}$/.test(s)) return true;
+  return parseHHMM(s) === null;
+}
+
+/**
  * P0-1: Convert 'HH:MM' to minutes from midnight; untimed/invalid -> Infinity so they sort last.
  */
 export function stopMinutes(time) {
@@ -110,6 +124,8 @@ export function postSaveTarget({ origin, savedDate } = {}) {
   return iso ? `day=${iso}&pane=expenses` : 'ledger';
 }
 
+export const TOAST_DURATION_MS = 6000;
+
 /**
  * P1-3: Toast copy after add / edit / delete.
  * e.g. '已記錄 HKD $88 · 10月22日' / '已更新 …' / '已刪除 …' (undated -> '未有日期').
@@ -124,6 +140,79 @@ export function saveToastMessage({ kind, expense } = {}) {
     dateText = `${m}月${d}日`;
   }
   return `${verb} ${amountText} · ${dateText}`;
+}
+
+/**
+ * P1-3: Create an inverse-op undo descriptor for 'add' | 'delete' | 'edit'.
+ */
+export function makeUndo(kindOrObj, payload = {}) {
+  const isObjCall = typeof kindOrObj === 'object' && kindOrObj !== null;
+  const kind = isObjCall ? kindOrObj.kind : kindOrObj;
+  const opts = isObjCall ? kindOrObj : payload || {};
+  const isDirectRecord =
+    opts && typeof opts === 'object' && !('expense' in opts) && !('previous' in opts) && 'id' in opts;
+  const expense = isDirectRecord ? opts : opts.expense ?? null;
+  const previous = opts.previous ?? opts.before ?? (kind === 'edit' && isDirectRecord ? opts : null);
+  const index = typeof opts.index === 'number' && Number.isFinite(opts.index) ? Math.trunc(opts.index) : null;
+  const id = opts.id ?? expense?.id ?? previous?.id ?? null;
+  return {
+    kind,
+    id,
+    expense: expense ? { ...expense } : null,
+    previous: previous ? { ...previous } : null,
+    index,
+  };
+}
+
+/**
+ * P1-3: Apply an inverse-op undo descriptor to the current `expenses` array without clobbering
+ * concurrent changes (other added expenses, renamed people, or updated exchange rates).
+ * - 'add' -> remove the expense with that id
+ * - 'delete' -> reinsert the deleted record at its original index (clamped to [0, expenses.length])
+ * - 'edit' -> replace the record with that id by `previous`
+ */
+export function applyUndo(expenses, undo) {
+  if (!Array.isArray(expenses)) return [];
+  if (!undo || typeof undo !== 'object') return [...expenses];
+
+  if (undo.kind === 'add') {
+    const targetId = undo.id ?? undo.expense?.id;
+    if (!targetId) return [...expenses];
+    return expenses.filter((e) => e?.id !== targetId);
+  }
+
+  if (undo.kind === 'delete') {
+    const record = undo.expense ?? undo.previous;
+    if (!record) return [...expenses];
+    const base = record.id ? expenses.filter((e) => e?.id !== record.id) : [...expenses];
+    const rawIdx = typeof undo.index === 'number' && Number.isFinite(undo.index) ? Math.trunc(undo.index) : base.length;
+    const clamped = Math.max(0, Math.min(base.length, rawIdx));
+    return [...base.slice(0, clamped), { ...record }, ...base.slice(clamped)];
+  }
+
+  if (undo.kind === 'edit') {
+    const prev = undo.previous ?? undo.expense;
+    const targetId = undo.id ?? prev?.id ?? undo.expense?.id;
+    if (!targetId || !prev) return [...expenses];
+    return expenses.map((e) => (e?.id === targetId ? { ...prev } : e));
+  }
+
+  return [...expenses];
+}
+
+/**
+ * P1-2/P1-4: Return a one-line zh-HK hint when AddForm save is disabled, or null when valid.
+ */
+export function saveBlockReason({ amount, store } = {}) {
+  const rawAmt = typeof amount === 'boolean' ? '' : String(amount ?? '').trim();
+  const numAmt = Number(rawAmt);
+  const hasAmount = rawAmt !== '' && Number.isFinite(numAmt) && numAmt > 0;
+  const hasStore = Boolean(String(store ?? '').trim());
+
+  if (!hasAmount && !hasStore) return '請填寫金額及店舗';
+  if (!hasAmount) return '請填寫金額';
+  if (!hasStore) return '請填寫店舗';
+  return null;
 }
 
 /**
@@ -344,16 +433,39 @@ export function removePerson(trip, name) {
 }
 
 /**
+ * P1-8: Parse a rate string/number into a finite number > 0, or null if invalid.
+ */
+export function parseRate(str) {
+  if (str == null || typeof str === 'boolean') return null;
+  const s = String(str).trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+/**
+ * Count the number of trip-currency (JPY) expenses whose HKD amount is recomputed on a rate change.
+ */
+export function countRecomputed(trip) {
+  if (!trip || !Array.isArray(trip.expenses)) return 0;
+  const tripCurr = trip.tripCurrency || 'JPY';
+  return trip.expenses.filter((e) => (e?.currency || e?.originalCurrency || 'JPY') === tripCurr).length;
+}
+
+/**
  * P1-8: Update `trip.settings.rate` (must be finite and > 0) and recompute `hkdAmount`
  * for all JPY expenses (`Math.round(originalAmount * rate)`) so totals stay consistent
  * across Home, Ledger, Charts, and Settings. HKD expenses keep their original HKD amount.
  */
 export function setRate(trip, rate) {
   if (!trip) return trip;
-  const r = Number(rate);
-  if (!Number.isFinite(r) || r <= 0) return trip;
+  const r = parseRate(rate);
+  if (r === null) return trip;
 
-  return {
+  const tripCurr = trip.tripCurrency || 'JPY';
+  let recomputed = 0;
+  const nextTrip = {
     ...trip,
     settings: {
       ...trip.settings,
@@ -361,7 +473,8 @@ export function setRate(trip, rate) {
     },
     expenses: (trip.expenses || []).map((e) => {
       const curr = e.currency || e.originalCurrency || 'JPY';
-      if (curr === 'JPY') {
+      if (curr === tripCurr) {
+        recomputed += 1;
         return {
           ...e,
           hkdAmount: Math.round(Number(e.originalAmount || 0) * r),
@@ -370,6 +483,12 @@ export function setRate(trip, rate) {
       return e;
     }),
   };
+  Object.defineProperty(nextTrip, 'recomputedCount', {
+    value: recomputed,
+    enumerable: false,
+    configurable: true,
+  });
+  return nextTrip;
 }
 
 /**

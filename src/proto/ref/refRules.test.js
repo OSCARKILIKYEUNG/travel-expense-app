@@ -1,18 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { createRefTrip, createRefTrips } from './mockRefTrip';
 import {
+  TOAST_DURATION_MS,
   activeFilterCount,
   addPerson,
+  applyUndo,
   buildReport,
+  countRecomputed,
   dayNav,
   defaultExpenseDate,
   exportBackupJSON,
   exportTripJSON,
+  isTimeEntryInvalid,
+  makeUndo,
   parseHHMM,
+  parseRate,
   postSaveTarget,
   removePerson,
   renamePerson,
   resolveToday,
+  saveBlockReason,
   saveToastMessage,
   setRate,
   sortStops,
@@ -58,6 +65,19 @@ describe('P0-1: parseHHMM, stopMinutes, sortStops', () => {
     expect(sorted.map((s) => s.id)).toEqual(['t1', 't2', 'u1', 'u2']);
     expect(stops.map((s) => s.id)).toEqual(['u1', 't2', 'u2', 't1']); // does not mutate input
   });
+
+  it('validates time entry with isTimeEntryInvalid (empty+badInput vs untimed vs strict HH:MM)', () => {
+    expect(isTimeEntryInvalid({ value: '', badInput: false })).toBe(false);
+    expect(isTimeEntryInvalid({ value: '   ', badInput: false })).toBe(false);
+    expect(isTimeEntryInvalid({ value: '', badInput: true })).toBe(true);
+    expect(isTimeEntryInvalid({ value: '9:5', badInput: false })).toBe(true);
+    expect(isTimeEntryInvalid({ value: '25:00', badInput: false })).toBe(true);
+    expect(isTimeEntryInvalid({ value: '12:60', badInput: false })).toBe(true);
+    expect(isTimeEntryInvalid({ value: '09:15:0030', badInput: false })).toBe(true);
+    expect(isTimeEntryInvalid({ value: '09:30', badInput: false })).toBe(false);
+    expect(isTimeEntryInvalid({ value: '00:00', badInput: false })).toBe(false);
+    expect(isTimeEntryInvalid({ value: '23:59', badInput: false })).toBe(false);
+  });
 });
 
 describe('P1-1: resolveToday & defaultExpenseDate', () => {
@@ -101,6 +121,61 @@ describe('P1-3 & P1-4: postSaveTarget & saveToastMessage', () => {
     expect(saveToastMessage({ kind: 'add', expense: { hkdAmount: 50, date: null } })).toBe(
       '已記錄 HKD $50 · 未有日期',
     );
+  });
+
+  it('undo add keeps an expense added afterwards and preserves concurrent changes', () => {
+    const firstAdd = { id: 'n1', store: 'First', hkdAmount: 50, assignedTo: 'Oscar' };
+    const secondAdd = { id: 'n2', store: 'Second', hkdAmount: 80, assignedTo: '奧斯卡' };
+    const base = [{ id: 'r1', store: 'Existing', hkdAmount: 100, assignedTo: '奧斯卡' }];
+    const undoOp = makeUndo('add', { expense: firstAdd });
+
+    const withBothAndRenamed = [...base, firstAdd, secondAdd];
+    const afterUndo = applyUndo(withBothAndRenamed, undoOp);
+
+    expect(afterUndo.map((e) => e.id)).toEqual(['r1', 'n2']);
+    expect(afterUndo.find((e) => e.id === 'n2')?.assignedTo).toBe('奧斯卡');
+  });
+
+  it('undo delete restores index and clamps out-of-bounds indices', () => {
+    const r15 = { id: 'r15', store: 'A', hkdAmount: 10 };
+    const r16 = { id: 'r16', store: 'B', hkdAmount: 20 };
+    const r17 = { id: 'r17', store: 'C', hkdAmount: 30 };
+    const undoOp = makeUndo('delete', { expense: r16, index: 1 });
+
+    const afterDelete = [r15, r17];
+    const restored = applyUndo(afterDelete, undoOp);
+    expect(restored.map((e) => e.id)).toEqual(['r15', 'r16', 'r17']);
+
+    const clampedHigh = applyUndo([r15], makeUndo('delete', { expense: r17, index: 99 }));
+    expect(clampedHigh.map((e) => e.id)).toEqual(['r15', 'r17']);
+
+    const clampedLow = applyUndo([r17], makeUndo('delete', { expense: r15, index: -3 }));
+    expect(clampedLow.map((e) => e.id)).toEqual(['r15', 'r17']);
+  });
+
+  it('undo edit replaces only the edited record with its previous version', () => {
+    const before = { id: 'r15', store: '富士急行 河口湖站', hkdAmount: 263, assignedTo: '共同' };
+    const after = { id: 'r15', store: '富士急行 改', hkdAmount: 500, assignedTo: '共同' };
+    const other = { id: 'r16', store: '不動', hkdAmount: 389, assignedTo: '奧斯卡' };
+    const undoOp = makeUndo('edit', { expense: after, previous: before });
+
+    const result = applyUndo([after, other], undoOp);
+    expect(result).toEqual([before, other]);
+  });
+
+  it('returns saveBlockReason hint when amount or store is missing and null when valid', () => {
+    expect(saveBlockReason({ amount: '', store: '' })).toBe('請填寫金額及店舗');
+    expect(saveBlockReason({ amount: '0', store: '   ' })).toBe('請填寫金額及店舗');
+    expect(saveBlockReason({ amount: '', store: '一蘭拉麵' })).toBe('請填寫金額');
+    expect(saveBlockReason({ amount: '-20', store: '一蘭拉麵' })).toBe('請填寫金額');
+    expect(saveBlockReason({ amount: '1500', store: '' })).toBe('請填寫店舗');
+    expect(saveBlockReason({ amount: '1500', store: '   ' })).toBe('請填寫店舗');
+    expect(saveBlockReason({ amount: '1500', store: '一蘭拉麵' })).toBeNull();
+    expect(saveBlockReason({ amount: 1500, store: '一蘭拉麵' })).toBeNull();
+  });
+
+  it('uses a 6000 ms toast duration', () => {
+    expect(TOAST_DURATION_MS).toBe(6000);
   });
 });
 
@@ -201,6 +276,34 @@ describe('P1-8: exports, report, people management, and exchange rate', () => {
     for (const e of updated.expenses) {
       expect(e.hkdAmount).toBe(Math.round(e.originalAmount * 0.06));
     }
+    expect(countRecomputed(trip)).toBe(17);
+    expect(updated.recomputedCount).toBe(17);
+
+    const mixedTrip = {
+      ...trip,
+      expenses: [
+        ...trip.expenses,
+        { id: 'hk1', currency: 'HKD', originalCurrency: 'HKD', originalAmount: 200, hkdAmount: 200 },
+      ],
+    };
+    expect(countRecomputed(mixedTrip)).toBe(17);
+    const updatedMixed = setRate(mixedTrip, 0.05);
+    expect(updatedMixed.expenses.find((e) => e.id === 'hk1')?.hkdAmount).toBe(200);
+  });
+
+  it('validates rate input with parseRate (> 0, finite)', () => {
+    expect(parseRate('0.0526')).toBe(0.0526);
+    expect(parseRate(' 0.06 ')).toBe(0.06);
+    expect(parseRate(0.055)).toBe(0.055);
+    expect(parseRate('0')).toBeNull();
+    expect(parseRate(0)).toBeNull();
+    expect(parseRate('-0.05')).toBeNull();
+    expect(parseRate('')).toBeNull();
+    expect(parseRate('   ')).toBeNull();
+    expect(parseRate('abc')).toBeNull();
+    expect(parseRate('Infinity')).toBeNull();
+    expect(parseRate(Number.NaN)).toBeNull();
+    expect(parseRate(null)).toBeNull();
   });
 });
 

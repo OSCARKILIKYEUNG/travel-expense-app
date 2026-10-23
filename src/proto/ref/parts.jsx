@@ -286,14 +286,25 @@ export const Icon = {
   ),
 };
 
-export function Toast({ toast, onUndo, onDismiss }) {
+export function Toast({ toast, onUndo, onDismiss, onHoverChange, onFocusChange }) {
   if (!toast) return null;
   return (
     <div
       role="status"
       aria-live="polite"
+      tabIndex={-1}
       data-testid="toast"
-      className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 border-teal-strong bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl"
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
+      onFocusCapture={() => onFocusChange?.(true)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          onFocusChange?.(false);
+        }
+      }}
+      className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 border-teal-strong bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none"
     >
       <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-semibold text-ink">
         {toast.message}
