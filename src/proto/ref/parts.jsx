@@ -3,9 +3,6 @@ import { STICKERS } from './mockRefTrip';
 
 /** Visual stationery helpers for ?proto=ref. Uses theme tokens only (no hex literals). */
 
-const stripe = (deg, c1, s1, c2, s2) =>
-  `repeating-linear-gradient(${deg}deg, ${c1} 0 ${s1}px, ${c2} ${s1}px ${s2}px)`;
-
 export const paperDots = {
   backgroundColor: palette.cream,
   backgroundImage: `radial-gradient(${palette.beige} 0.75px, transparent 0.95px)`,
@@ -23,25 +20,46 @@ export const ruledPaper = {
 };
 
 export const airmail = {
-  backgroundImage: `repeating-linear-gradient(-45deg, ${palette.coral} 0 9px, ${palette['cream-soft']} 9px 17px, ${palette.sage} 17px 26px, ${palette['cream-soft']} 26px 34px)`,
+  backgroundImage:
+    'repeating-linear-gradient(-45deg, rgb(var(--c-coral) / 0.45) 0 10px, rgb(var(--c-cream-soft)) 10px 18px, rgb(var(--c-teal) / 0.45) 18px 28px, rgb(var(--c-cream-soft)) 28px 36px)',
+  boxShadow: '0 10px 24px rgb(var(--c-ink) / 0.07)',
 };
 
 export const mustardStripe = {
-  backgroundImage: stripe(-45, palette['mustard-soft'], 9, palette.cream, 18),
+  backgroundImage:
+    'repeating-linear-gradient(-45deg, rgb(var(--c-mustard) / 0.28) 0 10px, rgb(var(--c-mustard-soft) / 0.95) 10px 20px)',
+};
+
+export const bannerStripe = {
+  backgroundImage:
+    'repeating-linear-gradient(-35deg, rgb(var(--c-mustard) / 0.34) 0 8px, rgb(var(--c-mustard-soft) / 0.94) 8px 16px)',
 };
 
 export const washiNav = {
-  backgroundImage: `repeating-linear-gradient(90deg, ${palette.mustard} 0 12px, ${palette.sage} 12px 18px, ${palette.coral} 18px 24px, ${palette['cream-soft']} 24px 30px)`,
+  backgroundImage:
+    'repeating-linear-gradient(90deg, rgb(var(--c-mustard)) 0 12px, rgb(var(--c-teal) / 0.55) 12px 18px, rgb(var(--c-coral) / 0.45) 18px 24px, rgb(var(--c-cream-soft)) 24px 30px)',
+};
+
+const TAPE_PATTERNS = {
+  coral:
+    'repeating-linear-gradient(-45deg, rgb(var(--c-coral) / 0.55) 0 6px, rgb(var(--c-sakura-soft) / 0.85) 6px 12px)',
+  teal:
+    'repeating-linear-gradient(45deg, rgb(var(--c-teal) / 0.42) 0 6px, rgb(var(--c-teal-soft) / 0.9) 6px 12px)',
+  sakura:
+    'repeating-linear-gradient(45deg, rgb(var(--c-sakura) / 0.65) 0 7px, rgb(var(--c-cream-soft) / 0.9) 7px 14px)',
+  sage:
+    'repeating-linear-gradient(-45deg, rgb(var(--c-sage) / 0.65) 0 6px, rgb(var(--c-cream-soft) / 0.88) 6px 12px)',
+  mustard:
+    'repeating-linear-gradient(-35deg, rgb(var(--c-mustard) / 0.62) 0 8px, rgb(var(--c-mustard-soft) / 0.92) 8px 15px)',
 };
 
 export function Tape({ tone = 'coral', className = '' }) {
-  const c1 = palette[tone] || palette.coral;
-  const c2 = palette[`${tone}-soft`] || palette['cream-soft'];
+  const bg = TAPE_PATTERNS[tone] || TAPE_PATTERNS.coral;
   return (
     <span
       aria-hidden="true"
-      className={`pointer-events-none absolute inline-block h-4 w-20 rounded-sm border border-line/60 opacity-85 shadow-sm ${className}`}
-      style={{ backgroundImage: stripe(-45, c1, 6, c2, 12) }}
+      className={`pointer-events-none absolute inline-block h-4 w-20 rounded-sm border border-line/60 shadow-sm ${className}`}
+      style={{ backgroundImage: bg }}
     />
   );
 }
@@ -68,10 +86,10 @@ export function DayStamp({ top, bottom, className = '' }) {
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none flex h-[68px] w-[68px] shrink-0 -rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-double border-coral-ink bg-coral-soft text-coral-ink ${className}`}
+      className={`pointer-events-none flex h-20 w-20 shrink-0 -rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-double border-coral-ink bg-coral-soft text-coral-ink ${className}`}
     >
-      <span className="whitespace-nowrap font-script text-[20px] font-bold leading-none">{top}</span>
-      <span className="mt-0.5 whitespace-nowrap font-script text-meta font-bold leading-none">{bottom}</span>
+      <span className="whitespace-nowrap font-script text-2xl leading-none">{top}</span>
+      <span className="whitespace-nowrap font-script text-sm leading-none">{bottom}</span>
     </div>
   );
 }
@@ -117,13 +135,13 @@ export function ZigZag({ className = '' }) {
 
 export function Sakura({ className = 'h-7 w-7' }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" className={`pointer-events-none ${className}`}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`pointer-events-none ${className}`}>
       <g fill={palette.sakura}>
         {[0, 72, 144, 216, 288].map((r) => (
-          <ellipse key={r} cx="8" cy="3.6" rx="2.2" ry="3.2" transform={`rotate(${r} 8 8)`} />
+          <ellipse key={r} cx="12" cy="5.2" rx="2.7" ry="4" transform={`rotate(${r} 12 12)`} />
         ))}
       </g>
-      <circle cx="8" cy="8" r="1.4" fill={palette.mustard} />
+      <circle cx="12" cy="12" r="1.7" fill={palette.mustard} />
     </svg>
   );
 }
@@ -131,7 +149,7 @@ export function Sakura({ className = 'h-7 w-7' }) {
 export function Sparkle({ className = 'h-3.5 w-3.5' }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className={`pointer-events-none ${className}`}>
-      <path d="M8 0 C8.6 5 11 7.4 16 8 C11 8.6 8.6 11 8 16 C7.4 11 5 8.6 0 8 C5 7.4 7.4 5 8 0 Z" fill={palette.mustard} />
+      <path d="M8 0 L9.15 6.85 L16 8 L9.15 9.15 L8 16 L6.85 9.15 L0 8 L6.85 6.85 Z" fill={palette.mustard} />
     </svg>
   );
 }

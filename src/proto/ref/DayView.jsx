@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, REF_PEOPLE } from './mockRefTrip';
-import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, cardDots, mustardStripe } from './parts';
+import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import { dayStats, dayStrip, expensesOn, fmtHKD, matchesPerson, personCounts } from './refLogic';
 
@@ -100,10 +100,10 @@ export default function DayView({
       {/* Top date navigator banner */}
       <header
         className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-mustard-ink/35 bg-mustard-soft px-2 py-1.5 shadow-sm"
-        style={mustardStripe}
+        style={bannerStripe}
       >
         <Tape tone="sakura" className="-top-2 right-14 z-30 h-4 w-16 rotate-2 opacity-90" />
-        <Sparkle className="absolute left-12 top-0.5 h-3 w-3 opacity-80" />
+        <Sparkle className="absolute left-12 top-0.5 z-10 h-3 w-3 opacity-80" />
         <button
           type="button"
           data-testid="back"
@@ -242,10 +242,10 @@ function ItineraryRead({ day, m, d, dayN, onEdit }) {
 
   return (
     <div
-      className="relative space-y-2.5 overflow-hidden rounded-card border border-line bg-cream-soft p-3"
+      className="relative space-y-3 overflow-hidden rounded-card border border-line bg-cream-soft p-3"
       style={cardDots}
     >
-      <Sakura className="absolute right-1.5 top-1.5 h-7 w-7 opacity-70" />
+      <Sakura className="absolute right-1 top-1 h-7 w-7 opacity-70" />
 
       <div className="flex items-center gap-3">
         <DayStamp top={stampTop} bottom={stampBottom} />
@@ -253,20 +253,20 @@ function ItineraryRead({ day, m, d, dayN, onEdit }) {
           <p className="whitespace-nowrap text-meta text-ink-muted">
             今日主行程{day.note ? ` · ${day.note}` : ''}
           </p>
-          <h2 className="mt-0.5 font-display text-lg leading-snug text-ink">{day.title || '未有標題'}</h2>
+          <h2 className="whitespace-nowrap font-display text-xl text-ink">{day.title || '未有標題'}</h2>
         </div>
         <button
           type="button"
           data-testid="itinerary-edit"
           onClick={onEdit}
-          className="shrink-0 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3 py-1.5 text-meta font-bold text-teal-strong shadow-sm"
+          className="mt-3 shrink-0 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3 py-1.5 text-meta font-bold text-teal-strong shadow-sm"
         >
           ✎編輯
         </button>
       </div>
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <Tape tone="teal" className="-top-2 right-4 z-10 h-3.5 w-14 rotate-2" />
+        <Tape tone="teal" className="-top-2.5 right-4 z-10 h-4 w-14 rotate-2" />
         <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
           <span className="whitespace-nowrap text-meta text-ink-muted">今日行程 · {day.itinerary.length} 站</span>
           {day.note && (
@@ -276,7 +276,7 @@ function ItineraryRead({ day, m, d, dayN, onEdit }) {
         <ul className="m-0 list-none space-y-1 p-0">
           {day.itinerary.map((s) => (
             <li key={s.id} className="flex min-w-0 items-center gap-2">
-              <span className="w-14 shrink-0 whitespace-nowrap rounded-md bg-mustard-soft px-1 py-0.5 text-center font-mono text-meta font-semibold text-mustard-ink">
+              <span className="w-14 shrink-0 whitespace-nowrap rounded-md bg-mustard-soft px-1 text-center font-mono text-meta text-mustard-ink">
                 {s.time || '—'}
               </span>
               <span className="min-w-0 flex-1 whitespace-nowrap text-sm text-ink">{s.title}</span>
@@ -290,7 +290,7 @@ function ItineraryRead({ day, m, d, dayN, onEdit }) {
       </div>
 
       <div className="rounded-2xl border border-line bg-cream px-3 py-2">
-        <span className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">今日隨筆</span>
+        <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">今日隨筆</span>
         <p className="whitespace-nowrap text-sm text-ink-soft">{day.journal || '未有隨筆'}</p>
       </div>
     </div>
@@ -394,7 +394,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {day.itinerary.map((s) => (
           <li key={s.id} className="flex min-w-0 items-center gap-2">
-            <span className="inline-flex h-7 w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2 font-mono text-meta font-semibold text-teal-strong">
+            <span className="inline-flex h-7 max-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2 text-meta text-teal-strong">
               {s.time || '—'}
             </span>
             <span className="min-w-0 flex-1 whitespace-nowrap text-sm text-ink">{s.title}</span>
@@ -402,7 +402,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
               type="button"
               aria-label={`刪除 ${s.title}`}
               onClick={() => onChange({ itinerary: day.itinerary.filter((x) => x.id !== s.id) })}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs text-coral-ink hover:bg-coral-soft"
+              className="btn-icon-danger shrink-0"
             >
               ✕
             </button>
@@ -415,7 +415,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
           aria-label="時間"
           type="text"
           placeholder="09:30"
-          className={`${field} !w-16 shrink-0 !px-2 text-center font-mono`}
+          className={`${field} !w-16 shrink-0 !px-2`}
           value={time}
           onChange={(e) => setTime(e.target.value)}
         />
