@@ -4,12 +4,15 @@ import { createPortal } from 'react-dom';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sparkle, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
+import LedgerTotalCard from './LedgerTotalCard';
+import { ledgerTotalSummary } from './refLedgerTotal';
 import { filterExpenses, fmtHKD, groupLedger, personCounts, undatedHint, zhDate } from './refLogic';
 import { activeFilterCount, tripDates } from './refRules';
 
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
 export default function Ledger({
   trip,
+  totalVariant = 'a',
   initialFilters,
   highlightId,
   onScan,
@@ -40,9 +43,14 @@ export default function Ledger({
   const shown = filterExpenses(trip.expenses, { person, category, date, query, payment, payer }, people);
   const groups = groupLedger(shown);
   const hint = undatedHint(groups);
-  const total = shown.reduce((s, e) => s + e.hkdAmount, 0);
   const filterCount = activeFilterCount({ category, date, payment, payer });
   const hasAnyFilter = Boolean(query.trim()) || person !== '全部' || filterCount > 0;
+  const summary = ledgerTotalSummary({
+    shown,
+    all: trip.expenses,
+    budget: trip.settings?.budget,
+    filtered: hasAnyFilter,
+  });
 
   const jumpToUndated = () => {
     const el = document.querySelector('[data-testid="ledger-group-undated"]');
@@ -83,10 +91,9 @@ export default function Ledger({
         <Sparkle className="absolute -left-1 top-1 h-3.5 w-3.5" />
         <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">帳本</h1>
         <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Ledger</span>
-        <span className="ml-auto whitespace-nowrap text-meta font-bold text-ink-soft">
-          {fmtHKD(total)} · {shown.length} 筆
-        </span>
       </div>
+
+      <LedgerTotalCard variant={totalVariant} summary={summary} tripName={trip.name} />
 
       {hint && (
         <div className="flex justify-end">

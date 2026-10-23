@@ -32,6 +32,7 @@ import {
   tripMonth,
 } from './refRules';
 import { ledgerHash } from './refCharts';
+import { resolveTotalVariant } from './refLedgerTotal';
 import { normalizeDate } from '../../utils/duplicates';
 import { Icon, Sakura, Sparkle, Tape, Toast, paperDots, washiNav } from './parts';
 import Home from './Home';
@@ -110,6 +111,7 @@ export default function RefProto() {
 
   const route = useRoute();
   const today = useMemo(() => resolveToday(window.location.search), []);
+  const totalVariant = useMemo(() => resolveTotalVariant(window.location.search), []);
   const [returnTo, setReturnTo] = useState('');
   const [addOrigin, setAddOrigin] = useState(() => ({ origin: 'home', originDay: null }));
   const [month, setMonth] = useState(() => tripMonth(createRefTrips()[0], resolveToday(window.location.search)));
@@ -343,6 +345,7 @@ export default function RefProto() {
       <Ledger
         key={window.location.hash}
         trip={trip}
+        totalVariant={totalVariant}
         initialFilters={route.filters}
         highlightId={highlightId}
         onScan={() => openAdd({ scan: true, date: defaultExpenseDate(trip, today) })}
