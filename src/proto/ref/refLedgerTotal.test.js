@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRefTrip, REF_TODAY } from './mockRefTrip';
 import { remainingPerDay } from './refCharts';
-import { ledgerTotalSummary, resolveTotalVariant, splitHKD } from './refLedgerTotal';
+import { ledgerTotalSummary, splitHKD } from './refLedgerTotal';
 import { filterExpenses } from './refLogic';
 
 const trip = createRefTrip();
@@ -134,16 +134,6 @@ describe('ledgerTotalSummary', () => {
     expect(summary.jpy).toBe(0);
     expect(summary.filtered).toBe(true);
     expect(summary.budget.filteredPct).toBe(0);
-  });
-});
-
-describe('resolveTotalVariant', () => {
-  it('returns b only for b or B, and a for everything else', () => {
-    expect(resolveTotalVariant('')).toBe('a');
-    expect(resolveTotalVariant('?proto=ref')).toBe('a');
-    expect(resolveTotalVariant('?proto=ref&total=b')).toBe('b');
-    expect(resolveTotalVariant('?total=B')).toBe('b');
-    expect(resolveTotalVariant('?total=x')).toBe('a');
   });
 });
 

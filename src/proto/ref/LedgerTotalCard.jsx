@@ -1,5 +1,4 @@
 import { palette } from '../../theme/tokens';
-import { RoundStamp, Tape, ruledPaper } from './parts';
 import { splitHKD } from './refLedgerTotal';
 
 function formatSubLine(jpy, count) {
@@ -9,16 +8,6 @@ function formatSubLine(jpy, count) {
     return `¥${safeJpy.toLocaleString('en-US')} · ${safeCount} 筆`;
   }
   return `${safeCount} 筆`;
-}
-
-function resolvePostmarkTop(tripName) {
-  const raw = String(tripName || '').trim();
-  if (!raw || raw.startsWith('東京')) return 'TOKYO';
-  if (raw.startsWith('大阪')) return 'OSAKA';
-  const firstWord = raw.split(/\s+/)[0] || 'TOKYO';
-  const chars = Array.from(firstWord);
-  const isAscii = /^[\x20-\x7E]+$/.test(firstWord);
-  return chars.slice(0, isAscii ? 6 : 4).join('');
 }
 
 function FilteredStamp({ className = 'right-3 top-3' }) {
@@ -33,7 +22,7 @@ function FilteredStamp({ className = 'right-3 top-3' }) {
   );
 }
 
-function BudgetBlock({ budget, filtered, penStroke = false }) {
+function BudgetBlock({ budget, filtered }) {
   if (!budget) return null;
   const spentFmt = splitHKD(budget.spent);
   const budgetFmt = splitHKD(budget.budget);
@@ -72,41 +61,19 @@ function BudgetBlock({ budget, filtered, penStroke = false }) {
             style={{ width: `${budget.filteredPct}%` }}
           />
         )}
-        {penStroke ? (
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 240 12"
-            preserveAspectRatio="none"
-            className="pointer-events-none absolute inset-0 h-full w-full"
-          >
-            <path
-              d="M2 2 Q120 0.5 238 2.2 M2 10.2 Q120 11.4 238 9.8"
-              fill="none"
-              stroke={palette['ink-muted']}
-              strokeWidth="0.9"
-              strokeDasharray="5 3"
-              strokeLinecap="round"
-              opacity="0.45"
-            />
-          </svg>
-        ) : (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-pill border border-dashed border-line/70"
-          />
-        )}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-pill border border-dashed border-line/70"
+        />
       </div>
     </div>
   );
 }
 
 /**
- * Prominent 帳本 (Ledger) total card with two stationery variants:
- * - Variant A ('a'): Train ticket with punch holes, perforation stub, and marker underline.
- * - Variant B ('b'): Postmark diary page with ruled paper, washi tape, and round postmark.
+ * Prominent 帳本 (Ledger) train-ticket total card with punch holes, perforation stub, and marker underline.
  */
-export default function LedgerTotalCard({ variant = 'a', summary, tripName }) {
-  const activeVariant = variant === 'b' ? 'b' : 'a';
+export default function LedgerTotalCard({ summary, tripName }) {
   const hkd = summary?.hkd ?? 0;
   const count = summary?.count ?? 0;
   const jpy = summary?.jpy ?? 0;
@@ -116,80 +83,6 @@ export default function LedgerTotalCard({ variant = 'a', summary, tripName }) {
   const { prefix, digits } = splitHKD(hkd);
   const subText = formatSubLine(jpy, count);
   const ariaLabel = `${filtered ? '已篩選總額' : '帳本總額'} ${prefix}${digits}，${count} 筆`;
-
-  if (activeVariant === 'b') {
-    const postmarkTop = resolvePostmarkTop(tripName);
-    return (
-      <section
-        data-testid="ledger-total-card"
-        data-variant="b"
-        aria-label={ariaLabel}
-        className="relative rounded-card border border-line bg-cream-soft p-4 shadow-sm"
-        style={ruledPaper}
-      >
-        <Tape tone="teal" className="-top-2 left-1/2 z-20 h-4 w-24 -translate-x-1/2 -rotate-3" />
-        {filtered && <FilteredStamp className="right-2.5 top-2" />}
-
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="whitespace-nowrap text-meta font-semibold tracking-wide text-ink-muted">
-              總支出 <span className="font-script text-sm text-teal-strong">Total spent</span>
-            </p>
-            <div
-              data-testid="ledger-total-amount"
-              className="inline-flex items-baseline gap-1 whitespace-nowrap font-display tabular-nums text-ink"
-            >
-              <span className="text-xl font-bold leading-none text-teal-strong">{prefix}</span>
-              <span className="text-[34px] font-bold leading-none tracking-[-0.02em]">{digits}</span>
-            </div>
-            <p
-              data-testid="ledger-total-sub"
-              className="whitespace-nowrap font-mono text-meta font-semibold tabular-nums text-ink-soft"
-            >
-              {subText}
-            </p>
-          </div>
-
-          <div className="relative flex shrink-0 items-center">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 36 28"
-              className="pointer-events-none -mr-2 h-7 w-9 text-coral-ink opacity-45"
-              fill="none"
-            >
-              <path
-                d="M1 6 Q9 2 18 6 T35 6 M1 14 Q9 10 18 14 T35 14 M1 22 Q9 18 18 22 T35 22"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <RoundStamp top={postmarkTop} bottom={`${count} 筆`} />
-          </div>
-        </div>
-
-        {budget && (
-          <div className="mt-3 pt-2.5">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 240 4"
-              preserveAspectRatio="none"
-              className="mb-2 block h-1 w-full"
-            >
-              <path
-                d="M1 2 Q60 0.6 120 2.2 T239 1.8"
-                fill="none"
-                stroke={palette.line}
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <BudgetBlock budget={budget} filtered={filtered} penStroke />
-          </div>
-        )}
-      </section>
-    );
-  }
 
   return (
     <section

@@ -12,7 +12,6 @@ import { activeFilterCount, tripDates } from './refRules';
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
 export default function Ledger({
   trip,
-  totalVariant = 'a',
   initialFilters,
   highlightId,
   onScan,
@@ -93,7 +92,7 @@ export default function Ledger({
         <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Ledger</span>
       </div>
 
-      <LedgerTotalCard variant={totalVariant} summary={summary} tripName={trip.name} />
+      <LedgerTotalCard summary={summary} tripName={trip.name} />
 
       {hint && (
         <div className="flex justify-end">

@@ -1,5 +1,5 @@
 /**
- * Pure total-card logic and URL variant resolver for the 帳本 (Ledger) screen.
+ * Pure total-card logic for the 帳本 (Ledger) screen.
  */
 
 /**
@@ -13,22 +13,6 @@ export function splitHKD(n) {
     prefix: 'HK$',
     digits: rounded.toLocaleString('en-US'),
   };
-}
-
-/**
- * Resolve the total-card visual variant ('a' train ticket | 'b' postmark diary page)
- * from a URL `location.search` string.
- * Returns `'b'` only when `total` is `'b'` or `'B'`; everything else returns `'a'`.
- * @param {string} [search]
- * @returns {'a' | 'b'}
- */
-export function resolveTotalVariant(search) {
-  const raw = String(search || '');
-  const qIndex = raw.indexOf('?');
-  const qs = qIndex >= 0 ? raw.slice(qIndex + 1) : raw;
-  const params = new URLSearchParams(qs);
-  const val = params.get('total');
-  return val === 'b' || val === 'B' ? 'b' : 'a';
 }
 
 /**
