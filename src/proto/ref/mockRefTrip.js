@@ -23,9 +23,9 @@ export const STICKERS = [
 ];
 
 let seq = 0;
-function exp(date, store, place, category, assignedTo, jpy, scanned) {
+function exp(date, store, place, category, assignedTo, jpy, scanned, time) {
   seq += 1;
-  return {
+  const record = {
     id: `r${seq}`,
     date,
     store,
@@ -39,6 +39,8 @@ function exp(date, store, place, category, assignedTo, jpy, scanned) {
     scanned,
     items: [],
   };
+  if (time !== undefined) record.time = time;
+  return record;
 }
 
 const stop = (id, time, title) => ({ id, time, title, done: false });
@@ -91,9 +93,9 @@ export function createRefTrip() {
       exp('2026-10-21', 'SHIBUYA SKY', '澀谷', '娛樂', '共同', 5400, true),
       exp('2026-10-21', '澀谷 PARCO', '澀谷', '購物', '共同', 29342, true),
       exp('', '燒肉 敘敘苑', '澀谷', '飲食', '共同', 18700, true), // undated: shows in the 帳本 '未有日期' group
-      exp('2026-10-22', '富士急行 河口湖站', '河口湖', '交通', '共同', 5000, true),
-      exp('2026-10-22', 'ほうとう不動 東恋路店', '河口湖', '飲食', 'Oscar', 7400, true),
-      exp('2026-10-22', '天上山纜車', '河口湖', '娛樂', '共同', 8250, false),
+      exp('2026-10-22', '富士急行 河口湖站', '河口湖', '交通', '共同', 5000, true, '09:40'),
+      exp('2026-10-22', 'ほうとう不動 東恋路店', '河口湖', '飲食', 'Oscar', 7400, true, '18:30'),
+      exp('2026-10-22', '天上山纜車', '河口湖', '娛樂', '共同', 8250, false, '12:10'),
     ],
   };
 }

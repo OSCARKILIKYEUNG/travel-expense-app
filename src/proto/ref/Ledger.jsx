@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sparkle, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
-import { filterExpenses, fmtHKD, groupLedger, personCounts, zhDate } from './refLogic';
+import { filterExpenses, fmtHKD, groupLedger, personCounts, undatedHint, zhDate } from './refLogic';
 import { activeFilterCount, tripDates } from './refRules';
 
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
@@ -15,6 +15,7 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
   const [date, setDate] = useState('全部');
   const [sheetOpen, setSheetOpen] = useState(false);
   const filterBtnRef = useRef(null);
+  const undatedLabelRef = useRef(null);
 
   const people = trip.settings?.people || ['共同'];
   const allDates = useMemo(() => {
@@ -26,9 +27,17 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
   const counts = useMemo(() => personCounts(trip.expenses, people), [trip.expenses, people]);
   const shown = filterExpenses(trip.expenses, { person, category, date, query }, people);
   const groups = groupLedger(shown);
+  const hint = undatedHint(groups);
   const total = shown.reduce((s, e) => s + e.hkdAmount, 0);
   const filterCount = activeFilterCount({ category, date });
   const hasAnyFilter = Boolean(query.trim()) || person !== '全部' || filterCount > 0;
+
+  const jumpToUndated = () => {
+    const el = document.querySelector('[data-testid="ledger-group-undated"]');
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    (undatedLabelRef.current || document.getElementById('ledger-undated-label'))?.focus?.({ preventScroll: true });
+  };
 
   const clearAllFilters = () => {
     setQuery('');
@@ -64,6 +73,20 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
           {fmtHKD(total)} · {shown.length} 筆
         </span>
       </div>
+
+      {hint && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            data-testid="ledger-undated-hint"
+            aria-label={`跳到未有日期（${hint.count} 筆）`}
+            onClick={jumpToUndated}
+            className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap rounded-pill border border-coral-ink/30 bg-coral-soft px-3 text-meta font-bold text-coral-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            {hint.label} ›
+          </button>
+        </div>
+      )}
 
       {/* Quick scan / manual add ribbon */}
       <div
@@ -152,7 +175,7 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
 
       <div className="space-y-4">
         {groups.map((g) => (
-          <section key={g.key} data-testid={`ledger-group-${g.key}`} className="space-y-2">
+          <section key={g.key} data-testid={`ledger-group-${g.key}`} className="scroll-mt-20 space-y-2">
             <div className="flex items-center gap-2.5 pt-1">
               {g.iso ? (
                 <button
@@ -163,7 +186,12 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
                   {zhDate(g.iso)}
                 </button>
               ) : (
-                <span className="inline-flex min-h-11 items-center whitespace-nowrap rounded-pill border border-coral-ink/30 bg-coral-soft px-3.5 py-1.5 text-meta font-bold text-coral-ink">
+                <span
+                  ref={undatedLabelRef}
+                  id="ledger-undated-label"
+                  tabIndex={-1}
+                  className="inline-flex min-h-11 items-center whitespace-nowrap rounded-pill border border-coral-ink/30 bg-coral-soft px-3.5 py-1.5 text-meta font-bold text-coral-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
                   {g.label}
                 </span>
               )}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRefTrip, REF_PEOPLE, REF_TODAY } from './mockRefTrip';
 import {
   buildAddHash,
+  dayExpenses,
   dayStats,
   dayStrip,
   filterExpenses,
@@ -10,6 +11,7 @@ import {
   parseRoute,
   personCounts,
   shortenTitle,
+  undatedHint,
   zhDate,
 } from './refLogic';
 
@@ -62,13 +64,58 @@ describe('display', () => {
   });
 });
 
-describe('ledger (帳本)', () => {
-  it('puts 未有日期 first, then dates newest first with subtotals', () => {
+describe('ledger (帳本) and dayExpenses', () => {
+  it('puts dated groups newest first and 未有日期 last with unchanged subtotals', () => {
     const g = groupLedger(trip.expenses);
-    expect(g[0]).toMatchObject({ key: 'undated', label: '未有日期' });
-    expect(g[1].iso).toBe('2026-10-22');
-    expect(g[1].total).toBe(1086);
+    expect(g[0].iso).toBe('2026-10-22');
+    expect(g[0].total).toBe(1086);
+    expect(g.slice(0, -1).map((x) => x.iso)).toEqual([
+      '2026-10-22',
+      '2026-10-21',
+      '2026-10-20',
+      '2026-10-19',
+      '2026-10-18',
+    ]);
+    expect(g[g.length - 1]).toMatchObject({ key: 'undated', label: '未有日期', iso: null });
     expect(g.reduce((s, x) => s + x.items.length, 0)).toBe(17);
+
+    // Multiple undated items are ordered newest-recorded first
+    const multiUndated = groupLedger([
+      { id: 'u1', date: '', store: 'Old', hkdAmount: 10 },
+      { id: 'u2', date: '', store: 'Middle', hkdAmount: 20 },
+      { id: 'u3', date: '', store: 'Newest', createdAt: '2026-10-23T01:00:00.000Z', hkdAmount: 30 },
+    ]);
+    expect(multiUndated).toHaveLength(1);
+    expect(multiUndated[0].items.map((e) => e.id)).toEqual(['u3', 'u2', 'u1']);
+  });
+  it('computes undatedHint for 0, 1, and 3 undated items', () => {
+    expect(undatedHint(groupLedger(trip.expenses.filter((e) => e.date)))).toBeNull();
+    expect(undatedHint(groupLedger(trip.expenses))).toEqual({
+      count: 1,
+      label: '1 筆未有日期',
+    });
+    const threeUndated = groupLedger([
+      ...trip.expenses,
+      { id: 'u2', date: '', store: 'A', hkdAmount: 50 },
+      { id: 'u3', date: '', store: 'B', hkdAmount: 60 },
+    ]);
+    expect(undatedHint(threeUndated)).toEqual({
+      count: 3,
+      label: '3 筆未有日期',
+    });
+  });
+  it('orders dayExpenses newest first (by time on 10-22, by recorded order on 10-20)', () => {
+    expect(dayExpenses(trip.expenses, '2026-10-22').map((e) => e.store)).toEqual([
+      'ほうとう不動 東恋路店',
+      '天上山纜車',
+      '富士急行 河口湖站',
+    ]);
+    expect(dayExpenses(trip.expenses, '2026-10-20').map((e) => e.store)).toEqual([
+      'UNIQLO 銀座',
+      'Suica 增值',
+      '壽司 銀座 久兵衛',
+      '銀座 伊東屋',
+    ]);
   });
   it('filters by person, category, date and search', () => {
     const day = trip.expenses.filter((e) => e.date === '2026-10-22');

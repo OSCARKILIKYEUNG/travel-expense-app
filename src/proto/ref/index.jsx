@@ -241,8 +241,14 @@ export default function RefProto() {
     const previousRecord = isEdit ? trip.expenses.find((x) => x.id === data.id) || null : null;
     const normalizedDate = data.date ? normalizeDate(data.date) || '' : '';
     const savedRecord = isEdit
-      ? { ...(previousRecord || {}), ...data, id: savedId, date: normalizedDate }
-      : { ...data, id: savedId, date: normalizedDate, items: [] };
+      ? {
+          ...(previousRecord || {}),
+          ...data,
+          id: savedId,
+          date: normalizedDate,
+          ...(previousRecord?.createdAt !== undefined ? { createdAt: previousRecord.createdAt } : {}),
+        }
+      : { ...data, id: savedId, date: normalizedDate, createdAt: new Date().toISOString(), items: [] };
 
     updateActiveTrip((t) => {
       if (isEdit) {

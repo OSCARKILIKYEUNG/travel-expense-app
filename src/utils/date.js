@@ -44,11 +44,64 @@ export function parseExpenseDate(dateStr) {
   return new Date(dateStr);
 }
 
+export function expenseTimeMinutes(e) {
+  if (!e) return null;
+  const raw = e.time || e.receiptTime;
+  if (raw == null) return null;
+  const m = String(raw).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
+export function expenseRecordedAt(e) {
+  if (!e) return -Infinity;
+  if (e.createdAt != null && e.createdAt !== '') {
+    const parsed = Date.parse(e.createdAt);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  if (typeof e.id === 'number' && Number.isFinite(e.id) && e.id >= 1e12) {
+    return e.id;
+  }
+  if (e.id != null) {
+    const m = String(e.id).match(/\d{13}/);
+    if (m) return Number(m[0]);
+  }
+  return -Infinity;
+}
+
+/**
+ * Sort expenses newest date first. Within the same day: timed before untimed,
+ * timed by minutes desc, then expenseRecordedAt desc, then original input index desc.
+ */
 export function sortExpenses(list) {
-  return [...list].sort((a, b) => {
-    const da = parseExpenseDate(a.date);
-    const db = parseExpenseDate(b.date);
-    if (da.getTime() !== db.getTime()) return db.getTime() - da.getTime();
-    return a.hkdAmount - b.hkdAmount;
-  });
+  return [...list]
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const da = parseExpenseDate(a.item.date).getTime();
+      const db = parseExpenseDate(b.item.date).getTime();
+      const aNaN = Number.isNaN(da);
+      const bNaN = Number.isNaN(db);
+      if (aNaN !== bNaN) return db - da;
+      if (!aNaN && da !== db) return db - da;
+
+      const ma = expenseTimeMinutes(a.item);
+      const mb = expenseTimeMinutes(b.item);
+      if (ma !== null && mb !== null) {
+        if (ma !== mb) return mb - ma;
+      } else if (ma !== null) {
+        return -1;
+      } else if (mb !== null) {
+        return 1;
+      }
+
+      const ra = expenseRecordedAt(a.item);
+      const rb = expenseRecordedAt(b.item);
+      if (ra !== rb) return rb - ra;
+
+      return b.index - a.index;
+    })
+    .map((entry) => entry.item);
 }

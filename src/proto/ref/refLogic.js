@@ -89,12 +89,11 @@ export function filterExpenses(list, { person = '全部', category = '全部', d
   });
 }
 
-/** Ledger groups: 未有日期 first, then dates newest first, each with an HKD subtotal. */
+/** Ledger groups: dated groups first (newest date first, items in sortExpenses order), then 未有日期 last (items newest-recorded first), each with an HKD subtotal. */
 export function groupLedger(list) {
-  const undated = list.filter((e) => !e.date);
+  const undated = sortExpenses(list.filter((e) => !e.date));
   const dated = sortExpenses(list.filter((e) => e.date));
   const groups = [];
-  if (undated.length) groups.push({ key: 'undated', label: '未有日期', iso: null, items: undated });
   for (const e of dated) {
     const key = expenseDateKey(e.date);
     let g = groups[groups.length - 1];
@@ -104,7 +103,15 @@ export function groupLedger(list) {
     }
     g.items.push(e);
   }
+  if (undated.length) groups.push({ key: 'undated', label: '未有日期', iso: null, items: undated });
   return groups.map((g) => ({ ...g, total: g.items.reduce((s, e) => s + Number(e.hkdAmount || 0), 0) }));
+}
+
+export function undatedHint(groups) {
+  const g = (groups || []).find((x) => x && x.key === 'undated');
+  const count = g?.items?.length || 0;
+  if (!count) return null;
+  return { count, label: `${count} 筆未有日期` };
 }
 
 /** One person predicate for day chips, day list and ledger (F8): blank assignee counts as 共同; line-item assignees also match. */
@@ -117,4 +124,8 @@ export function matchesPerson(e, person, people = []) {
 /** Expenses on a calendar day, joined by expenseDateKey so stored '2026年10月22日' strings match '2026-10-22' (F1). */
 export function expensesOn(expenses, iso) {
   return (expenses || []).filter((e) => e.date && expenseDateKey(e.date) === iso);
+}
+
+export function dayExpenses(expenses, iso) {
+  return sortExpenses(expensesOn(expenses, iso));
 }

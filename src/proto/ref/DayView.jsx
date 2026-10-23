@@ -3,7 +3,7 @@ import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS } from './mockRefTrip';
 import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
-import { dayStats, dayStrip, expensesOn, fmtHKD, matchesPerson, personCounts } from './refLogic';
+import { dayExpenses, dayStats, dayStrip, fmtHKD, matchesPerson, personCounts } from './refLogic';
 import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
 
 const PANES = ['itinerary', 'expenses'];
@@ -651,7 +651,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
 function DayExpenses({ trip, iso, inTrip, stats, highlightId, onReturnToTrip, onAdd, onEdit, onDelete }) {
   const [person, setPerson] = useState('全部');
   const people = trip.settings?.people || ['共同'];
-  const list = useMemo(() => expensesOn(trip.expenses, iso), [trip.expenses, iso]);
+  const list = useMemo(() => dayExpenses(trip.expenses, iso), [trip.expenses, iso]);
   const counts = personCounts(list, people);
   const shown = list.filter((e) => matchesPerson(e, person, people));
   return (
