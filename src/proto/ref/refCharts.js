@@ -1,5 +1,6 @@
 import { addDays } from '../shared/dates';
 import { expenseDateKey, sortExpenses } from '../../utils/date';
+import { resolveAssigneeDisplay } from '../../utils/people';
 import { REF_CATEGORIES } from './mockRefTrip';
 
 function diffDays(fromIso, toIso) {
@@ -332,6 +333,56 @@ export function settleUp(expenses, people) {
   }
 
   return { rows, transfers };
+}
+
+/**
+ * Group expenses by assignee (`assignedTo`, blank resolved via `resolveAssigneeDisplay`)
+ * and attach each participant's total share (`owed` from `settleUp`).
+ * @param {Array} expenses
+ * @param {string[]} people
+ * @returns {{ total: number, rows: Array<{ person: string, total: number, count: number, pct: number }>, shares: Array<{ person: string, share: number }> }}
+ */
+export function assigneeSplit(expenses, people) {
+  const peopleList = (Array.isArray(people) ? people : [])
+    .map((p) => String(p ?? '').trim())
+    .filter(Boolean);
+
+  const buckets = new Map();
+  if (peopleList.includes('共同')) {
+    buckets.set('共同', { total: 0, count: 0 });
+  }
+  for (const p of peopleList) {
+    if (p !== '共同' && !buckets.has(p)) {
+      buckets.set(p, { total: 0, count: 0 });
+    }
+  }
+
+  let grand = 0;
+  for (const e of expenses || []) {
+    const amt = Number(e?.hkdAmount || 0);
+    const who = resolveAssigneeDisplay(e?.assignedTo, peopleList);
+    if (!buckets.has(who)) {
+      buckets.set(who, { total: 0, count: 0 });
+    }
+    const bucket = buckets.get(who);
+    bucket.total += amt;
+    bucket.count += 1;
+    grand += amt;
+  }
+
+  const rows = Array.from(buckets.entries()).map(([person, { total, count }]) => ({
+    person,
+    total,
+    count,
+    pct: grand > 0 ? Math.round((total / grand) * 100) : 0,
+  }));
+
+  const shares = settleUp(expenses, peopleList).rows.map((r) => ({
+    person: r.person,
+    share: r.owed,
+  }));
+
+  return { total: grand, rows, shares };
 }
 
 /**

@@ -4,6 +4,7 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import { CATEGORY_DOT, Sparkle, Tape } from './parts';
 import { fmtHKD, groupLedger } from './refLogic';
 import {
+  assigneeSplit,
   categorySplit,
   chartsMode,
   dailyStacks,
@@ -68,6 +69,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
   const cats = useMemo(() => categorySplit(expenses, REF_CATEGORIES), [expenses]);
   const daily = useMemo(() => dailyStacks(expenses, trip, today, REF_CATEGORIES), [expenses, trip, today]);
   const top5 = useMemo(() => topExpenses(expenses, 5), [expenses]);
+  const assignee = useMemo(() => assigneeSplit(expenses, people), [expenses, people]);
   const settlement = useMemo(() => settleUp(expenses, people), [expenses, people]);
 
   const total = useMemo(() => expenses.reduce((s, e) => s + Number(e?.hkdAmount || 0), 0), [expenses]);
@@ -422,6 +424,58 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
     </section>
   );
 
+  const assigneeSection = (
+    <section key="assignee" data-section="assignee" className="paper-panel space-y-2.5 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="whitespace-nowrap font-display text-lg text-ink">人物花費分配</h2>
+        <span className="whitespace-nowrap text-meta text-ink-muted">點按睇帳本</span>
+      </div>
+
+      <div className="space-y-2">
+        {assignee.rows.map((row) => {
+          const pIdx = participants.indexOf(row.person);
+          const fillTone =
+            row.person === '共同'
+              ? 'bg-teal-strong'
+              : pIdx === 0
+                ? 'bg-coral'
+                : pIdx === 1
+                  ? 'bg-mustard'
+                  : 'bg-sage';
+          const barPct = row.total > 0 ? Math.min(100, Math.max(4, row.pct)) : 0;
+          return (
+            <button
+              key={row.person}
+              type="button"
+              data-testid={`chart-assignee-${row.person}`}
+              onClick={() => onOpenLedger?.({ person: row.person })}
+              className="min-h-11 w-full space-y-1.5 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            >
+              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                <span className="truncate text-meta font-bold text-ink">{row.person}</span>
+                <span className="shrink-0 font-mono text-sm font-bold text-ink">
+                  {hk(row.total)} · {row.count} 筆
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-pill bg-beige">
+                <div
+                  className={`h-full rounded-pill transition-all ${fillTone}`}
+                  style={{ width: `${barPct}%` }}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {assignee.shares.length > 0 && (
+        <p data-testid="chart-assignee-shares" className="truncate whitespace-nowrap text-meta text-ink-muted">
+          連共同攤分：{assignee.shares.map((s) => `${s.person} ${hk(s.share)}`).join(' · ')}
+        </p>
+      )}
+    </section>
+  );
+
   const settleSection = (
     <section key="settle" data-section="settle" className="paper-panel space-y-2.5 p-4">
       <h2 className="whitespace-nowrap font-display text-lg text-ink">夾錢結算</h2>
@@ -482,8 +536,8 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
 
   const sections =
     mode === 'review'
-      ? [categorySection, top5Section, summarySection, paymentSection, dailySection, settleSection]
-      : [todaySection || summarySection, paymentSection, categorySection, dailySection, settleSection];
+      ? [categorySection, top5Section, summarySection, paymentSection, dailySection, assigneeSection, settleSection]
+      : [todaySection || summarySection, paymentSection, categorySection, dailySection, assigneeSection, settleSection];
 
   return (
     <div data-testid="page-charts" className="space-y-4 px-4 pb-6 pt-4">

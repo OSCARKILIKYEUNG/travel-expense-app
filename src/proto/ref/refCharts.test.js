@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRefTrip, REF_CATEGORIES, REF_TODAY } from './mockRefTrip';
 import {
+  assigneeSplit,
   categorySplit,
   chartsMode,
   dailyStacks,
@@ -215,5 +216,60 @@ describe('settleUp & ledgerHash', () => {
     expect(ledgerHash({ category: '飲食', payer: 'Oscar', focus: 'r9' })).toBe(
       `ledger&${new URLSearchParams({ cat: '飲食', payer: 'Oscar', focus: 'r9' }).toString()}`,
     );
+  });
+});
+
+describe('assigneeSplit', () => {
+  it('matches Tokyo mock oracle (共同 8781/10, Oscar 1926/5, 阿明 515/2; shares 6316.5 & 4905.5)', () => {
+    const res = assigneeSplit(trip.expenses, trip.settings.people);
+    expect(res.total).toBe(11222);
+    expect(res.rows).toEqual([
+      { person: '共同', total: 8781, count: 10, pct: 78 },
+      { person: 'Oscar', total: 1926, count: 5, pct: 17 },
+      { person: '阿明', total: 515, count: 2, pct: 5 },
+    ]);
+    expect(res.shares).toEqual([
+      { person: 'Oscar', share: 6316.5 },
+      { person: '阿明', share: 4905.5 },
+    ]);
+    expect(res.rows.reduce((s, r) => s + r.total, 0)).toBe(11222);
+    expect(res.shares.reduce((s, x) => s + x.share, 0)).toBe(11222);
+
+    const settled = settleUp(trip.expenses, trip.settings.people);
+    expect(res.shares).toEqual(settled.rows.map((r) => ({ person: r.person, share: r.owed })));
+  });
+
+  it('counts blank assignedTo as 共同, keeps 0 rows for people with no spend, and lists unknown assignees last', () => {
+    const people = ['Oscar', '共同', '阿明', 'May'];
+    const expenses = [
+      { id: '1', hkdAmount: 200, payer: 'Oscar', assignedTo: '' },
+      { id: '2', hkdAmount: 100, payer: 'Oscar', assignedTo: 'Oscar' },
+      { id: '3', hkdAmount: 100, payer: 'Oscar', assignedTo: '小美' },
+    ];
+    const res = assigneeSplit(expenses, people);
+    expect(res.total).toBe(400);
+    expect(res.rows).toEqual([
+      { person: '共同', total: 200, count: 1, pct: 50 },
+      { person: 'Oscar', total: 100, count: 1, pct: 25 },
+      { person: '阿明', total: 0, count: 0, pct: 0 },
+      { person: 'May', total: 0, count: 0, pct: 0 },
+      { person: '小美', total: 100, count: 1, pct: 25 },
+    ]);
+  });
+
+  it('returns total 0 and all pct 0 for empty expenses', () => {
+    const res = assigneeSplit([], ['共同', 'Oscar', '阿明']);
+    expect(res).toEqual({
+      total: 0,
+      rows: [
+        { person: '共同', total: 0, count: 0, pct: 0 },
+        { person: 'Oscar', total: 0, count: 0, pct: 0 },
+        { person: '阿明', total: 0, count: 0, pct: 0 },
+      ],
+      shares: [
+        { person: 'Oscar', share: 0 },
+        { person: '阿明', share: 0 },
+      ],
+    });
   });
 });
