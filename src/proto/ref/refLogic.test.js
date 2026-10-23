@@ -24,9 +24,18 @@ describe('ref routes (two-pane day view)', () => {
     expect(parseRoute('#day=2026-10-22&pane=expenses').pane).toBe('expenses');
     expect(parseRoute('#day=2026-10-22&pane=itinerary&edit=1').edit).toBe(true);
   });
-  it('parses add, ledger and home', () => {
+  it('parses add, ledger (with filter/focus params) and home', () => {
     expect(parseRoute('#add&date=2026-10-22&scan=1')).toEqual({ screen: 'add', date: '2026-10-22', scan: true, expenseId: null });
-    expect(parseRoute('#ledger').screen).toBe('ledger');
+    expect(parseRoute('#ledger')).toEqual({
+      screen: 'ledger',
+      filters: { category: '全部', payment: '全部', payer: '全部', person: '全部' },
+      focus: null,
+    });
+    expect(parseRoute('#ledger&cat=飲食&pay=card&payer=Oscar&person=阿明&focus=r9')).toEqual({
+      screen: 'ledger',
+      filters: { category: '飲食', payment: 'card', payer: 'Oscar', person: '阿明' },
+      focus: 'r9',
+    });
     expect(parseRoute('').screen).toBe('home');
   });
   it('builds day-view 掃描收據 / 記一筆 routes with the selected day iso (not REF_TODAY)', () => {
@@ -117,12 +126,17 @@ describe('ledger (帳本) and dayExpenses', () => {
       '銀座 伊東屋',
     ]);
   });
-  it('filters by person, category, date and search', () => {
+  it('filters by person, category, date, payment, payer and search', () => {
     const day = trip.expenses.filter((e) => e.date === '2026-10-22');
     expect(personCounts(day, REF_PEOPLE)).toEqual({ 全部: 3, 共同: 2, Oscar: 1, 阿明: 0 });
     expect(filterExpenses(trip.expenses, { person: '阿明' }, REF_PEOPLE)).toHaveLength(2);
     expect(filterExpenses(trip.expenses, { category: '交通' }, REF_PEOPLE)).toHaveLength(3);
     expect(filterExpenses(trip.expenses, { date: 'undated' }, REF_PEOPLE)).toHaveLength(1);
     expect(filterExpenses(trip.expenses, { query: '河口湖' }, REF_PEOPLE)).toHaveLength(3);
+    expect(filterExpenses(trip.expenses, { payment: 'cash' }, REF_PEOPLE)).toHaveLength(8);
+    expect(filterExpenses(trip.expenses, { payment: 'card' }, REF_PEOPLE)).toHaveLength(9);
+    expect(filterExpenses(trip.expenses, { payer: 'Oscar' }, REF_PEOPLE)).toHaveLength(10);
+    expect(filterExpenses(trip.expenses, { payer: '阿明' }, REF_PEOPLE)).toHaveLength(7);
+    expect(filterExpenses(trip.expenses, { payment: 'card', payer: 'Oscar' }, REF_PEOPLE)).toHaveLength(5);
   });
 });

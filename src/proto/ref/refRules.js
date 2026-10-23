@@ -35,6 +35,56 @@ export function parseHHMM(raw) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+/** Format local Date as zero-padded 'HH:MM' for new expense default time. */
+export function defaultTime(now = new Date()) {
+  if (typeof now === 'string' && parseHHMM(now)) return parseHHMM(now);
+  const dt = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+}
+
+/** First person in `people` other than '共同', else ''. */
+export function defaultPayer(people) {
+  if (!Array.isArray(people)) return '';
+  const found = people.find((p) => p && String(p).trim() && String(p).trim() !== '共同');
+  return found ? String(found).trim() : '';
+}
+
+/** Default payment method: trip.lastPayment ('cash'|'card'), else last valid expense payment, else 'cash'. */
+export function defaultPayment(trip) {
+  if (trip?.lastPayment === 'cash' || trip?.lastPayment === 'card') {
+    return trip.lastPayment;
+  }
+  const list = Array.isArray(trip?.expenses) ? trip.expenses : [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const p = list[i]?.payment;
+    if (p === 'cash' || p === 'card') return p;
+  }
+  return 'cash';
+}
+
+/** Set or clear trip budget (positive integer HKD or null). Pure. */
+export function setBudget(trip, raw) {
+  if (!trip) return trip;
+  let budget = null;
+  if (raw != null && typeof raw !== 'boolean') {
+    const cleaned = String(raw).replace(/[,\s]/g, '');
+    if (cleaned !== '') {
+      const num = Number(cleaned);
+      if (Number.isFinite(num)) {
+        const rounded = Math.round(num);
+        if (rounded > 0) budget = rounded;
+      }
+    }
+  }
+  return {
+    ...trip,
+    settings: {
+      ...trip.settings,
+      budget,
+    },
+  };
+}
+
 /**
  * P0-1: Check whether a time input entry is invalid.
  * - empty + not badInput -> false (valid untimed stop)
@@ -241,12 +291,19 @@ export function saveBlockReason({ amount, store } = {}) {
 }
 
 /**
- * P1-6: Count active non-'全部' filters in the filter sheet (category + date).
+ * P1-6: Count active non-'全部' filters in the filter sheet (category, date, payment, payer).
  */
-export function activeFilterCount({ category = '全部', date = '全部' } = {}) {
+export function activeFilterCount({
+  category = '全部',
+  date = '全部',
+  payment = '全部',
+  payer = '全部',
+} = {}) {
   let count = 0;
   if (category && category !== '全部') count += 1;
   if (date && date !== '全部') count += 1;
+  if (payment && payment !== '全部') count += 1;
+  if (payer && payer !== '全部') count += 1;
   return count;
 }
 
@@ -385,7 +442,7 @@ export function buildReport(trip) {
 }
 
 /**
- * P1-8: Rename a person in `trip.settings.people` and update matching `expense.assignedTo` (and line items).
+ * P1-8: Rename a person in `trip.settings.people` and update matching `expense.assignedTo`, `expense.payer` (and line items).
  * Rejects blank, unchanged, '共同', or duplicate names by returning `trip` unchanged.
  */
 export function renamePerson(trip, from, to) {
@@ -406,6 +463,7 @@ export function renamePerson(trip, from, to) {
     expenses: (trip.expenses || []).map((e) => ({
       ...e,
       assignedTo: e.assignedTo === cleanFrom ? cleanTo : e.assignedTo,
+      ...(e.payer !== undefined ? { payer: e.payer === cleanFrom ? cleanTo : e.payer } : {}),
       items: Array.isArray(e.items)
         ? e.items.map((it) => (it?.assignedTo === cleanFrom ? { ...it, assignedTo: cleanTo } : it))
         : e.items,
@@ -433,7 +491,8 @@ export function addPerson(trip, name) {
 
 /**
  * P1-8: Remove a person from `trip.settings.people`.
- * '共同' cannot be removed; expenses of the removed person are reassigned to '共同'.
+ * '共同' cannot be removed; expenses of the removed person are reassigned to '共同';
+ * expenses whose `payer` is removed get `payer` = first remaining non-共同 person (or '').
  */
 export function removePerson(trip, name) {
   if (!trip) return trip;
@@ -441,15 +500,19 @@ export function removePerson(trip, name) {
   const people = trip.settings?.people || [];
   if (!target || target === '共同' || !people.includes(target)) return trip;
 
+  const remainingPeople = people.filter((p) => p !== target);
+  const fallbackPayer = defaultPayer(remainingPeople);
+
   return {
     ...trip,
     settings: {
       ...trip.settings,
-      people: people.filter((p) => p !== target),
+      people: remainingPeople,
     },
     expenses: (trip.expenses || []).map((e) => ({
       ...e,
       assignedTo: e.assignedTo === target ? '共同' : e.assignedTo,
+      ...(e.payer === target ? { payer: fallbackPayer } : {}),
       items: Array.isArray(e.items)
         ? e.items.map((it) => (it?.assignedTo === target ? { ...it, assignedTo: '共同' } : it))
         : e.items,

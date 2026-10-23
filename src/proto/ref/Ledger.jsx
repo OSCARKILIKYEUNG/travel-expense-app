@@ -8,16 +8,28 @@ import { filterExpenses, fmtHKD, groupLedger, personCounts, undatedHint, zhDate 
 import { activeFilterCount, tripDates } from './refRules';
 
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
-export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDelete, onOpenDay }) {
+export default function Ledger({
+  trip,
+  initialFilters,
+  highlightId,
+  onScan,
+  onAdd,
+  onEdit,
+  onDelete,
+  onOpenDay,
+}) {
   const [query, setQuery] = useState('');
-  const [person, setPerson] = useState('全部');
-  const [category, setCategory] = useState('全部');
-  const [date, setDate] = useState('全部');
+  const [person, setPerson] = useState(() => initialFilters?.person || '全部');
+  const [category, setCategory] = useState(() => initialFilters?.category || '全部');
+  const [date, setDate] = useState(() => initialFilters?.date || '全部');
+  const [payment, setPayment] = useState(() => initialFilters?.payment || '全部');
+  const [payer, setPayer] = useState(() => initialFilters?.payer || '全部');
   const [sheetOpen, setSheetOpen] = useState(false);
   const filterBtnRef = useRef(null);
   const undatedLabelRef = useRef(null);
 
   const people = trip.settings?.people || ['共同'];
+  const nonSharedPeople = useMemo(() => people.filter((p) => p && p !== '共同'), [people]);
   const allDates = useMemo(() => {
     const fromTrip = tripDates(trip);
     const fromExpenses = trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date));
@@ -25,11 +37,11 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
   }, [trip]);
 
   const counts = useMemo(() => personCounts(trip.expenses, people), [trip.expenses, people]);
-  const shown = filterExpenses(trip.expenses, { person, category, date, query }, people);
+  const shown = filterExpenses(trip.expenses, { person, category, date, query, payment, payer }, people);
   const groups = groupLedger(shown);
   const hint = undatedHint(groups);
   const total = shown.reduce((s, e) => s + e.hkdAmount, 0);
-  const filterCount = activeFilterCount({ category, date });
+  const filterCount = activeFilterCount({ category, date, payment, payer });
   const hasAnyFilter = Boolean(query.trim()) || person !== '全部' || filterCount > 0;
 
   const jumpToUndated = () => {
@@ -44,6 +56,8 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
     setPerson('全部');
     setCategory('全部');
     setDate('全部');
+    setPayment('全部');
+    setPayer('全部');
   };
 
   const closeSheet = () => {
@@ -270,6 +284,42 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
               </div>
 
               <div className="space-y-2">
+                <p className="whitespace-nowrap text-meta font-bold text-ink-muted">付款方式</p>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="付款方式">
+                  {[
+                    { id: '全部', label: '全部' },
+                    { id: 'cash', label: '現金' },
+                    { id: 'card', label: '卡' },
+                  ].map((opt) => (
+                    <Chip
+                      key={opt.id}
+                      testid={`filter-pay-${opt.id}`}
+                      active={payment === opt.id}
+                      onClick={() => setPayment(opt.id)}
+                    >
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="whitespace-nowrap text-meta font-bold text-ink-muted">邊個俾錢</p>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="邊個俾錢">
+                  {['全部', ...nonSharedPeople].map((p) => (
+                    <Chip
+                      key={p}
+                      testid={`filter-payer-${p}`}
+                      active={payer === p}
+                      onClick={() => setPayer(p)}
+                    >
+                      {p}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <p className="whitespace-nowrap text-meta font-bold text-ink-muted">日期</p>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="日期">
                   <Chip
@@ -306,6 +356,8 @@ export default function Ledger({ trip, highlightId, onScan, onAdd, onEdit, onDel
                   onClick={() => {
                     setCategory('全部');
                     setDate('全部');
+                    setPayment('全部');
+                    setPayer('全部');
                   }}
                   className="btn-secondary min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
                 >

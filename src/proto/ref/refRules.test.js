@@ -9,6 +9,9 @@ import {
   countRecomputed,
   dayNav,
   defaultExpenseDate,
+  defaultPayer,
+  defaultPayment,
+  defaultTime,
   exportBackupJSON,
   exportTripJSON,
   isTimeEntryInvalid,
@@ -21,6 +24,7 @@ import {
   resolveToday,
   saveBlockReason,
   saveToastMessage,
+  setBudget,
   setRate,
   shouldKeepToastOnRoute,
   sortStops,
@@ -195,11 +199,55 @@ describe('P1-3 & P1-4: postSaveTarget & saveToastMessage', () => {
 });
 
 describe('P1-6: activeFilterCount', () => {
-  it('counts non-全部 filters across category and date', () => {
+  it('counts non-全部 filters across category, date, payment, and payer', () => {
     expect(activeFilterCount({ category: '全部', date: '全部' })).toBe(0);
     expect(activeFilterCount({ category: '飲食', date: '全部' })).toBe(1);
     expect(activeFilterCount({ category: '全部', date: 'undated' })).toBe(1);
     expect(activeFilterCount({ category: '購物', date: '2026-10-20' })).toBe(2);
+    expect(activeFilterCount({ category: '飲食', date: '全部', payment: 'card', payer: 'Oscar' })).toBe(3);
+    expect(activeFilterCount({ category: '購物', date: '2026-10-20', payment: 'cash', payer: '阿明' })).toBe(4);
+  });
+});
+
+describe('r7 rules: defaultTime, defaultPayer, defaultPayment, setBudget', () => {
+  it('formats defaultTime from a fixed Date to zero-padded HH:MM', () => {
+    expect(defaultTime(new Date(2026, 9, 23, 9, 5))).toBe('09:05');
+    expect(defaultTime(new Date(2026, 9, 23, 18, 30))).toBe('18:30');
+  });
+
+  it('picks first non-共同 person in defaultPayer or empty string', () => {
+    expect(defaultPayer(['共同', 'Oscar', '阿明'])).toBe('Oscar');
+    expect(defaultPayer(['阿明', 'Oscar'])).toBe('阿明');
+    expect(defaultPayer(['共同'])).toBe('');
+    expect(defaultPayer([])).toBe('');
+  });
+
+  it('resolves defaultPayment: lastPayment wins, else last valid item payment, else cash', () => {
+    const trip = createRefTrip(); // last item r17 is cash
+    expect(defaultPayment(trip)).toBe('cash');
+    expect(defaultPayment({ ...trip, lastPayment: 'card' })).toBe('card');
+    expect(
+      defaultPayment({
+        expenses: [
+          { id: '1', payment: 'cash' },
+          { id: '2', payment: 'card' },
+        ],
+      }),
+    ).toBe('card');
+    expect(defaultPayment({ expenses: [] })).toBe('cash');
+    expect(defaultPayment({})).toBe('cash');
+  });
+
+  it('sets positive integer budget or null on empty/invalid/non-positive in setBudget', () => {
+    const trip = createRefTrip();
+    expect(setBudget(trip, 20000).settings.budget).toBe(20000);
+    expect(setBudget(trip, '15,000').settings.budget).toBe(15000);
+    expect(setBudget(trip, ' 18,500 ').settings.budget).toBe(18500);
+    expect(setBudget(trip, '').settings.budget).toBeNull();
+    expect(setBudget(trip, '0').settings.budget).toBeNull();
+    expect(setBudget(trip, -100).settings.budget).toBeNull();
+    expect(setBudget(trip, 'abc').settings.budget).toBeNull();
+    expect(setBudget(trip, null).settings.budget).toBeNull();
   });
 });
 
@@ -261,9 +309,11 @@ describe('P1-8: exports, report, people management, and exchange rate', () => {
     expect(renamed.settings.people).toEqual(['共同', '小奧', '阿明']);
     expect(renamed.expenses.filter((e) => e.assignedTo === 'Oscar')).toHaveLength(0);
     expect(renamed.expenses.filter((e) => e.assignedTo === '小奧').length).toBeGreaterThan(0);
+    expect(renamed.expenses.filter((e) => e.payer === 'Oscar')).toHaveLength(0);
+    expect(renamed.expenses.filter((e) => e.payer === '小奧')).toHaveLength(10);
   });
 
-  it('adds a person with duplicate/blank validation and removes a person while keeping 共同', () => {
+  it('adds a person with duplicate/blank validation and removes a person while keeping 共同 and reassigning payer', () => {
     const trip = createRefTrip();
     expect(addPerson(trip, '')).toBe(trip);
     expect(addPerson(trip, 'Oscar')).toBe(trip);
@@ -277,6 +327,12 @@ describe('P1-8: exports, report, people management, and exchange rate', () => {
     expect(afterRemove.settings.people).toEqual(['共同', '阿明']);
     expect(afterRemove.expenses.filter((e) => e.assignedTo === 'Oscar')).toHaveLength(0);
     expect(afterRemove.expenses.filter((e) => e.assignedTo === '共同')).toHaveLength(sharedBefore + oscarCount);
+    expect(afterRemove.expenses.filter((e) => e.payer === 'Oscar')).toHaveLength(0);
+    expect(afterRemove.expenses.every((e) => e.payer === '阿明')).toBe(true);
+
+    const afterRemoveAll = removePerson(afterRemove, '阿明');
+    expect(afterRemoveAll.settings.people).toEqual(['共同']);
+    expect(afterRemoveAll.expenses.every((e) => e.payer === '')).toBe(true);
   });
 
   it('setRate rejects 0/negative/NaN and recomputes JPY hkdAmount on valid rate', () => {

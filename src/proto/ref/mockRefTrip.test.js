@@ -1,15 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { createRefTrip, monthGridSunday, REF_TODAY } from './mockRefTrip';
+import { createOsakaTrip, createRefTrip, monthGridSunday, REF_TODAY } from './mockRefTrip';
 import { capCellNote, dayCounter, spendOnDate } from '../shared/display';
 
 describe('reference mock trip', () => {
   const trip = createRefTrip();
-  it('matches the reference totals', () => {
+  it('matches the reference totals and budget / payer / payment seeds', () => {
     expect(trip.expenses).toHaveLength(17);
     expect(trip.expenses.reduce((s, e) => s + e.originalAmount, 0)).toBe(213352);
     expect(trip.expenses.reduce((s, e) => s + e.hkdAmount, 0)).toBe(11222);
     expect(spendOnDate(trip.expenses, REF_TODAY)).toBe(1086);
     expect(trip.expenses.filter((e) => !e.date)).toHaveLength(1);
+    expect(trip.settings.budget).toBe(15000);
+    for (const e of trip.expenses) {
+      expect(['Oscar', '阿明']).toContain(e.payer);
+      expect(['cash', 'card']).toContain(e.payment);
+    }
+
+    const osaka = createOsakaTrip();
+    expect(osaka.settings.budget).toBeNull();
+    for (const e of osaka.expenses) {
+      expect(['Oscar', '阿明']).toContain(e.payer);
+      expect(['cash', 'card']).toContain(e.payment);
+    }
   });
   it('shows Day 5 of 10 on 10/22', () => {
     expect(dayCounter(trip, REF_TODAY).label).toBe('第 5 日／共 10 日');

@@ -23,7 +23,7 @@ export const STICKERS = [
 ];
 
 let seq = 0;
-function exp(date, store, place, category, assignedTo, jpy, scanned, time) {
+function exp(date, store, place, category, assignedTo, jpy, scanned, time, payer, payment) {
   seq += 1;
   const record = {
     id: `r${seq}`,
@@ -37,6 +37,8 @@ function exp(date, store, place, category, assignedTo, jpy, scanned, time) {
     originalAmount: jpy,
     hkdAmount: Math.round(jpy * REF_RATE),
     scanned,
+    payer,
+    payment,
     items: [],
   };
   if (time !== undefined) record.time = time;
@@ -54,7 +56,7 @@ export function createRefTrip() {
     endDate: '2026-10-27',
     tripCurrency: 'JPY',
     accountingCurrency: 'HKD',
-    settings: { people: [...REF_PEOPLE], rate: REF_RATE },
+    settings: { people: [...REF_PEOPLE], rate: REF_RATE, budget: 15000 },
     days: {
       '2026-10-18': { title: '抵達東京', note: '成田', sticker: null, journal: '', itinerary: [stop('s1', '15:10', '成田機場 Skyliner'), stop('s2', '18:00', '入住淺草酒店')] },
       '2026-10-19': { title: '淺草散步', note: '淺草', sticker: null, journal: '', itinerary: [stop('s3', '09:00', '雷門打卡'), stop('s4', '16:00', '晴空塔展望台')] },
@@ -79,28 +81,28 @@ export function createRefTrip() {
       '2026-10-27': { title: '回程', note: '回程', sticker: null, journal: '', itinerary: [stop('s17', '14:20', '羽田機場 回港')] },
     },
     expenses: [
-      exp('2026-10-18', '成田機場 Skyliner', '成田', '交通', '共同', 5160, true),
-      exp('2026-10-18', '7-Eleven 成田空港店', '成田', '飲食', 'Oscar', 1980, true),
-      exp('2026-10-18', '淺草 雷門酒店', '淺草', '住宿', '共同', 38600, false),
-      exp('2026-10-18', '一蘭拉麵 淺草店', '淺草', '飲食', '阿明', 2960, true),
-      exp('2026-10-19', '淺草今半 午餐', '淺草', '飲食', '共同', 12800, true),
-      exp('2026-10-19', '仲見世通 手信', '淺草', '購物', 'Oscar', 4350, true),
-      exp('2026-10-19', '晴空塔展望台', '押上', '娛樂', '共同', 7200, true),
-      exp('2026-10-20', '銀座 伊東屋', '銀座', '購物', '阿明', 6820, true),
-      exp('2026-10-20', '壽司 銀座 久兵衛', '銀座', '飲食', '共同', 36500, true),
-      exp('2026-10-20', 'Suica 增值', '銀座', '交通', 'Oscar', 5000, false),
-      exp('2026-10-20', 'UNIQLO 銀座', '銀座', '購物', 'Oscar', 17890, true),
-      exp('2026-10-21', 'SHIBUYA SKY', '澀谷', '娛樂', '共同', 5400, true),
-      exp('2026-10-21', '澀谷 PARCO', '澀谷', '購物', '共同', 29342, true),
-      exp('', '燒肉 敘敘苑', '澀谷', '飲食', '共同', 18700, true), // undated: shows in the 帳本 '未有日期' group
-      exp('2026-10-22', '富士急行 河口湖站', '河口湖', '交通', '共同', 5000, true, '09:40'),
-      exp('2026-10-22', 'ほうとう不動 東恋路店', '河口湖', '飲食', 'Oscar', 7400, true, '18:30'),
-      exp('2026-10-22', '天上山纜車', '河口湖', '娛樂', '共同', 8250, false, '12:10'),
+      exp('2026-10-18', '成田機場 Skyliner', '成田', '交通', '共同', 5160, true, undefined, 'Oscar', 'card'),
+      exp('2026-10-18', '7-Eleven 成田空港店', '成田', '飲食', 'Oscar', 1980, true, undefined, 'Oscar', 'cash'),
+      exp('2026-10-18', '淺草 雷門酒店', '淺草', '住宿', '共同', 38600, false, undefined, 'Oscar', 'card'),
+      exp('2026-10-18', '一蘭拉麵 淺草店', '淺草', '飲食', '阿明', 2960, true, undefined, '阿明', 'cash'),
+      exp('2026-10-19', '淺草今半 午餐', '淺草', '飲食', '共同', 12800, true, undefined, '阿明', 'card'),
+      exp('2026-10-19', '仲見世通 手信', '淺草', '購物', 'Oscar', 4350, true, undefined, 'Oscar', 'cash'),
+      exp('2026-10-19', '晴空塔展望台', '押上', '娛樂', '共同', 7200, true, undefined, '阿明', 'card'),
+      exp('2026-10-20', '銀座 伊東屋', '銀座', '購物', '阿明', 6820, true, undefined, '阿明', 'card'),
+      exp('2026-10-20', '壽司 銀座 久兵衛', '銀座', '飲食', '共同', 36500, true, undefined, 'Oscar', 'card'),
+      exp('2026-10-20', 'Suica 增值', '銀座', '交通', 'Oscar', 5000, false, undefined, 'Oscar', 'cash'),
+      exp('2026-10-20', 'UNIQLO 銀座', '銀座', '購物', 'Oscar', 17890, true, undefined, 'Oscar', 'card'),
+      exp('2026-10-21', 'SHIBUYA SKY', '澀谷', '娛樂', '共同', 5400, true, undefined, '阿明', 'cash'),
+      exp('2026-10-21', '澀谷 PARCO', '澀谷', '購物', '共同', 29342, true, undefined, 'Oscar', 'card'),
+      exp('', '燒肉 敘敘苑', '澀谷', '飲食', '共同', 18700, true, undefined, '阿明', 'card'), // undated: shows in the 帳本 '未有日期' group
+      exp('2026-10-22', '富士急行 河口湖站', '河口湖', '交通', '共同', 5000, true, '09:40', 'Oscar', 'cash'),
+      exp('2026-10-22', 'ほうとう不動 東恋路店', '河口湖', '飲食', 'Oscar', 7400, true, '18:30', 'Oscar', 'cash'),
+      exp('2026-10-22', '天上山纜車', '河口湖', '娛樂', '共同', 8250, false, '12:10', '阿明', 'cash'),
     ],
   };
 }
 
-function osakaExp(id, date, store, place, category, assignedTo, jpy, scanned) {
+function osakaExp(id, date, store, place, category, assignedTo, jpy, scanned, payer, payment) {
   return {
     id,
     date,
@@ -113,6 +115,8 @@ function osakaExp(id, date, store, place, category, assignedTo, jpy, scanned) {
     originalAmount: jpy,
     hkdAmount: Math.round(jpy * REF_RATE),
     scanned,
+    payer,
+    payment,
     items: [],
   };
 }
@@ -125,7 +129,7 @@ export function createOsakaTrip() {
     endDate: '2026-11-15',
     tripCurrency: 'JPY',
     accountingCurrency: 'HKD',
-    settings: { people: [...REF_PEOPLE], rate: REF_RATE },
+    settings: { people: [...REF_PEOPLE], rate: REF_RATE, budget: null },
     days: {
       '2026-11-13': {
         title: '抵達大阪・道頓堀',
@@ -159,11 +163,11 @@ export function createOsakaTrip() {
       },
     },
     expenses: [
-      osakaExp('o1', '2026-11-13', '南海電鐵 Rapi:t', '關西機場', '交通', '共同', 2900, true),
-      osakaExp('o2', '2026-11-13', '道頓堀 くくる章魚燒', '難波', '飲食', 'Oscar', 1200, true),
-      osakaExp('o3', '2026-11-13', '難波 東急 STAY 酒店', '難波', '住宿', '共同', 24000, false),
-      osakaExp('o4', '2026-11-14', '日本環球影城 門票', '此花區', '娛樂', '共同', 18800, true),
-      osakaExp('o5', '2026-11-15', '黑門三平 海鮮丼', '日本橋', '飲食', '阿明', 3600, true),
+      osakaExp('o1', '2026-11-13', '南海電鐵 Rapi:t', '關西機場', '交通', '共同', 2900, true, 'Oscar', 'card'),
+      osakaExp('o2', '2026-11-13', '道頓堀 くくる章魚燒', '難波', '飲食', 'Oscar', 1200, true, 'Oscar', 'cash'),
+      osakaExp('o3', '2026-11-13', '難波 東急 STAY 酒店', '難波', '住宿', '共同', 24000, false, 'Oscar', 'card'),
+      osakaExp('o4', '2026-11-14', '日本環球影城 門票', '此花區', '娛樂', '共同', 18800, true, '阿明', 'card'),
+      osakaExp('o5', '2026-11-15', '黑門三平 海鮮丼', '日本橋', '飲食', '阿明', 3600, true, '阿明', 'cash'),
     ],
   };
 }

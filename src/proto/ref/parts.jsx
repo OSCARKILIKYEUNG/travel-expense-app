@@ -274,6 +274,12 @@ export const Icon = {
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
   ),
+  clock: (c = 'h-4 w-4') => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={c} {...S}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
   check: (c = 'h-4 w-4') => (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={c} {...S}>
       <path d="M20 6L9 17l-5-5" />

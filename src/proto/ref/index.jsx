@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { REF_CATEGORIES, createRefTrips } from './mockRefTrip';
+import { createRefTrips } from './mockRefTrip';
 import {
   buildAddHash,
-  filterExpenses,
   fmtHKD,
   fmtJPY,
-  groupLedger,
-  matchesPerson,
   parseRoute,
   personCounts,
-  zhDate,
 } from './refLogic';
 import {
   TOAST_DURATION_MS,
@@ -18,6 +14,8 @@ import {
   buildReport,
   countRecomputed,
   defaultExpenseDate,
+  defaultPayer,
+  defaultPayment,
   exportBackupJSON,
   exportTripJSON,
   makeUndo,
@@ -27,18 +25,20 @@ import {
   renamePerson,
   resolveToday,
   saveToastMessage,
+  setBudget,
   setRate,
   shouldKeepToastOnRoute,
   switchTripRoute,
   tripMonth,
 } from './refRules';
+import { ledgerHash } from './refCharts';
 import { normalizeDate } from '../../utils/duplicates';
-import { CATEGORY_DOT, Icon, Sakura, Sparkle, Tape, Toast, paperDots, washiNav } from './parts';
+import { Icon, Sakura, Sparkle, Tape, Toast, paperDots, washiNav } from './parts';
 import Home from './Home';
 import DayView from './DayView';
 import Ledger from './Ledger';
 import AddForm from './AddForm';
-import { Chip, ChipRow } from './ExpenseCard';
+import ChartsView from './ChartsView';
 
 /**
  * ?proto=ref — Travel notebook prototype matched to the 390px reference screenshots.
@@ -151,6 +151,12 @@ export default function RefProto() {
   }, [toast, toastPaused]);
 
   useEffect(() => {
+    if (route.screen === 'ledger' && route.focus) {
+      setHighlightId(route.focus);
+    }
+  }, [route.screen, route.focus]);
+
+  useEffect(() => {
     if (!highlightId) return undefined;
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const raf = requestAnimationFrame(() => {
@@ -250,11 +256,15 @@ export default function RefProto() {
         }
       : { ...data, id: savedId, date: normalizedDate, createdAt: new Date().toISOString(), items: [] };
 
+    const nextLastPayment =
+      data.payment === 'cash' || data.payment === 'card' ? data.payment : undefined;
+
     updateActiveTrip((t) => {
+      const patch = nextLastPayment ? { lastPayment: nextLastPayment } : {};
       if (isEdit) {
-        return { ...t, expenses: t.expenses.map((x) => (x.id === savedId ? savedRecord : x)) };
+        return { ...t, ...patch, expenses: t.expenses.map((x) => (x.id === savedId ? savedRecord : x)) };
       }
-      return { ...t, expenses: [...t.expenses, savedRecord] };
+      return { ...t, ...patch, expenses: [...t.expenses, savedRecord] };
     });
 
     const targetHash = postSaveTarget({ origin: addOrigin.origin, savedDate: normalizedDate });
@@ -313,14 +323,17 @@ export default function RefProto() {
   } else if (route.screen === 'add') {
     const initial = route.expenseId ? trip.expenses.find((e) => e.id === route.expenseId) : null;
     const effectiveDefaultDate = route.date || defaultExpenseDate(trip, today);
+    const people = trip.settings?.people || ['共同'];
     body = (
       <AddForm
         key={`${trip.id}-${window.location.hash}`}
         initial={initial}
         defaultDate={effectiveDefaultDate}
         startScan={route.scan}
-        people={trip.settings?.people || ['共同']}
+        people={people}
         rate={trip.settings?.rate || 0.0526}
+        payerDefault={defaultPayer(people)}
+        paymentDefault={defaultPayment(trip)}
         onCancel={() => (window.history.state?.refPushed ? window.history.back() : go(returnTo, true))}
         onSave={saveExpense}
       />
@@ -328,7 +341,9 @@ export default function RefProto() {
   } else if (route.screen === 'ledger') {
     body = (
       <Ledger
+        key={window.location.hash}
         trip={trip}
+        initialFilters={route.filters}
         highlightId={highlightId}
         onScan={() => openAdd({ scan: true, date: defaultExpenseDate(trip, today) })}
         onAdd={() => openAdd({ date: defaultExpenseDate(trip, today) })}
@@ -338,7 +353,14 @@ export default function RefProto() {
       />
     );
   } else if (route.screen === 'charts') {
-    body = <ChartsView trip={trip} onOpenDay={(iso) => openDay(iso, 'expenses')} />;
+    body = (
+      <ChartsView
+        trip={trip}
+        today={today}
+        onOpenDay={(iso) => openDay(iso, 'expenses')}
+        onOpenLedger={(f) => go(ledgerHash(f))}
+      />
+    );
   } else if (route.screen === 'settings') {
     body = (
       <SettingsView
@@ -529,171 +551,10 @@ function BottomNav({ tab }) {
   );
 }
 
-function ChartsView({ trip, onOpenDay }) {
-  const [person, setPerson] = useState('全部');
-  const people = trip.settings?.people || ['共同'];
-  const counts = useMemo(() => personCounts(trip.expenses, people), [trip.expenses, people]);
-  const list = useMemo(() => filterExpenses(trip.expenses, { person }, people), [trip.expenses, person, people]);
-  const total = list.reduce((s, e) => s + e.hkdAmount, 0);
-
-  const byCat = useMemo(() => {
-    const map = {};
-    for (const c of REF_CATEGORIES) map[c] = { total: 0, count: 0 };
-    for (const e of list) {
-      const k = map[e.category] ? e.category : '其他';
-      map[k].total += e.hkdAmount;
-      map[k].count += 1;
-    }
-    return REF_CATEGORIES.map((c) => ({ cat: c, ...map[c] }))
-      .filter((x) => x.total > 0)
-      .sort((a, b) => b.total - a.total);
-  }, [list]);
-
-  const byPerson = useMemo(
-    () =>
-      people.map((p) => {
-        const items = trip.expenses.filter((e) => matchesPerson(e, p, people));
-        return { person: p, count: items.length, total: items.reduce((s, e) => s + e.hkdAmount, 0) };
-      }),
-    [trip.expenses, people],
-  );
-
-  const byDay = useMemo(() => groupLedger(list).filter((g) => g.iso).reverse(), [list]);
-  const dayCount = byDay.length || 1;
-  const avg = Math.round(total / dayCount);
-  const maxDay = Math.max(...byDay.map((d) => d.total), 1);
-  const allTotal = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0) || 1;
-
-  return (
-    <div data-testid="page-charts" className="space-y-4 px-4 pb-6 pt-4">
-      <div className="relative flex items-baseline gap-2">
-        <Sparkle className="absolute -left-1 top-1 h-4 w-4" />
-        <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">統計圖表</h1>
-        <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Charts</span>
-      </div>
-
-      {/* Top stats summary */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">總花費</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-teal-strong">{fmtHKD(total)}</p>
-        </div>
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">天數</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-ink">{byDay.length} 日</p>
-        </div>
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">日均</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-ink">{fmtHKD(avg)}</p>
-        </div>
-      </div>
-
-      {/* Person filter */}
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">篩選:</span>
-        <div className="min-w-0 flex-1">
-          <ChipRow label="篩選人物">
-            {['全部', ...people].map((p) => (
-              <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
-                {p} ({counts[p] || 0})
-              </Chip>
-            ))}
-          </ChipRow>
-        </div>
-      </div>
-
-      {/* By Category */}
-      <section className="paper-panel relative space-y-2.5 p-4">
-        <Tape tone="coral" className="-top-2 right-6 z-10 h-4 w-16 rotate-1" />
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">類別花費分佈</h2>
-        <div className="space-y-2.5">
-          {byCat.map((row) => {
-            const pct = total > 0 ? Math.round((row.total / total) * 100) : 0;
-            const barTone = CATEGORY_DOT[row.cat] || 'bg-teal';
-            return (
-              <div key={row.cat} className="space-y-1">
-                <div className="flex items-center justify-between text-meta">
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-bold text-ink">
-                    <span className={`h-2.5 w-2.5 rounded-full ${barTone}`} />
-                    {row.cat} · {row.count} 筆
-                  </span>
-                  <span className="whitespace-nowrap font-mono font-semibold text-ink-soft">
-                    {fmtHKD(row.total)} ({pct}%)
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-pill bg-beige">
-                  <div className={`h-full rounded-pill ${barTone}`} style={{ width: `${Math.max(6, pct)}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* By Person */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">人物花費分配</h2>
-        <div className="space-y-2.5">
-          {byPerson.map((row, idx) => {
-            const pct = Math.round((row.total / allTotal) * 100);
-            const barTone = idx === 0 ? 'bg-teal-strong' : idx === 1 ? 'bg-coral' : 'bg-mustard';
-            return (
-              <div key={row.person} className="space-y-1">
-                <div className="flex items-center justify-between text-meta">
-                  <span className="whitespace-nowrap font-bold text-ink">
-                    {row.person} ({row.count} 筆)
-                  </span>
-                  <span className="whitespace-nowrap font-mono font-semibold text-ink-soft">
-                    {fmtHKD(row.total)} ({pct}%)
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-pill bg-beige">
-                  <div className={`h-full rounded-pill ${barTone}`} style={{ width: `${Math.max(6, pct)}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* By Day */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">每日花費趨勢</h2>
-        <div className="space-y-2">
-          {byDay.map((d) => {
-            const pct = Math.round((d.total / maxDay) * 100);
-            const dayTitle = trip.days[d.iso]?.title || '';
-            return (
-              <button
-                key={d.iso}
-                type="button"
-                onClick={() => onOpenDay(d.iso)}
-                className="block min-h-11 w-full space-y-1 rounded-xl border border-line/60 bg-cream px-3 py-2.5 text-left transition-colors hover:bg-beige/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-              >
-                <div className="flex items-center justify-between text-meta">
-                  <span className="truncate whitespace-nowrap font-bold text-ink">
-                    {zhDate(d.iso)}
-                    {dayTitle ? ` · ${dayTitle}` : ''}
-                  </span>
-                  <span className="ml-2 shrink-0 whitespace-nowrap font-mono font-semibold text-teal-strong">
-                    {fmtHKD(d.total)}
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-pill bg-beige">
-                  <div className="h-full rounded-pill bg-teal-strong" style={{ width: `${Math.max(8, pct)}%` }} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
   const people = trip.settings?.people || ['共同'];
   const currentRate = trip.settings?.rate || 0.0526;
+  const currentBudget = trip.settings?.budget ?? null;
 
   const [editingPerson, setEditingPerson] = useState(null);
   const [editingName, setEditingName] = useState('');
@@ -701,13 +562,37 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
   const [personError, setPersonError] = useState('');
   const [rateInput, setRateInput] = useState(() => String(currentRate));
   const [rateError, setRateError] = useState('');
+  const [budgetInput, setBudgetInput] = useState(() => (currentBudget ? String(currentBudget) : ''));
 
   useEffect(() => {
     setRateInput(String(currentRate));
     setRateError('');
   }, [currentRate, trip.id]);
 
-  const totalHKD = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
+  useEffect(() => {
+    setBudgetInput(currentBudget ? String(currentBudget) : '');
+  }, [currentBudget, trip.id]);
+
+  const handleSaveBudget = (e) => {
+    if (e) e.preventDefault();
+    const nextTrip = setBudget(trip, budgetInput);
+    const nextBudget = nextTrip.settings?.budget ?? null;
+    onUpdateTrip(nextTrip);
+    setBudgetInput(nextBudget ? String(nextBudget) : '');
+    if (nextBudget) {
+      onToast(`已設定預算 ${fmtHKD(nextBudget)}`);
+    } else {
+      onToast('已清除預算');
+    }
+  };
+
+  const handleClearBudget = () => {
+    const nextTrip = setBudget(trip, null);
+    onUpdateTrip(nextTrip);
+    setBudgetInput('');
+    onToast('已清除預算');
+  };
+
   const totalJPY = trip.expenses
     .filter((e) => (e.currency || e.originalCurrency) === 'JPY')
     .reduce((s, e) => s + e.originalAmount, 0);
@@ -838,6 +723,51 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             );
           })}
         </div>
+      </section>
+
+      {/* Trip Budget */}
+      <section className="paper-panel space-y-2.5 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程預算</h2>
+          <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
+            {currentBudget ? fmtHKD(currentBudget) : '未設定'}
+          </span>
+        </div>
+        <form
+          onSubmit={handleSaveBudget}
+          noValidate
+          className="flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2"
+        >
+          <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">HKD</span>
+          <input
+            id="ref-budget-input"
+            data-testid="budget-input"
+            aria-label="旅程預算"
+            type="text"
+            inputMode="numeric"
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+            placeholder="輸入預算金額…"
+            className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+          />
+          <button
+            type="submit"
+            data-testid="budget-save"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            儲存
+          </button>
+          {currentBudget && (
+            <button
+              type="button"
+              data-testid="budget-clear"
+              onClick={handleClearBudget}
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            >
+              清除
+            </button>
+          )}
+        </form>
       </section>
 
       {/* People / Members */}

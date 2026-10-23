@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sakura, Tape } from './parts';
 import { fmtHKD, zhDate } from './refLogic';
-import { saveBlockReason } from './refRules';
+import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
 import { normalizeDate } from '../../utils/duplicates';
 
 /**
  * Add / edit expense form:
  * - Scan banner at top
- * - 金額與細項 first (big amount + currency), then 基本資料 (店舖, zh-HK 日期, 地點, 類別, 分配給, 進階)
+ * - 金額與細項 first (big amount + currency + 邊個俾錢 + 付款方式), then 基本資料 (店舖, zh-HK 日期 + 時間, 地點, 類別, 分配給, 進階)
  * - Sticky save bar sits fixed directly above BottomNav; form has bottom padding + scroll-padding so no field is covered.
  */
 export default function AddForm({
@@ -17,15 +17,25 @@ export default function AddForm({
   startScan,
   people = ['共同'],
   rate = 0.0526,
+  payerDefault,
+  paymentDefault,
+  now,
   onCancel,
   onSave,
 }) {
   const defaultAssignee = people.includes('共同') ? '共同' : people[0] || '共同';
+  const resolvedPayerDefault = payerDefault !== undefined ? payerDefault : defaultPayer(people);
+  const resolvedPaymentDefault = paymentDefault || 'cash';
+  const payers = people.filter((p) => p && p !== '共同');
+
   const [f, setF] = useState(() =>
     initial
       ? {
           ...initial,
           date: normalizeDate(initial.date) || '',
+          time: initial.time || initial.receiptTime || '',
+          payer: initial.payer || resolvedPayerDefault,
+          payment: initial.payment || resolvedPaymentDefault,
           amount: String(initial.originalAmount),
           subtotal: initial.subtotal ? String(initial.subtotal) : '',
           tax: initial.tax ? String(initial.tax) : '',
@@ -38,6 +48,9 @@ export default function AddForm({
           amount: '',
           store: '',
           date: defaultDate || '',
+          time: defaultTime(now),
+          payer: resolvedPayerDefault,
+          payment: resolvedPaymentDefault,
           place: '',
           category: '飲食',
           assignedTo: defaultAssignee,
@@ -67,6 +80,7 @@ export default function AddForm({
       category: '飲食',
       scanned: true,
       date: s.date || defaultDate || '',
+      time: '13:05',
     }));
     setScanMsg('已讀取收據（示範資料），請核對。');
   };
@@ -130,6 +144,9 @@ export default function AddForm({
       originalAmount: amt,
       hkdAmount: hkd,
       store: f.store.trim(),
+      time: f.time || '',
+      payer: f.payer,
+      payment: f.payment,
     });
   };
 
@@ -220,6 +237,67 @@ export default function AddForm({
             />
           </div>
         </div>
+
+        {payers.length > 0 && (
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-soft">邊個俾錢</span>
+            <div
+              className="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              role="group"
+              aria-label="邊個俾錢"
+            >
+              {payers.map((name) => {
+                const active = f.payer === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    data-testid={`form-payer-${name}`}
+                    aria-pressed={active}
+                    onClick={() => setF((s) => ({ ...s, payer: name }))}
+                    className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border px-3.5 py-2 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                      active
+                        ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
+                        : 'border-teal/40 bg-teal-soft text-teal-strong hover:bg-beige'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-soft">付款方式</span>
+          <div
+            className="inline-flex items-center gap-1 rounded-pill border border-line bg-cream p-0.5"
+            role="group"
+            aria-label="付款方式"
+          >
+            {[
+              { id: 'cash', label: '現金', testid: 'form-pay-cash' },
+              { id: 'card', label: '卡', testid: 'form-pay-card' },
+            ].map((opt) => {
+              const active = f.payment === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  data-testid={opt.testid}
+                  aria-pressed={active}
+                  onClick={() => setF((s) => ({ ...s, payment: opt.id }))}
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill px-4 py-1.5 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                    active ? 'bg-teal-strong text-white shadow-sm' : 'text-ink-soft hover:bg-beige'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Card 2: Basic info */}
@@ -240,35 +318,60 @@ export default function AddForm({
           />
         </div>
 
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label htmlFor="ref-date" className="whitespace-nowrap text-sm font-medium text-ink-soft">
-              日期
-            </label>
-            {f.date && (
-              <button
-                type="button"
-                data-testid="form-clear-date"
-                onClick={() => setF((s) => ({ ...s, date: '' }))}
-                className="-my-2 inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-meta font-semibold text-teal-strong hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-              >
-                設為未有日期
-              </button>
-            )}
+        <div className="flex items-end gap-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex h-7 items-center justify-between">
+              <label htmlFor="ref-date" className="whitespace-nowrap text-sm font-medium text-ink-soft">
+                日期
+              </label>
+              {f.date && (
+                <button
+                  type="button"
+                  data-testid="form-clear-date"
+                  onClick={() => setF((s) => ({ ...s, date: '' }))}
+                  className="-my-2 inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-meta font-semibold text-teal-strong hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  設為未有日期
+                </button>
+              )}
+            </div>
+            <div className={`${field} relative flex min-h-[46px] items-center justify-between`}>
+              <span className={f.date ? 'whitespace-nowrap text-ink' : 'whitespace-nowrap text-ink-muted'}>
+                {zhDate(f.date)}
+              </span>
+              <span className="text-ink-muted">{Icon.calendar('h-4 w-4')}</span>
+              <input
+                id="ref-date"
+                type="date"
+                value={f.date}
+                onChange={set('date')}
+                className="absolute inset-0 h-full min-h-11 w-full cursor-pointer opacity-0"
+                aria-label="日期"
+              />
+            </div>
           </div>
-          <div className={`${field} relative flex min-h-[46px] items-center justify-between`}>
-            <span className={f.date ? 'whitespace-nowrap text-ink' : 'whitespace-nowrap text-ink-muted'}>
-              {zhDate(f.date)}
-            </span>
-            <span className="text-ink-muted">{Icon.calendar('h-4 w-4')}</span>
-            <input
-              id="ref-date"
-              type="date"
-              value={f.date}
-              onChange={set('date')}
-              className="absolute inset-0 h-full min-h-11 w-full cursor-pointer opacity-0"
-              aria-label="日期"
-            />
+
+          <div className="w-28 shrink-0">
+            <div className="mb-1 flex h-7 items-center">
+              <label htmlFor="ref-time" className="whitespace-nowrap text-sm font-medium text-ink-soft">
+                時間
+              </label>
+            </div>
+            <div className={`${field} relative flex min-h-[46px] w-28 items-center justify-between`}>
+              <span className={f.time ? 'whitespace-nowrap font-mono text-ink' : 'whitespace-nowrap font-mono text-ink-muted'}>
+                {f.time || '--:--'}
+              </span>
+              <span className="text-ink-muted">{Icon.clock('h-4 w-4')}</span>
+              <input
+                id="ref-time"
+                data-testid="form-time"
+                type="time"
+                value={f.time || ''}
+                onChange={set('time')}
+                className="absolute inset-0 h-full min-h-11 w-full cursor-pointer opacity-0"
+                aria-label="時間"
+              />
+            </div>
           </div>
         </div>
 

@@ -27,7 +27,7 @@ export function buildAddHash({ date, scan, id } = {}) {
   return parts.join('&');
 }
 
-/** Hash routes: '' | day=ISO&pane=itinerary|expenses[&edit=1] | add[&date=ISO][&scan=1][&edit=ID] | ledger | charts | settings */
+/** Hash routes: '' | day=ISO&pane=itinerary|expenses[&edit=1] | add[&date=ISO][&scan=1][&edit=ID] | ledger[&cat=..&pay=..&payer=..&person=..&focus=..] | charts | settings */
 export function parseRoute(hash) {
   const raw = String(hash || '').replace(/^#/, '');
   const q = new URLSearchParams(raw);
@@ -39,7 +39,19 @@ export function parseRoute(hash) {
   if (head === 'add') {
     return { screen: 'add', date: q.get('date') || null, scan: q.get('scan') === '1', expenseId: q.get('edit') || null };
   }
-  if (['ledger', 'charts', 'settings'].includes(head)) return { screen: head };
+  if (head === 'ledger') {
+    return {
+      screen: 'ledger',
+      filters: {
+        category: q.get('cat') || q.get('category') || '全部',
+        payment: q.get('pay') || q.get('payment') || '全部',
+        payer: q.get('payer') || '全部',
+        person: q.get('person') || '全部',
+      },
+      focus: q.get('focus') || null,
+    };
+  }
+  if (['charts', 'settings'].includes(head)) return { screen: head };
   return { screen: 'home' };
 }
 
@@ -77,13 +89,20 @@ export function personCounts(expenses, people) {
   return counts;
 }
 
-export function filterExpenses(list, { person = '全部', category = '全部', date = '全部', query = '' } = {}, people = []) {
+export function filterExpenses(
+  list,
+  { person = '全部', category = '全部', date = '全部', query = '', payment = '全部', payer = '全部' } = {},
+  people = [],
+) {
   const q = query.trim().toLowerCase();
+  const normPayment = payment === '現金' ? 'cash' : payment === '卡' ? 'card' : payment;
   return list.filter((e) => {
     if (!matchesPerson(e, person, people)) return false;
     if (category !== '全部' && e.category !== category) return false;
     if (date === 'undated' && e.date) return false;
     if (date !== '全部' && date !== 'undated' && expenseDateKey(e.date) !== date) return false;
+    if (normPayment && normPayment !== '全部' && e.payment !== normPayment) return false;
+    if (payer && payer !== '全部' && e.payer !== payer) return false;
     if (q && !`${e.store} ${e.place} ${e.category}`.toLowerCase().includes(q)) return false;
     return true;
   });
