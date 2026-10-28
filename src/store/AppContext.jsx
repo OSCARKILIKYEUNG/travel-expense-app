@@ -1,7 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DataService from '../services/DataService';
-import { bootstrapUserAppData, enqueuePersistUserAppData } from '../services/syncSupabase';
+import {
+  bootstrapUserAppData,
+  enqueuePersistUserAppData,
+  enqueuePullUserAppData,
+} from '../services/syncSupabase';
 import { supabase } from '../lib/supabaseClient';
 import { sortExpenses } from '../utils/date';
 import { toHome } from '../utils/currency';
@@ -34,6 +38,8 @@ import { syncErrorText } from '../utils/syncNotice';
 const AppContext = createContext(null);
 
 const PERSIST_DEBOUNCE_MS = 500;
+/** focus and visibilitychange often fire together; one pull covers both. */
+const PULL_MIN_INTERVAL_MS = 5000;
 
 /**
  * 先從 Supabase 載入（無則建立預設並上傳），再掛載內層；本機 localStorage 作為快取，雲端為唯一真相來源。
@@ -282,16 +288,81 @@ function AppProviderInner({ children, userId }) {
     emitSyncEvent({ type: 'recovered', phase });
   }, [emitSyncEvent]);
 
+  /**
+   * Re-read React state from the local cache after the sync layer merged a
+   * newer cloud row into it (another device saved since this one loaded).
+   */
+  const reloadFromCache = useCallback(() => {
+    const data = DataService.loadTripsData();
+    setTrips(data.trips || []);
+    setCurrentTripId(data.currentTripId || data.trips?.[0]?.id);
+    setExpensesState(DataService.loadExpenses());
+    setSettingsState(DataService.loadSettings());
+    setPeopleState(DataService.loadPeople());
+  }, []);
+
   const persistNow = useCallback(
     () => enqueuePersistUserAppData(userId).then(
-      (res) => { reportSyncSuccess('save'); return res; },
+      (res) => {
+        reportSyncSuccess('save');
+        // Stale-overwrite guard: the cloud had newer content from another device.
+        if (res?.status === 'remote-applied') {
+          reloadFromCache();
+          emitSyncEvent({ type: 'remote-applied' });
+        } else if (res?.status === 'local-kept') {
+          emitSyncEvent({ type: 'local-kept' });
+        }
+        return res;
+      },
       (err) => { reportSyncFailure('save', err); return null; },
     ),
-    [userId, reportSyncFailure, reportSyncSuccess],
+    [userId, reportSyncFailure, reportSyncSuccess, reloadFromCache, emitSyncEvent],
+  );
+
+  /** Pull the cloud row (focus / tab visible) and apply it when another device saved newer content. */
+  const pullNow = useCallback(
+    () => enqueuePullUserAppData(userId).then(
+      (res) => {
+        reportSyncSuccess('load');
+        if (res?.changed && res.source === 'remote') {
+          reloadFromCache();
+          emitSyncEvent({ type: 'remote-applied' });
+        } else if (res?.changed) {
+          // This device's edits are newer than the other device's save: upload them.
+          persistNow();
+        }
+        return res;
+      },
+      (err) => { reportSyncFailure('load', err); return null; },
+    ),
+    [userId, reportSyncFailure, reportSyncSuccess, reloadFromCache, emitSyncEvent, persistNow],
   );
 
   /** Retry the last failed cloud operation the same way the app would run it. */
-  const retrySync = useCallback(() => persistNow(), [persistNow]);
+  const retrySync = useCallback(
+    () => (syncFailedRef.current === 'load' ? pullNow() : persistNow()),
+    [pullNow, persistNow],
+  );
+
+  // Another device may have saved while this tab sat in the background:
+  // re-pull when the window regains focus or the tab becomes visible.
+  const lastPullRef = useRef(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+    const onWake = () => {
+      if (document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (now - lastPullRef.current < PULL_MIN_INTERVAL_MS) return;
+      lastPullRef.current = now;
+      pullNow();
+    };
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
+    return () => {
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+  }, [pullNow]);
 
   useEffect(() => {
     const id = setTimeout(() => {
