@@ -13,6 +13,7 @@ import {
   renamePerson,
   setBudget,
   setRate,
+  setTripDates,
 } from '../proto/ref/refRules';
 import { Sakura, Sparkle, Tape } from '../proto/ref/parts';
 import { normalizeUiLanguage } from '../utils/locale';
@@ -94,11 +95,51 @@ export function applyNotebookLanguageChange(
   return normalized;
 }
 
+/**
+ * Validate and apply trip start/end date changes either through the controlled
+ * `onSaveDates` callback (`NotebookShell` -> `updateTrip`) or via `onUpdateTrip`
+ * for `?proto=notebook` mock trips.
+ *
+ * @param {Record<string, any>} trip
+ * @param {{ startDate?: unknown, endDate?: unknown }} [input]
+ * @param {{
+ *   onSaveDates?: (patch: { startDate: string, endDate: string | null }, nextTrip: Record<string, any>) => any,
+ *   onUpdateTrip?: (nextTripOrUpdater: any) => void,
+ *   onToast?: (msg: string) => void,
+ *   t?: (key: string, opts?: Record<string, any>) => string,
+ * }} [options]
+ */
+export function applyNotebookTripDates(
+  trip,
+  { startDate, endDate } = {},
+  { onSaveDates, onUpdateTrip, onToast, t } = {},
+) {
+  const res = setTripDates(trip, startDate, endDate);
+  if (!res.ok) {
+    return res;
+  }
+  if (typeof onSaveDates === 'function') {
+    onSaveDates({ startDate: res.startDate, endDate: res.endDate }, res.trip);
+  } else if (typeof onUpdateTrip === 'function') {
+    onUpdateTrip(res.trip);
+  }
+  if (typeof onToast === 'function') {
+    const displayEnd = res.endDate || res.startDate;
+    const msg =
+      typeof t === 'function'
+        ? t('notebook.toast.datesSaved', { startDate: res.startDate, endDate: displayEnd })
+        : `${res.startDate} – ${displayEnd}`;
+    onToast(msg);
+  }
+  return res;
+}
+
 export default function SettingsView({
   trip,
   trips,
   onUpdateTrip,
   onSelectTrip,
+  onSaveDates,
   onSaveBudget,
   onAddPerson,
   onRenamePerson,
@@ -123,6 +164,9 @@ export default function SettingsView({
   const [rateInput, setRateInput] = useState(() => formatRateInputString(currentRate));
   const [rateErrorKey, setRateErrorKey] = useState('');
   const [budgetInput, setBudgetInput] = useState(() => (currentBudget ? String(currentBudget) : ''));
+  const [startDateInput, setStartDateInput] = useState(() => trip.startDate || '');
+  const [endDateInput, setEndDateInput] = useState(() => trip.endDate || '');
+  const [datesErrorKey, setDatesErrorKey] = useState('');
 
   useEffect(() => {
     setRateInput(formatRateInputString(currentRate));
@@ -133,12 +177,34 @@ export default function SettingsView({
     setBudgetInput(currentBudget ? String(currentBudget) : '');
   }, [currentBudget, trip.id]);
 
+  useEffect(() => {
+    setStartDateInput(trip.startDate || '');
+    setEndDateInput(trip.endDate || '');
+    setDatesErrorKey('');
+  }, [trip.startDate, trip.endDate, trip.id]);
+
   const handleLanguageChange = (e) => {
     applyNotebookLanguageChange(e.target.value, {
       onChangeUiLanguage,
       updateSettings,
       i18nInstance: activeI18n,
     });
+  };
+
+  const handleSaveDates = (e) => {
+    if (e) e.preventDefault();
+    const res = applyNotebookTripDates(
+      trip,
+      { startDate: startDateInput, endDate: endDateInput },
+      { onSaveDates, onUpdateTrip, onToast, t },
+    );
+    if (!res.ok) {
+      setDatesErrorKey(res.errorKey || 'notebook.settings.datesInvalid');
+      return;
+    }
+    setDatesErrorKey('');
+    setStartDateInput(res.startDate);
+    setEndDateInput(res.endDate || '');
   };
 
   const handleSaveBudget = (e) => {
@@ -356,6 +422,88 @@ export default function SettingsView({
             );
           })}
         </div>
+      </section>
+
+      {/* Trip Dates */}
+      <section className="paper-panel space-y-2.5 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.settings.datesTitle')}
+          </h2>
+          <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
+            {trip.startDate} – {trip.endDate}
+          </span>
+        </div>
+        <form
+          onSubmit={handleSaveDates}
+          noValidate
+          className="space-y-2.5 rounded-xl border border-line bg-cream p-3"
+        >
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label
+                htmlFor="ref-trip-start-date"
+                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+              >
+                {t('notebook.settings.startDateLabel')}
+              </label>
+              <input
+                id="ref-trip-start-date"
+                data-testid="trip-start-date"
+                aria-label={t('notebook.settings.startDateLabel')}
+                type="text"
+                inputMode="numeric"
+                value={startDateInput}
+                onChange={(e) => {
+                  setStartDateInput(e.target.value);
+                  setDatesErrorKey('');
+                }}
+                placeholder={t('notebook.settings.startDatePlaceholder')}
+                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="ref-trip-end-date"
+                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+              >
+                {t('notebook.settings.endDateLabel')}
+              </label>
+              <input
+                id="ref-trip-end-date"
+                data-testid="trip-end-date"
+                aria-label={t('notebook.settings.endDateLabel')}
+                type="text"
+                inputMode="numeric"
+                value={endDateInput}
+                onChange={(e) => {
+                  setEndDateInput(e.target.value);
+                  setDatesErrorKey('');
+                }}
+                placeholder={t('notebook.settings.endDatePlaceholder')}
+                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              data-testid="trip-dates-save"
+              className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            >
+              {t('notebook.settings.saveDates')}
+            </button>
+          </div>
+          {datesErrorKey && (
+            <p
+              role="alert"
+              data-testid="trip-dates-error"
+              className="whitespace-nowrap text-meta font-semibold text-coral-ink"
+            >
+              {t(datesErrorKey)}
+            </p>
+          )}
+        </form>
       </section>
 
       {/* Trip Budget */}

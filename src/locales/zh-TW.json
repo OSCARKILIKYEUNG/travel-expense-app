@@ -500,6 +500,14 @@
     "settings": {
       "titleScript": "Settings",
       "currentTripBadge": "當前旅程",
+      "datesTitle": "旅程日期",
+      "startDateLabel": "開始日期",
+      "endDateLabel": "結束日期",
+      "startDatePlaceholder": "YYYY-MM-DD",
+      "endDatePlaceholder": "YYYY-MM-DD",
+      "saveDates": "儲存日期",
+      "datesInvalid": "請輸入有效日期（YYYY-MM-DD）",
+      "datesOrderError": "結束日期不可早於開始日期",
       "budgetTitle": "旅程預算",
       "budgetUnset": "未設定",
       "budgetPlaceholder": "輸入預算金額…",
@@ -530,6 +538,7 @@
     "toast": {
       "tripSwitched": "已切換至 {{name}}",
       "undone": "已撤銷操作",
+      "datesSaved": "已更新旅程日期 {{startDate}} – {{endDate}}",
       "budgetSaved": "已設定預算 {{amount}}",
       "budgetCleared": "已清除預算",
       "personRenamed": "已將「{{from}}」改名為「{{to}}」",

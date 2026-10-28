@@ -26,6 +26,7 @@ import {
   saveToastMessage,
   setBudget,
   setRate,
+  setTripDates,
   shouldKeepToastOnRoute,
   sortStops,
   stopMinutes,
@@ -394,5 +395,85 @@ describe('P1-9: dayNav & tripDates', () => {
     expect(dates).toHaveLength(10);
     expect(dates[0]).toBe('2026-10-18');
     expect(dates[9]).toBe('2026-10-27');
+  });
+});
+
+describe('P4: setTripDates validation & persistence shape', () => {
+  const trip = createRefTrip();
+
+  it('updates startDate and endDate on valid ISO pair (positional or object) without mutating input', () => {
+    const res = setTripDates(trip, '2026-11-01', '2026-11-08');
+    expect(res).toEqual({
+      ok: true,
+      startDate: '2026-11-01',
+      endDate: '2026-11-08',
+      trip: {
+        ...trip,
+        startDate: '2026-11-01',
+        endDate: '2026-11-08',
+      },
+    });
+    expect(trip.startDate).toBe('2026-10-18');
+    expect(trip.endDate).toBe('2026-10-27');
+
+    // Single-day trip (start === end) and object call signature
+    const sameDay = setTripDates(trip, { startDate: ' 2026-11-05 ', endDate: ' 2026-11-05 ' });
+    expect(sameDay.ok).toBe(true);
+    expect(sameDay.startDate).toBe('2026-11-05');
+    expect(sameDay.endDate).toBe('2026-11-05');
+  });
+
+  it('rejects start > end with datesOrderError', () => {
+    const res = setTripDates(trip, '2026-10-28', '2026-10-18');
+    expect(res).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesOrderError',
+    });
+  });
+
+  it('rejects invalid or missing startDate and invalid endDate with datesInvalid', () => {
+    expect(setTripDates(trip, '', '2026-10-27')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+    expect(setTripDates(trip, null, '2026-10-27')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+    expect(setTripDates(trip, '2026-02-30', '2026-10-27')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+    expect(setTripDates(trip, '2026/10/18', '2026-10-27')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+    expect(setTripDates(trip, '2026-10-18', '2026-02-29')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+    expect(setTripDates(trip, '2026-10-18', 'not-a-date')).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesInvalid',
+    });
+  });
+
+  it('allows empty or null endDate and normalizes it to null', () => {
+    const emptyEnd = setTripDates(trip, '2026-10-18', '');
+    expect(emptyEnd).toEqual({
+      ok: true,
+      startDate: '2026-10-18',
+      endDate: null,
+      trip: {
+        ...trip,
+        startDate: '2026-10-18',
+        endDate: null,
+      },
+    });
+
+    const nullEnd = setTripDates(trip, '2026-10-18', null);
+    expect(nullEnd.ok).toBe(true);
+    expect(nullEnd.endDate).toBeNull();
+    expect(nullEnd.trip.endDate).toBeNull();
   });
 });

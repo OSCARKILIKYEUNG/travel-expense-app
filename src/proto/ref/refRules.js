@@ -86,6 +86,65 @@ export function setBudget(trip, raw) {
 }
 
 /**
+ * Validate and update a trip's `startDate` and `endDate` (ISO `YYYY-MM-DD`).
+ * - Accepts `(trip, startRaw, endRaw)` or `(trip, { startDate, endDate })`.
+ * - `startDate` is required and must be a valid calendar ISO `YYYY-MM-DD`.
+ * - `endDate` may be a valid calendar ISO `YYYY-MM-DD` with `startDate <= endDate`,
+ *   or empty/`null` to clear `endDate` to `null` (so adapter derives display span).
+ * - Pure: never mutates `trip`.
+ *
+ * @param {Record<string, any> | null | undefined} trip
+ * @param {unknown} startOrObj
+ * @param {unknown} [maybeEnd]
+ * @returns {{ ok: true, startDate: string, endDate: string | null, trip: Record<string, any> } | { ok: false, errorKey: string }}
+ */
+export function setTripDates(trip, startOrObj, maybeEnd) {
+  let rawStart = startOrObj;
+  let rawEnd = maybeEnd;
+  if (startOrObj && typeof startOrObj === 'object' && !Array.isArray(startOrObj)) {
+    rawStart = startOrObj.startDate !== undefined ? startOrObj.startDate : startOrObj.start;
+    rawEnd = startOrObj.endDate !== undefined ? startOrObj.endDate : startOrObj.end;
+  }
+
+  if (typeof rawStart === 'boolean' || typeof rawStart === 'number') {
+    return { ok: false, errorKey: 'notebook.settings.datesInvalid' };
+  }
+  if (typeof rawEnd === 'boolean' || typeof rawEnd === 'number') {
+    return { ok: false, errorKey: 'notebook.settings.datesInvalid' };
+  }
+
+  const startStr = rawStart == null ? '' : String(rawStart).trim();
+  const endStr = rawEnd == null ? '' : String(rawEnd).trim();
+
+  if (!startStr || !isValidISODate(startStr)) {
+    return { ok: false, errorKey: 'notebook.settings.datesInvalid' };
+  }
+
+  if (endStr !== '' && !isValidISODate(endStr)) {
+    return { ok: false, errorKey: 'notebook.settings.datesInvalid' };
+  }
+
+  if (endStr !== '' && startStr > endStr) {
+    return { ok: false, errorKey: 'notebook.settings.datesOrderError' };
+  }
+
+  const nextEnd = endStr === '' ? null : endStr;
+  const baseTrip = trip && typeof trip === 'object' ? trip : {};
+  const nextTrip = {
+    ...baseTrip,
+    startDate: startStr,
+    endDate: nextEnd,
+  };
+
+  return {
+    ok: true,
+    startDate: startStr,
+    endDate: nextEnd,
+    trip: nextTrip,
+  };
+}
+
+/**
  * P0-1: Check whether a time input entry is invalid.
  * - empty + not badInput -> false (valid untimed stop)
  * - empty + badInput -> true (partial native time input, e.g. only hour typed)

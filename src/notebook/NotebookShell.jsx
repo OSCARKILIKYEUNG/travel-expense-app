@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { applyUndo, defaultPayer, parseRate, resolveToday } from '../proto/ref/refRules';
+import { applyUndo, defaultPayer, parseRate, resolveToday, setTripDates } from '../proto/ref/refRules';
 import { useApp } from '../store/AppContext';
 import { normalizeUiLanguage } from '../utils/locale';
 import { getTripCurrencyCode } from '../utils/tripMoney';
@@ -215,6 +215,47 @@ export default function NotebookShell() {
     [currentTripId, updateTrip],
   );
 
+  const handleSaveDates = useCallback(
+    ({ startDate, endDate } = {}) => {
+      if (!currentTripId) return { ok: false, errorKey: 'notebook.settings.datesInvalid' };
+      const res = setTripDates(currentTrip || {}, startDate, endDate);
+      if (!res.ok) return res;
+      updateTrip(currentTripId, {
+        startDate: res.startDate,
+        endDate: res.endDate,
+      });
+      return res;
+    },
+    [currentTripId, currentTrip, updateTrip],
+  );
+
+  const handleUpdateTrip = useCallback(
+    (updaterOrNext) => {
+      if (!currentTripId) return;
+      const base = currentTrip || refTrip || {};
+      const next =
+        typeof updaterOrNext === 'function' ? updaterOrNext(base) : updaterOrNext;
+      if (!next || typeof next !== 'object') return;
+      const patch = {};
+      if (next.name !== undefined && next.name !== base.name) {
+        patch.name = next.name;
+      }
+      if (next.startDate !== undefined && next.startDate !== base.startDate) {
+        patch.startDate = next.startDate;
+      }
+      if (next.endDate !== undefined && next.endDate !== base.endDate) {
+        patch.endDate = next.endDate;
+      }
+      if (next.settings && typeof next.settings === 'object') {
+        patch.settings = next.settings;
+      }
+      if (Object.keys(patch).length > 0) {
+        updateTrip(currentTripId, patch);
+      }
+    },
+    [currentTripId, currentTrip, refTrip, updateTrip],
+  );
+
   const handleAddPerson = useCallback(
     (cleanName) => {
       const nextPeople = [...(people || ['共同']), cleanName];
@@ -288,6 +329,8 @@ export default function NotebookShell() {
       onSaveExpense={handleSaveExpense}
       onDeleteExpense={handleDeleteExpense}
       onUndo={handleUndo}
+      onUpdateTrip={handleUpdateTrip}
+      onSaveDates={handleSaveDates}
       onSaveBudget={handleSaveBudget}
       onAddPerson={handleAddPerson}
       onRenamePerson={handleRenamePerson}

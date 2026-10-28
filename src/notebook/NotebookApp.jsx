@@ -16,6 +16,7 @@ import {
   postSaveTarget,
   resolveToday,
   saveToastMessage,
+  setTripDates,
   shouldKeepToastOnRoute,
   switchTripRoute,
   tripMonth,
@@ -154,6 +155,7 @@ export default function NotebookApp({
   onDeleteExpense,
   onUndo,
   onUpdateTrip,
+  onSaveDates,
   onSaveBudget,
   onAddPerson,
   onRenamePerson,
@@ -519,6 +521,42 @@ export default function NotebookApp({
     [onUpdateDay, updateActiveMockTrip],
   );
 
+  const handleSaveDates = useCallback(
+    (datesPatch, nextTrip) => {
+      const res = setTripDates(rawTrip || trip, datesPatch?.startDate, datesPatch?.endDate);
+      if (onSaveDates) {
+        const out = onSaveDates(datesPatch, nextTrip);
+        if (res.ok) {
+          const nextAdapted = {
+            ...trip,
+            startDate: res.startDate,
+            endDate: res.endDate || res.startDate,
+          };
+          setMonth(tripMonth(nextAdapted, today));
+        }
+        return out;
+      }
+      if (!res.ok) return res;
+      if (isControlled) {
+        onUpdateTrip?.(res.trip);
+      } else {
+        updateActiveMockTrip((t) => ({
+          ...t,
+          startDate: res.startDate,
+          endDate: res.endDate,
+        }));
+      }
+      const nextAdapted = {
+        ...trip,
+        startDate: res.startDate,
+        endDate: res.endDate || res.startDate,
+      };
+      setMonth(tripMonth(nextAdapted, today));
+      return res;
+    },
+    [onSaveDates, rawTrip, trip, isControlled, onUpdateTrip, updateActiveMockTrip, today],
+  );
+
   const deleteExpense = useCallback(
     (e) => {
       const tripId = trip.id;
@@ -856,6 +894,7 @@ export default function NotebookApp({
         trips={trips}
         onUpdateTrip={updateActiveMockTrip}
         onSelectTrip={selectTrip}
+        onSaveDates={handleSaveDates}
         onSaveBudget={onSaveBudget}
         onAddPerson={onAddPerson}
         onRenamePerson={onRenamePerson}

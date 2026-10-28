@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { toRefExpense } from '../../adapters/refDataAdapter';
+import { createLegacySeedTrip } from '../../notebook/legacySeed';
+import { adaptTripForNotebook } from '../../notebook/tripRate';
 import { createRefTrip, REF_CATEGORIES, REF_TODAY } from './mockRefTrip';
 import {
   assigneeSplit,
@@ -213,6 +216,8 @@ describe('settleUp & ledgerHash', () => {
     expect(ledgerHash()).toBe('ledger');
     expect(ledgerHash({ category: '全部', payment: '全部' })).toBe('ledger');
     expect(ledgerHash({ payment: 'card' })).toBe('ledger&pay=card');
+    expect(ledgerHash({ person: 'Oscar' })).toBe('ledger&person=Oscar');
+    expect(ledgerHash({ payer: 'Oscar' })).toBe('ledger&payer=Oscar');
     expect(ledgerHash({ category: '飲食', payer: 'Oscar', focus: 'r9' })).toBe(
       `ledger&${new URLSearchParams({ cat: '飲食', payer: 'Oscar', focus: 'r9' }).toString()}`,
     );
@@ -271,5 +276,68 @@ describe('assigneeSplit', () => {
         { person: '阿明', share: 0 },
       ],
     });
+  });
+});
+
+describe('P4: Charts calculations on adapted legacySeed (toRefExpense / adaptTripForNotebook)', () => {
+  const rawLegacy = createLegacySeedTrip();
+  const adaptedTrip = adaptTripForNotebook(rawLegacy, { today: '2026-10-22' });
+  const mappedExpenses = rawLegacy.expenses.map((e) => toRefExpense(e));
+
+  it('computes remainingPerDay with budget 15000 on adapted legacy seed @2026-10-22', () => {
+    const rem = remainingPerDay({
+      budget: adaptedTrip.settings.budget,
+      expenses: adaptedTrip.expenses,
+      startDate: adaptedTrip.startDate,
+      endDate: adaptedTrip.endDate,
+      today: '2026-10-22',
+    });
+    expect(rem).toEqual({
+      budget: 15000,
+      spent: 5397,
+      left: 9603,
+      pct: 36,
+      over: false,
+      daysLeft: 5,
+      perDay: 1920,
+      lastDay: false,
+    });
+  });
+
+  it('computes non-zero cash and card paymentSplit from legacy paymentMethod after toRefExpense', () => {
+    const pay = paymentSplit(mappedExpenses);
+    expect(pay.cash).toEqual({ total: 1086, count: 3 });
+    expect(pay.card).toEqual({ total: 4311, count: 5 });
+    expect(pay.none).toEqual({ total: 0, count: 0 });
+    expect(pay.total).toBe(5397);
+  });
+
+  it('computes assigneeSplit (assignedTo ≠ payer) and settleUp (共同 split evenly) on adapted legacy seed', () => {
+    const people = adaptedTrip.settings.people;
+    const assignee = assigneeSplit(adaptedTrip.expenses, people);
+    expect(assignee.total).toBe(5397);
+    expect(assignee.rows).toEqual([
+      { person: '共同', total: 4048, count: 5, pct: 75 },
+      { person: 'Oscar', total: 915, count: 2, pct: 17 },
+      { person: '阿明', total: 434, count: 1, pct: 8 },
+    ]);
+    expect(assignee.shares).toEqual([
+      { person: 'Oscar', share: 2939 },
+      { person: '阿明', share: 2458 },
+    ]);
+
+    const settled = settleUp(adaptedTrip.expenses, people);
+    expect(settled.rows).toEqual([
+      { person: 'Oscar', paid: 3979, owed: 2939, net: 1040 },
+      { person: '阿明', paid: 1418, owed: 2458, net: -1040 },
+    ]);
+    expect(settled.transfers).toEqual([
+      { from: '阿明', to: 'Oscar', amount: 1040 },
+    ]);
+
+    // Person filter hash ≠ payer filter hash
+    expect(ledgerHash({ person: 'Oscar' })).toBe('ledger&person=Oscar');
+    expect(ledgerHash({ payer: 'Oscar' })).toBe('ledger&payer=Oscar');
+    expect(ledgerHash({ person: 'Oscar' })).not.toBe(ledgerHash({ payer: 'Oscar' }));
   });
 });

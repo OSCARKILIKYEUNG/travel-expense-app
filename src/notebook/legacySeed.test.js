@@ -1,12 +1,16 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { I18nextProvider } from 'react-i18next';
+import { describe, expect, it, vi } from 'vitest';
 import { toRefExpense } from '../adapters/refDataAdapter';
+import i18n from '../i18n';
 import { ledgerTotalSummary } from '../proto/ref/refLedgerTotal';
 import { filterExpenses, groupLedger, personCounts, undatedHint } from '../proto/ref/refLogic';
 import { applyUndo } from '../proto/ref/refRules';
+import DataService from '../services/DataService';
 import { getPartialMatchPersonShareHKD } from '../utils/personShare';
 import NotebookApp, { buildDeleteUndo, buildSaveUndo } from './NotebookApp';
+import { applyNotebookTripDates } from './SettingsView';
 import {
   LEGACY_EXCHANGE_RATES,
   createLegacySeedTrip,
@@ -267,5 +271,188 @@ describe('Undo raw store records — delete, add, and edit round-trips', () => {
     const afterEdit = rawExpenses.map((e) => (e.id === targetId ? updatedRecord : e));
     const afterUndo = applyUndo(afterEdit, undoOp);
     expect(afterUndo.find((e) => e.id === targetId)).toEqual(rawBefore);
+  });
+});
+
+describe('P4: ChartsView and SettingsView on seed=legacy and controlled persistence', () => {
+  it('renders #charts with seed=legacy showing budget 15,000, cash/card split, assignee above settle, and shares subtitle', () => {
+    const html = renderToStaticMarkup(
+      createElement(NotebookApp, {
+        today: '2026-10-22',
+        search: '?proto=notebook&seed=legacy',
+        initialHash: '#charts',
+      }),
+    );
+
+    expect(html).toContain('data-testid="page-charts"');
+    expect(html).toContain('data-section="today"');
+    // Budget 15,000, spent 5,397 (36%), remaining per day 1,920
+    expect(html).toContain('HK$15,000');
+    expect(html).toContain('HK$5,397');
+    expect(html).toContain('36%');
+    expect(html).toContain('HK$1,920');
+
+    // Payment split from paymentMethod -> cash 1,086 / card 4,311
+    expect(html).toContain('data-testid="chart-pay-cash"');
+    expect(html).toContain('data-testid="chart-pay-card"');
+    expect(html).toContain('HK$1,086');
+    expect(html).toContain('HK$4,311');
+
+    // Assignee section sits strictly above Settle section
+    const assigneeIdx = html.indexOf('data-section="assignee"');
+    const settleIdx = html.indexOf('data-section="settle"');
+    expect(assigneeIdx).toBeGreaterThan(0);
+    expect(settleIdx).toBeGreaterThan(assigneeIdx);
+
+    // Assignee rows + shares line
+    expect(html).toContain('data-testid="chart-assignee-共同"');
+    expect(html).toContain('data-testid="chart-assignee-Oscar"');
+    expect(html).toContain('data-testid="chart-assignee-阿明"');
+    expect(html).toContain('data-testid="chart-assignee-shares"');
+    expect(html).toContain('連共同攤分：Oscar HK$2,939 · 阿明 HK$2,458');
+
+    // Settle rows + transfer
+    expect(html).toContain('data-testid="chart-person-Oscar"');
+    expect(html).toContain('data-testid="chart-person-阿明"');
+    expect(html).toContain('阿明 要還 Oscar HK$1,040');
+  });
+
+  it('renders #settings with seed=legacy showing trip-start-date, trip-end-date, trip-dates-save, budget, and language toggle in zh-TW and en', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const zhHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          today: '2026-10-22',
+          search: '?proto=notebook&seed=legacy',
+          initialHash: '#settings',
+          uiLanguage: 'zh-TW',
+        }),
+      ),
+    );
+    expect(zhHtml).toContain('data-testid="page-settings"');
+    expect(zhHtml).toContain('data-testid="language-select"');
+    expect(zhHtml).toContain('data-testid="trip-start-date"');
+    expect(zhHtml).toContain('data-testid="trip-end-date"');
+    expect(zhHtml).toContain('data-testid="trip-dates-save"');
+    expect(zhHtml).toContain('value="2026-10-18"');
+    expect(zhHtml).toContain('value="2026-10-27"');
+    expect(zhHtml).toContain('旅程日期');
+    expect(zhHtml).toContain('開始日期');
+    expect(zhHtml).toContain('結束日期');
+    expect(zhHtml).toContain('儲存日期');
+    expect(zhHtml).toContain('data-testid="budget-input"');
+    expect(zhHtml).toContain('value="15000"');
+
+    await i18n.changeLanguage('en');
+    const enHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          today: '2026-10-22',
+          search: '?proto=notebook&seed=legacy',
+          initialHash: '#settings',
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    expect(enHtml).toContain('data-testid="trip-start-date"');
+    expect(enHtml).toContain('data-testid="trip-end-date"');
+    expect(enHtml).toContain('data-testid="trip-dates-save"');
+    expect(enHtml).toContain('Trip dates');
+    expect(enHtml).toContain('Start date');
+    expect(enHtml).toContain('End date');
+    expect(enHtml).toContain('Save dates');
+
+    await i18n.changeLanguage('zh-TW');
+  });
+
+  it('applies and persists trip dates via applyNotebookTripDates on controlled (onSaveDates -> DataService.patchTrip) and uncontrolled (onUpdateTrip) paths', () => {
+    const legacy = createLegacySeedTrip();
+    const tZh = i18n.getFixedT('zh-TW');
+
+    // 1. Controlled path (NotebookShell -> updateTrip -> DataService.patchTrip)
+    const originalLocalStorage = globalThis.localStorage;
+    const store = new Map();
+    globalThis.localStorage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+    DataService.setStorageScope('test-user-p4-dates');
+    try {
+      const initial = DataService.loadTripsData();
+      const tripId = initial.currentTripId;
+      const onToast = vi.fn();
+      const onSaveDates = vi.fn(({ startDate, endDate }) => {
+        DataService.patchTrip(tripId, { startDate, endDate });
+      });
+
+      const okRes = applyNotebookTripDates(
+        legacy,
+        { startDate: '2026-10-19', endDate: '2026-10-29' },
+        { onSaveDates, onToast, t: tZh },
+      );
+      expect(okRes.ok).toBe(true);
+      expect(onSaveDates).toHaveBeenCalledWith(
+        { startDate: '2026-10-19', endDate: '2026-10-29' },
+        expect.objectContaining({ startDate: '2026-10-19', endDate: '2026-10-29' }),
+      );
+      expect(onToast).toHaveBeenCalledWith('已更新旅程日期 2026-10-19 – 2026-10-29');
+
+      const persisted = DataService.getCurrentTrip(DataService.loadTripsData());
+      expect(persisted.startDate).toBe('2026-10-19');
+      expect(persisted.endDate).toBe('2026-10-29');
+
+      // Clearing endDate writes null and adaptTripForNotebook derives span from expenses
+      applyNotebookTripDates(
+        legacy,
+        { startDate: '2026-10-18', endDate: '' },
+        { onSaveDates, onToast, t: tZh },
+      );
+      const afterClear = DataService.getCurrentTrip(DataService.loadTripsData());
+      expect(afterClear.startDate).toBe('2026-10-18');
+      expect(afterClear.endDate).toBeNull();
+      const adaptedCleared = adaptTripForNotebook(
+        { ...legacy, startDate: afterClear.startDate, endDate: afterClear.endDate },
+        { today: '2026-10-22' },
+      );
+      expect(adaptedCleared.endDate).toBe('2026-10-22');
+    } finally {
+      DataService.setStorageScope(null);
+      globalThis.localStorage = originalLocalStorage;
+    }
+
+    // 2. Uncontrolled path (onUpdateTrip) and validation rejection
+    const onUpdateTrip = vi.fn();
+    const onToastMock = vi.fn();
+    const badOrder = applyNotebookTripDates(
+      legacy,
+      { startDate: '2026-10-30', endDate: '2026-10-18' },
+      { onUpdateTrip, onToast: onToastMock, t: tZh },
+    );
+    expect(badOrder).toEqual({
+      ok: false,
+      errorKey: 'notebook.settings.datesOrderError',
+    });
+    expect(onUpdateTrip).not.toHaveBeenCalled();
+    expect(onToastMock).not.toHaveBeenCalled();
+
+    const mockOk = applyNotebookTripDates(
+      legacy,
+      { startDate: '2026-10-18', endDate: '2026-10-25' },
+      { onUpdateTrip, onToast: onToastMock, t: tZh },
+    );
+    expect(mockOk.ok).toBe(true);
+    expect(onUpdateTrip).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: legacy.id,
+        startDate: '2026-10-18',
+        endDate: '2026-10-25',
+      }),
+    );
   });
 });

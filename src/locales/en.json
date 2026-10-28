@@ -500,6 +500,14 @@
     "settings": {
       "titleScript": "Settings",
       "currentTripBadge": "Current trip",
+      "datesTitle": "Trip dates",
+      "startDateLabel": "Start date",
+      "endDateLabel": "End date",
+      "startDatePlaceholder": "YYYY-MM-DD",
+      "endDatePlaceholder": "YYYY-MM-DD",
+      "saveDates": "Save dates",
+      "datesInvalid": "Enter valid YYYY-MM-DD dates",
+      "datesOrderError": "End date must not be before start",
       "budgetTitle": "Trip budget",
       "budgetUnset": "Not set",
       "budgetPlaceholder": "Enter budget…",
@@ -530,6 +538,7 @@
     "toast": {
       "tripSwitched": "Switched to {{name}}",
       "undone": "Undone",
+      "datesSaved": "Trip dates updated: {{startDate}} – {{endDate}}",
       "budgetSaved": "Budget set to {{amount}}",
       "budgetCleared": "Budget cleared",
       "personRenamed": "Renamed “{{from}}” to “{{to}}”",

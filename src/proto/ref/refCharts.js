@@ -1,4 +1,5 @@
 import { addDays } from '../shared/dates';
+import { normalizePayment } from '../../adapters/refDataAdapter';
 import { expenseDateKey, sortExpenses } from '../../utils/date';
 import { resolveAssigneeDisplay } from '../../utils/people';
 import { REF_CATEGORIES } from './mockRefTrip';
@@ -129,10 +130,14 @@ export function paymentSplit(expenses) {
 
   for (const e of expenses || []) {
     const amt = Number(e?.hkdAmount || 0);
-    if (e?.payment === 'cash') {
+    const pay =
+      e?.payment === 'cash' || e?.payment === 'card'
+        ? e.payment
+        : normalizePayment(e?.payment ?? e?.paymentMethod);
+    if (pay === 'cash') {
       cash.total += amt;
       cash.count += 1;
-    } else if (e?.payment === 'card') {
+    } else if (pay === 'card') {
       card.total += amt;
       card.count += 1;
     } else {
@@ -280,11 +285,13 @@ export function settleUp(expenses, people) {
 
   for (const e of expenses || []) {
     const amt = Number(e?.hkdAmount || 0);
-    const creditTo = participants.includes(e?.payer) ? e.payer : participants[0];
+    const payer = String(e?.payer ?? '').trim();
+    const assignedTo = resolveAssigneeDisplay(e?.assignedTo, people);
+    const creditTo = participants.includes(payer) ? payer : participants[0];
     ledger[creditTo].paid += amt;
 
-    if (participants.includes(e?.assignedTo)) {
-      ledger[e.assignedTo].owed += amt;
+    if (participants.includes(assignedTo)) {
+      ledger[assignedTo].owed += amt;
     } else {
       const share = amt / participants.length;
       for (const p of participants) {
