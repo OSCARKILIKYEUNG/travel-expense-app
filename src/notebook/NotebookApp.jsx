@@ -825,6 +825,9 @@ function Header({ trip, trips, onSelectTrip }) {
   const [open, setOpen] = useState(false);
   const menuWrapRef = useRef(null);
   const btnRef = useRef(null);
+  const brandScript = t('notebook.brandScript');
+  const brand = t('notebook.brand');
+  const showBrandScript = Boolean(brandScript) && brandScript !== brand;
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return undefined;
@@ -860,11 +863,13 @@ function Header({ trip, trips, onSelectTrip }) {
             {Icon.pin('h-[18px] w-[18px]')}
           </span>
           <span className="min-w-0 leading-none">
-            <span className="block whitespace-nowrap font-script text-lg font-semibold leading-none text-teal-strong">
-              {t('notebook.brandScript')}
-            </span>
+            {showBrandScript && (
+              <span className="block whitespace-nowrap font-script text-lg font-semibold leading-none text-teal-strong">
+                {brandScript}
+              </span>
+            )}
             <span className="block whitespace-nowrap font-display text-base tracking-[-0.03em] text-ink">
-              {t('notebook.brand')}
+              {brand}
             </span>
           </span>
         </button>

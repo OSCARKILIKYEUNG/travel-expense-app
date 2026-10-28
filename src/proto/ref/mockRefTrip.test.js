@@ -23,8 +23,9 @@ describe('reference mock trip', () => {
       expect(['cash', 'card']).toContain(e.payment);
     }
   });
-  it('shows Day 5 of 10 on 10/22', () => {
+  it('shows Day 5 of 10 on 10/22 in zh-TW and en', () => {
     expect(dayCounter(trip, REF_TODAY).label).toBe('第 5 日／共 10 日');
+    expect(dayCounter(trip, REF_TODAY, { lang: 'en' }).label).toBe('Day 5 / 10 days');
   });
   it('keeps every cell note within the 4-CJK cap', () => {
     for (const d of Object.values(trip.days)) expect(capCellNote(d.note)).toBe(d.note);

@@ -541,6 +541,127 @@ describe('Notebook i18n scaffold — SettingsView language toggle, nav, and loca
       ),
     );
     expect(directSettingsHtml).toContain('About Travel Notebook');
+    // Settings title gloss should not duplicate "Settings" in EN
+    expect(directSettingsHtml.match(/>Settings<\/h1>/g)).toHaveLength(1);
+    expect(directSettingsHtml).not.toContain('>Settings</span>');
+
+    await i18n.changeLanguage('zh-TW');
+  });
+
+  it('renders Home calendar chrome and top bar in zh-TW and en without duplicate brand gloss or leftover chrome CJK', async () => {
+    const trip = createRefTrip();
+
+    await i18n.changeLanguage('zh-TW');
+    const zhHomeHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-10-22',
+          initialHash: '',
+          uiLanguage: 'zh-TW',
+        }),
+      ),
+    );
+    expect(zhHomeHtml).toContain('Travel notebook');
+    expect(zhHomeHtml).toContain('旅遊手帳');
+    expect(zhHomeHtml).toContain('第 5 日／共 10 日');
+    expect(zhHomeHtml).toContain('今日 HKD $1,086');
+    expect(zhHomeHtml).toContain('17 筆');
+    expect(zhHomeHtml).toContain('今日手札');
+    expect(zhHomeHtml).toContain('掃描收據');
+    expect(zhHomeHtml).toContain('記一筆');
+    expect(zhHomeHtml).toContain('2026年10月');
+    expect(zhHomeHtml).toContain('aria-label="上個月"');
+    expect(zhHomeHtml).toContain('aria-label="下個月"');
+
+    await i18n.changeLanguage('en');
+    const enHomeHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-10-22',
+          initialHash: '',
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    // Top bar shows "Travel notebook" only once (no duplicate script + display line)
+    expect(enHomeHtml.match(/>Travel notebook<\/span>/g)).toHaveLength(1);
+
+    // Home body chrome in EN
+    expect(enHomeHtml).toContain('Day 5 / 10 days');
+    expect(enHomeHtml).toContain('Today HKD $1,086');
+    expect(enHomeHtml).toContain('17 items');
+    expect(enHomeHtml).toContain('Today&#x27;s note');
+    expect(enHomeHtml).toContain('Scan receipt');
+    expect(enHomeHtml).toContain('Add entry');
+    expect(enHomeHtml).toContain('Oct 2026');
+    expect(enHomeHtml).not.toContain(' · Oct</span>');
+    expect(enHomeHtml).toContain('aria-label="Previous month"');
+    expect(enHomeHtml).toContain('aria-label="Next month"');
+    expect(enHomeHtml).toContain('>Sun</div>');
+    expect(enHomeHtml).toContain('>Sat</div>');
+    expect(enHomeHtml).toContain('aria-label="Oct 22 富士山一日遊"');
+
+    // No zh chrome leftovers on EN Home
+    for (const forbidden of [
+      '旅遊手帳',
+      '第 5 日／共 10 日',
+      '今日 HKD',
+      '17 筆',
+      'JPY 原幣合計',
+      '今日手札',
+      '掃描收據',
+      '記一筆',
+      '2026年10月',
+      '上個月',
+      '下個月',
+      '回到旅程月',
+      '出發前',
+      '已完成',
+      '10月22日',
+    ]) {
+      expect(enHomeHtml).not.toContain(forbidden);
+    }
+
+    // Also verify before-trip and after-trip stamp & back-to-trip-month button in EN
+    const enBeforeHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-09-15',
+          initialHash: '',
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    expect(enBeforeHtml).toContain('33 days to go');
+    expect(enBeforeHtml).toContain('>BEFORE</span>');
+
+    const enAfterHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-11-05',
+          initialHash: '',
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    expect(enAfterHtml).toContain('Trip complete · 10 days');
+    expect(enAfterHtml).toContain('>DONE</span>');
 
     await i18n.changeLanguage('zh-TW');
   });

@@ -463,6 +463,33 @@
       "charts": "Charts",
       "settings": "Settings"
     },
+    "home": {
+      "counterBefore": "{{n}} days to go",
+      "counterDuring": "Day {{n}} / {{total}} days",
+      "counterAfter": "Trip complete · {{total}} days",
+      "stampBefore": "BEFORE",
+      "stampAfter": "DONE",
+      "recordsCount": "{{count}} items",
+      "todaySpend": "Today {{amount}}",
+      "jpyOriginalTotal": "JPY original total",
+      "todayJournal": "Today's note",
+      "scanReceipt": "Scan receipt",
+      "addEntry": "Add entry",
+      "prevMonthAria": "Previous month",
+      "nextMonthAria": "Next month",
+      "monthTitle": "{{monthEn}} {{year}}",
+      "backToTripMonth": "Back to trip",
+      "dayCellDate": "{{monthEn}} {{day}}",
+      "weekdays": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      }
+    },
     "scan": {
       "loading": "Reading receipt…",
       "ready": "Receipt ready — please review.",

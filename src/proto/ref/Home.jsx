@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import '../../i18n';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, monthGridSunday } from './mockRefTrip';
 import {
@@ -19,12 +21,22 @@ import { expenseDateKey } from '../../utils/date';
 
 const hasSticker = (id) => STICKERS.some((s) => s.id === id);
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_KEYS = [
+  'notebook.home.weekdays.sun',
+  'notebook.home.weekdays.mon',
+  'notebook.home.weekdays.tue',
+  'notebook.home.weekdays.wed',
+  'notebook.home.weekdays.thu',
+  'notebook.home.weekdays.fri',
+  'notebook.home.weekdays.sat',
+];
 
 export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, onAdd }) {
+  const { t } = useTranslation();
   const [showJpy, setShowJpy] = useState(false);
   const total = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
   const jpy = trip.expenses.filter((e) => e.currency === 'JPY').reduce((s, e) => s + e.originalAmount, 0);
-  const counter = dayCounter(trip, today);
+  const counter = dayCounter(trip, today, { t });
   const todaySpend = dayStats(trip.expenses, today).total;
   const todayDay = trip.days[today];
   const pad = (n) => String(n).padStart(2, '0');
@@ -32,8 +44,8 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
     counter.phase === 'during'
       ? { top: `DAY ${pad(counter.n)}`, bottom: `${counter.total} DAYS` }
       : counter.phase === 'before'
-        ? { top: '出發前', bottom: `${counter.total} DAYS` }
-        : { top: '已完成', bottom: `${counter.total} DAYS` };
+        ? { top: t('notebook.home.stampBefore'), bottom: `${counter.total} DAYS` }
+        : { top: t('notebook.home.stampAfter'), bottom: `${counter.total} DAYS` };
   const [, sm, sd] = trip.startDate.split('-').map(Number);
   const [, em, ed] = trip.endDate.split('-').map(Number);
 
@@ -64,7 +76,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                     className="inline-flex min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/85 px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                   >
                     <span>
-                      {fmtJPY(jpy)} · {trip.expenses.length} 筆
+                      {fmtJPY(jpy)} · {t('notebook.home.recordsCount', { count: trip.expenses.length })}
                     </span>
                     <span className={`shrink-0 transition-transform ${showJpy ? 'rotate-180' : ''}`}>
                       {Icon.chevDown('h-3.5 w-3.5')}
@@ -76,7 +88,9 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                   className="whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
                 >
                   {counter.label}
-                  {counter.phase === 'during' ? ` · 今日 ${fmtHKD(todaySpend)}` : ''}
+                  {counter.phase === 'during'
+                    ? ` · ${t('notebook.home.todaySpend', { amount: fmtHKD(todaySpend) })}`
+                    : ''}
                 </div>
               </div>
               <RoundStamp top={stamp.top} bottom={stamp.bottom} className="mt-0.5" />
@@ -84,7 +98,9 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
 
             {showJpy && (
               <div className="mt-2.5 flex items-center justify-between border-t border-dashed border-line pt-2 text-meta">
-                <span className="whitespace-nowrap font-medium text-ink-muted">JPY 原幣合計</span>
+                <span className="whitespace-nowrap font-medium text-ink-muted">
+                  {t('notebook.home.jpyOriginalTotal')}
+                </span>
                 <span className="whitespace-nowrap font-mono font-semibold text-ink">{fmtJPY(jpy)}</span>
               </div>
             )}
@@ -101,7 +117,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
                 <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
                   <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
-                    今日手札
+                    {t('notebook.home.todayJournal')}
                   </span>
                   <span className="min-w-0 truncate whitespace-nowrap font-display text-xs text-ink">
                     Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
@@ -126,7 +142,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
           className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           {Icon.camera('h-[15px] w-[15px] shrink-0')}
-          <span>掃描收據</span>
+          <span>{t('notebook.home.scanReceipt')}</span>
         </button>
         <button
           type="button"
@@ -135,7 +151,7 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
           className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
-          <span>記一筆</span>
+          <span>{t('notebook.home.addEntry')}</span>
         </button>
       </div>
 
@@ -145,16 +161,20 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
 }
 
 function Calendar({ trip, today, month, setMonth, onOpenDay }) {
+  const { t } = useTranslation();
   const [y, m] = month.split('-').map(Number);
   const weeks = monthGridSunday(`${month}-01`);
   const shift = (n) => {
-    const t = new Date(y, m - 1 + n, 1);
-    setMonth(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`);
+    const dt = new Date(y, m - 1 + n, 1);
+    setMonth(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
   };
   const inTrip = (iso) => iso >= trip.startDate && iso <= trip.endDate;
   const spent = new Set(trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date)));
   const tripStartMonth = trip.startDate.slice(0, 7);
   const hasTripInMonth = weeks.some((w) => w.some((c) => c.inMonth && inTrip(c.iso)));
+  const monthEn = MONTH_EN[m - 1];
+  const monthTitle = t('notebook.home.monthTitle', { year: y, month: m, monthEn });
+  const showMonthEnGloss = Boolean(monthEn) && !monthTitle.includes(monthEn);
 
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
@@ -164,7 +184,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
       <div className="mb-2.5 flex min-w-0 items-center justify-between gap-1.5">
         <button
           type="button"
-          aria-label="上個月"
+          aria-label={t('notebook.home.prevMonthAria')}
           onClick={() => shift(-1)}
           className="flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
@@ -172,8 +192,10 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
           <h3 className="whitespace-nowrap font-display text-base text-ink">
-            {y}年{m}月
-            <span className="font-script text-teal-strong"> · {MONTH_EN[m - 1]}</span>
+            {monthTitle}
+            {showMonthEnGloss && (
+              <span className="font-script text-teal-strong"> · {monthEn}</span>
+            )}
           </h3>
           {!hasTripInMonth && month !== tripStartMonth && (
             <button
@@ -181,13 +203,13 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
               onClick={() => setMonth(tripStartMonth)}
               className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3 py-1.5 text-meta font-bold text-teal-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
-              回到旅程月
+              {t('notebook.home.backToTripMonth')}
             </button>
           )}
         </div>
         <button
           type="button"
-          aria-label="下個月"
+          aria-label={t('notebook.home.nextMonthAria')}
           onClick={() => shift(1)}
           className="flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-cream-soft text-base font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
@@ -196,9 +218,9 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
       </div>
 
       <div className="-mx-2 mb-1 grid grid-cols-7 border-b border-line/70 pb-1 text-center text-meta font-bold">
-        {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
-          <div key={w} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-muted'}>
-            {w}
+        {WEEKDAY_KEYS.map((wKey, i) => (
+          <div key={wKey} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-muted'}>
+            {t(wKey)}
           </div>
         ))}
       </div>
@@ -208,16 +230,22 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
           <div key={week[0].iso} className="grid grid-cols-[repeat(7,minmax(0,1fr))]">
             {week.map((c, i) => {
               const day = trip.days[c.iso];
-              const t = inTrip(c.iso);
-              const startSeg = t && (i === 0 || c.iso === trip.startDate || !inTrip(week[i - 1].iso));
-              const endSeg = t && (i === 6 || c.iso === trip.endDate || !inTrip(week[i + 1].iso));
+              const isTripDay = inTrip(c.iso);
+              const startSeg = isTripDay && (i === 0 || c.iso === trip.startDate || !inTrip(week[i - 1].iso));
+              const endSeg = isTripDay && (i === 6 || c.iso === trip.endDate || !inTrip(week[i + 1].iso));
               const isToday = c.iso === today;
               const note = day?.note ? capCellNote(day.note) : '';
               const stickerId = day?.sticker && hasSticker(day.sticker) ? day.sticker : '';
+              const cellMonth = Number(c.iso.slice(5, 7));
               const n = Number(c.iso.slice(8));
+              const cellDateLabel = t('notebook.home.dayCellDate', {
+                month: cellMonth,
+                day: n,
+                monthEn: MONTH_EN[cellMonth - 1],
+              });
               const dayTone = isToday
                 ? 'font-extrabold text-mustard-ink'
-                : t
+                : isTripDay
                   ? 'font-bold text-ink'
                   : c.inMonth
                     ? 'font-bold text-ink-muted opacity-75'
@@ -229,10 +257,10 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
                   type="button"
                   data-testid={`day-cell-${c.iso}`}
                   onClick={() => onOpenDay(c.iso)}
-                  aria-label={`${Number(c.iso.slice(5, 7))}月${n}日${day?.title ? ` ${day.title}` : ''}`}
+                  aria-label={`${cellDateLabel}${day?.title ? ` ${day.title}` : ''}`}
                   className="relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
-                  {t && (
+                  {isTripDay && (
                     <span
                       aria-hidden="true"
                       className={`pointer-events-none absolute inset-x-0 inset-y-0.5 border-y border-teal/35 bg-teal-soft/80 ${

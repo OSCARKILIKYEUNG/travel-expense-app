@@ -26,18 +26,58 @@ function dayDiff(fromIso, toIso) {
   return Math.round((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 86400000);
 }
 
-/** Day counter: before → 倒數 N 日; during → 第 N 日／共 M 日; after → 旅程完成，共 M 日. */
-export function dayCounter(trip, todayIso) {
+export const DAY_COUNTER_KEYS = {
+  before: 'notebook.home.counterBefore',
+  during: 'notebook.home.counterDuring',
+  after: 'notebook.home.counterAfter',
+};
+
+function resolveCounterOptions(optionsOrT) {
+  if (typeof optionsOrT === 'function') return { t: optionsOrT, lang: undefined };
+  if (typeof optionsOrT === 'string') return { t: undefined, lang: optionsOrT };
+  if (optionsOrT && typeof optionsOrT === 'object') return optionsOrT;
+  return {};
+}
+
+export function dayCounterLabel(counter, optionsOrT) {
+  const { phase, n, total } = counter;
+  const labelKey = DAY_COUNTER_KEYS[phase] || DAY_COUNTER_KEYS.during;
+  const { t, lang } = resolveCounterOptions(optionsOrT);
+  if (typeof t === 'function') {
+    return t(labelKey, { n, total });
+  }
+  const isEn = typeof lang === 'string' && lang.toLowerCase().startsWith('en');
+  if (isEn) {
+    if (phase === 'before') return `${n} days to go`;
+    if (phase === 'after') return `Trip complete · ${total} days`;
+    return `Day ${n} / ${total} days`;
+  }
+  if (phase === 'before') return `倒數 ${n} 日`;
+  if (phase === 'after') return `旅程完成，共 ${total} 日`;
+  return `第 ${n} 日／共 ${total} 日`;
+}
+
+/**
+ * Day counter:
+ * - zh-TW: before → 倒數 N 日; during → 第 N 日／共 M 日; after → 旅程完成，共 M 日
+ * - en: before → N days to go; during → Day N / M days; after → Trip complete · M days
+ */
+export function dayCounter(trip, todayIso, optionsOrT) {
   const total = dayDiff(trip.startDate, trip.endDate) + 1;
+  let phase = 'during';
+  let n;
   if (todayIso < trip.startDate) {
-    const n = dayDiff(todayIso, trip.startDate);
-    return { phase: 'before', n, total, label: `倒數 ${n} 日` };
+    phase = 'before';
+    n = dayDiff(todayIso, trip.startDate);
+  } else if (todayIso > trip.endDate) {
+    phase = 'after';
+    n = total;
+  } else {
+    n = dayDiff(trip.startDate, todayIso) + 1;
   }
-  if (todayIso > trip.endDate) {
-    return { phase: 'after', n: total, total, label: `旅程完成，共 ${total} 日` };
-  }
-  const n = dayDiff(trip.startDate, todayIso) + 1;
-  return { phase: 'during', n, total, label: `第 ${n} 日／共 ${total} 日` };
+  const labelKey = DAY_COUNTER_KEYS[phase];
+  const label = dayCounterLabel({ phase, n, total }, optionsOrT);
+  return { phase, n, total, labelKey, label };
 }
 
 /** Sum HKD for one date (today's spend line under the whole-trip total). */

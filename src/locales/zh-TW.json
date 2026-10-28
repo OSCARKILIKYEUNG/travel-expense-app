@@ -463,6 +463,33 @@
       "charts": "圖表",
       "settings": "設定"
     },
+    "home": {
+      "counterBefore": "倒數 {{n}} 日",
+      "counterDuring": "第 {{n}} 日／共 {{total}} 日",
+      "counterAfter": "旅程完成，共 {{total}} 日",
+      "stampBefore": "出發前",
+      "stampAfter": "已完成",
+      "recordsCount": "{{count}} 筆",
+      "todaySpend": "今日 {{amount}}",
+      "jpyOriginalTotal": "JPY 原幣合計",
+      "todayJournal": "今日手札",
+      "scanReceipt": "掃描收據",
+      "addEntry": "記一筆",
+      "prevMonthAria": "上個月",
+      "nextMonthAria": "下個月",
+      "monthTitle": "{{year}}年{{month}}月",
+      "backToTripMonth": "回到旅程月",
+      "dayCellDate": "{{month}}月{{day}}日",
+      "weekdays": {
+        "sun": "日",
+        "mon": "一",
+        "tue": "二",
+        "wed": "三",
+        "thu": "四",
+        "fri": "五",
+        "sat": "六"
+      }
+    },
     "scan": {
       "loading": "正在讀取收據…",
       "ready": "已讀取收據，請核對。",

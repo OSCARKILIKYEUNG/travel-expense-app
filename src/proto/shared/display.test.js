@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { capCellNote, dayCounter, spendOnDate } from './display.js';
+import i18n from '../../i18n';
+import { capCellNote, dayCounter, dayCounterLabel, spendOnDate } from './display.js';
 
 const trip = { startDate: '2026-10-19', endDate: '2026-10-27' };
 
@@ -16,10 +17,28 @@ describe('capCellNote', () => {
 });
 
 describe('dayCounter', () => {
-  it('before trip', () => expect(dayCounter(trip, '2026-10-16').label).toBe('倒數 3 日'));
-  it('during trip', () => expect(dayCounter(trip, '2026-10-23').label).toBe('第 5 日／共 9 日'));
-  it('last day', () => expect(dayCounter(trip, '2026-10-27').label).toBe('第 9 日／共 9 日'));
-  it('after trip', () => expect(dayCounter(trip, '2026-11-02').label).toBe('旅程完成，共 9 日'));
+  it('before trip (default zh-TW)', () => expect(dayCounter(trip, '2026-10-16').label).toBe('倒數 3 日'));
+  it('during trip (default zh-TW)', () => expect(dayCounter(trip, '2026-10-23').label).toBe('第 5 日／共 9 日'));
+  it('last day (default zh-TW)', () => expect(dayCounter(trip, '2026-10-27').label).toBe('第 9 日／共 9 日'));
+  it('after trip (default zh-TW)', () => expect(dayCounter(trip, '2026-11-02').label).toBe('旅程完成，共 9 日'));
+
+  it('resolves zh-TW and en labels via t() or lang option', () => {
+    const tZh = i18n.getFixedT('zh-TW');
+    const tEn = i18n.getFixedT('en');
+
+    expect(dayCounter(trip, '2026-10-16', { t: tZh }).label).toBe('倒數 3 日');
+    expect(dayCounter(trip, '2026-10-23', { t: tZh }).label).toBe('第 5 日／共 9 日');
+    expect(dayCounter(trip, '2026-11-02', { t: tZh }).label).toBe('旅程完成，共 9 日');
+
+    expect(dayCounter(trip, '2026-10-16', { t: tEn }).label).toBe('3 days to go');
+    expect(dayCounter(trip, '2026-10-23', { t: tEn }).label).toBe('Day 5 / 9 days');
+    expect(dayCounter(trip, '2026-11-02', { t: tEn }).label).toBe('Trip complete · 9 days');
+
+    expect(dayCounter(trip, '2026-10-16', { lang: 'en' }).label).toBe('3 days to go');
+    expect(dayCounter(trip, '2026-10-23', { lang: 'en' }).label).toBe('Day 5 / 9 days');
+    expect(dayCounter(trip, '2026-11-02', { lang: 'en' }).label).toBe('Trip complete · 9 days');
+    expect(dayCounterLabel({ phase: 'during', n: 5, total: 9 }, 'en')).toBe('Day 5 / 9 days');
+  });
 });
 
 describe('spendOnDate', () => {

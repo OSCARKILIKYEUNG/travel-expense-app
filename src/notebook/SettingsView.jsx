@@ -277,6 +277,10 @@ export default function SettingsView({
     else onToast?.(t('notebook.toast.reportCopyFailed'));
   };
 
+  const settingsTitle = t('settings.title');
+  const settingsTitleScript = t('notebook.settings.titleScript');
+  const showSettingsTitleScript = Boolean(settingsTitleScript) && settingsTitleScript !== settingsTitle;
+
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
       <div className="relative space-y-1">
@@ -285,10 +289,12 @@ export default function SettingsView({
           {t('settings.pageEyebrow')}
         </p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{t('settings.title')}</h1>
-          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
-            {t('notebook.settings.titleScript')}
-          </span>
+          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{settingsTitle}</h1>
+          {showSettingsTitleScript && (
+            <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+              {settingsTitleScript}
+            </span>
+          )}
         </div>
       </div>
 
