@@ -547,6 +547,8 @@
       "aboutSummary": "Original total {{amount}} · Notebook mode"
     },
     "toast": {
+      "undo": "Undo",
+      "dismiss": "Dismiss",
       "tripSwitched": "Switched to {{name}}",
       "undone": "Undone",
       "datesSaved": "Trip dates updated: {{startDate}} – {{endDate}}",
@@ -560,6 +562,14 @@
       "exportedBackup": "Downloaded full backup {{filename}}",
       "reportCopied": "Report copied",
       "reportCopyFailed": "Could not copy report. Please try again."
+    },
+    "sync": {
+      "saveFailed": "Couldn't sync to the cloud. Your changes are saved on this device.",
+      "loadFailed": "Couldn't load the latest cloud data. Showing this device's copy.",
+      "retry": "Retry",
+      "recovered": "Synced to the cloud",
+      "remoteApplied": "Loaded newer changes from another device",
+      "localKept": "Another device saved changes; kept the newer edits on this device"
     }
   }
 }

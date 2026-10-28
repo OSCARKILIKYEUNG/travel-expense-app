@@ -234,6 +234,12 @@ export function postSaveTarget({ origin, savedDate } = {}) {
 }
 
 export const TOAST_DURATION_MS = 6000;
+export const ERROR_TOAST_DURATION_MS = 8000;
+
+export function toastDurationMs(toast) {
+  const tone = typeof toast === 'string' ? toast : toast?.tone;
+  return tone === 'error' ? ERROR_TOAST_DURATION_MS : TOAST_DURATION_MS;
+}
 
 function resolveScreenName(s) {
   if (!s) return 'home';

@@ -547,6 +547,8 @@
       "aboutSummary": "原幣合計 {{amount}} · 旅遊手帳模式"
     },
     "toast": {
+      "undo": "撤銷",
+      "dismiss": "關閉提示",
       "tripSwitched": "已切換至 {{name}}",
       "undone": "已撤銷操作",
       "datesSaved": "已更新旅程日期 {{startDate}} – {{endDate}}",
@@ -560,6 +562,14 @@
       "exportedBackup": "已下載完整備份 {{filename}}",
       "reportCopied": "已複製報告",
       "reportCopyFailed": "複製報告失敗，請重試"
+    },
+    "sync": {
+      "saveFailed": "未能同步到雲端，變更已保存在此裝置。",
+      "loadFailed": "未能從雲端載入最新資料，正在顯示此裝置的資料。",
+      "retry": "重試",
+      "recovered": "已同步到雲端",
+      "remoteApplied": "已載入另一部裝置較新的變更",
+      "localKept": "另一部裝置曾更新資料，已保留此裝置較新的變更"
     }
   }
 }

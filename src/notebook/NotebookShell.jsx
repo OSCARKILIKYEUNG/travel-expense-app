@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { applyUndo, defaultPayer, parseRate, resolveToday, setTripDates } from '../proto/ref/refRules';
 import { useApp } from '../store/AppContext';
 import { normalizeUiLanguage } from '../utils/locale';
+import { createSyncToastLimiter } from '../utils/syncNotice';
 import { getTripCurrencyCode } from '../utils/tripMoney';
 import NotebookApp from './NotebookApp';
 import { buildAccountView } from './accountView';
@@ -58,6 +59,8 @@ export default function NotebookShell() {
     applyBillingSnapshot,
     refreshBilling,
     notify,
+    syncEvent,
+    retrySync,
   } = useApp();
 
   const uiLanguage = normalizeUiLanguage(settings?.uiLanguage);
@@ -75,6 +78,36 @@ export default function NotebookShell() {
   );
 
   const notebookActionsRef = useRef(null);
+
+  // Cloud sync status -> notebook Toast. AppContext's own `toast` only renders in
+  // the classic layout, so without this a failed save is silent in notebook mode.
+  const syncToastLimiterRef = useRef(null);
+  if (!syncToastLimiterRef.current) syncToastLimiterRef.current = createSyncToastLimiter();
+  const retrySyncRef = useRef(retrySync);
+  retrySyncRef.current = retrySync;
+  useEffect(() => {
+    if (!syncEvent) return;
+    const limiter = syncToastLimiterRef.current;
+    const show = (msg, options) => notebookActionsRef.current?.showToast?.(msg, null, options);
+    if (syncEvent.type === 'error') {
+      if (!limiter.allow(syncEvent.phase)) return;
+      show(t(syncEvent.phase === 'load' ? 'notebook.sync.loadFailed' : 'notebook.sync.saveFailed'), {
+        tone: 'error',
+        action: {
+          label: t('notebook.sync.retry'),
+          testId: 'toast-sync-retry',
+          onClick: () => retrySyncRef.current?.(),
+        },
+      });
+    } else if (syncEvent.type === 'recovered') {
+      limiter.reset(syncEvent.phase);
+      show(t('notebook.sync.recovered'), { tone: 'info' });
+    } else if (syncEvent.type === 'remote-applied') {
+      show(t('notebook.sync.remoteApplied'), { tone: 'info' });
+    } else if (syncEvent.type === 'local-kept') {
+      show(t('notebook.sync.localKept'), { tone: 'info' });
+    }
+  }, [syncEvent, t]);
 
   const today = useMemo(
     () => resolveToday(typeof window !== 'undefined' ? window.location.search : ''),

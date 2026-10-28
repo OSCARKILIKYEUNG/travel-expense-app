@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import '../../i18n';
 import { runToastSlide } from '../../motion/stickerKeyframes';
 import { palette } from '../../theme/tokens';
 import { STICKERS } from './mockRefTrip';
@@ -292,9 +294,16 @@ export const Icon = {
       <path d="M4 6h16M7 12h10M10 18h4" />
     </svg>
   ),
+  alert: (c = 'h-4 w-4') => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={c} {...S}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v5M12 16h.01" />
+    </svg>
+  ),
 };
 
 export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverChange, onFocusChange }) {
+  const { t } = useTranslation();
   const toastRef = useRef(null);
   const lastToastIdRef = useRef(null);
   const toastId = toast?.id ?? null;
@@ -308,14 +317,18 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
   }, [toast, toastId]);
 
   if (!toast) return null;
+  const isError = toast.tone === 'error';
+  const borderClass = isError ? 'border-coral-ink' : 'border-teal-strong';
   const bottomClass = aboveSaveBar
     ? 'bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))]'
     : 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]';
+  const showDismiss = !toast.undo && Boolean(onDismiss || toast.action || isError);
+
   return (
     <div
       ref={toastRef}
-      role="status"
-      aria-live="polite"
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
       tabIndex={-1}
       data-testid="toast"
       onMouseEnter={() => onHoverChange?.(true)}
@@ -328,8 +341,9 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
           onFocusChange?.(false);
         }
       }}
-      className={`fixed inset-x-4 ${bottomClass} z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 border-teal-strong bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none`}
+      className={`fixed inset-x-4 ${bottomClass} z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 ${borderClass} bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none`}
     >
+      {isError && Icon.alert('h-4 w-4 shrink-0 text-coral-ink')}
       <span className="min-w-0 flex-1 whitespace-normal break-words line-clamp-3 text-sm font-semibold leading-snug text-ink">
         {toast.message}
       </span>
@@ -341,14 +355,28 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
             onClick={onUndo}
             className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            撤銷
+            {t('notebook.toast.undo')}
           </button>
         )}
-        {onDismiss && !toast.undo && (
+        {toast.action && (
           <button
             type="button"
-            aria-label="關閉提示"
-            onClick={onDismiss}
+            data-testid={toast.action.testId || 'toast-action'}
+            onClick={() => {
+              toast.action.onClick?.();
+              onDismiss?.();
+            }}
+            className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            {toast.action.label}
+          </button>
+        )}
+        {showDismiss && (
+          <button
+            type="button"
+            data-testid="toast-dismiss"
+            aria-label={t('notebook.toast.dismiss')}
+            onClick={() => onDismiss?.()}
             className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {Icon.x('h-4 w-4')}

@@ -29,6 +29,7 @@ import {
   duplicateResolutionToastKey,
 } from '../utils/duplicateDecisions';
 import { replaceUndoStorageKey } from '../utils/persistMerge';
+import { syncErrorText } from '../utils/syncNotice';
 
 const AppContext = createContext(null);
 
@@ -257,21 +258,49 @@ function AppProviderInner({ children, userId }) {
     }
   }, [toast]);
 
+  // Cloud sync status for UIs that do not render `toast` (the notebook shell).
+  // Each event gets a new seq so the same failure twice still re-renders.
+  const [syncEvent, setSyncEvent] = useState(null);
+  const syncSeqRef = useRef(0);
+  const syncFailedRef = useRef(null);
+  const emitSyncEvent = useCallback((event) => {
+    syncSeqRef.current += 1;
+    setSyncEvent({ ...event, seq: syncSeqRef.current });
+  }, []);
+
+  const reportSyncFailure = useCallback((phase, err) => {
+    console.error('[sync]', err);
+    syncFailedRef.current = phase;
+    const msg = syncErrorText(err) || 'sync failed';
+    notify(t('errors.persistFailed', { message: msg }), 'error');
+    emitSyncEvent({ type: 'error', phase, message: msg });
+  }, [emitSyncEvent, notify, t]);
+
+  const reportSyncSuccess = useCallback((phase) => {
+    if (syncFailedRef.current !== phase) return;
+    syncFailedRef.current = null;
+    emitSyncEvent({ type: 'recovered', phase });
+  }, [emitSyncEvent]);
+
+  const persistNow = useCallback(
+    () => enqueuePersistUserAppData(userId).then(
+      (res) => { reportSyncSuccess('save'); return res; },
+      (err) => { reportSyncFailure('save', err); return null; },
+    ),
+    [userId, reportSyncFailure, reportSyncSuccess],
+  );
+
+  /** Retry the last failed cloud operation the same way the app would run it. */
+  const retrySync = useCallback(() => persistNow(), [persistNow]);
+
   useEffect(() => {
     const id = setTimeout(() => {
       // Snapshot is taken when the queued upload runs, after trip expenses
       // have been written. Overlapping uploads are serialized.
-      enqueuePersistUserAppData(userId).catch((err) => {
-        console.error('[sync]', err);
-        const msg =
-          err?.message ||
-          err?.error_description ||
-          (typeof err === 'string' ? err : JSON.stringify(err));
-        notify(t('errors.persistFailed', { message: msg }), 'error');
-      });
+      persistNow();
     }, PERSIST_DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [userId, trips, currentTripId, expenses, settings, people, notify, t]);
+  }, [userId, trips, currentTripId, expenses, settings, people, persistNow]);
 
   useEffect(() => {
     if (expenses.length === 0) return;
@@ -526,6 +555,7 @@ function AppProviderInner({ children, userId }) {
     addCustomExpenseCategory, removeCustomExpenseCategory,
     filterPerson, setFilterPerson,
     toast, notify,
+    syncEvent, retrySync,
     exchangeRates,
     homeCurrencyCode,
     tripCurrency,
@@ -539,6 +569,7 @@ function AppProviderInner({ children, userId }) {
     resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     setFilterPerson, notify,
+    syncEvent, retrySync,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

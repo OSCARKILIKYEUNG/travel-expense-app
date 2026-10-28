@@ -9,6 +9,7 @@ import { DURATION_MS } from '../motion/tokens';
 import { createRefTrips } from '../proto/ref/mockRefTrip';
 import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import {
+  ERROR_TOAST_DURATION_MS,
   TOAST_DURATION_MS,
   applyUndo,
   defaultExpenseDate,
@@ -22,6 +23,7 @@ import {
   setTripDates,
   shouldKeepToastOnRoute,
   switchTripRoute,
+  toastDurationMs,
   tripMonth,
 } from '../proto/ref/refRules';
 import { ledgerHash } from '../proto/ref/refCharts';
@@ -35,7 +37,7 @@ import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
 import SettingsView, { buildMockTrip, validateNewTrip } from './SettingsView';
 
-export { buildMockTrip, validateNewTrip };
+export { buildMockTrip, validateNewTrip, ERROR_TOAST_DURATION_MS, TOAST_DURATION_MS, toastDurationMs };
 import { createLegacySeedTrips, resolveNotebookSeed } from './legacySeed';
 import {
   FIXTURE_SCAN_DELAY_MS,
@@ -59,6 +61,18 @@ import {
   routeScannedSave,
   scanResultToFormFields,
 } from './useReceiptScan';
+
+/** Toast state for showToast: `tone` is default | info | error; `action` is an optional extra button. */
+export function buildToastState(message, undo = null, options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  return {
+    id: Date.now() + Math.random(),
+    message,
+    undo: undo ?? null,
+    tone: opts.tone || 'default',
+    action: opts.action || null,
+  };
+}
 
 export function buildDeleteUndo(expense, { rawExpenses, fallbackExpenses = [] } = {}) {
   const targetId = expense?.id;
@@ -152,6 +166,7 @@ export default function NotebookApp({
   rate: propRate,
   initialHash = '',
   initialSelectedDay = null,
+  initialToast = null,
   search: propSearch,
   scanner,
   rawExpenses,
@@ -240,7 +255,7 @@ export default function NotebookApp({
   const [returnTo, setReturnTo] = useState('');
   const [addOrigin, setAddOrigin] = useState(() => ({ origin: 'home', originDay: null }));
   const [month, setMonth] = useState(() => tripMonth(trip, today));
-  const [toast, setToast] = useState(null);
+  const [toast, setToast] = useState(initialToast);
   const [toastHover, setToastHover] = useState(false);
   const [toastFocus, setToastFocus] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
@@ -330,10 +345,10 @@ export default function NotebookApp({
     [isControlled, mockActiveTripId, onUpdateTrip],
   );
 
-  const showToast = useCallback((message, undo = null) => {
+  const showToast = useCallback((message, undo = null, options = {}) => {
     setToastHover(false);
     setToastFocus(false);
-    setToast({ id: Date.now() + Math.random(), message, undo });
+    setToast(buildToastState(message, undo, options));
   }, []);
 
   const toastPaused = toastHover || toastFocus;
@@ -354,7 +369,8 @@ export default function NotebookApp({
 
   useEffect(() => {
     if (!toast || toastPaused) return undefined;
-    const timer = setTimeout(() => setToast(null), TOAST_DURATION_MS);
+    const durationMs = toastDurationMs(toast);
+    const timer = setTimeout(() => setToast(null), durationMs);
     return () => clearTimeout(timer);
   }, [toast, toastPaused]);
 
@@ -954,7 +970,7 @@ export default function NotebookApp({
     setStickerId(null);
     setToastHover(false);
     setToastFocus(false);
-    setToast({ id: Date.now() + Math.random(), message: t('notebook.toast.undone'), undo: null });
+    setToast(buildToastState(t('notebook.toast.undone'), null));
   };
 
   let body;
