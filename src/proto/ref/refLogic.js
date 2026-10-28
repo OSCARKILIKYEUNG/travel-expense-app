@@ -83,8 +83,11 @@ export function personCounts(expenses, people) {
   const counts = { 全部: expenses.length };
   for (const p of people) counts[p] = 0;
   for (const e of expenses) {
-    const who = resolveAssigneeDisplay(e.assignedTo, people);
-    counts[who] = (counts[who] || 0) + 1;
+    for (const p of people) {
+      if (matchesPerson(e, p, people)) {
+        counts[p] = (counts[p] || 0) + 1;
+      }
+    }
   }
   return counts;
 }

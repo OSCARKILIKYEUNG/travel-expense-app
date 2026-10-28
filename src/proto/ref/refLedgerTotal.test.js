@@ -1,12 +1,33 @@
 import { describe, expect, it } from 'vitest';
+import { resolveAssigneeDisplay } from '../../utils/people';
+import {
+  getPartialMatchPersonShareHKD,
+  getPartialMatchPersonShareOriginal,
+} from '../../utils/personShare';
 import { createRefTrip, REF_TODAY } from './mockRefTrip';
 import { remainingPerDay } from './refCharts';
-import { ledgerTotalSummary, splitHKD } from './refLedgerTotal';
-import { filterExpenses } from './refLogic';
+import { ledgerExpenseShare, ledgerTotalSummary, splitHKD } from './refLedgerTotal';
+import { filterExpenses, personCounts } from './refLogic';
 
 const trip = createRefTrip();
 const all = trip.expenses;
 const people = trip.settings.people;
+
+function classicDashboardTotalHKD(expenses, filterPerson, exchangeRates, peopleList, defaultAssignee = '共同') {
+  if (!filterPerson || filterPerson === '全部') {
+    return expenses.reduce((a, c) => a + c.hkdAmount, 0);
+  }
+  let total = 0;
+  for (const e of expenses) {
+    const whole = resolveAssigneeDisplay(e.assignedTo, peopleList) === filterPerson;
+    if (whole) {
+      total += e.hkdAmount;
+    } else if (e.items?.some((i) => (i.assignedTo || resolveAssigneeDisplay(e.assignedTo, peopleList)) === filterPerson)) {
+      total += getPartialMatchPersonShareHKD(e, filterPerson, exchangeRates, defaultAssignee);
+    }
+  }
+  return total;
+}
 
 describe('ledgerTotalSummary', () => {
   it('computes Tokyo unfiltered totals and budget 15000 matching remainingPerDay.pct', () => {
@@ -134,6 +155,135 @@ describe('ledgerTotalSummary', () => {
     expect(summary.jpy).toBe(0);
     expect(summary.filtered).toBe(true);
     expect(summary.budget.filteredPct).toBe(0);
+  });
+
+  it('matches classic Dashboard partial-share HKD and recordCount when person filter includes partial line-items', () => {
+    const exchangeRates = { HKD: 1, JPY: 20 };
+    const peopleList = ['共同', 'Oscar', '阿明'];
+    const fixture = [
+      {
+        id: 101,
+        date: '2026年10月20日',
+        store: 'UNIQLO 銀座',
+        category: '購物',
+        assignedTo: 'Oscar',
+        currency: 'JPY',
+        originalCurrency: 'JPY',
+        originalAmount: 10000,
+        hkdAmount: 500,
+        items: [],
+      },
+      {
+        id: 102,
+        date: '2026年10月21日',
+        store: '松本清 澀谷店',
+        category: '購物',
+        assignedTo: '共同',
+        currency: 'JPY',
+        originalCurrency: 'JPY',
+        originalAmount: 10000,
+        hkdAmount: 500,
+        items: [
+          { name: '感冒藥', price: 6000, assignedTo: 'Oscar' },
+          { name: '面膜', price: 4000, assignedTo: '阿明' },
+        ],
+      },
+      {
+        id: 103,
+        date: '2026年10月22日',
+        store: '一蘭拉麵',
+        category: '飲食',
+        assignedTo: '阿明',
+        currency: 'JPY',
+        originalCurrency: 'JPY',
+        originalAmount: 2000,
+        hkdAmount: 100,
+        items: [],
+      },
+    ];
+
+    const shownOscar = filterExpenses(fixture, { person: 'Oscar' }, peopleList);
+    expect(shownOscar).toHaveLength(2);
+    expect(personCounts(fixture, peopleList)).toEqual({
+      全部: 3,
+      共同: 1,
+      Oscar: 2,
+      阿明: 2,
+    });
+
+    const partialOscarHkd = getPartialMatchPersonShareHKD(
+      fixture[1],
+      'Oscar',
+      exchangeRates,
+      '共同',
+    );
+    expect(partialOscarHkd).toBe(300);
+
+    const partialOscarJpy = getPartialMatchPersonShareOriginal(
+      fixture[1],
+      'Oscar',
+      '共同',
+    );
+    expect(partialOscarJpy).toBe(6000);
+
+    const oscarSummary = ledgerTotalSummary({
+      shown: shownOscar,
+      all: fixture,
+      budget: 2000,
+      filtered: true,
+      person: 'Oscar',
+      people: peopleList,
+      exchangeRates,
+      defaultAssignee: '共同',
+    });
+
+    const expectedDashboardOscarHkd = classicDashboardTotalHKD(
+      fixture,
+      'Oscar',
+      exchangeRates,
+      peopleList,
+      '共同',
+    );
+    expect(expectedDashboardOscarHkd).toBe(800);
+    expect(oscarSummary.hkd).toBe(expectedDashboardOscarHkd);
+    expect(oscarSummary.count).toBe(2);
+    expect(oscarSummary.jpy).toBe(16000);
+    expect(oscarSummary.budget.spent).toBe(1100);
+    expect(oscarSummary.budget.filteredPct).toBe(40);
+
+    // Also verify 阿明 partial share parity (100 whole + 200 partial = 300 HKD)
+    const shownMing = filterExpenses(fixture, { person: '阿明' }, peopleList);
+    const mingSummary = ledgerTotalSummary({
+      shown: shownMing,
+      all: fixture,
+      budget: 2000,
+      filtered: true,
+      person: '阿明',
+      people: peopleList,
+      exchangeRates,
+      defaultAssignee: '共同',
+    });
+    expect(mingSummary.hkd).toBe(
+      classicDashboardTotalHKD(fixture, '阿明', exchangeRates, peopleList, '共同'),
+    );
+    expect(mingSummary.hkd).toBe(300);
+    expect(mingSummary.count).toBe(2);
+    expect(mingSummary.jpy).toBe(6000);
+
+    // Non-person filter (e.g. category='購物') still sums full hkdAmount of shown
+    const shownShopping = filterExpenses(fixture, { category: '購物' }, peopleList);
+    const shoppingSummary = ledgerTotalSummary({
+      shown: shownShopping,
+      all: fixture,
+      budget: 2000,
+      filtered: true,
+      person: '全部',
+      people: peopleList,
+      exchangeRates,
+    });
+    expect(shoppingSummary.hkd).toBe(1000);
+    expect(shoppingSummary.count).toBe(2);
+    expect(ledgerExpenseShare(null)).toEqual({ hkd: 0, jpy: 0 });
   });
 });
 

@@ -1,6 +1,11 @@
 /**
  * Pure total-card logic for the 帳本 (Ledger) screen.
  */
+import { getDefaultAssignee, resolveAssigneeDisplay } from '../../utils/people';
+import {
+  getPartialMatchPersonShareHKD,
+  getPartialMatchPersonShareOriginal,
+} from '../../utils/personShare';
 
 /**
  * Split an HKD amount into its currency prefix and rounded en-US grouped digits.
@@ -15,13 +20,68 @@ export function splitHKD(n) {
   };
 }
 
+function hasPartialPersonItems(expense, person, people) {
+  return (expense?.items || []).some(
+    (item) => item && (item.assignedTo || resolveAssigneeDisplay(expense.assignedTo, people)) === person,
+  );
+}
+
+/**
+ * Compute an expense's HKD and JPY contribution for the ledger total card.
+ * When `person` is active (`!== '全部'`), matches classic `Dashboard.jsx` math:
+ * - Whole-card assignee (`resolveAssigneeDisplay(e.assignedTo, people) === person`) -> full `hkdAmount` / `originalAmount`.
+ * - Partial line-item assignee -> `getPartialMatchPersonShareHKD` / `getPartialMatchPersonShareOriginal`.
+ */
+export function ledgerExpenseShare(
+  expense,
+  { person = '全部', people = [], exchangeRates = null, defaultAssignee } = {},
+) {
+  if (!expense || typeof expense !== 'object') {
+    return { hkd: 0, jpy: 0 };
+  }
+
+  const curr = String(expense.originalCurrency || expense.currency || '').toUpperCase();
+  const fullHkd = Number(expense.hkdAmount || 0);
+  const fullJpy = curr === 'JPY' ? Number(expense.originalAmount || 0) : 0;
+
+  if (!person || person === '全部') {
+    return { hkd: fullHkd, jpy: fullJpy };
+  }
+
+  const resolvedDefault = defaultAssignee ?? getDefaultAssignee(people);
+  const whole = resolveAssigneeDisplay(expense.assignedTo, people) === person;
+  if (whole) {
+    return { hkd: fullHkd, jpy: fullJpy };
+  }
+
+  if (hasPartialPersonItems(expense, person, people)) {
+    const hkd = getPartialMatchPersonShareHKD(
+      expense,
+      person,
+      exchangeRates,
+      resolvedDefault,
+    );
+    const jpy =
+      curr === 'JPY'
+        ? getPartialMatchPersonShareOriginal(expense, person, resolvedDefault)
+        : 0;
+    return { hkd, jpy };
+  }
+
+  return { hkd: 0, jpy: 0 };
+}
+
 /**
  * Compute the 帳本 total summary for the filtered view and trip-level budget bar.
  * @param {{
- *   shown?: Array<{ hkdAmount?: number, originalAmount?: number, currency?: string }>,
+ *   shown?: Array<{ hkdAmount?: number, originalAmount?: number, currency?: string, assignedTo?: string, items?: Array<any> }>,
  *   all?: Array<{ hkdAmount?: number }>,
  *   budget?: number | null,
  *   filtered?: boolean,
+ *   person?: string,
+ *   people?: string[],
+ *   exchangeRates?: Record<string, number> | null,
+ *   defaultAssignee?: string,
  * }} [opts]
  * @returns {{
  *   hkd: number,
@@ -39,16 +99,42 @@ export function splitHKD(n) {
  *   },
  * }}
  */
-export function ledgerTotalSummary({ shown = [], all = [], budget = null, filtered = false } = {}) {
+export function ledgerTotalSummary({
+  shown = [],
+  all = [],
+  budget = null,
+  filtered = false,
+  person = '全部',
+  people = [],
+  exchangeRates = null,
+  defaultAssignee,
+} = {}) {
   const shownList = Array.isArray(shown) ? shown : [];
   const allList = Array.isArray(all) ? all : [];
   const isFiltered = Boolean(filtered);
+  const hasPersonFilter = Boolean(person && person !== '全部');
 
-  const hkd = shownList.reduce((sum, e) => sum + Number(e?.hkdAmount || 0), 0);
+  let hkd = 0;
+  let jpy = 0;
+  for (const e of shownList) {
+    if (hasPersonFilter) {
+      const share = ledgerExpenseShare(e, {
+        person,
+        people,
+        exchangeRates,
+        defaultAssignee,
+      });
+      hkd += share.hkd;
+      jpy += share.jpy;
+    } else {
+      hkd += Number(e?.hkdAmount || 0);
+      const curr = String(e?.originalCurrency || e?.currency || '').toUpperCase();
+      if (curr === 'JPY') {
+        jpy += Number(e?.originalAmount || 0);
+      }
+    }
+  }
   const count = shownList.length;
-  const jpy = shownList
-    .filter((e) => e?.currency === 'JPY')
-    .reduce((sum, e) => sum + Number(e?.originalAmount || 0), 0);
 
   const hasValidBudget = typeof budget === 'number' && Number.isFinite(budget) && budget > 0;
   if (!hasValidBudget) {

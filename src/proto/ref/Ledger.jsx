@@ -14,6 +14,8 @@ export default function Ledger({
   trip,
   initialFilters,
   highlightId,
+  exchangeRates,
+  defaultAssignee,
   onScan,
   onAdd,
   onEdit,
@@ -49,6 +51,10 @@ export default function Ledger({
     all: trip.expenses,
     budget: trip.settings?.budget,
     filtered: hasAnyFilter,
+    person,
+    people,
+    exchangeRates: exchangeRates || trip.exchangeRates || null,
+    defaultAssignee,
   });
 
   const jumpToUndated = () => {

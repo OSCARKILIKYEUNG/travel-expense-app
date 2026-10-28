@@ -161,11 +161,12 @@ export default function NotebookShell() {
 
       if (routed.action === 'update' && existing) {
         updateExpense(record);
-        return { savedRecord: refRecord, isEdit: true, action: 'update', conflicts: [] };
+        return { record, savedRecord: refRecord, isEdit: true, action: 'update', conflicts: [] };
       }
 
       if (routed.action === 'conflict') {
         return {
+          record,
           savedRecord: refRecord,
           isEdit: false,
           action: 'conflict',
@@ -174,7 +175,7 @@ export default function NotebookShell() {
       }
 
       addExpense(record);
-      return { savedRecord: refRecord, isEdit: false, action: 'add', conflicts: [] };
+      return { record, savedRecord: refRecord, isEdit: false, action: 'add', conflicts: [] };
     },
     [
       expenses,
@@ -278,6 +279,8 @@ export default function NotebookShell() {
       rate={rate}
       scanner={scanner}
       rawExpenses={expenses}
+      exchangeRates={exchangeRates}
+      defaultAssignee={defaultAssignee}
       onResolveDuplicateConflicts={resolveDuplicateConflicts}
       actionsRef={notebookActionsRef}
       onSelectTrip={handleSelectTrip}

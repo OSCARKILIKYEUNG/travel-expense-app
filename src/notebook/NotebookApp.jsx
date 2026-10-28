@@ -30,6 +30,7 @@ import Ledger from '../proto/ref/Ledger';
 import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
 import SettingsView from './SettingsView';
+import { createLegacySeedTrips, resolveNotebookSeed } from './legacySeed';
 import {
   FIXTURE_SCAN_DELAY_MS,
   buildFixtureExpense,
@@ -48,6 +49,46 @@ import {
   routeScannedSave,
   scanResultToFormFields,
 } from './useReceiptScan';
+
+export function buildDeleteUndo(expense, { rawExpenses, fallbackExpenses = [] } = {}) {
+  const targetId = expense?.id;
+  const sourceList = Array.isArray(rawExpenses) ? rawExpenses : fallbackExpenses;
+  const rawIdx = sourceList.findIndex((x) => String(x?.id) === String(targetId));
+  const rawMatch = rawIdx >= 0 ? sourceList[rawIdx] : null;
+  const fallbackIdx = fallbackExpenses.findIndex((x) => String(x?.id) === String(targetId));
+  const resolvedIndex =
+    rawIdx >= 0
+      ? rawIdx
+      : fallbackIdx >= 0
+        ? fallbackIdx
+        : sourceList.length;
+
+  return makeUndo('delete', {
+    expense: rawMatch || expense,
+    index: resolvedIndex,
+  });
+}
+
+export function buildSaveUndo({
+  isEdit,
+  id,
+  rawExpenses,
+  fallbackExpenses = [],
+  persistedRecord = null,
+  savedRecord = null,
+} = {}) {
+  const sourceList = Array.isArray(rawExpenses) ? rawExpenses : fallbackExpenses;
+  const rawPrevious = isEdit
+    ? sourceList.find((x) => String(x?.id) === String(id)) ||
+      fallbackExpenses.find((x) => String(x?.id) === String(id)) ||
+      null
+    : null;
+  const recordForUndo = persistedRecord || savedRecord;
+
+  return isEdit
+    ? makeUndo('edit', { expense: recordForUndo, previous: rawPrevious })
+    : makeUndo('add', { expense: recordForUndo });
+}
 
 export const go = (hash, replace = false) => {
   if (typeof window === 'undefined') return;
@@ -82,6 +123,13 @@ function useRoute(initialHash = '') {
   return route;
 }
 
+function buildInitialMockTrips(search, today) {
+  if (resolveNotebookSeed(search) === 'legacy') {
+    return createLegacySeedTrips();
+  }
+  return createRefTrips().map((t) => adaptTripForNotebook(t, { today }));
+}
+
 /**
  * Presentation shell for the travel notebook redesign UI.
  * Used both by `NotebookShell` (with real `useApp()` data & production scanner)
@@ -93,8 +141,11 @@ export default function NotebookApp({
   today: propToday,
   rate: propRate,
   initialHash = '',
+  search: propSearch,
   scanner,
   rawExpenses,
+  exchangeRates: propExchangeRates,
+  defaultAssignee: propDefaultAssignee,
   onResolveDuplicateConflicts,
   actionsRef,
   onSelectTrip,
@@ -114,12 +165,19 @@ export default function NotebookApp({
 } = {}) {
   const { t } = useTranslation();
   const isControlled = controlledTrip !== undefined;
-  const today = useMemo(() => propToday || resolveToday(currentWindowSearch()), [propToday]);
+  const effectiveSearch = propSearch !== undefined ? propSearch : currentWindowSearch();
+  const today = useMemo(() => propToday || resolveToday(effectiveSearch), [propToday, effectiveSearch]);
+  const isLegacyMockSeed = useMemo(
+    () => !isControlled && resolveNotebookSeed(effectiveSearch) === 'legacy',
+    [isControlled, effectiveSearch],
+  );
 
   const [mockTrips, setMockTrips] = useState(() =>
-    createRefTrips().map((t) => adaptTripForNotebook(t, { today })),
+    buildInitialMockTrips(effectiveSearch, today),
   );
-  const [mockActiveTripId, setMockActiveTripId] = useState(() => createRefTrips()[0].id);
+  const [mockActiveTripId, setMockActiveTripId] = useState(() =>
+    buildInitialMockTrips(effectiveSearch, today)[0].id,
+  );
 
   const rawTrip = useMemo(() => {
     if (isControlled) return controlledTrip;
@@ -127,6 +185,17 @@ export default function NotebookApp({
   }, [isControlled, controlledTrip, mockTrips, mockActiveTripId]);
 
   const trip = useMemo(() => adaptTripForNotebook(rawTrip, { today }), [rawTrip, today]);
+
+  const effectiveRawExpenses = useMemo(() => {
+    if (Array.isArray(rawExpenses)) return rawExpenses;
+    if (!isControlled && Array.isArray(rawTrip?.expenses)) return rawTrip.expenses;
+    return trip.expenses;
+  }, [rawExpenses, isControlled, rawTrip, trip.expenses]);
+
+  const effectiveExchangeRates = useMemo(
+    () => propExchangeRates || rawTrip?.exchangeRates || trip.exchangeRates || null,
+    [propExchangeRates, rawTrip, trip.exchangeRates],
+  );
 
   const trips = useMemo(() => {
     if (isControlled) {
@@ -354,7 +423,7 @@ export default function NotebookApp({
         const draft = buildFixtureExpense({
           mode,
           date: targetDate,
-          existingExpenses: trip.expenses,
+          existingExpenses: effectiveRawExpenses,
           rate: storeRate,
           tripCurrency: trip.tripCurrency || 'JPY',
           defaultAssignee,
@@ -379,7 +448,7 @@ export default function NotebookApp({
             tripCurrency: trip.tripCurrency || 'JPY',
             exchangeRates: { [trip.tripCurrency || 'JPY']: storeRate },
           });
-          const routed = routeScannedSave(record, trip.expenses, {
+          const routed = routeScannedSave(record, effectiveRawExpenses, {
             isEdit: false,
             isScanned: true,
           });
@@ -395,7 +464,7 @@ export default function NotebookApp({
         }
       }, FIXTURE_SCAN_DELAY_MS);
     },
-    [trip, today, effectiveRate, initialHash, showToast, addOrigin.origin, t],
+    [trip, effectiveRawExpenses, today, effectiveRate, initialHash, showToast, addOrigin.origin, t],
   );
 
   const handleRequestScan = useCallback(
@@ -453,10 +522,9 @@ export default function NotebookApp({
   const deleteExpense = useCallback(
     (e) => {
       const tripId = trip.id;
-      const idx = trip.expenses.findIndex((x) => String(x.id) === String(e.id));
-      const undoOp = makeUndo('delete', {
-        expense: e,
-        index: idx >= 0 ? idx : trip.expenses.length,
+      const undoOp = buildDeleteUndo(e, {
+        rawExpenses: effectiveRawExpenses,
+        fallbackExpenses: trip.expenses,
       });
       if (onDeleteExpense) {
         onDeleteExpense(e);
@@ -472,7 +540,7 @@ export default function NotebookApp({
         highlightId: e.id,
       });
     },
-    [trip.id, trip.expenses, onDeleteExpense, updateActiveMockTrip, showToast],
+    [trip.id, trip.expenses, effectiveRawExpenses, onDeleteExpense, updateActiveMockTrip, showToast],
   );
 
   const activeScanState = scanner ? scanner.scanState : fixtureScanState;
@@ -485,10 +553,14 @@ export default function NotebookApp({
       const previousRecord = isEdit
         ? trip.expenses.find((x) => String(x.id) === String(data.id)) || null
         : null;
+      const rawExisting = isEdit
+        ? effectiveRawExpenses.find((x) => String(x?.id) === String(data.id)) || null
+        : null;
       const normalizedDate = data.date ? normalizeDate(data.date) || '' : '';
       const targetHash = postSaveTarget({ origin: addOrigin.origin, savedDate: normalizedDate });
 
       let savedRecord;
+      let persistedRecord = null;
       let savedId;
 
       if (onSaveExpense) {
@@ -504,7 +576,8 @@ export default function NotebookApp({
           id: previousRecord ? previousRecord.id : data.id || `n${Date.now()}`,
           date: normalizedDate,
         };
-        savedId = savedRecord.id;
+        persistedRecord = res?.record || savedRecord;
+        savedId = persistedRecord?.id ?? savedRecord.id;
       } else {
         const nextLastPayment =
           data.payment === 'cash' || data.payment === 'card' ? data.payment : undefined;
@@ -515,12 +588,12 @@ export default function NotebookApp({
             existing: null,
             scanBase: activeScanDraft,
             tripCurrency: trip.tripCurrency || 'JPY',
-            exchangeRates: { [trip.tripCurrency || 'JPY']: storeRate },
+            exchangeRates: effectiveExchangeRates || { [trip.tripCurrency || 'JPY']: storeRate },
           });
           if (nextLastPayment) {
             updateActiveMockTrip((t) => ({ ...t, lastPayment: nextLastPayment }));
           }
-          const routed = routeScannedSave(record, trip.expenses, {
+          const routed = routeScannedSave(record, effectiveRawExpenses, {
             isEdit: false,
             isScanned: true,
           });
@@ -531,12 +604,37 @@ export default function NotebookApp({
             return;
           }
           savedRecord = refRecord;
-          savedId = savedRecord.id;
+          persistedRecord = isLegacyMockSeed ? record : refRecord;
+          savedId = persistedRecord.id;
           updateActiveMockTrip((t) => ({
             ...t,
             ...(nextLastPayment ? { lastPayment: nextLastPayment } : {}),
-            expenses: [...t.expenses, savedRecord],
+            expenses: [...t.expenses, persistedRecord],
           }));
+        } else if (isLegacyMockSeed) {
+          const storeRate = refRateToForeignPerHome(effectiveRate) || 1 / 0.0526;
+          const { record, refRecord } = preparePersistedExpense(data, {
+            existing: rawExisting,
+            scanBase: null,
+            tripCurrency: trip.tripCurrency || 'JPY',
+            exchangeRates: effectiveExchangeRates || { [trip.tripCurrency || 'JPY']: storeRate },
+          });
+          savedRecord = refRecord;
+          persistedRecord = record;
+          savedId = record.id;
+          updateActiveMockTrip((t) => {
+            const patch = nextLastPayment ? { lastPayment: nextLastPayment } : {};
+            if (isEdit) {
+              return {
+                ...t,
+                ...patch,
+                expenses: t.expenses.map((x) =>
+                  String(x.id) === String(savedId) ? record : x,
+                ),
+              };
+            }
+            return { ...t, ...patch, expenses: [...t.expenses, record] };
+          });
         } else {
           savedId = isEdit && previousRecord ? previousRecord.id : data.id || `n${Date.now()}`;
           savedRecord = isEdit
@@ -556,6 +654,7 @@ export default function NotebookApp({
                 createdAt: new Date().toISOString(),
                 items: [],
               };
+          persistedRecord = savedRecord;
 
           updateActiveMockTrip((t) => {
             const patch = nextLastPayment ? { lastPayment: nextLastPayment } : {};
@@ -577,9 +676,14 @@ export default function NotebookApp({
       go(targetHash, true);
       setHighlightId(savedId);
 
-      const undoOp = isEdit
-        ? makeUndo('edit', { expense: savedRecord, previous: previousRecord })
-        : makeUndo('add', { expense: savedRecord });
+      const undoOp = buildSaveUndo({
+        isEdit,
+        id: savedId,
+        rawExpenses: effectiveRawExpenses,
+        fallbackExpenses: trip.expenses,
+        persistedRecord,
+        savedRecord,
+      });
 
       showToast(saveToastMessage({ kind: isEdit ? 'edit' : 'add', expense: savedRecord }), {
         ...undoOp,
@@ -591,6 +695,9 @@ export default function NotebookApp({
       trip.id,
       trip.expenses,
       trip.tripCurrency,
+      effectiveRawExpenses,
+      effectiveExchangeRates,
+      isLegacyMockSeed,
       addOrigin.origin,
       onSaveExpense,
       activeScanDraft,
@@ -613,7 +720,9 @@ export default function NotebookApp({
           const resolved = applyDuplicateDecisions(t.expenses, currentConflicts, decisions);
           return {
             ...t,
-            expenses: resolved.expenses.map((e) => toRefExpense(e)),
+            expenses: isLegacyMockSeed
+              ? resolved.expenses
+              : resolved.expenses.map((e) => toRefExpense(e)),
           };
         });
       }
@@ -628,6 +737,7 @@ export default function NotebookApp({
       clearActiveScan,
       onResolveDuplicateConflicts,
       updateActiveMockTrip,
+      isLegacyMockSeed,
       pendingDupTargetHash,
       initialHash,
     ],
@@ -721,6 +831,8 @@ export default function NotebookApp({
         trip={trip}
         initialFilters={route.filters}
         highlightId={highlightId}
+        exchangeRates={effectiveExchangeRates}
+        defaultAssignee={propDefaultAssignee}
         onScan={() => handleRequestScan({ date: defaultExpenseDate(trip, today) })}
         onAdd={() => openAdd({ date: defaultExpenseDate(trip, today) })}
         onEdit={(e) => openAdd({ id: e.id })}
@@ -778,7 +890,7 @@ export default function NotebookApp({
   else if (route.screen === 'add') tab = addOrigin.origin === 'ledger' ? 'ledger' : 'home';
 
   const hashConflicts = scanner?.hashConflicts || [];
-  const dialogExisting = Array.isArray(rawExpenses) ? rawExpenses : trip.expenses;
+  const dialogExisting = Array.isArray(rawExpenses) ? rawExpenses : effectiveRawExpenses;
 
   return (
     <div className="min-h-screen text-ink" style={paperDots}>

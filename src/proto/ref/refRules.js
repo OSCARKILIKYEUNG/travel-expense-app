@@ -250,16 +250,18 @@ export function applyUndo(expenses, undo) {
   if (!Array.isArray(expenses)) return [];
   if (!undo || typeof undo !== 'object') return [...expenses];
 
+  const sameId = (a, b) => a != null && b != null && String(a) === String(b);
+
   if (undo.kind === 'add') {
     const targetId = undo.id ?? undo.expense?.id;
     if (!targetId) return [...expenses];
-    return expenses.filter((e) => e?.id !== targetId);
+    return expenses.filter((e) => !sameId(e?.id, targetId));
   }
 
   if (undo.kind === 'delete') {
     const record = undo.expense ?? undo.previous;
     if (!record) return [...expenses];
-    const base = record.id ? expenses.filter((e) => e?.id !== record.id) : [...expenses];
+    const base = record.id ? expenses.filter((e) => !sameId(e?.id, record.id)) : [...expenses];
     const rawIdx = typeof undo.index === 'number' && Number.isFinite(undo.index) ? Math.trunc(undo.index) : base.length;
     const clamped = Math.max(0, Math.min(base.length, rawIdx));
     return [...base.slice(0, clamped), { ...record }, ...base.slice(clamped)];
@@ -269,7 +271,7 @@ export function applyUndo(expenses, undo) {
     const prev = undo.previous ?? undo.expense;
     const targetId = undo.id ?? prev?.id ?? undo.expense?.id;
     if (!targetId || !prev) return [...expenses];
-    return expenses.map((e) => (e?.id === targetId ? { ...prev } : e));
+    return expenses.map((e) => (sameId(e?.id, targetId) ? { ...prev } : e));
   }
 
   return [...expenses];
