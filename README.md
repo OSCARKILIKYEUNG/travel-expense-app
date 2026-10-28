@@ -2,6 +2,8 @@
 
 AI 驅動的旅遊記帳與分帳助手 — 支援多旅程、多人分帳、多幣種轉換、AI 收據辨識。
 
+**Production:** https://travel-expense-app-ten.vercel.app
+
 ## 技術架構
 
 - **Vite + React 18** — 建構工具 + UI 框架
@@ -114,7 +116,7 @@ gh repo create travel-expense-app --public --source=. --push
 #    - 選擇 travel-expense-app repo
 #    - Framework Preset 選 "Vite"
 #    - 點 "Deploy"
-#    - 完成！拿到 https://travel-expense-app.vercel.app 網址
+#    - 完成！拿到 https://travel-expense-app-ten.vercel.app 網址（本專案正式網址）
 ```
 
 ### 方法 B：直接用 Vercel CLI

@@ -107,12 +107,12 @@ from public.user_app_data;
 ## 五、環境與部署檢查清單
 
 - [ ] Supabase **SQL Editor** 已執行 `supabase/migrations/001_user_app_data.sql`
-- [ ] **Authentication → URL Configuration**：Site URL、Redirect URLs 含本機與正式網域，且含 **`/reset-password` 完整 URL**（例：`http://localhost:3000/reset-password`、正式網域同路徑；與 `AuthContext` 內 `redirectTo` 一致；本專案 Vite **port 3000**）
+- [x] **Authentication → URL Configuration**（**done 2026-10-28 23:08 HKT**, see §九）：Site URL、Redirect URLs 含本機與正式網域，且含 **`/reset-password` 完整 URL**（例：`http://localhost:3000/reset-password`、正式網域同路徑；與 `AuthContext` 內 `redirectTo` 一致；本專案 Vite **port 3000**）
 - [ ] **Email** 開啟 Confirm email（若要走驗證信）
 - [ ] **Google 登入**：Supabase **Authentication → Providers → Google** 開啟並貼 **Client ID／Secret**（來自 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth 2.0 用戶端 → **網頁應用程式**）；**已授權的重新導向 URI** 必含 `https://<project-ref>.supabase.co/auth/v1/callback`（`<project-ref>` 見 Supabase Project Settings → API 的 URL）
 - [ ] **Vercel** `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 與本機 `.env` **同一專案**
 - [ ] 單據 API：`GEMINI_API_KEY` 僅伺服器（`api/parse-receipt`）
-- [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（**AI 掃描免費額度必跑**；記錄 `receipt_scan` 用量）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）
+- [ ] **SQL（增量）**：`supabase/migrations/002_usage_logs.sql`（**AI 掃描免費額度必跑**；記錄 `receipt_scan` 用量）；`003_stripe_billing.sql`（`user_app_data` 之 `stripe_customer_id` / `stripe_subscription_id` / `subscription_status`，**接 Stripe Webhook 必跑**）；`004_lock_billing_columns.sql`（billing columns locked against client writes; see §九）
 - [ ] **Stripe（Vercel 伺服器專用，勿加 `VITE_`）**：`STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`（Webhook destination 的 `whsec_...`）、`STRIPE_PRICE_ID`（`price_...` 月費）；可選 `STRIPE_PUBLISHABLE_KEY`（前端 Stripe.js 時再考慮 `VITE_` 暴露策略）
 - [ ] **Stripe Webhook URL**：`https://<正式網域>/api/stripe-webhook`；變數新增後 **Redeploy**
 - [ ] **結帳 API**：`STRIPE_PRICE_ID`（`price_...`）已設，且 **`/api/create-checkout-session`** 與設定頁可建立 Checkout（見 §5.2）
@@ -241,6 +241,7 @@ metadata: {
 - `supabase/migrations/001_user_app_data.sql`
 - `supabase/migrations/002_usage_logs.sql`
 - `supabase/migrations/003_stripe_billing.sql`
+- `supabase/migrations/004_lock_billing_columns.sql` (2026-10-28; run doc in §九)
 
 **如何確認 `user_app_data` 欄位齊全**：
 
@@ -393,7 +394,7 @@ where table_schema = 'public'
 
 ### 8.2 後台必做（仍請人工核對）
 
-1. **Redirect URLs** 含本機與正式之 **`…/reset-password`**（本機預設 **port 3000**，見 `vite.config.js`）。
+1. **Redirect URLs** 含本機與正式之 **`…/reset-password`**（本機預設 **port 3000**，見 `vite.config.js`）。✅ Done 2026-10-28 23:08 HKT (§九).
 2. **Email**：Reset password 模板可從信內連結回到上述 URL。
 
 ### 8.3 產品決策（已定）
@@ -407,6 +408,44 @@ where table_schema = 'public'
 - [ ] 新密碼可 `signInWithPassword`（必要時先 sign out 再測）。
 - [ ] 無效／過期連結會出現說明並可回 `/login`。
 - [ ] 雙語文案齊全。
+
+---
+
+## 九、2026-10-28 hardening (Option A)
+
+Branch `cursor/supabase-harden-2026-10-28` (from `main` @ 4b005ea). Production: **https://travel-expense-app-ten.vercel.app** (the old `travel-expense-app.vercel.app` name is not this project).
+
+### 9.1 Auth URL configuration — DONE live
+
+Done by Oscar in the Supabase dashboard on **2026-10-28 23:08 HKT** (Authentication → URL Configuration):
+
+| Setting | Value |
+|---|---|
+| Site URL | `https://travel-expense-app-ten.vercel.app` |
+| Redirect URLs | `https://travel-expense-app-ten.vercel.app`, `https://travel-expense-app-ten.vercel.app/**`, `https://travel-expense-app-ten.vercel.app/reset-password`, `http://localhost:3000`, `http://localhost:3000/reset-password`, `https://*-oscarkilik-5947s-projects.vercel.app/**` (Vercel previews) |
+| Custom SMTP | **OFF** — Supabase default mailer. It has a low hourly send limit and is meant for testing; set up custom SMTP before real users sign up in volume. |
+
+### 9.2 Migration 004 — billing columns locked (pending: Oscar runs it)
+
+- SQL: `supabase/migrations/004_lock_billing_columns.sql`. Rollback: `supabase/rollback/004_lock_billing_columns_down.sql`.
+- What it does: a `BEFORE INSERT OR UPDATE` trigger on `public.user_app_data` rejects (SQLSTATE 42501) any change to `subscription_status`, `stripe_customer_id`, or `stripe_subscription_id` made with the `anon` / `authenticated` role. The Stripe webhook (service role) and the SQL Editor (postgres) pass through. Without it, a signed-in user could set their own row to `active` with the anon key and get Pro for free.
+- Safe for the app: the client upsert only sends `user_id`, `trips_data`, `app_settings`, `people_list`, `updated_at` (unit test in `src/services/syncSupabase.test.js`). Idempotent: safe to run twice.
+- Copy-paste run doc with verify and rollback SQL (project folder, outside the repo): `20-projects/cursor/projects/travel-app/docs/2026-10-28-supabase-migration-004-run.md`.
+
+### 9.3 Client sync changes
+
+- **Sync-error toast in notebook mode.** Save/load failures now show a notebook Toast (`role="alert"`) with **Retry**; at most one per phase every 30 s; a "Synced to the cloud" toast follows recovery. Keys: `notebook.sync.*`.
+- **Stale-overwrite guard.** `syncSupabase` remembers the cloud content time this device last loaded or wrote. Before each upsert it reads `updated_at` and `trips_data->>updatedAt`; if the cloud is newer (another device saved), it merges with the existing newest-wins rule (`persistMerge`) first:
+  - cloud content newer → keep it, skip the upload, reload the UI, toast "Loaded newer changes from another device";
+  - this device's edit newer → upload it, toast "Another device saved changes; kept the newer edits on this device".
+- **Focus re-pull.** On window focus / tab visible (throttled to once per 5 s) the app pulls the row and applies it the same way.
+- **Known limit.** Merging is whole-blob newest-wins, not per-expense. If two devices both edit before either syncs, the later edit wins and the other device's edit is replaced (the toast says which side won). `app_settings` / `people_list`-only edits do not move the content clock.
+
+### 9.4 Checks still open
+
+- [ ] Run migration 004 in the SQL Editor, then the verify query from the run doc.
+- [ ] Vercel Production env: confirm `RECEIPT_SCAN_QUOTA_DISABLED` is **not set** (it turns off the free-scan quota). Check the name only; never paste values.
+- [ ] Real logged-in test on a Vercel preview of this branch (Account card, sync toast, two-device focus re-pull).
 
 ---
 
