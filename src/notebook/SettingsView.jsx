@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { fmtHKD, fmtJPY, personCounts } from '../proto/ref/refLogic';
 import {
   addPerson,
@@ -13,6 +15,7 @@ import {
   setRate,
 } from '../proto/ref/refRules';
 import { Sakura, Sparkle, Tape } from '../proto/ref/parts';
+import { normalizeUiLanguage } from '../utils/locale';
 
 function downloadTextFile({ filename, text }) {
   const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
@@ -60,6 +63,37 @@ function formatRateInputString(rate) {
   return String(Number(n.toPrecision(4)));
 }
 
+/**
+ * Apply a UI language change either through the persisted settings callback
+ * (`onChangeUiLanguage` / `updateSettings` in authenticated `NotebookShell`)
+ * or locally via `i18n.changeLanguage` for `?proto=notebook` preview.
+ *
+ * @param {unknown} rawValue
+ * @param {{
+ *   onChangeUiLanguage?: (lang: 'zh-TW' | 'en') => void,
+ *   updateSettings?: (patch: { uiLanguage: 'zh-TW' | 'en' }) => void,
+ *   i18nInstance?: { changeLanguage?: (lang: string) => any },
+ * }} [options]
+ * @returns {'zh-TW' | 'en'}
+ */
+export function applyNotebookLanguageChange(
+  rawValue,
+  { onChangeUiLanguage, updateSettings, i18nInstance = i18n } = {},
+) {
+  const normalized = normalizeUiLanguage(rawValue);
+  if (typeof onChangeUiLanguage === 'function') {
+    onChangeUiLanguage(normalized);
+  } else if (typeof updateSettings === 'function') {
+    updateSettings({ uiLanguage: normalized });
+  } else {
+    i18nInstance?.changeLanguage?.(normalized);
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = normalized === 'en' ? 'en' : 'zh-Hant';
+    }
+  }
+  return normalized;
+}
+
 export default function SettingsView({
   trip,
   trips,
@@ -71,7 +105,13 @@ export default function SettingsView({
   onRemovePerson,
   onSaveRate,
   onToast,
+  uiLanguage: propUiLanguage,
+  onChangeUiLanguage,
+  updateSettings,
 }) {
+  const { t, i18n: activeI18n } = useTranslation();
+  const resolvedUiLanguage = normalizeUiLanguage(propUiLanguage ?? activeI18n.language);
+
   const people = trip.settings?.people || ['共同'];
   const currentRate = trip.settings?.rate || 0.0526;
   const currentBudget = trip.settings?.budget ?? null;
@@ -79,19 +119,27 @@ export default function SettingsView({
   const [editingPerson, setEditingPerson] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [newPerson, setNewPerson] = useState('');
-  const [personError, setPersonError] = useState('');
+  const [personErrorKey, setPersonErrorKey] = useState('');
   const [rateInput, setRateInput] = useState(() => formatRateInputString(currentRate));
-  const [rateError, setRateError] = useState('');
+  const [rateErrorKey, setRateErrorKey] = useState('');
   const [budgetInput, setBudgetInput] = useState(() => (currentBudget ? String(currentBudget) : ''));
 
   useEffect(() => {
     setRateInput(formatRateInputString(currentRate));
-    setRateError('');
+    setRateErrorKey('');
   }, [currentRate, trip.id]);
 
   useEffect(() => {
     setBudgetInput(currentBudget ? String(currentBudget) : '');
   }, [currentBudget, trip.id]);
+
+  const handleLanguageChange = (e) => {
+    applyNotebookLanguageChange(e.target.value, {
+      onChangeUiLanguage,
+      updateSettings,
+      i18nInstance: activeI18n,
+    });
+  };
 
   const handleSaveBudget = (e) => {
     if (e) e.preventDefault();
@@ -104,9 +152,9 @@ export default function SettingsView({
     }
     setBudgetInput(nextBudget ? String(nextBudget) : '');
     if (nextBudget) {
-      onToast?.(`已設定預算 ${fmtHKD(nextBudget)}`);
+      onToast?.(t('notebook.toast.budgetSaved', { amount: fmtHKD(nextBudget) }));
     } else {
-      onToast?.('已清除預算');
+      onToast?.(t('notebook.toast.budgetCleared'));
     }
   };
 
@@ -118,7 +166,7 @@ export default function SettingsView({
       onUpdateTrip?.(nextTrip);
     }
     setBudgetInput('');
-    onToast?.('已清除預算');
+    onToast?.(t('notebook.toast.budgetCleared'));
   };
 
   const totalJPY = trip.expenses
@@ -129,17 +177,21 @@ export default function SettingsView({
   const handleRenameSubmit = (from) => {
     const clean = editingName.trim();
     if (!clean) {
-      setPersonError('名稱不能為空');
+      setPersonErrorKey('notebook.settings.personNameEmpty');
       return;
     }
     if (clean !== from && people.includes(clean)) {
-      setPersonError('人物名稱已存在');
+      setPersonErrorKey('notebook.settings.personExists');
       return;
     }
     if (onRenamePerson) {
       const res = onRenamePerson(from, clean);
       if (res && res.ok === false) {
-        setPersonError(res.reason === 'exists' ? '人物名稱已存在' : '名稱不能為空');
+        setPersonErrorKey(
+          res.reason === 'exists'
+            ? 'notebook.settings.personExists'
+            : 'notebook.settings.personNameEmpty',
+        );
         return;
       }
     } else {
@@ -148,29 +200,31 @@ export default function SettingsView({
     }
     setEditingPerson(null);
     setEditingName('');
-    setPersonError('');
-    if (clean !== from) onToast?.(`已將「${from}」改名為「${clean}」`);
+    setPersonErrorKey('');
+    if (clean !== from) {
+      onToast?.(t('notebook.toast.personRenamed', { from, to: clean }));
+    }
   };
 
   const handleAddPerson = (e) => {
     if (e) e.preventDefault();
     const clean = newPerson.trim();
     if (!clean) {
-      setPersonError('請輸入人物名稱');
+      setPersonErrorKey('notebook.settings.enterPersonName');
       return;
     }
     if (people.includes(clean)) {
-      setPersonError('人物名稱已存在');
+      setPersonErrorKey('notebook.settings.personExists');
       return;
     }
     if (onAddPerson) {
       onAddPerson(clean);
     } else {
-      onUpdateTrip?.((t) => addPerson(t, clean));
+      onUpdateTrip?.((tr) => addPerson(tr, clean));
     }
     setNewPerson('');
-    setPersonError('');
-    onToast?.(`已新增成員「${clean}」`);
+    setPersonErrorKey('');
+    onToast?.(t('notebook.toast.personAdded', { name: clean }));
   };
 
   const handleRemovePerson = (name) => {
@@ -178,10 +232,10 @@ export default function SettingsView({
     if (onRemovePerson) {
       onRemovePerson(name);
     } else {
-      onUpdateTrip?.((t) => removePerson(t, name));
+      onUpdateTrip?.((tr) => removePerson(tr, name));
     }
-    setPersonError('');
-    onToast?.(`已移除「${name}」，其消費已歸入共同`);
+    setPersonErrorKey('');
+    onToast?.(t('notebook.toast.personRemoved', { name }));
   };
 
   const parsedRate = parseRate(rateInput);
@@ -191,67 +245,92 @@ export default function SettingsView({
     if (e) e.preventDefault();
     const r = parseRate(rateInput);
     if (r === null) {
-      setRateError('請輸入大於 0 的匯率');
+      setRateErrorKey('notebook.settings.rateInvalid');
       return;
     }
     const recomputed = countRecomputed(trip);
     if (onSaveRate) {
       onSaveRate(r);
     } else {
-      onUpdateTrip?.((t) => setRate(t, r));
+      onUpdateTrip?.((tr) => setRate(tr, r));
     }
-    setRateError('');
-    onToast?.(`匯率已更新 · 已重新計算 ${recomputed} 筆`);
+    setRateErrorKey('');
+    onToast?.(t('notebook.toast.rateUpdated', { count: recomputed }));
   };
 
   const handleExportTrip = () => {
     const payload = exportTripJSON(trip);
     downloadTextFile(payload);
-    onToast?.(`已下載 ${payload.filename}`);
+    onToast?.(t('notebook.toast.exportedTrip', { filename: payload.filename }));
   };
 
   const handleExportBackup = () => {
     const payload = exportBackupJSON(trips, new Date());
     downloadTextFile(payload);
-    onToast?.(`已下載完整備份 ${payload.filename}`);
+    onToast?.(t('notebook.toast.exportedBackup', { filename: payload.filename }));
   };
 
   const handleCopyReport = async () => {
     const report = buildReport(trip);
     const ok = await copyTextToClipboard(report);
-    if (ok) onToast?.('已複製報告');
-    else onToast?.('複製報告失敗，請重試');
+    if (ok) onToast?.(t('notebook.toast.reportCopied'));
+    else onToast?.(t('notebook.toast.reportCopyFailed'));
   };
 
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
       <div className="relative space-y-1">
         <Sparkle className="absolute right-2 top-2 h-4 w-4" />
-        <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">旅遊手帳設定</p>
+        <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">
+          {t('settings.pageEyebrow')}
+        </p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-display text-2xl text-ink">設定</h1>
-          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Settings</span>
+          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{t('settings.title')}</h1>
+          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+            {t('notebook.settings.titleScript')}
+          </span>
         </div>
       </div>
+
+      {/* UI Language */}
+      <section className="paper-panel space-y-2.5 p-4">
+        <label
+          htmlFor="notebook-language-select"
+          className="block whitespace-nowrap font-display text-lg text-ink"
+        >
+          {t('settings.language')}
+        </label>
+        <select
+          id="notebook-language-select"
+          data-testid="language-select"
+          aria-label={t('settings.language')}
+          value={resolvedUiLanguage}
+          onChange={handleLanguageChange}
+          className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+        >
+          <option value="zh-TW">{t('settings.languageZhTW')}</option>
+          <option value="en">{t('settings.languageEn')}</option>
+        </select>
+      </section>
 
       {/* Trip management */}
       <section className="paper-panel relative space-y-2.5 p-4">
         <Tape tone="teal" className="-top-2 left-6 z-10 h-4 w-16 -rotate-1" />
         <div className="flex items-center justify-between">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程管理</h2>
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.tripsTitle')}</h2>
           <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
-            當前旅程
+            {t('notebook.settings.currentTripBadge')}
           </span>
         </div>
         <div className="space-y-2">
-          {trips.map((t) => {
-            const active = String(t.id) === String(trip.id);
-            const tTotal = (t.expenses || []).reduce((s, e) => s + Number(e.hkdAmount || 0), 0);
+          {trips.map((tr) => {
+            const active = String(tr.id) === String(trip.id);
+            const tTotal = (tr.expenses || []).reduce((s, e) => s + Number(e.hkdAmount || 0), 0);
             return (
               <button
-                key={t.id}
+                key={tr.id}
                 type="button"
-                onClick={() => onSelectTrip(t.id)}
+                onClick={() => onSelectTrip(tr.id)}
                 className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                   active
                     ? 'border-teal/45 bg-teal-soft/65'
@@ -259,13 +338,13 @@ export default function SettingsView({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{t.name}</span>
+                  <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{tr.name}</span>
                   <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
-                    {(t.expenses || []).length} 筆記錄
+                    {t('trip.records', { count: (tr.expenses || []).length })}
                   </span>
                 </div>
                 <p className="mt-1 whitespace-nowrap text-meta text-ink-soft">
-                  {t.startDate} – {t.endDate} · {fmtHKD(tTotal)}
+                  {tr.startDate} – {tr.endDate} · {fmtHKD(tTotal)}
                 </p>
               </button>
             );
@@ -276,9 +355,11 @@ export default function SettingsView({
       {/* Trip Budget */}
       <section className="paper-panel space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程預算</h2>
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.settings.budgetTitle')}
+          </h2>
           <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
-            {currentBudget ? fmtHKD(currentBudget) : '未設定'}
+            {currentBudget ? fmtHKD(currentBudget) : t('notebook.settings.budgetUnset')}
           </span>
         </div>
         <form
@@ -290,12 +371,12 @@ export default function SettingsView({
           <input
             id="ref-budget-input"
             data-testid="budget-input"
-            aria-label="旅程預算"
+            aria-label={t('notebook.settings.budgetTitle')}
             type="text"
             inputMode="numeric"
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
-            placeholder="輸入預算金額…"
+            placeholder={t('notebook.settings.budgetPlaceholder')}
             className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
           />
           <button
@@ -303,7 +384,7 @@ export default function SettingsView({
             data-testid="budget-save"
             className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            儲存
+            {t('notebook.settings.save')}
           </button>
           {currentBudget && (
             <button
@@ -312,7 +393,7 @@ export default function SettingsView({
               onClick={handleClearBudget}
               className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
-              清除
+              {t('notebook.settings.clear')}
             </button>
           )}
         </form>
@@ -320,7 +401,7 @@ export default function SettingsView({
 
       {/* People / Members */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">人物管理</h2>
+        <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.peopleTitle')}</h2>
         <div className="space-y-2">
           {people.map((p) => {
             const isShared = p === '共同';
@@ -334,12 +415,12 @@ export default function SettingsView({
                 {isEditing ? (
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <input
-                      aria-label={`修改 ${p} 名稱`}
+                      aria-label={t('notebook.settings.renamePersonInputAria', { name: p })}
                       data-testid={`rename-input-${p}`}
                       value={editingName}
                       onChange={(e) => {
                         setEditingName(e.target.value);
-                        setPersonError('');
+                        setPersonErrorKey('');
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -347,7 +428,7 @@ export default function SettingsView({
                           handleRenameSubmit(p);
                         } else if (e.key === 'Escape') {
                           setEditingPerson(null);
-                          setPersonError('');
+                          setPersonErrorKey('');
                         }
                       }}
                       className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-teal-strong bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal"
@@ -358,17 +439,17 @@ export default function SettingsView({
                       onClick={() => handleRenameSubmit(p)}
                       className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white"
                     >
-                      儲存
+                      {t('notebook.settings.save')}
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setEditingPerson(null);
-                        setPersonError('');
+                        setPersonErrorKey('');
                       }}
                       className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft"
                     >
-                      取消
+                      {t('settings.cancel')}
                     </button>
                   </div>
                 ) : (
@@ -376,36 +457,36 @@ export default function SettingsView({
                     <div className="min-w-0 flex-1">
                       <span className="whitespace-nowrap font-semibold text-ink">{p}</span>
                       <span className="ml-2 whitespace-nowrap text-meta font-medium text-ink-muted">
-                        {counts[p] || 0} 筆記錄
+                        {t('trip.records', { count: counts[p] || 0 })}
                       </span>
                     </div>
                     {isShared ? (
                       <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 text-meta font-semibold text-ink-muted">
-                        預設
+                        {t('notebook.settings.defaultPersonBadge')}
                       </span>
                     ) : (
                       <div className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
                           data-testid={`person-edit-${p}`}
-                          aria-label={`改名 ${p}`}
+                          aria-label={t('notebook.settings.renamePersonAria', { name: p })}
                           onClick={() => {
                             setEditingPerson(p);
                             setEditingName(p);
-                            setPersonError('');
+                            setPersonErrorKey('');
                           }}
                           className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                         >
-                          改名
+                          {t('notebook.settings.rename')}
                         </button>
                         <button
                           type="button"
                           data-testid={`person-remove-${p}`}
-                          aria-label={`移除 ${p}`}
+                          aria-label={t('notebook.settings.removePersonAria', { name: p })}
                           onClick={() => handleRemovePerson(p)}
                           className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-meta font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                         >
-                          移除
+                          {t('notebook.settings.remove')}
                         </button>
                       </div>
                     )}
@@ -418,14 +499,14 @@ export default function SettingsView({
 
         <form onSubmit={handleAddPerson} className="flex items-center gap-2 pt-1">
           <input
-            aria-label="新增人物名稱"
+            aria-label={t('notebook.settings.addPersonInputAria')}
             data-testid="add-person-input"
             value={newPerson}
             onChange={(e) => {
               setNewPerson(e.target.value);
-              setPersonError('');
+              setPersonErrorKey('');
             }}
-            placeholder="新增成員名稱…"
+            placeholder={t('notebook.settings.addPersonPlaceholder')}
             className="h-11 min-h-11 min-w-0 flex-1 rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
           />
           <button
@@ -433,27 +514,33 @@ export default function SettingsView({
             data-testid="add-person-btn"
             className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            ＋新增
+            {t('notebook.settings.addPersonButton')}
           </button>
         </form>
-        {personError && (
+        {personErrorKey && (
           <p role="alert" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
-            {personError}
+            {t(personErrorKey)}
           </p>
         )}
       </section>
 
       {/* Currency & Exchange Rate */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">貨幣與匯率</h2>
+        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+          {t('notebook.settings.currencyAndRatesTitle')}
+        </h2>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">旅程主要外幣</p>
-            <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">JPY 日元</p>
+            <p className="whitespace-nowrap text-meta text-ink-muted">{t('trip.tripCurrency')}</p>
+            <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
+              {t('notebook.settings.jpyLabel')}
+            </p>
           </div>
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">記帳貨幣</p>
-            <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">HKD 港幣</p>
+            <p className="whitespace-nowrap text-meta text-ink-muted">{t('trip.accountingCurrency')}</p>
+            <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
+              {t('notebook.settings.hkdLabel')}
+            </p>
           </div>
         </div>
         <form onSubmit={handleSaveRate} noValidate className="space-y-1.5">
@@ -464,14 +551,16 @@ export default function SettingsView({
             <input
               id="ref-rate-input"
               data-testid="rate-input"
-              aria-label="匯率"
+              aria-label={t('notebook.settings.rateInputAria')}
               type="text"
               inputMode="decimal"
               value={rateInput}
               onChange={(e) => {
                 const nextVal = e.target.value;
                 setRateInput(nextVal);
-                setRateError(parseRate(nextVal) === null ? '請輸入大於 0 的匯率' : '');
+                setRateErrorKey(
+                  parseRate(nextVal) === null ? 'notebook.settings.rateInvalid' : '',
+                );
               }}
               className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
             />
@@ -482,12 +571,12 @@ export default function SettingsView({
               disabled={isRateInvalid}
               className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
             >
-              更新匯率
+              {t('notebook.settings.updateRate')}
             </button>
           </div>
-          {(isRateInvalid || rateError) && (
+          {(isRateInvalid || rateErrorKey) && (
             <p role="alert" data-testid="rate-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
-              {rateError || '請輸入大於 0 的匯率'}
+              {t(rateErrorKey || 'notebook.settings.rateInvalid')}
             </p>
           )}
         </form>
@@ -495,7 +584,7 @@ export default function SettingsView({
 
       {/* Data & Export */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">資料管理</h2>
+        <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.dataTitle')}</h2>
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -503,7 +592,7 @@ export default function SettingsView({
             onClick={handleExportTrip}
             className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            匯出 JSON
+            {t('notebook.settings.exportJson')}
           </button>
           <button
             type="button"
@@ -511,7 +600,7 @@ export default function SettingsView({
             onClick={handleExportBackup}
             className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            完整備份
+            {t('settings.fullBackup')}
           </button>
           <button
             type="button"
@@ -519,7 +608,7 @@ export default function SettingsView({
             onClick={handleCopyReport}
             className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            複製報告
+            {t('settings.copyReport')}
           </button>
         </div>
       </section>
@@ -527,9 +616,11 @@ export default function SettingsView({
       {/* About */}
       <section className="paper-panel relative space-y-1 p-4">
         <Sakura className="absolute right-3 top-3 h-6 w-6 opacity-70" />
-        <h2 className="whitespace-nowrap font-display text-base text-ink">關於旅遊手帳</h2>
+        <h2 className="whitespace-nowrap font-display text-base text-ink">
+          {t('notebook.settings.aboutTitle')}
+        </h2>
         <p className="whitespace-nowrap text-meta text-ink-soft">
-          原幣合計 {fmtJPY(totalJPY)} · 旅遊手帳模式
+          {t('notebook.settings.aboutSummary', { amount: fmtJPY(totalJPY) })}
         </p>
       </section>
     </div>

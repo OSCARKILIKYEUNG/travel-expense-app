@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toRefExpense } from '../adapters/refDataAdapter';
 import DuplicateReviewDialog from '../components/expense/DuplicateReviewDialog';
 import HashDuplicateDialog from '../components/expense/HashDuplicateDialog';
+import '../i18n';
 import { createRefTrips } from '../proto/ref/mockRefTrip';
 import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import {
@@ -29,9 +31,9 @@ import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
 import SettingsView from './SettingsView';
 import {
-  FIXTURE_ERROR_MESSAGE,
   FIXTURE_SCAN_DELAY_MS,
   buildFixtureExpense,
+  getFixtureErrorMessage,
   resolveScanFixtureMode,
 } from './scanFixture';
 import {
@@ -41,8 +43,8 @@ import {
   refRateToForeignPerHome,
 } from './tripRate';
 import {
-  SCAN_LOADING_TEXT,
-  SCAN_READY_TEXT,
+  SCAN_LOADING_KEY,
+  SCAN_READY_KEY,
   routeScannedSave,
   scanResultToFormFields,
 } from './useReceiptScan';
@@ -106,7 +108,11 @@ export default function NotebookApp({
   onRenamePerson,
   onRemovePerson,
   onSaveRate,
+  uiLanguage,
+  onChangeUiLanguage,
+  updateSettings,
 } = {}) {
+  const { t } = useTranslation();
   const isControlled = controlledTrip !== undefined;
   const today = useMemo(() => propToday || resolveToday(currentWindowSearch()), [propToday]);
 
@@ -322,7 +328,7 @@ export default function NotebookApp({
       setFixtureScanDraft(null);
       setFixtureScanState({
         status: 'loading',
-        message: SCAN_LOADING_TEXT,
+        message: t(SCAN_LOADING_KEY),
         draft: null,
         token: Date.now(),
       });
@@ -334,10 +340,11 @@ export default function NotebookApp({
           currentWindowHash(initialHash),
         );
         if (mode === 'error') {
-          showToast(FIXTURE_ERROR_MESSAGE);
+          const errMsg = getFixtureErrorMessage(t);
+          showToast(errMsg);
           setFixtureScanState({
             status: 'error',
-            message: FIXTURE_ERROR_MESSAGE,
+            message: errMsg,
             draft: null,
             token: Date.now(),
           });
@@ -355,7 +362,7 @@ export default function NotebookApp({
         setFixtureScanDraft(draft);
         setFixtureScanState({
           status: 'ready',
-          message: SCAN_READY_TEXT,
+          message: t(SCAN_READY_KEY),
           draft,
           token: Date.now(),
         });
@@ -388,7 +395,7 @@ export default function NotebookApp({
         }
       }, FIXTURE_SCAN_DELAY_MS);
     },
-    [trip, today, effectiveRate, initialHash, showToast, addOrigin.origin],
+    [trip, today, effectiveRate, initialHash, showToast, addOrigin.origin, t],
   );
 
   const handleRequestScan = useCallback(
@@ -424,9 +431,9 @@ export default function NotebookApp({
       if (nextHash !== curHash.replace(/^#/, '')) {
         go(nextHash, true);
       }
-      showToast(`已切換至 ${target.name}`);
+      showToast(t('notebook.toast.tripSwitched', { name: target.name }));
     },
-    [trips, trip.id, today, onSelectTrip, showToast],
+    [trips, trip.id, today, onSelectTrip, showToast, t],
   );
 
   const updateDay = useCallback(
@@ -645,7 +652,7 @@ export default function NotebookApp({
     }
     setToastHover(false);
     setToastFocus(false);
-    setToast({ id: Date.now(), message: '已撤銷操作', undo: null });
+    setToast({ id: Date.now(), message: t('notebook.toast.undone'), undo: null });
   };
 
   let body;
@@ -743,6 +750,9 @@ export default function NotebookApp({
         onRemovePerson={onRemovePerson}
         onSaveRate={onSaveRate}
         onToast={showToast}
+        uiLanguage={uiLanguage}
+        onChangeUiLanguage={onChangeUiLanguage}
+        updateSettings={updateSettings}
       />
     );
   } else {
@@ -811,6 +821,7 @@ export default function NotebookApp({
 }
 
 function Header({ trip, trips, onSelectTrip }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const menuWrapRef = useRef(null);
   const btnRef = useRef(null);
@@ -850,10 +861,10 @@ function Header({ trip, trips, onSelectTrip }) {
           </span>
           <span className="min-w-0 leading-none">
             <span className="block whitespace-nowrap font-script text-lg font-semibold leading-none text-teal-strong">
-              Travel notebook
+              {t('notebook.brandScript')}
             </span>
             <span className="block whitespace-nowrap font-display text-base tracking-[-0.03em] text-ink">
-              旅遊手帳
+              {t('notebook.brand')}
             </span>
           </span>
         </button>
@@ -879,26 +890,26 @@ function Header({ trip, trips, onSelectTrip }) {
               data-testid="trip-switcher-menu"
               className="absolute right-0 top-full z-40 mt-2 min-w-[230px] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl"
             >
-              {trips.map((t) => {
-                const isActive = String(t.id) === String(trip.id);
+              {trips.map((tripOption) => {
+                const isActive = String(tripOption.id) === String(trip.id);
                 return (
                   <button
-                    key={t.id}
+                    key={tripOption.id}
                     type="button"
                     role="menuitem"
-                    data-testid={`switch-trip-${t.id}`}
+                    data-testid={`switch-trip-${tripOption.id}`}
                     onClick={() => {
                       setOpen(false);
-                      onSelectTrip(t.id);
+                      onSelectTrip(tripOption.id);
                     }}
                     className={`flex min-h-11 w-full items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
                       isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
                     }`}
                   >
-                    <span>{t.name}</span>
+                    <span>{tripOption.name}</span>
                     {isActive && (
                       <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
-                        當前
+                        {t('notebook.currentTrip')}
                       </span>
                     )}
                   </button>
@@ -913,22 +924,23 @@ function Header({ trip, trips, onSelectTrip }) {
 }
 
 const NAV = [
-  ['home', '日曆', '', Icon.home],
-  ['ledger', '帳本', 'ledger', Icon.book],
-  ['charts', '圖表', 'charts', Icon.chart],
-  ['settings', '設定', 'settings', Icon.gear],
+  ['home', 'notebook.nav.home', '', Icon.home],
+  ['ledger', 'notebook.nav.ledger', 'ledger', Icon.book],
+  ['charts', 'notebook.nav.charts', 'charts', Icon.chart],
+  ['settings', 'notebook.nav.settings', 'settings', Icon.gear],
 ];
 
 function BottomNav({ tab }) {
+  const { t } = useTranslation();
   return (
     <nav
       data-testid="nav"
-      aria-label="導航"
+      aria-label={t('notebook.navAria')}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
       <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5" style={washiNav} />
       <div className="mx-auto grid max-w-lg grid-cols-4">
-        {NAV.map(([id, label, hash, icon]) => {
+        {NAV.map(([id, labelKey, hash, icon]) => {
           const active = tab === id;
           return (
             <button
@@ -942,7 +954,7 @@ function BottomNav({ tab }) {
               }`}
             >
               {icon('h-[22px] w-[22px]')}
-              <span className="whitespace-nowrap text-meta font-medium">{label}</span>
+              <span className="whitespace-nowrap text-meta font-medium">{t(labelKey)}</span>
             </button>
           );
         })}

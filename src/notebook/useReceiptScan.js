@@ -2,15 +2,36 @@ import { useCallback, useRef, useState } from 'react';
 import { toRefExpense } from '../adapters/refDataAdapter';
 import { gateFilesBySourceHash, parseQueuedReceipts } from '../components/expense/uploadBatch';
 import { STRIPE_UI_ENABLED } from '../config/features';
+import i18n from '../i18n';
 import { defaultTime, parseHHMM } from '../proto/ref/refRules';
 import { splitBatchByDuplicates, normalizeDate } from '../utils/duplicates';
 import { buildAllowedExpenseCategories } from '../utils/expenseCategories';
 import { isUploadBlocked } from '../utils/planView';
 import { resolveParseQueue } from '../utils/sourceHash';
 
-export const SCAN_LOADING_TEXT = '讀取緊收據…';
-export const SCAN_READY_TEXT = '已讀取收據，請核對。';
-export const SCAN_DEFAULT_ERROR_TEXT = '收據讀取失敗，請重試或手動輸入';
+export const SCAN_LOADING_KEY = 'notebook.scan.loading';
+export const SCAN_READY_KEY = 'notebook.scan.ready';
+export const SCAN_ERROR_DEFAULT_KEY = 'notebook.scan.errorDefault';
+export const SCAN_ERROR_TIMEOUT_KEY = 'notebook.scan.errorTimeout';
+export const SCAN_ERROR_QUOTA_KEY = 'notebook.scan.errorQuota';
+
+export const SCAN_LOADING_TEXT = i18n.t(SCAN_LOADING_KEY);
+export const SCAN_READY_TEXT = i18n.t(SCAN_READY_KEY);
+export const SCAN_DEFAULT_ERROR_TEXT = i18n.t(SCAN_ERROR_DEFAULT_KEY);
+
+function resolveTranslator(tOrOptions) {
+  if (typeof tOrOptions === 'function') return tOrOptions;
+  if (tOrOptions && typeof tOrOptions.t === 'function') return tOrOptions.t;
+  return (key, opts) => i18n.t(key, opts);
+}
+
+export function scanLoadingMessage(tOrOptions) {
+  return resolveTranslator(tOrOptions)(SCAN_LOADING_KEY);
+}
+
+export function scanReadyMessage(tOrOptions) {
+  return resolveTranslator(tOrOptions)(SCAN_READY_KEY);
+}
 
 /**
  * Select the i18n message key used when receipt upload is blocked by quota.
@@ -107,28 +128,47 @@ export function buildScanDeps({
 }
 
 /**
- * Format a concise single-line zh-HK banner error message (<= 18 chars so it fits at 375px).
+ * Select the i18n key for a short single-line AddForm scan error banner,
+ * or return `null` when `rawError` is already a short custom string (<= 18 chars).
  *
  * @param {unknown} rawError
- * @returns {string}
+ * @returns {string | null}
  */
-export function shortScanErrorMessage(rawError) {
-  if (!rawError) return SCAN_DEFAULT_ERROR_TEXT;
+export function shortScanErrorKey(rawError) {
+  if (!rawError) return SCAN_ERROR_DEFAULT_KEY;
   const text =
     typeof rawError === 'string'
       ? rawError.trim()
       : String(rawError?.message || rawError || '').trim();
-  if (!text) return SCAN_DEFAULT_ERROR_TEXT;
+  if (!text) return SCAN_ERROR_DEFAULT_KEY;
   if (/逾時|timeout|504/i.test(text)) {
-    return 'AI 掃描逾時，請重試或手動輸入';
+    return SCAN_ERROR_TIMEOUT_KEY;
   }
   if (/免費|額度|用完|quota/i.test(text)) {
-    return '免費掃描已用完，仍可手動記帳';
+    return SCAN_ERROR_QUOTA_KEY;
   }
   if (text.length <= 18) {
-    return text;
+    return null;
   }
-  return SCAN_DEFAULT_ERROR_TEXT;
+  return SCAN_ERROR_DEFAULT_KEY;
+}
+
+/**
+ * Format a concise single-line banner error message via `t()` / locale keys.
+ *
+ * @param {unknown} rawError
+ * @param {((key: string) => string) | { t?: (key: string) => string }} [tOrOptions]
+ * @returns {string}
+ */
+export function shortScanErrorMessage(rawError, tOrOptions) {
+  const translate = resolveTranslator(tOrOptions);
+  const key = shortScanErrorKey(rawError);
+  if (key) {
+    return translate(key);
+  }
+  return typeof rawError === 'string'
+    ? rawError.trim()
+    : String(rawError?.message || rawError || '').trim();
 }
 
 /**
@@ -350,11 +390,16 @@ export function useReceiptScan({
     setScanState({ status: 'idle', message: '', draft: null, token: 0 });
   }, []);
 
+  const translate = useCallback(
+    (key, options) => (typeof t === 'function' ? t(key, options) : i18n.t(key, options)),
+    [t],
+  );
+
   const runParse = useCallback(
     async (queue) => {
       setScanState({
         status: 'loading',
-        message: SCAN_LOADING_TEXT,
+        message: translate(SCAN_LOADING_KEY),
         draft: null,
         token: Date.now(),
       });
@@ -374,13 +419,13 @@ export function useReceiptScan({
         setScanDraft(draft);
         setScanState({
           status: 'ready',
-          message: SCAN_READY_TEXT,
+          message: translate(SCAN_READY_KEY),
           draft,
           token: Date.now(),
         });
       } else if (lastError) {
         notify?.(lastError, 'error');
-        const shortMsg = shortScanErrorMessage(lastError);
+        const shortMsg = shortScanErrorMessage(lastError, translate);
         onToast?.(shortMsg);
         setScanState({
           status: 'error',
@@ -408,6 +453,7 @@ export function useReceiptScan({
       refreshBilling,
       notify,
       onToast,
+      translate,
     ],
   );
 
@@ -477,7 +523,7 @@ export function useReceiptScan({
       setScanDraft(null);
       setScanState({
         status: 'loading',
-        message: SCAN_LOADING_TEXT,
+        message: translate(SCAN_LOADING_KEY),
         draft: null,
         token: Date.now(),
       });
@@ -498,7 +544,7 @@ export function useReceiptScan({
         reviewingRef.current = false;
         const rawMsg = err?.message || String(err);
         notify?.(rawMsg, 'error');
-        const shortMsg = shortScanErrorMessage(rawMsg);
+        const shortMsg = shortScanErrorMessage(rawMsg, translate);
         onToast?.(shortMsg);
         setScanState({
           status: 'error',
@@ -508,7 +554,7 @@ export function useReceiptScan({
         });
       }
     },
-    [onOpenForm, runParse, notify, onToast],
+    [onOpenForm, runParse, notify, onToast, translate],
   );
 
   return {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { applyUndo, defaultPayer, parseRate, resolveToday } from '../proto/ref/refRules';
 import { useApp } from '../store/AppContext';
+import { normalizeUiLanguage } from '../utils/locale';
 import { getTripCurrencyCode } from '../utils/tripMoney';
 import NotebookApp from './NotebookApp';
 import {
@@ -50,11 +51,21 @@ export default function NotebookShell() {
     tripCurrency,
     defaultAssignee,
     settings,
+    updateSettings,
     planView,
     applyBillingSnapshot,
     refreshBilling,
     notify,
   } = useApp();
+
+  const uiLanguage = normalizeUiLanguage(settings?.uiLanguage);
+
+  const handleChangeUiLanguage = useCallback(
+    (nextLang) => {
+      updateSettings?.({ uiLanguage: normalizeUiLanguage(nextLang) });
+    },
+    [updateSettings],
+  );
 
   const notebookActionsRef = useRef(null);
 
@@ -279,6 +290,9 @@ export default function NotebookShell() {
       onRenamePerson={handleRenamePerson}
       onRemovePerson={handleRemovePerson}
       onSaveRate={handleSaveRate}
+      uiLanguage={uiLanguage}
+      onChangeUiLanguage={handleChangeUiLanguage}
+      updateSettings={updateSettings}
     />
   );
 }

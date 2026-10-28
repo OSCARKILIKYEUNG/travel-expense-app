@@ -1,9 +1,18 @@
+import i18n from '../i18n';
 import { buildExpenseFromAI } from '../services/AIService';
 import { formatDateToDisplay } from '../utils/date';
 import { normalizeDate } from '../utils/duplicates';
+import { SCAN_ERROR_DEFAULT_KEY } from './useReceiptScan';
 
 export const FIXTURE_SCAN_DELAY_MS = 600;
-export const FIXTURE_ERROR_MESSAGE = '收據讀取失敗，請重試或手動輸入';
+export const FIXTURE_ERROR_KEY = SCAN_ERROR_DEFAULT_KEY;
+export const FIXTURE_ERROR_MESSAGE = i18n.t(FIXTURE_ERROR_KEY);
+
+export function getFixtureErrorMessage(tOrOptions) {
+  if (typeof tOrOptions === 'function') return tOrOptions(FIXTURE_ERROR_KEY);
+  if (tOrOptions && typeof tOrOptions.t === 'function') return tOrOptions.t(FIXTURE_ERROR_KEY);
+  return i18n.t(FIXTURE_ERROR_KEY);
+}
 
 /**
  * Resolve the fixture scan mode from URL query or hash (`scanfixture=dup` | `scanfixture=error`).
@@ -187,7 +196,7 @@ export function buildFixtureExpense({
   sourceHash,
 } = {}) {
   if (mode === 'error') {
-    throw new Error(FIXTURE_ERROR_MESSAGE);
+    throw new Error(getFixtureErrorMessage());
   }
   const rawResult =
     mode === 'dup'

@@ -1,23 +1,42 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
+import i18n from '../i18n';
+import en from '../locales/en.json';
+import zhTW from '../locales/zh-TW.json';
 import AddForm from '../proto/ref/AddForm';
 import { createRefTrip } from '../proto/ref/mockRefTrip';
 import { buildExpenseFromAI } from '../services/AIService';
+import NotebookApp from './NotebookApp';
+import SettingsView, { applyNotebookLanguageChange } from './SettingsView';
 import {
+  FIXTURE_ERROR_KEY,
   FIXTURE_ERROR_MESSAGE,
   buildFixtureExpense,
   buildLawsonFixtureParseResult,
+  getFixtureErrorMessage,
   isProtoNotebook,
   resolveScanFixtureMode,
 } from './scanFixture';
 import { preparePersistedExpense } from './tripRate';
 import {
+  SCAN_DEFAULT_ERROR_TEXT,
+  SCAN_ERROR_DEFAULT_KEY,
+  SCAN_ERROR_QUOTA_KEY,
+  SCAN_ERROR_TIMEOUT_KEY,
+  SCAN_LOADING_KEY,
+  SCAN_LOADING_TEXT,
+  SCAN_READY_KEY,
+  SCAN_READY_TEXT,
   blockedScanMessageKey,
   buildScanDeps,
   checkScanBlocked,
   routeScannedSave,
+  scanLoadingMessage,
+  scanReadyMessage,
   scanResultToFormFields,
+  shortScanErrorKey,
   shortScanErrorMessage,
 } from './useReceiptScan';
 
@@ -155,6 +174,14 @@ describe('buildScanDeps & shortScanErrorMessage', () => {
   });
 
   it('shortens long error strings for the single-line AddForm banner', () => {
+    expect(shortScanErrorKey('AI 掃描逾時，這張單據可能太長或太複雜。請稍後再試一次。')).toBe(
+      SCAN_ERROR_TIMEOUT_KEY,
+    );
+    expect(shortScanErrorKey(new Error('伺服器回傳異常（500）。請關閉分頁重開後再試。'))).toBe(
+      SCAN_ERROR_DEFAULT_KEY,
+    );
+    expect(shortScanErrorKey('免費 AI 掃描已用完')).toBe(SCAN_ERROR_QUOTA_KEY);
+
     expect(shortScanErrorMessage('AI 掃描逾時，這張單據可能太長或太複雜。請稍後再試一次。')).toBe(
       'AI 掃描逾時，請重試或手動輸入',
     );
@@ -162,6 +189,37 @@ describe('buildScanDeps & shortScanErrorMessage', () => {
       '收據讀取失敗，請重試或手動輸入',
     );
     expect(shortScanErrorMessage('免費 AI 掃描已用完')).toBe('免費掃描已用完，仍可手動記帳');
+  });
+
+  it('resolves scan loading, ready, and error banner strings for zh-TW (書面語) and en via t()', () => {
+    const tZh = i18n.getFixedT('zh-TW');
+    const tEn = i18n.getFixedT('en');
+
+    expect(SCAN_LOADING_KEY).toBe('notebook.scan.loading');
+    expect(SCAN_READY_KEY).toBe('notebook.scan.ready');
+    expect(SCAN_LOADING_TEXT).toBe('正在讀取收據…');
+    expect(SCAN_LOADING_TEXT).not.toContain('讀取緊');
+    expect(SCAN_READY_TEXT).toBe('已讀取收據，請核對。');
+    expect(SCAN_DEFAULT_ERROR_TEXT).toBe('收據讀取失敗，請重試或手動輸入');
+
+    expect(scanLoadingMessage(tZh)).toBe('正在讀取收據…');
+    expect(scanReadyMessage(tZh)).toBe('已讀取收據，請核對。');
+    expect(shortScanErrorMessage('Request timeout 504', tZh)).toBe('AI 掃描逾時，請重試或手動輸入');
+    expect(shortScanErrorMessage('Quota exceeded', tZh)).toBe('免費掃描已用完，仍可手動記帳');
+    expect(shortScanErrorMessage(new Error('HTTP 500 long server failure message'), tZh)).toBe(
+      '收據讀取失敗，請重試或手動輸入',
+    );
+    expect(getFixtureErrorMessage(tZh)).toBe('收據讀取失敗，請重試或手動輸入');
+
+    expect(scanLoadingMessage(tEn)).toBe('Reading receipt…');
+    expect(scanReadyMessage(tEn)).toBe('Receipt ready — please review.');
+    expect(shortScanErrorMessage('Request timeout 504', tEn)).toBe('Scan timed out — please retry');
+    expect(shortScanErrorMessage('Quota exceeded', tEn)).toBe('Free scans used — enter manually');
+    expect(shortScanErrorMessage(new Error('HTTP 500 long server failure message'), tEn)).toBe(
+      'Scan failed — retry or enter',
+    );
+    expect(getFixtureErrorMessage(tEn)).toBe('Scan failed — retry or enter');
+    expect(FIXTURE_ERROR_KEY).toBe(SCAN_ERROR_DEFAULT_KEY);
   });
 });
 
@@ -342,12 +400,12 @@ describe('AddForm — proto=ref mock fallback vs external scanner prop', () => {
         startScan: true,
         people: ['共同', 'Oscar'],
         onRequestScan() {},
-        scanState: { status: 'loading', message: '讀取緊收據…', token: 1 },
+        scanState: { status: 'loading', message: SCAN_LOADING_TEXT, token: 1 },
         onCancel() {},
         onSave() {},
       }),
     );
-    expect(loadingHtml).toContain('讀取緊收據…');
+    expect(loadingHtml).toContain('正在讀取收據…');
     expect(loadingHtml).not.toContain('已讀取收據（示範資料）');
 
     const draft = buildFixtureExpense({ mode: 'default', date: '2026-10-22' });
@@ -356,7 +414,7 @@ describe('AddForm — proto=ref mock fallback vs external scanner prop', () => {
         defaultDate: '2026-10-22',
         people: ['共同', 'Oscar'],
         onRequestScan() {},
-        scanState: { status: 'ready', message: '已讀取收據，請核對。', draft, token: 2 },
+        scanState: { status: 'ready', message: SCAN_READY_TEXT, draft, token: 2 },
         scanDraft: draft,
         onCancel() {},
         onSave() {},
@@ -366,5 +424,124 @@ describe('AddForm — proto=ref mock fallback vs external scanner prop', () => {
     expect(readyHtml).toContain('value="1680"');
     expect(readyHtml).toContain('value="ローソン 河口湖駅前店"');
     expect(readyHtml).toContain('13:05');
+  });
+});
+
+describe('Notebook i18n scaffold — SettingsView language toggle, nav, and locale key parity', () => {
+  it('keeps zh-TW and en notebook.* locale trees in lockstep with no missing keys', () => {
+    function collectKeys(obj, prefix = '') {
+      const out = [];
+      for (const [k, v] of Object.entries(obj || {})) {
+        const next = prefix ? `${prefix}.${k}` : k;
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          out.push(...collectKeys(v, next));
+        } else {
+          out.push(next);
+        }
+      }
+      return out.sort();
+    }
+
+    const zhKeys = collectKeys(zhTW.notebook, 'notebook');
+    const enKeys = collectKeys(en.notebook, 'notebook');
+    expect(zhKeys.length).toBeGreaterThan(0);
+    expect(zhKeys).toEqual(enKeys);
+  });
+
+  it('persists normalized uiLanguage via onChangeUiLanguage / updateSettings and falls back to local changeLanguage', () => {
+    const onChangeUiLanguage = vi.fn();
+    expect(applyNotebookLanguageChange('en', { onChangeUiLanguage })).toBe('en');
+    expect(onChangeUiLanguage).toHaveBeenCalledWith('en');
+
+    expect(applyNotebookLanguageChange('invalid-lang', { onChangeUiLanguage })).toBe('zh-TW');
+    expect(onChangeUiLanguage).toHaveBeenLastCalledWith('zh-TW');
+
+    const updateSettings = vi.fn();
+    expect(applyNotebookLanguageChange('en', { updateSettings })).toBe('en');
+    expect(updateSettings).toHaveBeenCalledWith({ uiLanguage: 'en' });
+
+    const changeLanguage = vi.fn();
+    expect(applyNotebookLanguageChange('en', { i18nInstance: { changeLanguage } })).toBe('en');
+    expect(changeLanguage).toHaveBeenCalledWith('en');
+  });
+
+  it('renders notebook SettingsView and BottomNav in zh-TW and switches to en via i18n', async () => {
+    const trip = createRefTrip();
+
+    await i18n.changeLanguage('zh-TW');
+    const zhHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-10-22',
+          initialHash: '#settings',
+          uiLanguage: 'zh-TW',
+        }),
+      ),
+    );
+    expect(zhHtml).toContain('data-testid="language-select"');
+    expect(zhHtml).toContain('介面語言');
+    expect(zhHtml).toContain('繁體中文');
+    expect(zhHtml).toContain('English');
+    expect(zhHtml).toContain('旅程管理');
+    expect(zhHtml).toContain('旅程預算');
+    expect(zhHtml).toContain('人物管理');
+    expect(zhHtml).toContain('貨幣與匯率');
+    expect(zhHtml).toContain('資料管理');
+    expect(zhHtml).toContain('日曆');
+    expect(zhHtml).toContain('帳本');
+    expect(zhHtml).toContain('圖表');
+
+    await i18n.changeLanguage('en');
+    const enHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-10-22',
+          initialHash: '#settings',
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    expect(enHtml).toContain('data-testid="language-select"');
+    expect(enHtml).toContain('Language');
+    expect(enHtml).toContain('Traditional Chinese');
+    expect(enHtml).toContain('Trips');
+    expect(enHtml).toContain('Trip budget');
+    expect(enHtml).toContain('People');
+    expect(enHtml).toContain('Currency &amp; exchange rate');
+    expect(enHtml).toContain('Data');
+    expect(enHtml).toContain('Calendar');
+    expect(enHtml).toContain('Ledger');
+    expect(enHtml).toContain('Charts');
+    expect(enHtml).toContain('Settings');
+
+    // Language section appears before Trip management
+    expect(enHtml.indexOf('data-testid="language-select"')).toBeLessThan(
+      enHtml.indexOf('>Trips</h2>'),
+    );
+
+    const directSettingsHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(SettingsView, {
+          trip,
+          trips: [trip],
+          onUpdateTrip() {},
+          onSelectTrip() {},
+          uiLanguage: 'en',
+        }),
+      ),
+    );
+    expect(directSettingsHtml).toContain('About Travel Notebook');
+
+    await i18n.changeLanguage('zh-TW');
   });
 });

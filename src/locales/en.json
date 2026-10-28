@@ -451,5 +451,68 @@
     "replaceConfirm": "Replace",
     "replacedToast": "Replaced {{count}} old record(s)",
     "undo": "Undo"
+  },
+  "notebook": {
+    "brand": "Travel notebook",
+    "brandScript": "Travel notebook",
+    "currentTrip": "Current",
+    "navAria": "Navigation",
+    "nav": {
+      "home": "Calendar",
+      "ledger": "Ledger",
+      "charts": "Charts",
+      "settings": "Settings"
+    },
+    "scan": {
+      "loading": "Reading receipt…",
+      "ready": "Receipt ready — please review.",
+      "errorDefault": "Scan failed — retry or enter",
+      "errorTimeout": "Scan timed out — please retry",
+      "errorQuota": "Free scans used — enter manually"
+    },
+    "settings": {
+      "titleScript": "Settings",
+      "currentTripBadge": "Current trip",
+      "budgetTitle": "Trip budget",
+      "budgetUnset": "Not set",
+      "budgetPlaceholder": "Enter budget…",
+      "save": "Save",
+      "clear": "Clear",
+      "renamePersonInputAria": "Edit name for {{name}}",
+      "defaultPersonBadge": "Default",
+      "renamePersonAria": "Rename {{name}}",
+      "rename": "Rename",
+      "removePersonAria": "Remove {{name}}",
+      "remove": "Remove",
+      "addPersonInputAria": "New member name",
+      "addPersonPlaceholder": "New member name…",
+      "addPersonButton": "+ Add",
+      "personNameEmpty": "Name cannot be empty",
+      "personExists": "Person already exists",
+      "enterPersonName": "Enter a person name",
+      "currencyAndRatesTitle": "Currency & exchange rate",
+      "jpyLabel": "JPY Yen",
+      "hkdLabel": "HKD Dollar",
+      "rateInputAria": "Exchange rate",
+      "updateRate": "Update rate",
+      "rateInvalid": "Enter an exchange rate greater than 0",
+      "exportJson": "Export JSON",
+      "aboutTitle": "About Travel Notebook",
+      "aboutSummary": "Original total {{amount}} · Notebook mode"
+    },
+    "toast": {
+      "tripSwitched": "Switched to {{name}}",
+      "undone": "Undone",
+      "budgetSaved": "Budget set to {{amount}}",
+      "budgetCleared": "Budget cleared",
+      "personRenamed": "Renamed “{{from}}” to “{{to}}”",
+      "personAdded": "Added member “{{name}}”",
+      "personRemoved": "Removed “{{name}}”; expenses reassigned to Shared",
+      "rateUpdated": "Rate updated · Recalculated {{count}} expenses",
+      "exportedTrip": "Downloaded {{filename}}",
+      "exportedBackup": "Downloaded full backup {{filename}}",
+      "reportCopied": "Report copied",
+      "reportCopyFailed": "Could not copy report. Please try again."
+    }
   }
 }

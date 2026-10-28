@@ -451,5 +451,68 @@
     "replaceConfirm": "取代",
     "replacedToast": "已取代 {{count}} 筆舊記錄",
     "undo": "還原"
+  },
+  "notebook": {
+    "brand": "旅遊手帳",
+    "brandScript": "Travel notebook",
+    "currentTrip": "當前",
+    "navAria": "導航",
+    "nav": {
+      "home": "日曆",
+      "ledger": "帳本",
+      "charts": "圖表",
+      "settings": "設定"
+    },
+    "scan": {
+      "loading": "正在讀取收據…",
+      "ready": "已讀取收據，請核對。",
+      "errorDefault": "收據讀取失敗，請重試或手動輸入",
+      "errorTimeout": "AI 掃描逾時，請重試或手動輸入",
+      "errorQuota": "免費掃描已用完，仍可手動記帳"
+    },
+    "settings": {
+      "titleScript": "Settings",
+      "currentTripBadge": "當前旅程",
+      "budgetTitle": "旅程預算",
+      "budgetUnset": "未設定",
+      "budgetPlaceholder": "輸入預算金額…",
+      "save": "儲存",
+      "clear": "清除",
+      "renamePersonInputAria": "修改 {{name}} 名稱",
+      "defaultPersonBadge": "預設",
+      "renamePersonAria": "改名 {{name}}",
+      "rename": "改名",
+      "removePersonAria": "移除 {{name}}",
+      "remove": "移除",
+      "addPersonInputAria": "新增人物名稱",
+      "addPersonPlaceholder": "新增成員名稱…",
+      "addPersonButton": "＋新增",
+      "personNameEmpty": "名稱不能為空",
+      "personExists": "人物名稱已存在",
+      "enterPersonName": "請輸入人物名稱",
+      "currencyAndRatesTitle": "貨幣與匯率",
+      "jpyLabel": "JPY 日元",
+      "hkdLabel": "HKD 港幣",
+      "rateInputAria": "匯率",
+      "updateRate": "更新匯率",
+      "rateInvalid": "請輸入大於 0 的匯率",
+      "exportJson": "匯出 JSON",
+      "aboutTitle": "關於旅遊手帳",
+      "aboutSummary": "原幣合計 {{amount}} · 旅遊手帳模式"
+    },
+    "toast": {
+      "tripSwitched": "已切換至 {{name}}",
+      "undone": "已撤銷操作",
+      "budgetSaved": "已設定預算 {{amount}}",
+      "budgetCleared": "已清除預算",
+      "personRenamed": "已將「{{from}}」改名為「{{to}}」",
+      "personAdded": "已新增成員「{{name}}」",
+      "personRemoved": "已移除「{{name}}」，其消費已歸入共同",
+      "rateUpdated": "匯率已更新 · 已重新計算 {{count}} 筆",
+      "exportedTrip": "已下載 {{filename}}",
+      "exportedBackup": "已下載完整備份 {{filename}}",
+      "reportCopied": "已複製報告",
+      "reportCopyFailed": "複製報告失敗，請重試"
+    }
   }
 }
