@@ -218,6 +218,9 @@ export function preparePersistedExpense(
   if ('aiDateMissing' in record) {
     delete record.aiDateMissing;
   }
+  if ('scanFallbackDate' in record) {
+    delete record.scanFallbackDate;
+  }
 
   const lastPayment =
     record.payment === 'cash' || record.payment === 'card' ? record.payment : undefined;

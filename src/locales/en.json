@@ -495,7 +495,13 @@
       "ready": "Receipt ready — please review.",
       "errorDefault": "Scan failed — retry or enter",
       "errorTimeout": "Scan timed out — please retry",
-      "errorQuota": "Free scans used — enter manually"
+      "errorQuota": "Free scans used — enter manually",
+      "dateFallbackSelected": "No date on the receipt — saved to {{month}}/{{day}}, the day you picked on the calendar. You can change it in Edit.",
+      "dateFallbackSelected_one": "No date on the receipt — saved to {{month}}/{{day}}, the day you picked on the calendar. You can change it in Edit.",
+      "dateFallbackSelected_other": "{{count}} receipts had no date — saved to {{month}}/{{day}}, the day you picked on the calendar. You can change it in Edit.",
+      "dateFallbackToday": "No date on the receipt — saved to today ({{month}}/{{day}}). You can change it in Edit.",
+      "dateFallbackToday_one": "No date on the receipt — saved to today ({{month}}/{{day}}). You can change it in Edit.",
+      "dateFallbackToday_other": "{{count}} receipts had no date — saved to today ({{month}}/{{day}}). You can change it in Edit."
     },
     "settings": {
       "titleScript": "Settings",

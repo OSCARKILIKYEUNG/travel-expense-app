@@ -122,5 +122,20 @@ describe('PR-anim-1 — ExpenseCard, DayView, and Toast motion wiring', () => {
     expect(undoToastHtml).toContain('data-testid="toast"');
     expect(undoToastHtml).toContain('data-testid="toast-undo"');
     expect(undoToastHtml).toContain('已記錄 HK$103 · 10月22日');
+
+    const longNotice = '收據沒有日期，已記入你在日曆選取的 10月20日，可在編輯中修改。';
+    const dismissToastHtml = renderToStaticMarkup(
+      createElement(Toast, {
+        toast: { id: 2, message: longNotice, undo: null },
+        onDismiss: () => {},
+      }),
+    );
+    expect(dismissToastHtml).toContain(longNotice);
+    expect(dismissToastHtml).toContain('line-clamp-3');
+    expect(dismissToastHtml).toContain('whitespace-normal');
+    expect(dismissToastHtml).toContain('break-words');
+    const spanMatch = dismissToastHtml.match(/<span class="([^"]*)">/);
+    expect(spanMatch?.[1] || '').not.toContain('truncate');
+    expect(spanMatch?.[1] || '').not.toContain('whitespace-nowrap');
   });
 });

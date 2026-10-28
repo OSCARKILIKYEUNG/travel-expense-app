@@ -330,7 +330,7 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
       }}
       className={`fixed inset-x-4 ${bottomClass} z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 border-teal-strong bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none`}
     >
-      <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-semibold text-ink">
+      <span className="min-w-0 flex-1 whitespace-normal break-words line-clamp-3 text-sm font-semibold leading-snug text-ink">
         {toast.message}
       </span>
       <div className="flex shrink-0 items-center gap-1">

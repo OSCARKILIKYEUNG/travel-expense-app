@@ -31,7 +31,16 @@ const WEEKDAY_KEYS = [
   'notebook.home.weekdays.sat',
 ];
 
-export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, onAdd }) {
+export default function Home({
+  trip,
+  today,
+  month,
+  setMonth,
+  selectedDay = null,
+  onOpenDay,
+  onScan,
+  onAdd,
+}) {
   const { t } = useTranslation();
   const [showJpy, setShowJpy] = useState(false);
   const total = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
@@ -155,12 +164,19 @@ export default function Home({ trip, today, month, setMonth, onOpenDay, onScan, 
         </button>
       </div>
 
-      <Calendar trip={trip} today={today} month={month} setMonth={setMonth} onOpenDay={onOpenDay} />
+      <Calendar
+        trip={trip}
+        today={today}
+        month={month}
+        setMonth={setMonth}
+        selectedDay={selectedDay}
+        onOpenDay={onOpenDay}
+      />
     </div>
   );
 }
 
-function Calendar({ trip, today, month, setMonth, onOpenDay }) {
+function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay }) {
   const { t } = useTranslation();
   const [y, m] = month.split('-').map(Number);
   const weeks = monthGridSunday(`${month}-01`);
@@ -234,6 +250,7 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
               const startSeg = isTripDay && (i === 0 || c.iso === trip.startDate || !inTrip(week[i - 1].iso));
               const endSeg = isTripDay && (i === 6 || c.iso === trip.endDate || !inTrip(week[i + 1].iso));
               const isToday = c.iso === today;
+              const isSelected = Boolean(selectedDay && c.iso === selectedDay);
               const note = day?.note ? capCellNote(day.note) : '';
               const stickerId = day?.sticker && hasSticker(day.sticker) ? day.sticker : '';
               const cellMonth = Number(c.iso.slice(5, 7));
@@ -256,9 +273,12 @@ function Calendar({ trip, today, month, setMonth, onOpenDay }) {
                   key={c.iso}
                   type="button"
                   data-testid={`day-cell-${c.iso}`}
+                  data-selected={isSelected ? 'true' : undefined}
                   onClick={() => onOpenDay(c.iso)}
                   aria-label={`${cellDateLabel}${day?.title ? ` ${day.title}` : ''}`}
-                  className="relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  className={`relative flex h-12 min-w-0 flex-col items-stretch justify-between pb-1.5 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                    isSelected ? 'rounded-xl ring-2 ring-teal-strong/70' : ''
+                  }`}
                 >
                   {isTripDay && (
                     <span

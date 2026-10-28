@@ -18,16 +18,19 @@ export function zhDate(iso) {
   return `${m}月${d}日 ${WEEK[new Date(y, m - 1, d).getDay()]}`;
 }
 
-/** Build the hash string for opening the add/edit expense flow from { date, scan, id }. */
-export function buildAddHash({ date, scan, id } = {}) {
+/** Build the hash string for opening the add/edit expense flow from { date, scan, id, dateSource }. */
+export function buildAddHash({ date, scan, id, dateSource } = {}) {
   const parts = ['add'];
   if (date) parts.push(`date=${date}`);
   if (scan) parts.push('scan=1');
+  if (dateSource === 'selected' || dateSource === 'today') {
+    parts.push(`dsrc=${dateSource}`);
+  }
   if (id) parts.push(`edit=${id}`);
   return parts.join('&');
 }
 
-/** Hash routes: '' | day=ISO&pane=itinerary|expenses[&edit=1] | add[&date=ISO][&scan=1][&edit=ID] | ledger[&cat=..&pay=..&payer=..&person=..&focus=..] | charts | settings */
+/** Hash routes: '' | day=ISO&pane=itinerary|expenses[&edit=1] | add[&date=ISO][&scan=1][&dsrc=today|selected][&edit=ID] | ledger[&cat=..&pay=..&payer=..&person=..&focus=..] | charts | settings */
 export function parseRoute(hash) {
   const raw = String(hash || '').replace(/^#/, '');
   const q = new URLSearchParams(raw);
@@ -37,7 +40,22 @@ export function parseRoute(hash) {
   }
   const head = raw.split('&')[0];
   if (head === 'add') {
-    return { screen: 'add', date: q.get('date') || null, scan: q.get('scan') === '1', expenseId: q.get('edit') || null };
+    const rawScan = String(q.get('scan') || '').trim().toLowerCase();
+    const isScan =
+      rawScan === '1' ||
+      rawScan === 'nodate' ||
+      rawScan === 'no-date' ||
+      rawScan === 'no_date';
+    const rawDsrc = String(q.get('dsrc') || q.get('dateSource') || '').trim().toLowerCase();
+    const dateSource =
+      rawDsrc === 'selected' || rawDsrc === 'today' ? rawDsrc : null;
+    return {
+      screen: 'add',
+      date: q.get('date') || null,
+      scan: isScan,
+      expenseId: q.get('edit') || null,
+      ...(dateSource ? { dateSource } : {}),
+    };
   }
   if (head === 'ledger') {
     return {

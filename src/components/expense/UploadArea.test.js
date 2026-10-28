@@ -7,6 +7,7 @@ import { parseReceipt, buildExpenseFromAI } from '../../services/AIService';
 import { sha256Hex, resolveParseQueue } from '../../utils/sourceHash';
 import { gateFilesBySourceHash, parseQueuedReceipts } from './uploadBatch';
 import HashDuplicateDialog from './HashDuplicateDialog';
+import { useReceiptScan } from '../../notebook/useReceiptScan';
 
 vi.mock('../../services/AIService', async () => {
   const actual = await vi.importActual('../../services/AIService');
@@ -111,6 +112,68 @@ describe('UploadArea hash gate', () => {
     const without = buildExpenseFromAI(parsed, 1, 'JPY', 1, 'JPY');
     expect(withHash.sourceHash).toBe('ab');
     expect(without.sourceHash).toBeUndefined();
+  });
+
+  it('threads deps.fallbackDate through parseQueuedReceipts and emits fallback toast once in useReceiptScan', async () => {
+    const file = fileFrom('no-date-receipt', 'nodate.jpg');
+    parseReceipt.mockResolvedValue({
+      store: 'セブンイレブン',
+      date: '',
+      total_amount: 950,
+      currency: 'JPY',
+      items: [{ name: '咖啡', price: 950 }],
+    });
+
+    const gated = await gateFilesBySourceHash([file], []);
+    const outcome = await parseQueuedReceipts(gated.toParse, {
+      ...deps,
+      fallbackDate: '2026-10-20',
+    });
+    expect(outcome.results).toHaveLength(1);
+    expect(outcome.results[0].date).toBe('2026-10-20');
+    expect(outcome.results[0].aiDateMissing).toBe(true);
+
+    // Hook integration: selected day fallback triggers onToast once
+    const onToast = vi.fn();
+    const onOpenForm = vi.fn();
+    let capturedScanner = null;
+    function ScannerProbe() {
+      capturedScanner = useReceiptScan({
+        expenses: [],
+        homeCurrencyCode: 'HKD',
+        tripCurrency: 'JPY',
+        exchangeRates: { JPY: 19.0 },
+        defaultAssignee: '共同',
+        t: i18n.getFixedT('zh-TW'),
+        today: '2026-10-22',
+        onOpenForm,
+        onToast,
+      });
+      return null;
+    }
+    renderToStaticMarkup(createElement(ScannerProbe));
+
+    capturedScanner.requestScan({ date: '2026-10-20', dateSource: 'selected' });
+    await capturedScanner.handleFileChange({ target: { files: [file] } });
+
+    expect(onOpenForm).toHaveBeenCalledWith({
+      date: '2026-10-20',
+      dateSource: 'selected',
+      fromForm: false,
+    });
+    expect(onToast).toHaveBeenCalledTimes(1);
+    expect(onToast).toHaveBeenCalledWith(
+      '收據沒有日期，已記入你在日曆選取的 10月20日，可在編輯中修改。',
+    );
+
+    // Explicit date receipt: onToast is NOT called
+    onToast.mockClear();
+    parseReceipt.mockResolvedValue(parsed);
+    capturedScanner.requestScan({ date: '2026-10-20', dateSource: 'selected' });
+    await capturedScanner.handleFileChange({
+      target: { files: [fileFrom('dated-receipt', 'dated.jpg')] },
+    });
+    expect(onToast).not.toHaveBeenCalled();
   });
 });
 

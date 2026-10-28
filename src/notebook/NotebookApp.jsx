@@ -14,6 +14,7 @@ import {
   defaultExpenseDate,
   defaultPayer,
   defaultPayment,
+  isValidISODate,
   makeUndo,
   postSaveTarget,
   resolveToday,
@@ -51,6 +52,10 @@ import {
 import {
   SCAN_LOADING_KEY,
   SCAN_READY_KEY,
+  applyScanDateFallback,
+  buildDateFallbackNotice,
+  resolveScanFallbackDate,
+  resolveScanRequestTarget,
   routeScannedSave,
   scanResultToFormFields,
 } from './useReceiptScan';
@@ -146,6 +151,7 @@ export default function NotebookApp({
   today: propToday,
   rate: propRate,
   initialHash = '',
+  initialSelectedDay = null,
   search: propSearch,
   scanner,
   rawExpenses,
@@ -215,6 +221,20 @@ export default function NotebookApp({
   }, [isControlled, controlledTrips, mockTrips, trip, today]);
 
   const route = useRoute(initialHash);
+  const [selectedDay, setSelectedDay] = useState(() => {
+    if (initialSelectedDay && isValidISODate(initialSelectedDay)) {
+      return initialSelectedDay;
+    }
+    if (route.screen === 'day' && isValidISODate(route.day)) {
+      return route.day;
+    }
+    const rawQs = String(effectiveSearch || '').replace(/^\?/, '');
+    const qsSelected = new URLSearchParams(rawQs).get('selectedDay');
+    if (qsSelected && isValidISODate(qsSelected)) {
+      return qsSelected;
+    }
+    return null;
+  });
   const [returnTo, setReturnTo] = useState('');
   const [addOrigin, setAddOrigin] = useState(() => ({ origin: 'home', originDay: null }));
   const [month, setMonth] = useState(() => tripMonth(trip, today));
@@ -223,6 +243,12 @@ export default function NotebookApp({
   const [toastFocus, setToastFocus] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
   const [stickerId, setStickerId] = useState(null);
+
+  useEffect(() => {
+    if (route.screen === 'day' && isValidISODate(route.day)) {
+      setSelectedDay(route.day);
+    }
+  }, [route.screen, route.day]);
 
   const clearStickerId = useCallback((playedId) => {
     setStickerId((prev) =>
@@ -235,6 +261,7 @@ export default function NotebookApp({
 
   // Fixture scanner state for ?proto=notebook (when no external scanner prop is supplied)
   const fixtureTimerRef = useRef(null);
+  const pendingFixtureScanRef = useRef(null);
   const [fixtureScanState, setFixtureScanState] = useState({
     status: 'idle',
     message: '',
@@ -250,6 +277,7 @@ export default function NotebookApp({
       clearTimeout(fixtureTimerRef.current);
       fixtureTimerRef.current = null;
     }
+    pendingFixtureScanRef.current = null;
     setFixtureScanDraft(null);
     setFixtureScanState({ status: 'idle', message: '', draft: null, token: 0 });
   }, []);
@@ -276,6 +304,7 @@ export default function NotebookApp({
     if (String(trip.id) !== prevTripIdRef.current) {
       prevTripIdRef.current = String(trip.id);
       setMonth(tripMonth(trip, today));
+      setSelectedDay(null);
       clearActiveScan();
     }
   }, [trip, today, clearActiveScan]);
@@ -356,7 +385,12 @@ export default function NotebookApp({
     return () => clearTimeout(timer);
   }, [stickerId]);
 
-  const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
+  const openDay = useCallback((iso, pane = 'itinerary') => {
+    if (isValidISODate(iso)) {
+      setSelectedDay(iso);
+    }
+    go(`day=${iso}&pane=${pane}`);
+  }, []);
 
   const openAdd = useCallback(
     (opts = {}) => {
@@ -391,9 +425,9 @@ export default function NotebookApp({
       const currentHash = currentWindowHash().replace(/^#/, '');
       const currentRoute = parseRoute(currentHash);
       if (currentRoute.screen === 'add') return;
-      openAdd({ date: date || defaultExpenseDate(trip, today) });
+      openAdd({ date: date || selectedDay || today });
     },
-    [openAdd, trip, today],
+    [openAdd, selectedDay, today],
   );
 
   useEffect(() => {
@@ -405,11 +439,28 @@ export default function NotebookApp({
   }, [actionsRef, openFormForScan, showToast]);
 
   const startFixtureScan = useCallback(
-    ({ date } = {}) => {
+    ({ date, dateSource } = {}) => {
       if (fixtureTimerRef.current) {
         clearTimeout(fixtureTimerRef.current);
       }
-      const targetDate = date || defaultExpenseDate(trip, today) || '2026-10-22';
+      const resolvedFallback = resolveScanFallbackDate({
+        selectedDay:
+          dateSource === 'selected'
+            ? date || selectedDay
+            : dateSource === 'today'
+              ? null
+              : date || selectedDay,
+        today: dateSource === 'today' ? date || today : today,
+      });
+      const targetDate =
+        (date && isValidISODate(date) ? date : '') ||
+        resolvedFallback.date ||
+        defaultExpenseDate(trip, today) ||
+        '2026-10-22';
+      const effectiveSource =
+        dateSource === 'selected' || dateSource === 'today'
+          ? dateSource
+          : resolvedFallback.source;
       const people = trip.settings?.people || ['共同'];
       const defaultAssignee = people.includes('共同') ? '共同' : people[0] || '共同';
       const storeRate = refRateToForeignPerHome(effectiveRate) || 1 / 0.0526;
@@ -440,14 +491,30 @@ export default function NotebookApp({
           return;
         }
 
-        const draft = buildFixtureExpense({
+        const rawDraft = buildFixtureExpense({
           mode,
           date: targetDate,
           existingExpenses: effectiveRawExpenses,
           rate: storeRate,
           tripCurrency: trip.tripCurrency || 'JPY',
           defaultAssignee,
+          fallbackDate: targetDate,
         });
+        const { results, missingCount } = applyScanDateFallback([rawDraft], {
+          date: targetDate,
+        });
+        const draft = results[0] || rawDraft;
+        if (missingCount > 0) {
+          const notice = buildDateFallbackNotice({
+            missingCount,
+            date: targetDate,
+            source: effectiveSource,
+            t,
+          });
+          if (notice) {
+            showToast(notice);
+          }
+        }
         setFixtureScanDraft(draft);
         setFixtureScanState({
           status: 'ready',
@@ -484,24 +551,69 @@ export default function NotebookApp({
         }
       }, FIXTURE_SCAN_DELAY_MS);
     },
-    [trip, effectiveRawExpenses, today, effectiveRate, initialHash, showToast, addOrigin.origin, t],
+    [
+      trip,
+      selectedDay,
+      effectiveRawExpenses,
+      today,
+      effectiveRate,
+      initialHash,
+      showToast,
+      addOrigin.origin,
+      t,
+    ],
   );
 
   const handleRequestScan = useCallback(
-    ({ date, fromForm = false, auto = false } = {}) => {
-      const targetDate = date || defaultExpenseDate(trip, today);
+    ({ date, dateSource, fromForm = false, auto = false } = {}) => {
+      if (fromForm && !auto) {
+        pendingFixtureScanRef.current = null;
+      }
+      const { date: targetDate, dateSource: effectiveSource } = resolveScanRequestTarget({
+        date,
+        dateSource,
+        auto,
+        selectedDay,
+        routeDate: route.date,
+        routeDateSource: route.dateSource,
+        pending: auto ? pendingFixtureScanRef.current : null,
+        today,
+        defaultDate: defaultExpenseDate(trip, today),
+      });
+
       if (scanner) {
         if (auto) return false;
-        return scanner.requestScan({ date: targetDate, fromForm });
+        return scanner.requestScan({
+          date: targetDate,
+          dateSource: effectiveSource,
+          fromForm,
+        });
       }
       if (!fromForm) {
-        openAdd({ scan: true, date: targetDate });
+        pendingFixtureScanRef.current = {
+          date: targetDate,
+          dateSource: effectiveSource,
+        };
+        openAdd({
+          scan: true,
+          date: targetDate,
+          dateSource: effectiveSource,
+        });
         return true;
       }
-      startFixtureScan({ date: targetDate });
+      startFixtureScan({ date: targetDate, dateSource: effectiveSource });
       return true;
     },
-    [scanner, trip, today, openAdd, startFixtureScan],
+    [
+      scanner,
+      selectedDay,
+      route.date,
+      route.dateSource,
+      trip,
+      today,
+      openAdd,
+      startFixtureScan,
+    ],
   );
 
   const selectTrip = useCallback(
@@ -860,9 +972,19 @@ export default function NotebookApp({
         onBack={() =>
           typeof window !== 'undefined' && window.history.state?.refPushed ? window.history.back() : go('', true)
         }
-        onDay={(iso) => go(`day=${iso}&pane=${route.pane}`, true)}
+        onDay={(iso) => {
+          if (isValidISODate(iso)) {
+            setSelectedDay(iso);
+          }
+          go(`day=${iso}&pane=${route.pane}`, true);
+        }}
         onUpdateDay={updateDay}
-        onScan={(date) => handleRequestScan({ date })}
+        onScan={(date) =>
+          handleRequestScan({
+            date: date || route.day,
+            dateSource: 'selected',
+          })
+        }
         onAdd={(date) => openAdd({ date })}
         onEditExpense={(e) => openAdd({ id: e.id })}
         onDeleteExpense={deleteExpense}
@@ -872,7 +994,9 @@ export default function NotebookApp({
     const initial = route.expenseId
       ? trip.expenses.find((e) => String(e.id) === String(route.expenseId)) || null
       : null;
-    const effectiveDefaultDate = route.date || defaultExpenseDate(trip, today);
+    const effectiveDefaultDate =
+      route.date ||
+      (route.scan ? selectedDay || today : defaultExpenseDate(trip, today));
     const people = trip.settings?.people || ['共同'];
     body = (
       <AddForm
@@ -887,6 +1011,7 @@ export default function NotebookApp({
         onRequestScan={(opts) =>
           handleRequestScan({
             date: opts?.date || effectiveDefaultDate,
+            dateSource: opts?.dateSource || (opts?.auto ? route.dateSource : undefined),
             fromForm: true,
             auto: Boolean(opts?.auto),
           })
@@ -913,7 +1038,12 @@ export default function NotebookApp({
         highlightId={highlightId}
         exchangeRates={effectiveExchangeRates}
         defaultAssignee={propDefaultAssignee}
-        onScan={() => handleRequestScan({ date: defaultExpenseDate(trip, today) })}
+        onScan={() =>
+          handleRequestScan({
+            date: selectedDay || today,
+            dateSource: selectedDay ? 'selected' : 'today',
+          })
+        }
         onAdd={() => openAdd({ date: defaultExpenseDate(trip, today) })}
         onEdit={(e) => openAdd({ id: e.id })}
         onDelete={deleteExpense}
@@ -958,8 +1088,14 @@ export default function NotebookApp({
         today={today}
         month={month}
         setMonth={setMonth}
+        selectedDay={selectedDay}
         onOpenDay={(iso) => openDay(iso)}
-        onScan={() => handleRequestScan({ date: homeDefaultDate })}
+        onScan={() =>
+          handleRequestScan({
+            date: selectedDay || today,
+            dateSource: selectedDay ? 'selected' : 'today',
+          })
+        }
         onAdd={() => openAdd({ date: homeDefaultDate })}
       />
     );

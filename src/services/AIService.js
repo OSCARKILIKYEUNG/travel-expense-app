@@ -252,6 +252,7 @@ export function buildExpenseFromAI(
   defaultAssignee = '共同',
   allowedExpenseCategories = null,
   sourceHash = '',
+  fallbackDate = '',
 ) {
   const receiptType = normalizeReceiptType(result.receipt_type);
   const rawMarket = result.detected_market ?? result.detectedMarket ?? '';
@@ -505,12 +506,16 @@ export function buildExpenseFromAI(
 
   const normalizedSourceHash = typeof sourceHash === 'string' ? sourceHash.trim().toLowerCase() : '';
   const hasExplicitDate = Boolean(result.date && String(result.date).trim());
+  const cleanFallbackDate = typeof fallbackDate === 'string' ? fallbackDate.trim() : '';
+  const resolvedDate = hasExplicitDate
+    ? result.date
+    : cleanFallbackDate || new Date().toLocaleDateString('zh-TW');
   const rawTime = String(result.time ?? result.receipt_time ?? result.receiptTime ?? '').trim();
 
   const built = {
     id: Date.now() + index,
     assignedTo: defaultAssignee,
-    date: result.date || new Date().toLocaleDateString('zh-TW'),
+    date: resolvedDate,
     ...(rawTime ? { time: rawTime, receiptTime: rawTime } : {}),
     location: result.location || '未知地點',
     ...(locationEn ? { locationEn } : {}),
@@ -543,6 +548,13 @@ export function buildExpenseFromAI(
       enumerable: false,
       configurable: true,
     });
+    if (cleanFallbackDate) {
+      Object.defineProperty(built, 'scanFallbackDate', {
+        value: cleanFallbackDate,
+        enumerable: false,
+        configurable: true,
+      });
+    }
   }
 
   return built;

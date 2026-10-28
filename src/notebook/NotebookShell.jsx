@@ -70,6 +70,11 @@ export default function NotebookShell() {
 
   const notebookActionsRef = useRef(null);
 
+  const today = useMemo(
+    () => resolveToday(typeof window !== 'undefined' ? window.location.search : ''),
+    [],
+  );
+
   const scanner = useReceiptScan({
     planView,
     expenses,
@@ -83,6 +88,7 @@ export default function NotebookShell() {
     refreshBilling,
     notify,
     t,
+    today,
     onOpenForm: ({ date, fromForm }) => {
       notebookActionsRef.current?.openFormForScan?.({ date, fromForm });
     },
@@ -90,11 +96,6 @@ export default function NotebookShell() {
       notebookActionsRef.current?.showToast?.(msg);
     },
   });
-
-  const today = useMemo(
-    () => resolveToday(typeof window !== 'undefined' ? window.location.search : ''),
-    [],
-  );
 
   const activeRawTrip = useMemo(
     () => (currentTrip ? { ...currentTrip, expenses } : { expenses }),

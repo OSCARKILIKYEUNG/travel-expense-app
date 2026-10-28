@@ -15,11 +15,12 @@ export function getFixtureErrorMessage(tOrOptions) {
 }
 
 /**
- * Resolve the fixture scan mode from URL query or hash (`scanfixture=dup` | `scanfixture=error`).
+ * Resolve the fixture scan mode from URL query or hash
+ * (`scanfixture=dup` | `scanfixture=error` | `scanfixture=nodate` | `scan=nodate`).
  *
  * @param {string} [search]
  * @param {string} [hash]
- * @returns {'default' | 'dup' | 'error'}
+ * @returns {'default' | 'dup' | 'error' | 'nodate'}
  */
 export function resolveScanFixtureMode(
   search = typeof window !== 'undefined' ? window.location.search : '',
@@ -29,14 +30,33 @@ export function resolveScanFixtureMode(
   const rawHash = String(hash || '').replace(/^#/, '');
   const searchParams = new URLSearchParams(rawSearch);
   const hashParams = new URLSearchParams(rawHash);
-  const raw = String(
-    searchParams.get('scanfixture') ?? hashParams.get('scanfixture') ?? '',
+  const rawFixture = String(
+    searchParams.get('scanfixture') ??
+      hashParams.get('scanfixture') ??
+      searchParams.get('scanFixture') ??
+      hashParams.get('scanFixture') ??
+      '',
   )
     .trim()
     .toLowerCase();
+  const rawScan = String(
+    searchParams.get('scan') ?? hashParams.get('scan') ?? '',
+  )
+    .trim()
+    .toLowerCase();
+  const raw = rawFixture || (rawScan && rawScan !== '1' && rawScan !== 'true' ? rawScan : '');
 
   if (raw === 'dup' || raw === 'duplicate') return 'dup';
   if (raw === 'error' || raw === 'err') return 'error';
+  if (
+    raw === 'nodate' ||
+    raw === 'no-date' ||
+    raw === 'no_date' ||
+    raw === 'missingdate' ||
+    raw === 'missing-date'
+  ) {
+    return 'nodate';
+  }
   return 'default';
 }
 
@@ -172,10 +192,23 @@ export function buildDuplicateFixtureParseResult({
 }
 
 /**
+ * Build a fake `parseReceipt`-shaped response for a JPY Lawson receipt with NO explicit date
+ * so `buildExpenseFromAI` sets non-enumerable `aiDateMissing: true` and triggers the
+ * scan date fallback + notice toast.
+ */
+export function buildNoDateFixtureParseResult() {
+  const base = buildLawsonFixtureParseResult();
+  return {
+    ...base,
+    date: '',
+  };
+}
+
+/**
  * Build a full real expense record via `buildExpenseFromAI` from the fixture `parseReceipt` result.
  *
  * @param {{
- *   mode?: 'default' | 'dup' | 'error',
+ *   mode?: 'default' | 'dup' | 'error' | 'nodate',
  *   date?: string,
  *   existingExpenses?: Record<string, any>[],
  *   rate?: number,
@@ -183,6 +216,7 @@ export function buildDuplicateFixtureParseResult({
  *   defaultAssignee?: string,
  *   allowedCategories?: string[] | null,
  *   sourceHash?: string,
+ *   fallbackDate?: string,
  * }} [options]
  */
 export function buildFixtureExpense({
@@ -194,6 +228,7 @@ export function buildFixtureExpense({
   defaultAssignee = '共同',
   allowedCategories = null,
   sourceHash,
+  fallbackDate = '',
 } = {}) {
   if (mode === 'error') {
     throw new Error(getFixtureErrorMessage());
@@ -201,7 +236,9 @@ export function buildFixtureExpense({
   const rawResult =
     mode === 'dup'
       ? buildDuplicateFixtureParseResult({ date, existingExpenses })
-      : buildLawsonFixtureParseResult({ date });
+      : mode === 'nodate'
+        ? buildNoDateFixtureParseResult()
+        : buildLawsonFixtureParseResult({ date });
   const currency = String(rawResult.currency || tripCurrency || 'JPY').toUpperCase();
   const effectiveRate = Number(rate) > 0 ? Number(rate) : 1 / 0.0526;
   const resolvedHash =
@@ -209,7 +246,9 @@ export function buildFixtureExpense({
       ? sourceHash
       : mode === 'dup'
         ? 'fixture-dup-source-hash'
-        : 'fixture-lawson-1680-source-hash';
+        : mode === 'nodate'
+          ? 'fixture-nodate-source-hash'
+          : 'fixture-lawson-1680-source-hash';
 
   return buildExpenseFromAI(
     rawResult,
@@ -220,5 +259,6 @@ export function buildFixtureExpense({
     defaultAssignee,
     allowedCategories,
     resolvedHash,
+    fallbackDate,
   );
 }

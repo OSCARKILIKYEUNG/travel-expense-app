@@ -495,7 +495,13 @@
       "ready": "已讀取收據，請核對。",
       "errorDefault": "收據讀取失敗，請重試或手動輸入",
       "errorTimeout": "AI 掃描逾時，請重試或手動輸入",
-      "errorQuota": "免費掃描已用完，仍可手動記帳"
+      "errorQuota": "免費掃描已用完，仍可手動記帳",
+      "dateFallbackSelected": "收據沒有日期，已記入你在日曆選取的 {{month}}月{{day}}日，可在編輯中修改。",
+      "dateFallbackSelected_one": "收據沒有日期，已記入你在日曆選取的 {{month}}月{{day}}日，可在編輯中修改。",
+      "dateFallbackSelected_other": "{{count}} 張收據沒有日期，已記入你在日曆選取的 {{month}}月{{day}}日，可在編輯中修改。",
+      "dateFallbackToday": "收據沒有日期，已記入今天（{{month}}月{{day}}日），可在編輯中修改。",
+      "dateFallbackToday_one": "收據沒有日期，已記入今天（{{month}}月{{day}}日），可在編輯中修改。",
+      "dateFallbackToday_other": "{{count}} 張收據沒有日期，已記入今天（{{month}}月{{day}}日），可在編輯中修改。"
     },
     "settings": {
       "titleScript": "Settings",

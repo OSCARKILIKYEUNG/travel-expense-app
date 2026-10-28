@@ -68,6 +68,7 @@ export async function parseQueuedReceipts(queue, deps, onProgress) {
           deps?.defaultAssignee,
           deps?.allowedCategories ?? null,
           item.hash,
+          deps?.fallbackDate || '',
         ),
       );
     } catch (err) {

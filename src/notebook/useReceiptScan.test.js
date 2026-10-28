@@ -7,6 +7,7 @@ import en from '../locales/en.json';
 import zhTW from '../locales/zh-TW.json';
 import AddForm from '../proto/ref/AddForm';
 import { createRefTrip } from '../proto/ref/mockRefTrip';
+import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import { buildExpenseFromAI } from '../services/AIService';
 import NotebookApp from './NotebookApp';
 import SettingsView, { applyNotebookLanguageChange } from './SettingsView';
@@ -15,12 +16,21 @@ import {
   FIXTURE_ERROR_MESSAGE,
   buildFixtureExpense,
   buildLawsonFixtureParseResult,
+  buildNoDateFixtureParseResult,
   getFixtureErrorMessage,
   isProtoNotebook,
   resolveScanFixtureMode,
 } from './scanFixture';
+import {
+  applyScanDateFallback as applyScanDateFallbackDirect,
+  buildDateFallbackNotice as buildDateFallbackNoticeDirect,
+  resolveScanFallbackDate as resolveScanFallbackDateDirect,
+  resolveScanRequestTarget as resolveScanRequestTargetDirect,
+} from './scanDateFallback';
 import { preparePersistedExpense } from './tripRate';
 import {
+  SCAN_DATE_FALLBACK_SELECTED_KEY,
+  SCAN_DATE_FALLBACK_TODAY_KEY,
   SCAN_DEFAULT_ERROR_TEXT,
   SCAN_ERROR_DEFAULT_KEY,
   SCAN_ERROR_QUOTA_KEY,
@@ -29,9 +39,13 @@ import {
   SCAN_LOADING_TEXT,
   SCAN_READY_KEY,
   SCAN_READY_TEXT,
+  applyScanDateFallback,
   blockedScanMessageKey,
+  buildDateFallbackNotice,
   buildScanDeps,
   checkScanBlocked,
+  resolveScanFallbackDate,
+  resolveScanRequestTarget,
   routeScannedSave,
   scanLoadingMessage,
   scanReadyMessage,
@@ -664,5 +678,478 @@ describe('Notebook i18n scaffold — SettingsView language toggle, nav, and loca
     expect(enAfterHtml).toContain('>DONE</span>');
 
     await i18n.changeLanguage('zh-TW');
+  });
+});
+
+describe('scan date fallback — selected calendar day vs today + localized toast notice', () => {
+  it('re-exports scan date fallback helpers from both scanDateFallback.js and useReceiptScan.js', () => {
+    expect(resolveScanFallbackDate).toBe(resolveScanFallbackDateDirect);
+    expect(resolveScanRequestTarget).toBe(resolveScanRequestTargetDirect);
+    expect(applyScanDateFallback).toBe(applyScanDateFallbackDirect);
+    expect(buildDateFallbackNotice).toBe(buildDateFallbackNoticeDirect);
+    expect(SCAN_DATE_FALLBACK_SELECTED_KEY).toBe('notebook.scan.dateFallbackSelected');
+    expect(SCAN_DATE_FALLBACK_TODAY_KEY).toBe('notebook.scan.dateFallbackToday');
+  });
+
+  it('resolves selectedDay when valid and falls back to today (or now) when no day is selected', () => {
+    expect(
+      resolveScanFallbackDate({
+        selectedDay: '2026-10-20',
+        today: '2026-10-22',
+      }),
+    ).toEqual({
+      date: '2026-10-20',
+      source: 'selected',
+    });
+
+    expect(
+      resolveScanFallbackDate({
+        selectedDay: null,
+        today: '2026-10-22',
+      }),
+    ).toEqual({
+      date: '2026-10-22',
+      source: 'today',
+    });
+
+    expect(
+      resolveScanFallbackDate({
+        selectedDay: '',
+        today: '',
+        now: new Date(2026, 9, 28, 15, 30),
+      }),
+    ).toEqual({
+      date: '2026-10-28',
+      source: 'today',
+    });
+  });
+
+  it('buildExpenseFromAI keeps explicit receipt date, uses fallbackDate when missing, and keeps classic today behaviour when fallbackDate is omitted', () => {
+    const withExplicitDate = buildExpenseFromAI(
+      {
+        store: 'ローソン',
+        date: '2026年10月19日',
+        total_amount: 500,
+        currency: 'JPY',
+      },
+      0,
+      'JPY',
+      19.0,
+      'JPY',
+      '共同',
+      null,
+      'hash-explicit',
+      '2026-10-20',
+    );
+    expect(withExplicitDate.date).toBe('2026年10月19日');
+    expect(withExplicitDate.aiDateMissing).toBeUndefined();
+
+    const withFallbackDate = buildExpenseFromAI(
+      {
+        store: 'セブンイレブン',
+        date: '',
+        total_amount: 850,
+        currency: 'JPY',
+      },
+      1,
+      'JPY',
+      19.0,
+      'JPY',
+      '共同',
+      null,
+      'hash-fallback',
+      '2026-10-20',
+    );
+    expect(withFallbackDate.date).toBe('2026-10-20');
+    expect(withFallbackDate.aiDateMissing).toBe(true);
+    expect(Object.keys(withFallbackDate)).not.toContain('aiDateMissing');
+    expect(Object.keys(withFallbackDate)).not.toContain('scanFallbackDate');
+
+    const classicNoFallback = buildExpenseFromAI(
+      {
+        store: '全家',
+        total_amount: 420,
+        currency: 'JPY',
+      },
+      2,
+      'JPY',
+      19.0,
+      'JPY',
+    );
+    expect(classicNoFallback.date).toBe(new Date().toLocaleDateString('zh-TW'));
+    expect(classicNoFallback.aiDateMissing).toBe(true);
+    expect(Object.keys(classicNoFallback)).not.toContain('aiDateMissing');
+
+    const depsWithFallback = buildScanDeps({
+      tripCurrency: 'JPY',
+      fallbackDate: '2026-10-20',
+    });
+    expect(depsWithFallback.fallbackDate).toBe('2026-10-20');
+  });
+
+  it('applyScanDateFallback leaves explicit dates untouched and sets fallback date on aiDateMissing items while keeping aiDateMissing non-enumerable', () => {
+    const explicitItem = buildExpenseFromAI(
+      {
+        store: '松屋',
+        date: '2026年10月19日',
+        total_amount: 680,
+        currency: 'JPY',
+      },
+      0,
+      'JPY',
+      19.0,
+      'JPY',
+    );
+    const missingItem1 = buildExpenseFromAI(
+      {
+        store: '鳥貴族',
+        date: '',
+        total_amount: 3200,
+        currency: 'JPY',
+      },
+      1,
+      'JPY',
+      19.0,
+      'JPY',
+    );
+    const missingItem2 = buildExpenseFromAI(
+      {
+        store: 'ドン・キホーテ',
+        total_amount: 5400,
+        currency: 'JPY',
+      },
+      2,
+      'JPY',
+      19.0,
+      'JPY',
+    );
+
+    // Explicit only -> missingCount 0, untouched
+    const explicitOnly = applyScanDateFallback([explicitItem], { date: '2026-10-20' });
+    expect(explicitOnly.missingCount).toBe(0);
+    expect(explicitOnly.results[0]).toBe(explicitItem);
+    expect(explicitOnly.results[0].date).toBe('2026年10月19日');
+    expect(explicitOnly.results[0].aiDateMissing).toBeUndefined();
+
+    // Mixed batch (1 explicit + 2 missing) -> missingCount 2
+    const mixed = applyScanDateFallback(
+      [explicitItem, missingItem1, missingItem2],
+      { date: '2026-10-20' },
+    );
+    expect(mixed.missingCount).toBe(2);
+    expect(mixed.results[0].date).toBe('2026年10月19日');
+    expect(mixed.results[1].date).toBe('2026-10-20');
+    expect(mixed.results[1].aiDateMissing).toBe(true);
+    expect(Object.keys(mixed.results[1])).not.toContain('aiDateMissing');
+    expect(mixed.results[2].date).toBe('2026-10-20');
+    expect(mixed.results[2].aiDateMissing).toBe(true);
+    expect(Object.keys(mixed.results[2])).not.toContain('aiDateMissing');
+
+    // Form fields reflect the fallback date even if defaultDate differs or is omitted
+    const formFields = scanResultToFormFields(mixed.results[1], {
+      defaultDate: '2026-10-18',
+    });
+    expect(formFields.date).toBe('2026-10-20');
+  });
+
+  it('buildDateFallbackNotice returns null when missingCount === 0 and formats single/batch selected/today messages in zh-TW and en', () => {
+    const tZh = i18n.getFixedT('zh-TW');
+    const tEn = i18n.getFixedT('en');
+
+    // Never shown when all receipts had explicit dates
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 0,
+        date: '2026-10-20',
+        source: 'selected',
+        t: tZh,
+      }),
+    ).toBeNull();
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 0,
+        date: '2026-10-20',
+        source: 'today',
+        t: tEn,
+      }),
+    ).toBeNull();
+
+    // 1 missing receipt, selected day on calendar
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 1,
+        date: '2026-10-20',
+        source: 'selected',
+        t: tZh,
+      }),
+    ).toBe('收據沒有日期，已記入你在日曆選取的 10月20日，可在編輯中修改。');
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 1,
+        date: '2026-10-20',
+        source: 'selected',
+        t: tEn,
+      }),
+    ).toBe(
+      'No date on the receipt — saved to 10/20, the day you picked on the calendar. You can change it in Edit.',
+    );
+
+    // 2 missing receipts in batch, selected day on calendar
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 2,
+        date: '2026-10-20',
+        source: 'selected',
+        t: tZh,
+      }),
+    ).toBe('2 張收據沒有日期，已記入你在日曆選取的 10月20日，可在編輯中修改。');
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 2,
+        date: '2026-10-20',
+        source: 'selected',
+        t: tEn,
+      }),
+    ).toBe(
+      '2 receipts had no date — saved to 10/20, the day you picked on the calendar. You can change it in Edit.',
+    );
+
+    // 1 missing receipt, no day selected -> today
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 1,
+        date: '2026-10-28',
+        source: 'today',
+        t: tZh,
+      }),
+    ).toBe('收據沒有日期，已記入今天（10月28日），可在編輯中修改。');
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 1,
+        date: '2026-10-28',
+        source: 'today',
+        t: tEn,
+      }),
+    ).toBe('No date on the receipt — saved to today (10/28). You can change it in Edit.');
+
+    // 2 missing receipts in batch, no day selected -> today
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 2,
+        date: '2026-10-28',
+        source: 'today',
+        t: tZh,
+      }),
+    ).toBe('2 張收據沒有日期，已記入今天（10月28日），可在編輯中修改。');
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 2,
+        date: '2026-10-28',
+        source: 'today',
+        t: tEn,
+      }),
+    ).toBe('2 receipts had no date — saved to today (10/28). You can change it in Edit.');
+  });
+
+  it('supports nodate fixture mode in scanFixture and marks selectedDay on Home calendar', () => {
+    expect(resolveScanFixtureMode('?proto=notebook&scanfixture=nodate')).toBe('nodate');
+    expect(resolveScanFixtureMode('?proto=notebook&scan=nodate')).toBe('nodate');
+    expect(
+      resolveScanFixtureMode('?proto=notebook', '#add&date=2026-10-20&scan=1&scanfixture=nodate'),
+    ).toBe('nodate');
+    expect(resolveScanFixtureMode('?proto=notebook', '#add&date=2026-10-20&scan=nodate')).toBe(
+      'nodate',
+    );
+
+    const rawNoDate = buildNoDateFixtureParseResult();
+    expect(rawNoDate.date).toBe('');
+
+    const builtNoDate = buildFixtureExpense({
+      mode: 'nodate',
+      date: '2026-10-20',
+      fallbackDate: '2026-10-20',
+    });
+    expect(builtNoDate.aiDateMissing).toBe(true);
+    expect(builtNoDate.date).toBe('2026-10-20');
+
+    const { results, missingCount } = applyScanDateFallback([builtNoDate], {
+      date: '2026-10-20',
+    });
+    expect(missingCount).toBe(1);
+    expect(results[0].date).toBe('2026-10-20');
+
+    const trip = createRefTrip();
+    const homeHtml = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip,
+          trips: [trip],
+          today: '2026-10-22',
+          initialSelectedDay: '2026-10-20',
+          initialHash: '',
+          uiLanguage: 'zh-TW',
+        }),
+      ),
+    );
+    expect(homeHtml).toContain('data-testid="day-cell-2026-10-20" data-selected="true"');
+  });
+
+  it('round-trips dsrc in buildAddHash/parseRoute and resolves idempotently across StrictMode double auto-scan and direct URLs', () => {
+    const tZh = i18n.getFixedT('zh-TW');
+
+    // Home scan with no calendar day tapped writes #add&date=2026-10-22&scan=1&dsrc=today
+    const todayHash = buildAddHash({
+      scan: true,
+      date: '2026-10-22',
+      dateSource: 'today',
+    });
+    expect(todayHash).toBe('add&date=2026-10-22&scan=1&dsrc=today');
+    const parsedTodayRoute = parseRoute(`#${todayHash}`);
+    expect(parsedTodayRoute).toEqual({
+      screen: 'add',
+      date: '2026-10-22',
+      scan: true,
+      expenseId: null,
+      dateSource: 'today',
+    });
+
+    // StrictMode runs AddForm's auto-scan effect twice; both calls resolve source='today'
+    const pendingToday = { date: '2026-10-22', dateSource: 'today' };
+    const autoTodayFirst = resolveScanRequestTarget({
+      date: parsedTodayRoute.date,
+      dateSource: parsedTodayRoute.dateSource,
+      auto: true,
+      selectedDay: null,
+      routeDate: parsedTodayRoute.date,
+      routeDateSource: parsedTodayRoute.dateSource,
+      pending: pendingToday,
+      today: '2026-10-22',
+      defaultDate: '2026-10-22',
+    });
+    const autoTodaySecond = resolveScanRequestTarget({
+      date: parsedTodayRoute.date,
+      dateSource: parsedTodayRoute.dateSource,
+      auto: true,
+      selectedDay: null,
+      routeDate: parsedTodayRoute.date,
+      routeDateSource: parsedTodayRoute.dateSource,
+      pending: pendingToday,
+      today: '2026-10-22',
+      defaultDate: '2026-10-22',
+    });
+    expect(autoTodayFirst).toEqual({ date: '2026-10-22', dateSource: 'today' });
+    expect(autoTodaySecond).toEqual({ date: '2026-10-22', dateSource: 'today' });
+    expect(
+      buildDateFallbackNotice({
+        missingCount: 1,
+        date: autoTodaySecond.date,
+        source: autoTodaySecond.dateSource,
+        t: tZh,
+      }),
+    ).toBe('收據沒有日期，已記入今天（10月22日），可在編輯中修改。');
+
+    // Home scan with calendar day selected writes #add&date=2026-10-20&scan=1&dsrc=selected
+    const selectedHash = buildAddHash({
+      scan: true,
+      date: '2026-10-20',
+      dateSource: 'selected',
+    });
+    expect(selectedHash).toBe('add&date=2026-10-20&scan=1&dsrc=selected');
+    const parsedSelectedRoute = parseRoute(`#${selectedHash}`);
+    expect(parsedSelectedRoute).toEqual({
+      screen: 'add',
+      date: '2026-10-20',
+      scan: true,
+      expenseId: null,
+      dateSource: 'selected',
+    });
+    const autoSelectedFirst = resolveScanRequestTarget({
+      date: parsedSelectedRoute.date,
+      dateSource: parsedSelectedRoute.dateSource,
+      auto: true,
+      selectedDay: '2026-10-20',
+      routeDate: parsedSelectedRoute.date,
+      routeDateSource: parsedSelectedRoute.dateSource,
+      pending: { date: '2026-10-20', dateSource: 'selected' },
+      today: '2026-10-22',
+      defaultDate: '2026-10-22',
+    });
+    const autoSelectedSecond = resolveScanRequestTarget({
+      date: parsedSelectedRoute.date,
+      dateSource: parsedSelectedRoute.dateSource,
+      auto: true,
+      selectedDay: '2026-10-20',
+      routeDate: parsedSelectedRoute.date,
+      routeDateSource: parsedSelectedRoute.dateSource,
+      pending: { date: '2026-10-20', dateSource: 'selected' },
+      today: '2026-10-22',
+      defaultDate: '2026-10-22',
+    });
+    expect(autoSelectedFirst).toEqual({ date: '2026-10-20', dateSource: 'selected' });
+    expect(autoSelectedSecond).toEqual({ date: '2026-10-20', dateSource: 'selected' });
+
+    // Direct URL #add&date=2026-10-20&scan=nodate (no dsrc) -> selected wording on both calls
+    const directDatedRoute = parseRoute('#add&date=2026-10-20&scan=nodate');
+    expect(directDatedRoute).toEqual({
+      screen: 'add',
+      date: '2026-10-20',
+      scan: true,
+      expenseId: null,
+    });
+    for (let i = 0; i < 2; i += 1) {
+      const resolved = resolveScanRequestTarget({
+        date: directDatedRoute.date,
+        dateSource: directDatedRoute.dateSource,
+        auto: true,
+        selectedDay: null,
+        routeDate: directDatedRoute.date,
+        routeDateSource: directDatedRoute.dateSource,
+        pending: null,
+        today: '2026-10-22',
+        defaultDate: '2026-10-22',
+      });
+      expect(resolved).toEqual({ date: '2026-10-20', dateSource: 'selected' });
+      expect(
+        buildDateFallbackNotice({
+          missingCount: 1,
+          date: resolved.date,
+          source: resolved.dateSource,
+          t: tZh,
+        }),
+      ).toBe('收據沒有日期，已記入你在日曆選取的 10月20日，可在編輯中修改。');
+    }
+
+    // Direct URL #add&scan=1 with no date -> today wording on both calls
+    const directUndatedRoute = parseRoute('#add&scan=1');
+    expect(directUndatedRoute).toEqual({
+      screen: 'add',
+      date: null,
+      scan: true,
+      expenseId: null,
+    });
+    for (let i = 0; i < 2; i += 1) {
+      const resolved = resolveScanRequestTarget({
+        date: '2026-10-22',
+        dateSource: directUndatedRoute.dateSource,
+        auto: true,
+        selectedDay: null,
+        routeDate: directUndatedRoute.date,
+        routeDateSource: directUndatedRoute.dateSource,
+        pending: null,
+        today: '2026-10-22',
+        defaultDate: '2026-10-22',
+      });
+      expect(resolved).toEqual({ date: '2026-10-22', dateSource: 'today' });
+      expect(
+        buildDateFallbackNotice({
+          missingCount: 1,
+          date: resolved.date,
+          source: resolved.dateSource,
+          t: tZh,
+        }),
+      ).toBe('收據沒有日期，已記入今天（10月22日），可在編輯中修改。');
+    }
   });
 });

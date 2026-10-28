@@ -3,11 +3,28 @@ import { toRefExpense } from '../adapters/refDataAdapter';
 import { gateFilesBySourceHash, parseQueuedReceipts } from '../components/expense/uploadBatch';
 import { STRIPE_UI_ENABLED } from '../config/features';
 import i18n from '../i18n';
-import { defaultTime, parseHHMM } from '../proto/ref/refRules';
+import { defaultTime, isValidISODate, parseHHMM } from '../proto/ref/refRules';
 import { splitBatchByDuplicates, normalizeDate } from '../utils/duplicates';
 import { buildAllowedExpenseCategories } from '../utils/expenseCategories';
 import { isUploadBlocked } from '../utils/planView';
 import { resolveParseQueue } from '../utils/sourceHash';
+import {
+  SCAN_DATE_FALLBACK_SELECTED_KEY,
+  SCAN_DATE_FALLBACK_TODAY_KEY,
+  applyScanDateFallback,
+  buildDateFallbackNotice,
+  resolveScanFallbackDate,
+  resolveScanRequestTarget,
+} from './scanDateFallback';
+
+export {
+  SCAN_DATE_FALLBACK_SELECTED_KEY,
+  SCAN_DATE_FALLBACK_TODAY_KEY,
+  applyScanDateFallback,
+  buildDateFallbackNotice,
+  resolveScanFallbackDate,
+  resolveScanRequestTarget,
+};
 
 export const SCAN_LOADING_KEY = 'notebook.scan.loading';
 export const SCAN_READY_KEY = 'notebook.scan.ready';
@@ -103,6 +120,7 @@ export function buildScanDeps({
   allowedCategories,
   applyBillingSnapshot,
   refreshBilling,
+  fallbackDate = '',
 } = {}) {
   const resolvedCustomCats = Array.isArray(customCats)
     ? customCats
@@ -124,6 +142,7 @@ export function buildScanDeps({
     allowedCategories: resolvedAllowedCategories,
     applyBillingSnapshot,
     refreshBilling,
+    fallbackDate: fallbackDate ? String(fallbackDate).trim() : '',
   };
 }
 
@@ -234,9 +253,10 @@ export function scanResultToFormFields(
     rawCat && rawCat !== '未分類' ? rawCat : String(cur.category || '飲食');
 
   const aiDate = !raw.aiDateMissing && ref.date ? normalizeDate(ref.date) : null;
+  const fallbackDate = raw.scanFallbackDate ? normalizeDate(raw.scanFallbackDate) : null;
   const curDate = cur.date ? normalizeDate(cur.date) || String(cur.date) : '';
   const defDate = defaultDate ? normalizeDate(defaultDate) || String(defaultDate) : '';
-  const date = aiDate || defDate || curDate || '';
+  const date = aiDate || fallbackDate || defDate || curDate || '';
 
   const aiTime = ref.time || parseHHMM(raw.time) || parseHHMM(raw.receiptTime) || '';
   const fallbackTime = (cur.time && parseHHMM(cur.time)) || defaultTime(now);
@@ -368,13 +388,15 @@ export function useReceiptScan({
   t,
   onOpenForm,
   onToast,
+  selectedDay,
+  today,
 } = {}) {
   const fileInputRef = useRef(null);
   const expensesRef = useRef(expenses);
   expensesRef.current = expenses;
   const pendingParseRef = useRef([]);
   const reviewingRef = useRef(false);
-  const pendingScanRef = useRef({ date: '', fromForm: false });
+  const pendingScanRef = useRef({ date: '', dateSource: 'today', fromForm: false });
 
   const [scanState, setScanState] = useState({
     status: 'idle',
@@ -403,6 +425,29 @@ export function useReceiptScan({
         draft: null,
         token: Date.now(),
       });
+      const pending = pendingScanRef.current || {
+        date: '',
+        dateSource: undefined,
+        fromForm: false,
+      };
+      const resolvedFallback = resolveScanFallbackDate({
+        selectedDay:
+          pending.dateSource === 'selected'
+            ? pending.date || selectedDay
+            : pending.dateSource === 'today'
+              ? null
+              : pending.date || selectedDay,
+        today: pending.dateSource === 'today' ? pending.date || today : today,
+      });
+      const fallbackDate =
+        pending.date && isValidISODate(pending.date)
+          ? pending.date
+          : resolvedFallback.date;
+      const fallbackSource =
+        pending.dateSource === 'selected' || pending.dateSource === 'today'
+          ? pending.dateSource
+          : resolvedFallback.source;
+
       const deps = buildScanDeps({
         settings,
         session,
@@ -412,9 +457,24 @@ export function useReceiptScan({
         defaultAssignee,
         applyBillingSnapshot,
         refreshBilling,
+        fallbackDate,
       });
-      const { results, lastError } = await parseQueuedReceipts(queue, deps);
+      const { results: rawResults, lastError } = await parseQueuedReceipts(queue, deps);
+      const { results, missingCount } = applyScanDateFallback(rawResults, {
+        date: fallbackDate,
+      });
       if (results.length > 0) {
+        if (missingCount > 0) {
+          const notice = buildDateFallbackNotice({
+            missingCount,
+            date: fallbackDate,
+            source: fallbackSource,
+            t: translate,
+          });
+          if (notice) {
+            onToast?.(notice);
+          }
+        }
         const draft = results[0];
         setScanDraft(draft);
         setScanState({
@@ -441,6 +501,7 @@ export function useReceiptScan({
           token: Date.now(),
         });
       }
+      return { results, missingCount, lastError };
     },
     [
       settings,
@@ -454,6 +515,8 @@ export function useReceiptScan({
       notify,
       onToast,
       translate,
+      selectedDay,
+      today,
     ],
   );
 
@@ -490,7 +553,13 @@ export function useReceiptScan({
   }, [finishHashReview]);
 
   const requestScan = useCallback(
-    ({ date = '', fromForm = false } = {}) => {
+    ({
+      date = '',
+      dateSource,
+      selectedDay: reqSelectedDay,
+      today: reqToday,
+      fromForm = false,
+    } = {}) => {
       if (reviewingRef.current || hashConflicts.length > 0 || scanState.status === 'loading') {
         return false;
       }
@@ -500,14 +569,43 @@ export function useReceiptScan({
         onToast?.(block.message);
         return false;
       }
-      pendingScanRef.current = { date: date || '', fromForm: Boolean(fromForm) };
+      const resolved = resolveScanFallbackDate({
+        selectedDay:
+          dateSource === 'selected'
+            ? date || reqSelectedDay || selectedDay
+            : dateSource === 'today'
+              ? null
+              : reqSelectedDay !== undefined
+                ? reqSelectedDay
+                : date || selectedDay,
+        today: dateSource === 'today' ? date || reqToday || today : reqToday || today,
+      });
+      const effectiveSource =
+        dateSource === 'selected' || dateSource === 'today'
+          ? dateSource
+          : resolved.source;
+      const effectiveDate = date && isValidISODate(date) ? date : resolved.date;
+      pendingScanRef.current = {
+        date: effectiveDate,
+        dateSource: effectiveSource,
+        fromForm: Boolean(fromForm),
+      };
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
         fileInputRef.current.click();
       }
       return true;
     },
-    [planView, t, notify, onToast, hashConflicts.length, scanState.status],
+    [
+      planView,
+      t,
+      notify,
+      onToast,
+      hashConflicts.length,
+      scanState.status,
+      selectedDay,
+      today,
+    ],
   );
 
   const handleFileChange = useCallback(
@@ -518,8 +616,27 @@ export function useReceiptScan({
         return;
       }
       const file = files[0];
-      const { date, fromForm } = pendingScanRef.current || { date: '', fromForm: false };
-      onOpenForm?.({ date, fromForm });
+      const pending = pendingScanRef.current || {
+        date: '',
+        dateSource: 'today',
+        fromForm: false,
+      };
+      const resolved = resolveScanFallbackDate({
+        selectedDay:
+          pending.dateSource === 'selected' ? pending.date || selectedDay : null,
+        today: pending.date || today,
+      });
+      const targetDate =
+        pending.date && isValidISODate(pending.date) ? pending.date : resolved.date;
+      const targetSource =
+        pending.dateSource === 'selected' || pending.dateSource === 'today'
+          ? pending.dateSource
+          : resolved.source;
+      onOpenForm?.({
+        date: targetDate,
+        dateSource: targetSource,
+        fromForm: pending.fromForm,
+      });
       setScanDraft(null);
       setScanState({
         status: 'loading',
@@ -530,7 +647,7 @@ export function useReceiptScan({
 
       try {
         const { toParse, conflicts: found } = await gateFilesBySourceHash(
-          [file],
+          files,
           expensesRef.current || [],
         );
         if (found.length > 0) {
@@ -539,7 +656,7 @@ export function useReceiptScan({
           setHashConflicts(found);
           return;
         }
-        await runParse(toParse);
+        return await runParse(toParse);
       } catch (err) {
         reviewingRef.current = false;
         const rawMsg = err?.message || String(err);
@@ -554,7 +671,7 @@ export function useReceiptScan({
         });
       }
     },
-    [onOpenForm, runParse, notify, onToast, translate],
+    [onOpenForm, runParse, notify, onToast, translate, selectedDay, today],
   );
 
   return {
