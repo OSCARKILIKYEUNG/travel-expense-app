@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { fmtHKD, fmtJPY, personCounts } from '../proto/ref/refLogic';
@@ -8,15 +8,21 @@ import {
   countRecomputed,
   exportBackupJSON,
   exportTripJSON,
+  isValidISODate,
   parseRate,
   removePerson,
   renamePerson,
+  resolveToday,
   setBudget,
   setRate,
   setTripDates,
 } from '../proto/ref/refRules';
 import { Sakura, Sparkle, Tape } from '../proto/ref/parts';
+import { CURRENCY_NAMES } from '../utils/constants';
+import { normalizeDate } from '../utils/duplicates';
 import { normalizeUiLanguage } from '../utils/locale';
+import { tripCurrencyOptions } from '../utils/tripMoney';
+import { DEFAULT_REF_RATE } from './tripRate';
 
 function downloadTextFile({ filename, text }) {
   const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
@@ -134,11 +140,141 @@ export function applyNotebookTripDates(
   return res;
 }
 
+/**
+ * Validate and normalize new-trip form fields for notebook Settings.
+ * - Rejects empty/whitespace `name` with `{ ok: false, errorKey: 'trip.enterName' }`.
+ * - Normalizes `startDate` to a valid ISO `YYYY-MM-DD` (defaulting to `today` / local today).
+ * - Normalizes `tripCurrency` (or `currency`) to a 3-letter uppercase ISO code (defaulting to `'JPY'`).
+ *
+ * @param {{ name?: unknown, startDate?: unknown, tripCurrency?: unknown, currency?: unknown }} [input]
+ * @param {{ today?: string }} [options]
+ */
+export function validateNewTrip(
+  { name, startDate, tripCurrency, currency } = {},
+  { today } = {},
+) {
+  const cleanName =
+    typeof name === 'string' || typeof name === 'number' ? String(name).trim() : '';
+  const fallbackToday = isValidISODate(today) ? today : resolveToday('');
+  const rawStart = typeof startDate === 'string' ? startDate.trim() : '';
+  let resolvedStart = fallbackToday;
+  if (rawStart) {
+    if (isValidISODate(rawStart)) {
+      resolvedStart = rawStart;
+    } else {
+      const norm = normalizeDate(rawStart);
+      if (norm && isValidISODate(norm)) {
+        resolvedStart = norm;
+      }
+    }
+  }
+
+  const rawCurrency = tripCurrency !== undefined ? tripCurrency : currency;
+  const rawCurStr =
+    typeof rawCurrency === 'string' ? rawCurrency.trim().toUpperCase() : '';
+  const resolvedCurrency = /^[A-Z]{3}$/.test(rawCurStr) ? rawCurStr : 'JPY';
+
+  if (!cleanName) {
+    return {
+      ok: false,
+      errorKey: 'trip.enterName',
+      name: '',
+      startDate: resolvedStart,
+      tripCurrency: resolvedCurrency,
+      currency: resolvedCurrency,
+    };
+  }
+
+  return {
+    ok: true,
+    errorKey: null,
+    name: cleanName,
+    startDate: resolvedStart,
+    tripCurrency: resolvedCurrency,
+    currency: resolvedCurrency,
+  };
+}
+
+/**
+ * Build a mock trip object compatible with `buildInitialMockTrips` in `NotebookApp`.
+ *
+ * @param {{ name?: unknown, startDate?: unknown, tripCurrency?: unknown, currency?: unknown, id?: string, rate?: number, people?: string[], today?: string }} [input]
+ * @param {{ today?: string, rate?: number, people?: string[], id?: string, now?: number }} [options]
+ */
+export function buildMockTrip(
+  input = {},
+  { today, rate, people, id, now = Date.now() } = {},
+) {
+  const validated = validateNewTrip(input, { today: today ?? input?.today });
+  const resolvedName = validated.name || '新旅程';
+  const resolvedStart = validated.startDate;
+  const resolvedCurrency = validated.tripCurrency;
+  const resolvedRate =
+    parseRate(rate ?? input?.rate) ??
+    (resolvedCurrency === 'HKD' ? 1 : DEFAULT_REF_RATE);
+  const resolvedPeople =
+    Array.isArray(people) && people.length > 0
+      ? [...people]
+      : Array.isArray(input?.people) && input.people.length > 0
+        ? [...input.people]
+        : ['共同'];
+  const ts = typeof now === 'number' && Number.isFinite(now) ? now : Date.now();
+  const resolvedId = id ?? input?.id ?? `trip-${ts}`;
+
+  return {
+    id: resolvedId,
+    name: resolvedName,
+    startDate: resolvedStart,
+    endDate: resolvedStart,
+    tripCurrency: resolvedCurrency,
+    currency: resolvedCurrency,
+    accountingCurrency: 'HKD',
+    days: {},
+    expenses: [],
+    settings: {
+      people: resolvedPeople,
+      rate: resolvedRate,
+      budget: null,
+    },
+  };
+}
+
+/**
+ * Validate and submit a new trip from notebook Settings, firing `onCreateTrip` and `onToast`.
+ */
+export function applyNotebookCreateTrip(
+  input = {},
+  { onCreateTrip, onToast, t, today } = {},
+) {
+  const res = validateNewTrip(input, { today });
+  if (!res.ok) {
+    return res;
+  }
+  const created =
+    typeof onCreateTrip === 'function'
+      ? onCreateTrip({
+          name: res.name,
+          startDate: res.startDate,
+          tripCurrency: res.tripCurrency,
+        })
+      : null;
+  if (typeof onToast === 'function') {
+    const msg = typeof t === 'function' ? t('toast.tripCreated') : '旅程已創建';
+    onToast(msg);
+  }
+  return {
+    ...res,
+    trip: created,
+  };
+}
+
 export default function SettingsView({
   trip,
   trips,
+  today: propToday,
   onUpdateTrip,
   onSelectTrip,
+  onCreateTrip,
   onSaveDates,
   onSaveBudget,
   onAddPerson,
@@ -149,14 +285,25 @@ export default function SettingsView({
   uiLanguage: propUiLanguage,
   onChangeUiLanguage,
   updateSettings,
+  initialShowAddTrip = false,
 }) {
   const { t, i18n: activeI18n } = useTranslation();
   const resolvedUiLanguage = normalizeUiLanguage(propUiLanguage ?? activeI18n.language);
+  const defaultStartDate = useMemo(
+    () => (isValidISODate(propToday) ? propToday : resolveToday('')),
+    [propToday],
+  );
+  const currencyOptions = useMemo(() => tripCurrencyOptions(trip), [trip]);
 
   const people = trip.settings?.people || ['共同'];
   const currentRate = trip.settings?.rate || 0.0526;
   const currentBudget = trip.settings?.budget ?? null;
 
+  const [showAddTrip, setShowAddTrip] = useState(() => Boolean(initialShowAddTrip));
+  const [newTripName, setNewTripName] = useState('');
+  const [newTripStart, setNewTripStart] = useState(() => defaultStartDate);
+  const [newTripCurrency, setNewTripCurrency] = useState('JPY');
+  const [newTripErrorKey, setNewTripErrorKey] = useState('');
   const [editingPerson, setEditingPerson] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [newPerson, setNewPerson] = useState('');
@@ -189,6 +336,43 @@ export default function SettingsView({
       updateSettings,
       i18nInstance: activeI18n,
     });
+  };
+
+  const handleOpenAddTrip = () => {
+    setShowAddTrip(true);
+    setNewTripName('');
+    setNewTripStart(defaultStartDate);
+    setNewTripCurrency('JPY');
+    setNewTripErrorKey('');
+  };
+
+  const handleCancelAddTrip = () => {
+    setShowAddTrip(false);
+    setNewTripName('');
+    setNewTripStart(defaultStartDate);
+    setNewTripCurrency('JPY');
+    setNewTripErrorKey('');
+  };
+
+  const handleCreateTripSubmit = (e) => {
+    if (e) e.preventDefault();
+    const res = applyNotebookCreateTrip(
+      {
+        name: newTripName,
+        startDate: newTripStart,
+        tripCurrency: newTripCurrency,
+      },
+      { onCreateTrip, onToast, t, today: defaultStartDate },
+    );
+    if (!res.ok) {
+      setNewTripErrorKey(res.errorKey || 'trip.enterName');
+      return;
+    }
+    setShowAddTrip(false);
+    setNewTripName('');
+    setNewTripStart(defaultStartDate);
+    setNewTripCurrency('JPY');
+    setNewTripErrorKey('');
   };
 
   const handleSaveDates = (e) => {
@@ -388,12 +572,130 @@ export default function SettingsView({
       {/* Trip management */}
       <section className="paper-panel relative space-y-2.5 p-4">
         <Tape tone="teal" className="-top-2 left-6 z-10 h-4 w-16 -rotate-1" />
-        <div className="flex items-center justify-between">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.tripsTitle')}</h2>
-          <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
-            {t('notebook.settings.currentTripBadge')}
-          </span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.tripsTitle')}</h2>
+            <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
+              {t('notebook.settings.currentTripBadge')}
+            </span>
+          </div>
+          <button
+            type="button"
+            data-testid="add-trip-btn"
+            aria-expanded={showAddTrip}
+            onClick={handleOpenAddTrip}
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3.5 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            {t('trip.addTrip')}
+          </button>
         </div>
+
+        {showAddTrip && (
+          <form
+            data-testid="add-trip-form"
+            onSubmit={handleCreateTripSubmit}
+            noValidate
+            className="space-y-2.5 rounded-xl border border-line bg-cream p-3"
+          >
+            <div>
+              <label
+                htmlFor="notebook-new-trip-name"
+                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+              >
+                {t('trip.tripName')}
+              </label>
+              <input
+                id="notebook-new-trip-name"
+                data-testid="new-trip-name"
+                aria-label={t('trip.tripName')}
+                type="text"
+                value={newTripName}
+                onChange={(e) => {
+                  setNewTripName(e.target.value);
+                  setNewTripErrorKey('');
+                }}
+                placeholder={t('trip.tripNamePlaceholder')}
+                autoComplete="off"
+                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label
+                  htmlFor="notebook-new-trip-start"
+                  className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                >
+                  {t('trip.startDate')}
+                </label>
+                <input
+                  id="notebook-new-trip-start"
+                  data-testid="new-trip-start"
+                  aria-label={t('trip.startDate')}
+                  type="date"
+                  value={newTripStart}
+                  onChange={(e) => setNewTripStart(e.target.value)}
+                  className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="notebook-new-trip-currency"
+                  className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                >
+                  {t('trip.tripCurrency')}
+                </label>
+                <select
+                  id="notebook-new-trip-currency"
+                  data-testid="new-trip-currency"
+                  aria-label={t('trip.tripCurrency')}
+                  value={newTripCurrency}
+                  onChange={(e) => setNewTripCurrency(e.target.value)}
+                  className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                >
+                  {currencyOptions.map((code) => {
+                    const label = CURRENCY_NAMES[code] ? t(`currency.${code}`) : code;
+                    return (
+                      <option key={code} value={code}>
+                        {label && label !== code ? `${code} — ${label}` : code}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {newTripErrorKey && (
+              <p
+                role="alert"
+                data-testid="new-trip-error"
+                className="whitespace-nowrap text-meta font-semibold text-coral-ink"
+              >
+                {t(newTripErrorKey)}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                data-testid="new-trip-cancel"
+                onClick={handleCancelAddTrip}
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              >
+                {t('settings.cancel')}
+              </button>
+              <button
+                type="submit"
+                data-testid="new-trip-submit"
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              >
+                {t('trip.create')}
+              </button>
+            </div>
+          </form>
+        )}
+
         <div className="space-y-2">
           {trips.map((tr) => {
             const active = String(tr.id) === String(trip.id);
@@ -402,6 +704,7 @@ export default function SettingsView({
               <button
                 key={tr.id}
                 type="button"
+                aria-current={active ? 'true' : undefined}
                 onClick={() => onSelectTrip(tr.id)}
                 className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                   active

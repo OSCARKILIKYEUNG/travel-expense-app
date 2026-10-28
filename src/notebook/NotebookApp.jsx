@@ -32,7 +32,9 @@ import DayView from '../proto/ref/DayView';
 import Ledger from '../proto/ref/Ledger';
 import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
-import SettingsView from './SettingsView';
+import SettingsView, { buildMockTrip, validateNewTrip } from './SettingsView';
+
+export { buildMockTrip, validateNewTrip };
 import { createLegacySeedTrips, resolveNotebookSeed } from './legacySeed';
 import {
   FIXTURE_SCAN_DELAY_MS,
@@ -152,6 +154,7 @@ export default function NotebookApp({
   onResolveDuplicateConflicts,
   actionsRef,
   onSelectTrip,
+  onCreateTrip,
   onUpdateDay,
   onSaveExpense,
   onDeleteExpense,
@@ -520,6 +523,26 @@ export default function NotebookApp({
       showToast(t('notebook.toast.tripSwitched', { name: target.name }));
     },
     [trips, trip.id, today, onSelectTrip, showToast, t],
+  );
+
+  const handleCreateTrip = useCallback(
+    ({ name, startDate, tripCurrency } = {}) => {
+      const validated = validateNewTrip({ name, startDate, tripCurrency }, { today });
+      if (!validated.ok) return validated;
+      if (onCreateTrip) {
+        return onCreateTrip({
+          name: validated.name,
+          startDate: validated.startDate,
+          tripCurrency: validated.tripCurrency,
+        });
+      }
+      const newTrip = buildMockTrip(validated, { today });
+      setMockTrips((prev) => [...prev, newTrip]);
+      setMockActiveTripId(newTrip.id);
+      setMonth(tripMonth(newTrip, today));
+      return newTrip;
+    },
+    [onCreateTrip, today],
   );
 
   const updateDay = useCallback(
@@ -911,8 +934,10 @@ export default function NotebookApp({
       <SettingsView
         trip={trip}
         trips={trips}
+        today={today}
         onUpdateTrip={updateActiveMockTrip}
         onSelectTrip={selectTrip}
+        onCreateTrip={handleCreateTrip}
         onSaveDates={handleSaveDates}
         onSaveBudget={onSaveBudget}
         onAddPerson={onAddPerson}

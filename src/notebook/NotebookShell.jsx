@@ -34,6 +34,7 @@ export default function NotebookShell() {
     trips,
     currentTrip,
     currentTripId,
+    createTrip,
     switchTrip,
     updateTrip,
     expenses,
@@ -125,6 +126,12 @@ export default function NotebookShell() {
       switchTrip(target ? target.id : tripId);
     },
     [trips, switchTrip],
+  );
+
+  const handleCreateTrip = useCallback(
+    ({ name, startDate, tripCurrency } = {}) =>
+      createTrip(name, startDate, tripCurrency, {}),
+    [createTrip],
   );
 
   const handleUpdateDay = useCallback(
@@ -325,6 +332,7 @@ export default function NotebookShell() {
       onResolveDuplicateConflicts={resolveDuplicateConflicts}
       actionsRef={notebookActionsRef}
       onSelectTrip={handleSelectTrip}
+      onCreateTrip={handleCreateTrip}
       onUpdateDay={handleUpdateDay}
       onSaveExpense={handleSaveExpense}
       onDeleteExpense={handleDeleteExpense}
