@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { isStickerTarget } from '../../motion/stickerKeyframes';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS } from './mockRefTrip';
 import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
@@ -66,6 +67,8 @@ export default function DayView({
   pane,
   editing,
   highlightId,
+  stickerId,
+  onStickerPlayed,
   onPane,
   onEditToggle,
   onBack,
@@ -236,6 +239,8 @@ export default function DayView({
               inTrip={inTrip}
               stats={stats}
               highlightId={highlightId}
+              stickerId={stickerId}
+              onStickerPlayed={onStickerPlayed}
               onReturnToTrip={() => onDay(nearestTripDay)}
               onAdd={onAdd}
               onEdit={onEditExpense}
@@ -656,7 +661,19 @@ function ItineraryEditor({ day, onChange, onDone }) {
   );
 }
 
-function DayExpenses({ trip, iso, inTrip, stats, highlightId, onReturnToTrip, onAdd, onEdit, onDelete }) {
+function DayExpenses({
+  trip,
+  iso,
+  inTrip,
+  stats,
+  highlightId,
+  stickerId,
+  onStickerPlayed,
+  onReturnToTrip,
+  onAdd,
+  onEdit,
+  onDelete,
+}) {
   const [person, setPerson] = useState('全部');
   const people = trip.settings?.people || ['共同'];
   const list = useMemo(() => dayExpenses(trip.expenses, iso), [trip.expenses, iso]);
@@ -704,6 +721,8 @@ function DayExpenses({ trip, iso, inTrip, stats, highlightId, onReturnToTrip, on
             key={e.id}
             expense={e}
             highlighted={e.id === highlightId}
+            stickerPop={isStickerTarget(e.id, stickerId)}
+            onStickerPlayed={onStickerPlayed}
             onEdit={onEdit}
             onDelete={onDelete}
           />

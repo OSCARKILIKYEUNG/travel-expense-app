@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { runToastSlide } from '../../motion/stickerKeyframes';
 import { palette } from '../../theme/tokens';
 import { STICKERS } from './mockRefTrip';
 
@@ -293,12 +295,25 @@ export const Icon = {
 };
 
 export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverChange, onFocusChange }) {
+  const toastRef = useRef(null);
+  const lastToastIdRef = useRef(null);
+  const toastId = toast?.id ?? null;
+
+  useEffect(() => {
+    if (!toast || !toastRef.current) {
+      lastToastIdRef.current = null;
+      return;
+    }
+    runToastSlide(toastRef.current, { toast, lastIdRef: lastToastIdRef });
+  }, [toast, toastId]);
+
   if (!toast) return null;
   const bottomClass = aboveSaveBar
     ? 'bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))]'
     : 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]';
   return (
     <div
+      ref={toastRef}
       role="status"
       aria-live="polite"
       tabIndex={-1}

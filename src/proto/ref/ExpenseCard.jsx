@@ -1,14 +1,44 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { runStickerPop } from '../../motion/stickerKeyframes';
 import { CATEGORY_BADGE, CATEGORY_DOT, Icon, ZigZag } from './parts';
 import { fmtHKD, fmtJPY } from './refLogic';
 
 /** Compact receipt card with archive typography/badges/zigzag and a ⋯ action menu. */
-export default function ExpenseCard({ expense, highlighted = false, onEdit, onDelete }) {
+export default function ExpenseCard({
+  expense,
+  highlighted = false,
+  stickerPop = false,
+  onStickerPlayed,
+  onEdit,
+  onDelete,
+}) {
   const [menu, setMenu] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const cardRef = useRef(null);
+  const poppedIdRef = useRef(null);
   const ref = useRef(null);
   const moreBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (!stickerPop) {
+      poppedIdRef.current = null;
+      return undefined;
+    }
+    if (!cardRef.current || poppedIdRef.current === expense.id) return undefined;
+    poppedIdRef.current = expense.id;
+    let cancelled = false;
+    runStickerPop(cardRef.current, {
+      stickerPop: true,
+      expenseId: expense.id,
+      onStickerPlayed: (id) => {
+        if (!cancelled) onStickerPlayed?.(id);
+      },
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [stickerPop, expense.id, onStickerPlayed]);
 
   useEffect(() => {
     if (!menu) return undefined;
@@ -43,10 +73,12 @@ export default function ExpenseCard({ expense, highlighted = false, onEdit, onDe
 
   return (
     <div
+      ref={cardRef}
       className="relative"
       data-testid={`expense-${expense.id}`}
       data-expense-id={expense.id}
       data-highlighted={highlighted ? 'true' : undefined}
+      data-sticker-pop={stickerPop ? 'true' : undefined}
     >
       <article
         className={`flex items-start justify-between gap-3 rounded-t-card border border-b-0 px-4 pb-2.5 pt-3 shadow-sm transition-colors ${

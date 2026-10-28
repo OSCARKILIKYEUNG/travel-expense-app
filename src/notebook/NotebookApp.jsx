@@ -4,6 +4,8 @@ import { toRefExpense } from '../adapters/refDataAdapter';
 import DuplicateReviewDialog from '../components/expense/DuplicateReviewDialog';
 import HashDuplicateDialog from '../components/expense/HashDuplicateDialog';
 import '../i18n';
+import { resolveStickerIdAfterSave } from '../motion/stickerKeyframes';
+import { DURATION_MS } from '../motion/tokens';
 import { createRefTrips } from '../proto/ref/mockRefTrip';
 import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import {
@@ -217,6 +219,13 @@ export default function NotebookApp({
   const [toastHover, setToastHover] = useState(false);
   const [toastFocus, setToastFocus] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
+  const [stickerId, setStickerId] = useState(null);
+
+  const clearStickerId = useCallback((playedId) => {
+    setStickerId((prev) =>
+      playedId === undefined || String(prev) === String(playedId) ? null : prev,
+    );
+  }, []);
 
   const [dupConflicts, setDupConflicts] = useState([]);
   const [pendingDupTargetHash, setPendingDupTargetHash] = useState('');
@@ -337,6 +346,12 @@ export default function NotebookApp({
       clearTimeout(timer);
     };
   }, [highlightId, route.screen, route.day, route.pane]);
+
+  useEffect(() => {
+    if (!stickerId) return undefined;
+    const timer = setTimeout(() => setStickerId(null), DURATION_MS.slow + 200);
+    return () => clearTimeout(timer);
+  }, [stickerId]);
 
   const openDay = (iso, pane = 'itinerary') => go(`day=${iso}&pane=${pane}`);
 
@@ -713,6 +728,7 @@ export default function NotebookApp({
       clearActiveScan();
       go(targetHash, true);
       setHighlightId(savedId);
+      setStickerId(resolveStickerIdAfterSave({ isEdit, savedId }));
 
       const undoOp = buildSaveUndo({
         isEdit,
@@ -798,9 +814,10 @@ export default function NotebookApp({
       );
       setHighlightId(undoOp.highlightId ?? null);
     }
+    setStickerId(null);
     setToastHover(false);
     setToastFocus(false);
-    setToast({ id: Date.now(), message: t('notebook.toast.undone'), undo: null });
+    setToast({ id: Date.now() + Math.random(), message: t('notebook.toast.undone'), undo: null });
   };
 
   let body;
@@ -813,6 +830,8 @@ export default function NotebookApp({
         editing={route.edit}
         today={today}
         highlightId={highlightId}
+        stickerId={stickerId}
+        onStickerPlayed={clearStickerId}
         onPane={(p) => go(`day=${route.day}&pane=${p}${route.edit && p === 'itinerary' ? '&edit=1' : ''}`, true)}
         onEditToggle={(on) => go(`day=${route.day}&pane=itinerary${on ? '&edit=1' : ''}`, true)}
         onBack={() =>
