@@ -6,6 +6,7 @@ import { useApp } from '../store/AppContext';
 import { normalizeUiLanguage } from '../utils/locale';
 import { getTripCurrencyCode } from '../utils/tripMoney';
 import NotebookApp from './NotebookApp';
+import { buildAccountView } from './accountView';
 import {
   adaptTripForNotebook,
   mergeDayPatch,
@@ -19,7 +20,7 @@ function useOptionalAuth() {
   try {
     return useAuth();
   } catch {
-    return { session: null };
+    return { session: null, user: null };
   }
 }
 
@@ -29,7 +30,7 @@ function useOptionalAuth() {
  */
 export default function NotebookShell() {
   const { t } = useTranslation();
-  const { session } = useOptionalAuth();
+  const { session, user, signOut } = useOptionalAuth();
   const {
     trips,
     currentTrip,
@@ -60,6 +61,11 @@ export default function NotebookShell() {
   } = useApp();
 
   const uiLanguage = normalizeUiLanguage(settings?.uiLanguage);
+
+  const account = useMemo(
+    () => buildAccountView({ user, planView }),
+    [user, planView],
+  );
 
   const handleChangeUiLanguage = useCallback(
     (nextLang) => {
@@ -348,6 +354,8 @@ export default function NotebookShell() {
       uiLanguage={uiLanguage}
       onChangeUiLanguage={handleChangeUiLanguage}
       updateSettings={updateSettings}
+      account={account}
+      onSignOut={signOut}
     />
   );
 }

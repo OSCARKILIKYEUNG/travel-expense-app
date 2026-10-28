@@ -505,6 +505,11 @@
     },
     "settings": {
       "titleScript": "Settings",
+      "accountTitle": "Account",
+      "accountEmail": "Signed in as",
+      "accountPlanLoading": "Loading…",
+      "signingOut": "Signing out…",
+      "signOutFailed": "Sign-out failed. Please try again.",
       "currentTripBadge": "Current trip",
       "datesTitle": "Trip dates",
       "startDateLabel": "Start date",

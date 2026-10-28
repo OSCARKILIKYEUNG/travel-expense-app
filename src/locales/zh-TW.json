@@ -505,6 +505,11 @@
     },
     "settings": {
       "titleScript": "Settings",
+      "accountTitle": "帳戶",
+      "accountEmail": "登入電郵",
+      "accountPlanLoading": "讀取中…",
+      "signingOut": "正在登出…",
+      "signOutFailed": "登出失敗，請再試一次",
       "currentTripBadge": "當前旅程",
       "datesTitle": "旅程日期",
       "startDateLabel": "開始日期",

@@ -268,6 +268,38 @@ export function applyNotebookCreateTrip(
   };
 }
 
+/**
+ * Execute sign-out from notebook Settings, toggling `setSigningOut(true)` while
+ * pending and re-enabling + firing `onToast(t('notebook.settings.signOutFailed'))`
+ * if `onSignOut` throws or rejects.
+ */
+export async function applyNotebookSignOut({
+  onSignOut,
+  onToast,
+  t,
+  setSigningOut,
+} = {}) {
+  setSigningOut?.(true);
+  try {
+    const res = await onSignOut?.();
+    if (res?.error) {
+      throw res.error;
+    }
+    return { ok: true };
+  } catch (error) {
+    if (typeof onToast === 'function') {
+      const msg =
+        typeof t === 'function'
+          ? t('notebook.settings.signOutFailed')
+          : 'Sign-out failed. Please try again.';
+      onToast(msg);
+    }
+    return { ok: false, error };
+  } finally {
+    setSigningOut?.(false);
+  }
+}
+
 export default function SettingsView({
   trip,
   trips,
@@ -285,6 +317,9 @@ export default function SettingsView({
   uiLanguage: propUiLanguage,
   onChangeUiLanguage,
   updateSettings,
+  account = null,
+  onSignOut,
+  initialSigningOut = false,
   initialShowAddTrip = false,
 }) {
   const { t, i18n: activeI18n } = useTranslation();
@@ -300,6 +335,7 @@ export default function SettingsView({
   const currentBudget = trip.settings?.budget ?? null;
 
   const [showAddTrip, setShowAddTrip] = useState(() => Boolean(initialShowAddTrip));
+  const [signingOut, setSigningOut] = useState(() => Boolean(initialSigningOut));
   const [newTripName, setNewTripName] = useState('');
   const [newTripStart, setNewTripStart] = useState(() => defaultStartDate);
   const [newTripCurrency, setNewTripCurrency] = useState('JPY');
@@ -335,6 +371,16 @@ export default function SettingsView({
       onChangeUiLanguage,
       updateSettings,
       i18nInstance: activeI18n,
+    });
+  };
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    await applyNotebookSignOut({
+      onSignOut,
+      onToast,
+      t,
+      setSigningOut,
     });
   };
 
@@ -547,6 +593,81 @@ export default function SettingsView({
           )}
         </div>
       </div>
+
+      {/* Account */}
+      {account?.email && (
+        <section data-testid="account-card" className="paper-panel space-y-2.5 p-4">
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.settings.accountTitle')}
+          </h2>
+
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-soft">
+              {t('notebook.settings.accountEmail')}
+            </span>
+            <span
+              data-testid="account-email"
+              className="min-w-0 break-all text-right text-sm font-semibold text-ink"
+            >
+              {account.email}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-soft">
+              {t('settings.billingPlanLabel')}
+            </span>
+            {account.plan === 'pro' ? (
+              <span
+                data-testid="account-plan"
+                className="whitespace-nowrap rounded-pill bg-teal-strong px-2.5 py-0.5 text-meta font-semibold text-white"
+              >
+                {t('settings.planPro')}
+              </span>
+            ) : account.plan === 'free' ? (
+              <span
+                data-testid="account-plan"
+                className="whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-0.5 text-meta font-semibold text-ink-soft"
+              >
+                {t('settings.planFree')}
+              </span>
+            ) : (
+              <span
+                data-testid="account-plan"
+                className="whitespace-nowrap text-meta font-medium text-ink-soft"
+              >
+                {t('notebook.settings.accountPlanLoading')}
+              </span>
+            )}
+          </div>
+
+          {account.plan === 'free' && (
+            <p
+              data-testid="account-scans"
+              className={`text-meta font-medium ${
+                (account.remainingFreeScans ?? 0) <= 0
+                  ? 'font-semibold text-coral-ink'
+                  : 'text-ink-soft'
+              }`}
+            >
+              {t('upload.freeQuota', {
+                remaining: account.remainingFreeScans ?? 0,
+                limit: account.freeScanLimit ?? 0,
+              })}
+            </p>
+          )}
+
+          <button
+            type="button"
+            data-testid="account-signout"
+            disabled={signingOut}
+            onClick={handleSignOut}
+            className="inline-flex h-11 min-h-11 w-full items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-4 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+          >
+            {signingOut ? t('notebook.settings.signingOut') : t('settings.signOut')}
+          </button>
+        </section>
+      )}
 
       {/* UI Language */}
       <section className="paper-panel space-y-2.5 p-4">

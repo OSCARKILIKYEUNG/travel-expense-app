@@ -175,6 +175,8 @@ export default function NotebookApp({
   uiLanguage,
   onChangeUiLanguage,
   updateSettings,
+  account,
+  onSignOut,
 } = {}) {
   const { t } = useTranslation();
   const isControlled = controlledTrip !== undefined;
@@ -1078,6 +1080,8 @@ export default function NotebookApp({
         uiLanguage={uiLanguage}
         onChangeUiLanguage={onChangeUiLanguage}
         updateSettings={updateSettings}
+        account={account}
+        onSignOut={onSignOut}
       />
     );
   } else {
