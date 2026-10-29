@@ -67,4 +67,45 @@ describe('Toast undo dismiss and pointer hover', () => {
     expect(toastDurationMs({ tone: 'default' })).toBe(TOAST_DURATION_MS);
     expect(toastDurationMs({ tone: 'default' })).toBe(6000);
   });
+
+  it('calls onDismiss on a 120px touch swipe and snaps back without dismissing on a 20px swipe', () => {
+    const onDismiss = vi.fn();
+    const undoToast = { id: 'undo-swipe', message: '已記錄 HK$103 · 10月22日', undo: { kind: 'add' }, tone: 'default' };
+
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(Toast, {
+          toast: undoToast,
+          onUndo: () => {},
+          onDismiss,
+        }),
+      ),
+    );
+
+    const toast = screen.getByTestId('toast');
+    const undoBtn = screen.getByTestId('toast-undo');
+
+    // Swipes starting on a button are ignored
+    fireEvent.pointerDown(undoBtn, { pointerType: 'touch', clientX: 50 });
+    fireEvent.pointerMove(toast, { pointerType: 'touch', clientX: 200 });
+    fireEvent.pointerUp(toast, { pointerType: 'touch', clientX: 200 });
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    // 20px swipe (< 80px threshold) snaps back without calling onDismiss
+    fireEvent.pointerDown(toast, { pointerType: 'touch', clientX: 100 });
+    fireEvent.pointerMove(toast, { pointerType: 'touch', clientX: 120 });
+    expect(toast.style.transform).toBe('translateX(20px)');
+    fireEvent.pointerUp(toast, { pointerType: 'touch', clientX: 120 });
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(toast.style.transform).toBe('');
+
+    // 120px swipe (> 80px threshold) calls onDismiss
+    fireEvent.pointerDown(toast, { pointerType: 'touch', clientX: 100 });
+    fireEvent.pointerMove(toast, { pointerType: 'touch', clientX: 220 });
+    expect(toast.style.transform).toBe('translateX(120px)');
+    fireEvent.pointerUp(toast, { pointerType: 'touch', clientX: 220 });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import { runMotion } from '../../motion/runMotion';
 import { runToastSlide } from '../../motion/stickerKeyframes';
+import { DURATION_MS, EASING } from '../../motion/tokens';
+import { getPrefersReducedMotion } from '../../motion/usePrefersReducedMotion';
 import { palette } from '../../theme/tokens';
 import { STICKERS } from './mockRefTrip';
 
@@ -302,17 +305,49 @@ export const Icon = {
   ),
 };
 
+const SWIPE_DISMISS_DISTANCE_PX = 80;
+const SWIPE_FLICK_MIN_PX = 40;
+const SWIPE_FLICK_MIN_MS = 15;
+const SWIPE_FLICK_VELOCITY_PX_PER_MS = 0.65;
+
 export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverChange, onFocusChange }) {
   const { t } = useTranslation();
   const toastRef = useRef(null);
   const lastToastIdRef = useRef(null);
+  const swipeRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    lastX: 0,
+    moved: false,
+    startTime: 0,
+    dx: 0,
+  });
   const toastId = toast?.id ?? null;
 
+  const resetSwipeStyles = () => {
+    if (toastRef.current) {
+      toastRef.current.style.transform = '';
+      toastRef.current.style.opacity = '';
+      toastRef.current.style.transition = '';
+    }
+  };
+
   useEffect(() => {
+    swipeRef.current = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      lastX: 0,
+      moved: false,
+      startTime: 0,
+      dx: 0,
+    };
     if (!toast || !toastRef.current) {
       lastToastIdRef.current = null;
       return;
     }
+    resetSwipeStyles();
     runToastSlide(toastRef.current, { toast, lastIdRef: lastToastIdRef });
   }, [toast, toastId]);
 
@@ -324,6 +359,112 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
     : 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]';
   const showDismiss = Boolean(onDismiss || toast.action || isError);
 
+  const handlePointerDown = (e) => {
+    if (e.pointerType === 'mouse') return;
+    if (e.target && typeof e.target.closest === 'function' && e.target.closest('button')) {
+      return;
+    }
+    const clientX = typeof e.clientX === 'number' ? e.clientX : 0;
+    swipeRef.current = {
+      active: true,
+      pointerId: e.pointerId ?? null,
+      startX: clientX,
+      lastX: clientX,
+      moved: false,
+      startTime: Date.now(),
+      dx: 0,
+    };
+    resetSwipeStyles();
+    if (typeof e.currentTarget?.setPointerCapture === 'function' && e.pointerId !== undefined) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore in environments without pointer capture
+      }
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    const state = swipeRef.current;
+    if (!state.active) return;
+    if (state.pointerId !== null && e.pointerId !== undefined && e.pointerId !== state.pointerId) {
+      return;
+    }
+    const clientX = typeof e.clientX === 'number' ? e.clientX : state.lastX;
+    const dx = clientX - state.startX;
+    state.lastX = clientX;
+    state.moved = true;
+    state.dx = dx;
+
+    if (!getPrefersReducedMotion() && toastRef.current) {
+      const opacity = Math.max(0.2, 1 - Math.abs(dx) / 180);
+      toastRef.current.style.transition = 'none';
+      toastRef.current.style.transform = `translateX(${dx}px)`;
+      toastRef.current.style.opacity = String(opacity);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    const state = swipeRef.current;
+    if (!state.active) return;
+    if (state.pointerId !== null && e.pointerId !== undefined && e.pointerId !== state.pointerId) {
+      return;
+    }
+    state.active = false;
+
+    const hasExplicitClientX =
+      typeof e.clientX === 'number' && (!state.moved || e.clientX !== 0 || state.lastX === 0);
+    const endX = hasExplicitClientX ? e.clientX : state.lastX;
+    const dx = endX - state.startX;
+    const absDx = Math.abs(dx);
+    const elapsed = Math.max(1, Date.now() - state.startTime);
+    const isFastFlick =
+      absDx >= SWIPE_FLICK_MIN_PX &&
+      elapsed >= SWIPE_FLICK_MIN_MS &&
+      absDx / elapsed >= SWIPE_FLICK_VELOCITY_PX_PER_MS;
+    const shouldDismiss = absDx > SWIPE_DISMISS_DISTANCE_PX || isFastFlick;
+    const reduced = getPrefersReducedMotion();
+
+    if (shouldDismiss) {
+      if (!reduced && toastRef.current) {
+        const dir = dx >= 0 ? 1 : -1;
+        const startOpacity = Math.max(0.2, 1 - absDx / 180);
+        toastRef.current.style.transform = `translateX(${dir * 260}px)`;
+        toastRef.current.style.opacity = '0';
+        runMotion(
+          toastRef.current,
+          [
+            { transform: `translateX(${dx}px)`, opacity: startOpacity },
+            { transform: `translateX(${dir * 260}px)`, opacity: 0 },
+          ],
+          { duration: DURATION_MS.fast, easing: EASING.out },
+        );
+      } else {
+        resetSwipeStyles();
+      }
+      onDismiss?.();
+    } else {
+      if (!reduced && toastRef.current && absDx > 0) {
+        const startOpacity = Math.max(0.2, 1 - absDx / 180);
+        runMotion(
+          toastRef.current,
+          [
+            { transform: `translateX(${dx}px)`, opacity: startOpacity },
+            { transform: 'translateX(0px)', opacity: 1 },
+          ],
+          { duration: DURATION_MS.fast, easing: EASING.out },
+        );
+      }
+      resetSwipeStyles();
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (!swipeRef.current.active) return;
+    swipeRef.current.active = false;
+    resetSwipeStyles();
+  };
+
   return (
     <div
       ref={toastRef}
@@ -331,6 +472,11 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
       aria-live={isError ? 'assertive' : 'polite'}
       tabIndex={-1}
       data-testid="toast"
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerEnter={(e) => {
         if (e.pointerType === 'mouse') onHoverChange?.(true);
       }}
@@ -343,7 +489,7 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
           onFocusChange?.(false);
         }
       }}
-      className={`fixed inset-x-4 ${bottomClass} z-40 mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border-2 ${borderClass} bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none`}
+      className={`fixed inset-x-4 ${bottomClass} z-40 mx-auto flex max-w-md touch-pan-y items-center justify-between gap-2 rounded-2xl border-2 ${borderClass} bg-cream-soft px-3.5 py-1.5 text-ink shadow-xl focus:outline-none`}
     >
       {isError && Icon.alert('h-4 w-4 shrink-0 text-coral-ink')}
       <span className="min-w-0 flex-1 whitespace-normal break-words line-clamp-3 text-sm font-semibold leading-snug text-ink">
