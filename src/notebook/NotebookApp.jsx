@@ -11,6 +11,7 @@ import { buildAddHash, parseRoute } from '../proto/ref/refLogic';
 import {
   ERROR_TOAST_DURATION_MS,
   TOAST_DURATION_MS,
+  UNDO_TOAST_DURATION_MS,
   applyUndo,
   defaultExpenseDate,
   defaultPayer,
@@ -37,7 +38,14 @@ import AddForm from '../proto/ref/AddForm';
 import ChartsView from '../proto/ref/ChartsView';
 import SettingsView, { buildMockTrip, validateNewTrip } from './SettingsView';
 
-export { buildMockTrip, validateNewTrip, ERROR_TOAST_DURATION_MS, TOAST_DURATION_MS, toastDurationMs };
+export {
+  buildMockTrip,
+  validateNewTrip,
+  ERROR_TOAST_DURATION_MS,
+  TOAST_DURATION_MS,
+  UNDO_TOAST_DURATION_MS,
+  toastDurationMs,
+};
 import { createLegacySeedTrips, resolveNotebookSeed } from './legacySeed';
 import {
   FIXTURE_SCAN_DELAY_MS,

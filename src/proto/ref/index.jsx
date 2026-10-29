@@ -10,7 +10,7 @@ import {
   personCounts,
 } from './refLogic';
 import {
-  TOAST_DURATION_MS,
+  toastDurationMs,
   addPerson,
   applyUndo,
   buildReport,
@@ -155,7 +155,7 @@ export default function RefProto({ onRequestScan, scanState, scanDraft } = {}) {
 
   useEffect(() => {
     if (!toast || toastPaused) return undefined;
-    const timer = setTimeout(() => setToast(null), TOAST_DURATION_MS);
+    const timer = setTimeout(() => setToast(null), toastDurationMs(toast));
     return () => clearTimeout(timer);
   }, [toast, toastPaused]);
 

@@ -235,8 +235,10 @@ export function postSaveTarget({ origin, savedDate } = {}) {
 
 export const TOAST_DURATION_MS = 6000;
 export const ERROR_TOAST_DURATION_MS = 8000;
+export const UNDO_TOAST_DURATION_MS = 5000;
 
 export function toastDurationMs(toast) {
+  if (toast && typeof toast === 'object' && toast.undo) return UNDO_TOAST_DURATION_MS;
   const tone = typeof toast === 'string' ? toast : toast?.tone;
   return tone === 'error' ? ERROR_TOAST_DURATION_MS : TOAST_DURATION_MS;
 }

@@ -322,7 +322,7 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
   const bottomClass = aboveSaveBar
     ? 'bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))]'
     : 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]';
-  const showDismiss = !toast.undo && Boolean(onDismiss || toast.action || isError);
+  const showDismiss = Boolean(onDismiss || toast.action || isError);
 
   return (
     <div
@@ -331,10 +331,12 @@ export function Toast({ toast, aboveSaveBar = false, onUndo, onDismiss, onHoverC
       aria-live={isError ? 'assertive' : 'polite'}
       tabIndex={-1}
       data-testid="toast"
-      onMouseEnter={() => onHoverChange?.(true)}
-      onMouseLeave={() => onHoverChange?.(false)}
-      onPointerEnter={() => onHoverChange?.(true)}
-      onPointerLeave={() => onHoverChange?.(false)}
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') onHoverChange?.(true);
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') onHoverChange?.(false);
+      }}
       onFocusCapture={() => onFocusChange?.(true)}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) {

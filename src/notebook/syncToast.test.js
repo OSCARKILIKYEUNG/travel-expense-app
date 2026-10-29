@@ -7,6 +7,7 @@ import { Toast } from '../proto/ref/parts';
 import NotebookApp, {
   ERROR_TOAST_DURATION_MS,
   TOAST_DURATION_MS,
+  UNDO_TOAST_DURATION_MS,
   buildToastState,
   toastDurationMs,
 } from './NotebookApp';
@@ -20,8 +21,9 @@ describe('notebook sync Toast — error tone, action button, and i18n labels', (
       tone: 'default',
       action: null,
     });
-    expect(toastDurationMs(defaultToast)).toBe(TOAST_DURATION_MS);
-    expect(toastDurationMs(defaultToast)).toBe(6000);
+    expect(toastDurationMs(defaultToast)).toBe(UNDO_TOAST_DURATION_MS);
+    expect(toastDurationMs(defaultToast)).toBe(5000);
+    expect(TOAST_DURATION_MS).toBe(6000);
 
     const infoToast = buildToastState('已同步到雲端', null, { tone: 'info' });
     expect(infoToast).toMatchObject({
@@ -144,8 +146,9 @@ describe('notebook sync Toast — error tone, action button, and i18n labels', (
     expect(zhUndoHtml).toContain('aria-live="polite"');
     expect(zhUndoHtml).toContain('border-teal-strong');
     expect(zhUndoHtml).toContain('data-testid="toast-undo"');
+    expect(zhUndoHtml).toContain('data-testid="toast-dismiss"');
     expect(zhUndoHtml).toContain('撤銷');
-    expect(zhUndoHtml).not.toContain('aria-label="關閉提示"');
+    expect(zhUndoHtml).toContain('aria-label="關閉提示"');
 
     await i18n.changeLanguage('en');
     const enUndoHtml = renderToStaticMarkup(
@@ -160,7 +163,9 @@ describe('notebook sync Toast — error tone, action button, and i18n labels', (
       ),
     );
     expect(enUndoHtml).toContain('data-testid="toast-undo"');
+    expect(enUndoHtml).toContain('data-testid="toast-dismiss"');
     expect(enUndoHtml).toContain('Undo');
+    expect(enUndoHtml).toContain('aria-label="Dismiss"');
 
     await i18n.changeLanguage('zh-TW');
   });
