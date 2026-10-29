@@ -563,6 +563,24 @@
       "reportCopied": "已複製報告",
       "reportCopyFailed": "複製報告失敗，請重試"
     },
+    "settle": {
+      "sheetTitle": "{{name}} 嘅夾錢明細",
+      "paidTitle": "{{name}} 俾咗",
+      "blankPayerTag": "未填邊個俾 → 計{{name}}",
+      "owedTitle": "應付",
+      "ownPart": "自己 {{amount}}",
+      "sharedPart": "共同 {{amount}} ÷ {{n}}",
+      "netLabel": "淨額",
+      "viewInLedger": "睇帳本",
+      "close": "關閉",
+      "undated": "未有日期",
+      "noPaid": "未有俾錢記錄",
+      "noOwed": "未有應付項目"
+    },
+    "ledger": {
+      "payerChip": "邊個俾錢：{{name}} ✕",
+      "clearPayerAria": "清除邊個俾錢篩選"
+    },
     "sync": {
       "saveFailed": "未能同步到雲端，變更已保存在此裝置。",
       "loadFailed": "未能從雲端載入最新資料，正在顯示此裝置的資料。",

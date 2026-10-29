@@ -563,6 +563,24 @@
       "reportCopied": "Report copied",
       "reportCopyFailed": "Could not copy report. Please try again."
     },
+    "settle": {
+      "sheetTitle": "{{name}}'s split",
+      "paidTitle": "{{name}} paid",
+      "blankPayerTag": "No payer set → counted as {{name}}",
+      "owedTitle": "Share owed",
+      "ownPart": "Own {{amount}}",
+      "sharedPart": "Shared {{amount}} ÷ {{n}}",
+      "netLabel": "Net",
+      "viewInLedger": "View in ledger",
+      "close": "Close",
+      "undated": "No date",
+      "noPaid": "No paid expenses",
+      "noOwed": "No shared expenses"
+    },
+    "ledger": {
+      "payerChip": "Paid by: {{name}} ✕",
+      "clearPayerAria": "Clear paid-by filter"
+    },
     "sync": {
       "saveFailed": "Couldn't sync to the cloud. Your changes are saved on this device.",
       "loadFailed": "Couldn't load the latest cloud data. Showing this device's copy.",

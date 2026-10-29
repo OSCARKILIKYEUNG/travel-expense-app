@@ -80,3 +80,92 @@ export function personOwed(expense, people, exchangeRates = null) {
   }
   return owed;
 }
+
+/**
+ * Per-person settlement breakdown of paid expenses and owed shares.
+ * `paidTotal`, `owedTotal`, and `net` match `settleUp` for that person.
+ * `blankPayer` is true when the expense's own payer was blank, 共同, or unknown and fell back to `person`.
+ * Owed lines with total 0 are skipped.
+ * @param {Array} expenses
+ * @param {string[]} people
+ * @param {Record<string, number> | null} [exchangeRates]
+ * @param {string} [person]
+ */
+export function settlementBreakdown(expenses, people, exchangeRates = null, person = '') {
+  const rates = typeof exchangeRates === 'string' && person === '' ? null : exchangeRates;
+  const target = String(typeof exchangeRates === 'string' && person === '' ? exchangeRates : person ?? '').trim();
+  const participants = settlementParticipants(people);
+  const known = new Set(participants);
+  const sharedCount = participants.length;
+
+  const paidLines = [];
+  const owedLines = [];
+  let paidTotal = 0;
+  let owedTotal = 0;
+
+  if (!target || !known.has(target)) {
+    return {
+      person: target,
+      paidLines,
+      paidTotal: 0,
+      owedLines,
+      owedTotal: 0,
+      net: 0,
+    };
+  }
+
+  for (const e of expenses || []) {
+    const id = e?.id;
+    const title = String(e?.store ?? e?.title ?? '').trim();
+    const date = String(e?.date ?? '').trim();
+    const hkd = Number(e?.hkdAmount || 0);
+
+    const creditTo = resolvePayer(e, participants);
+    if (creditTo === target) {
+      const rawPayer = String(e?.payer ?? '').trim();
+      const blankPayer = !(rawPayer && rawPayer !== '共同' && known.has(rawPayer));
+      paidLines.push({
+        id,
+        title,
+        date,
+        hkd,
+        blankPayer,
+      });
+      paidTotal += hkd;
+    }
+
+    const buckets = expenseAllocation(e, people, rates);
+    const owedMap = personOwed(e, people, rates);
+    const total = owedMap[target] || 0;
+    owedTotal += total;
+
+    if (total > 0) {
+      const own = buckets[target] || 0;
+      let sharedPart = 0;
+      for (const [name, amount] of Object.entries(buckets)) {
+        if (!known.has(name)) sharedPart += amount;
+      }
+      owedLines.push({
+        id,
+        title,
+        date,
+        own,
+        sharedPart,
+        sharedCount,
+        total,
+      });
+    }
+  }
+
+  const net = paidTotal - owedTotal;
+
+  return {
+    person: target,
+    paidLines,
+    paidTotal,
+    owedLines,
+    owedTotal,
+    net,
+  };
+}
+

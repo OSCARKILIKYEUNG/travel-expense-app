@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { createElement } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { I18nextProvider } from 'react-i18next';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
+import ChartsView from './ChartsView';
 import Ledger from './Ledger';
 
 afterEach(() => {
@@ -101,4 +104,117 @@ describe('Ledger person chips', () => {
     expect(screen.getByRole('button', { name: '1 (0)' })).toBeTruthy();
     expect(amountText()).toBe('HK$900');
   });
+
+  it('shows a removable payer chip in zh-TW and en and clears payer on tap', async () => {
+    const trip = {
+      name: '夾錢',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'A', 'B'], budget: null },
+      expenses: expensesA,
+    };
+
+    await i18n.changeLanguage('zh-TW');
+    const { unmount } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(Ledger, {
+          trip,
+          initialFilters: { payer: 'A' },
+          onScan: () => {},
+          onAdd: () => {},
+          onEdit: () => {},
+          onDelete: () => {},
+          onOpenDay: () => {},
+        }),
+      ),
+    );
+
+    const payerChip = screen.getByTestId('ledger-payer-chip');
+    expect(payerChip.textContent).toContain('邊個俾錢：A ✕');
+    expect(payerChip.getAttribute('aria-label')).toBe('清除邊個俾錢篩選');
+
+    fireEvent.click(payerChip);
+    expect(screen.queryByTestId('ledger-payer-chip')).toBeNull();
+    expect(screen.getByRole('button', { name: '全部 (5)' }).getAttribute('aria-pressed')).toBe('true');
+    expect(amountText()).toBe('HK$750');
+    unmount();
+
+    await i18n.changeLanguage('en');
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(Ledger, {
+          trip,
+          initialFilters: { payer: 'B' },
+          onScan: () => {},
+          onAdd: () => {},
+          onEdit: () => {},
+          onDelete: () => {},
+          onOpenDay: () => {},
+        }),
+      ),
+    );
+
+    const enChip = screen.getByTestId('ledger-payer-chip');
+    expect(enChip.textContent).toContain('Paid by: B ✕');
+    expect(enChip.getAttribute('aria-label')).toBe('Clear paid-by filter');
+    await i18n.changeLanguage('zh-TW');
+  });
 });
+
+describe('ChartsView settlement breakdown sheet', () => {
+  it('opens settle-sheet on tapping a person row, displays paid/owed/net breakdown, and routes to ledger on 睇帳本', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const onOpenLedger = vi.fn();
+    const trip = {
+      name: '夾錢測試',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'A', 'B'], budget: null },
+      expenses: expensesA,
+    };
+
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger,
+        }),
+      ),
+    );
+
+    expect(screen.queryByTestId('settle-sheet')).toBeNull();
+    fireEvent.click(screen.getByTestId('chart-person-A'));
+    expect(onOpenLedger).not.toHaveBeenCalled();
+
+    const sheet = screen.getByTestId('settle-sheet');
+    expect(sheet.getAttribute('role')).toBe('dialog');
+    expect(sheet.getAttribute('aria-modal')).toBe('true');
+    expect(sheet.textContent).toContain('A 嘅夾錢明細');
+    expect(sheet.textContent).toContain('A 俾咗');
+    expect(sheet.textContent).toContain('HK$450');
+    expect(sheet.textContent).toContain('未填邊個俾 → 計A');
+    expect(sheet.textContent).toContain('應付');
+    expect(sheet.textContent).toContain('HK$310');
+    expect(sheet.textContent).toContain('自己 HK$100');
+    expect(sheet.textContent).toContain('共同 HK$300 ÷ 2');
+    expect(sheet.textContent).toContain('淨額');
+    expect(sheet.textContent).toContain('+HK$140');
+
+    const ledgerBtn = screen.getByTestId('settle-sheet-ledger');
+    expect(ledgerBtn.textContent).toContain('睇帳本');
+    fireEvent.click(ledgerBtn);
+
+    expect(screen.queryByTestId('settle-sheet')).toBeNull();
+    expect(onOpenLedger).toHaveBeenCalledTimes(1);
+    expect(onOpenLedger).toHaveBeenCalledWith({ payer: 'A' });
+  });
+});
+

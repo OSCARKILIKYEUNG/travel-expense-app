@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import '../../i18n';
 import { expenseDateKey } from '../../utils/date';
 import { REF_CATEGORIES } from './mockRefTrip';
-import { CATEGORY_DOT, Sparkle, Tape } from './parts';
+import { CATEGORY_DOT, Icon, Sparkle, Tape } from './parts';
 import { fmtHKD, groupLedger } from './refLogic';
 import {
   assigneeSplit,
@@ -14,6 +17,7 @@ import {
   todayVsAverage,
   topExpenses,
 } from './refCharts';
+import { settlementBreakdown } from './refShares';
 
 const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -41,12 +45,20 @@ function formatNet(net) {
   return net > 0 ? `+${abs.toLocaleString('en-US')}` : `−${abs.toLocaleString('en-US')}`;
 }
 
+function formatNetHKD(net) {
+  const abs = Math.round(Math.abs(Number(net) || 0));
+  if (abs === 0) return hk(0);
+  return net > 0 ? `+${hk(abs)}` : `−${hk(abs)}`;
+}
+
 /**
  * Handmade travel-diary ChartsView with mode-aware sections (before / during / review),
  * budget allowance, cash vs card split, SVG category donut, horizontal stacked daily bars,
  * top-5 expenses (in review), and split-bill settlement.
  */
 export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
+  const { t } = useTranslation();
+  const [settlePerson, setSettlePerson] = useState(null);
   const expenses = useMemo(() => trip?.expenses || [], [trip?.expenses]);
   const people = useMemo(() => trip?.settings?.people || ['共同'], [trip?.settings?.people]);
   const participants = useMemo(() => people.filter((p) => p && p !== '共同'), [people]);
@@ -78,6 +90,22 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
     () => settleUp(expenses, people, exchangeRates),
     [expenses, people, exchangeRates],
   );
+  const breakdown = useMemo(
+    () => (settlePerson ? settlementBreakdown(expenses, people, exchangeRates, settlePerson) : null),
+    [expenses, people, exchangeRates, settlePerson],
+  );
+
+  useEffect(() => {
+    if (!settlePerson || typeof document === 'undefined') return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSettlePerson(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [settlePerson]);
 
   const total = useMemo(() => expenses.reduce((s, e) => s + Number(e?.hkdAmount || 0), 0), [expenses]);
   const byDayDated = useMemo(() => groupLedger(expenses).filter((g) => g.iso), [expenses]);
@@ -496,8 +524,10 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
               key={row.person}
               type="button"
               data-testid={`chart-person-${row.person}`}
-              onClick={() => onOpenLedger?.({ payer: row.person })}
-              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              aria-haspopup="dialog"
+              aria-expanded={settlePerson === row.person}
+              onClick={() => setSettlePerson(row.person)}
+              className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               <span className="min-w-0 flex-1 truncate whitespace-nowrap text-meta font-semibold text-ink">
                 {row.person} 俾咗 {hk(row.paid)} · 應付 {hk(row.owed)}
@@ -516,13 +546,13 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
 
       <div className="space-y-1.5 pt-1">
         {settlement.transfers.length > 0 ? (
-          settlement.transfers.map((t) => (
+          settlement.transfers.map((tr) => (
             <div
-              key={`${t.from}-${t.to}`}
-              className="flex min-h-11 items-center justify-between rounded-xl border border-teal/35 bg-teal-soft/65 px-3 py-2 text-sm font-bold text-teal-strong"
+              key={`${tr.from}-${tr.to}`}
+              className="flex min-h-11 min-w-0 items-center justify-between rounded-xl border border-teal/35 bg-teal-soft/65 px-3 py-2 text-sm font-bold text-teal-strong"
             >
-              <span className="whitespace-nowrap">
-                {t.from} 要還 {t.to} {hk(t.amount)}
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+                {tr.from} 要還 {tr.to} {hk(tr.amount)}
               </span>
             </div>
           ))
@@ -546,14 +576,176 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
       ? [categorySection, top5Section, summarySection, paymentSection, dailySection, assigneeSection, settleSection]
       : [todaySection || summarySection, paymentSection, categorySection, dailySection, assigneeSection, settleSection];
 
+  const settleSheetNode = breakdown ? (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-x-hidden bg-ink/40 backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settle-sheet-title"
+      data-testid="settle-sheet"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setSettlePerson(null);
+      }}
+    >
+      <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-4 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
+          <h2 id="settle-sheet-title" className="min-w-0 flex-1 truncate font-display text-lg text-ink">
+            {t('notebook.settle.sheetTitle', { name: breakdown.person })}
+          </h2>
+          <button
+            type="button"
+            aria-label={t('notebook.settle.close')}
+            onClick={() => setSettlePerson(null)}
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            {Icon.x('h-4 w-4')}
+          </button>
+        </div>
+
+        {/* Paid section */}
+        <div className="space-y-2">
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+              {t('notebook.settle.paidTitle', { name: breakdown.person })}
+            </h3>
+            <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
+              {hk(breakdown.paidTotal)}
+            </span>
+          </div>
+
+          {breakdown.paidLines.length === 0 ? (
+            <p className="rounded-xl border border-line/60 bg-cream px-3 py-2 text-meta text-ink-muted">
+              {t('notebook.settle.noPaid')}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {breakdown.paidLines.map((line) => (
+                <div
+                  key={line.id}
+                  className="min-w-0 space-y-1 rounded-xl border border-line/60 bg-cream px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">
+                      {line.title || t('common.unnamedStore')}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
+                      {line.date ? shortDayLabel(expenseDateKey(line.date)) : t('notebook.settle.undated')}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-teal-strong">
+                      {hk(line.hkd)}
+                    </span>
+                  </div>
+                  {line.blankPayer && (
+                    <p className="min-w-0 truncate text-meta text-ink-muted">
+                      {t('notebook.settle.blankPayerTag', { name: breakdown.person })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Owed section */}
+        <div className="space-y-2">
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+              {t('notebook.settle.owedTitle')}
+            </h3>
+            <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
+              {hk(breakdown.owedTotal)}
+            </span>
+          </div>
+
+          {breakdown.owedLines.length === 0 ? (
+            <p className="rounded-xl border border-line/60 bg-cream px-3 py-2 text-meta text-ink-muted">
+              {t('notebook.settle.noOwed')}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {breakdown.owedLines.map((line) => {
+                const subParts = [];
+                if (line.own > 0) {
+                  subParts.push(t('notebook.settle.ownPart', { amount: hk(line.own) }));
+                }
+                if (line.sharedPart > 0) {
+                  subParts.push(
+                    t('notebook.settle.sharedPart', {
+                      amount: hk(line.sharedPart),
+                      n: line.sharedCount,
+                    }),
+                  );
+                }
+                return (
+                  <div
+                    key={line.id}
+                    className="flex min-w-0 items-start justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="min-w-0 truncate text-sm font-bold text-ink">
+                        {line.title || t('common.unnamedStore')}
+                      </p>
+                      {subParts.length > 0 && (
+                        <p className="min-w-0 truncate text-meta text-ink-muted">
+                          {subParts.join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
+                      {hk(line.total)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Net row */}
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
+          <span className="min-w-0 truncate text-sm font-bold text-ink">
+            {t('notebook.settle.netLabel')}
+          </span>
+          <span
+            className={`shrink-0 whitespace-nowrap font-mono text-base font-bold tabular-nums ${
+              breakdown.net > 0.5
+                ? 'text-teal-strong'
+                : breakdown.net < -0.5
+                  ? 'text-coral-ink'
+                  : 'text-ink-muted'
+            }`}
+          >
+            {formatNetHKD(breakdown.net)}
+          </span>
+        </div>
+
+        {/* View in ledger link button */}
+        <button
+          type="button"
+          data-testid="settle-sheet-ledger"
+          onClick={() => {
+            const targetPayer = breakdown.person;
+            setSettlePerson(null);
+            onOpenLedger?.({ payer: targetPayer });
+          }}
+          className="btn-primary min-h-11 w-full whitespace-nowrap !py-2.5 text-sm"
+        >
+          {t('notebook.settle.viewInLedger')}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div data-testid="page-charts" className="space-y-4 px-4 pb-6 pt-4">
-      <div className="relative flex items-baseline gap-2">
+    <div data-testid="page-charts" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-4 px-4 pb-6 pt-4">
+      <div className="relative flex min-w-0 items-baseline gap-2">
         <Sparkle className="absolute -left-1 top-1 h-4 w-4" />
         <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">統計圖表</h1>
         <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Charts</span>
       </div>
       {sections}
+      {settleSheetNode &&
+        (typeof document !== 'undefined' ? createPortal(settleSheetNode, document.body) : settleSheetNode)}
     </div>
   );
 }
