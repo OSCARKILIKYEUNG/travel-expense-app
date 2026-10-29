@@ -7,6 +7,8 @@ describe('currency', () => {
   it('getExchangeRate falls back to 1', () => {
     expect(getExchangeRate('JPY', rates)).toBe(20);
     expect(getExchangeRate('XXX', rates)).toBe(1);
+    expect(getExchangeRate('JPY', null)).toBe(1);
+    expect(getExchangeRate('USD', undefined)).toBe(1);
   });
 
   it('toHome divides by rate', () => {

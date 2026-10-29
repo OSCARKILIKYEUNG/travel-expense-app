@@ -5,7 +5,7 @@ import { CURRENCY_NAMES } from './constants';
  * homeCurrency 本身 rate = 1。
  */
 export function getExchangeRate(currency, rates) {
-  return rates[currency] || 1;
+  return (rates && rates[currency]) || 1;
 }
 
 /**
