@@ -34,17 +34,17 @@ function BudgetBlock({ budget, filtered }) {
   const rightText = `${spentFmt.prefix}${spentFmt.digits} / ${budgetFmt.prefix}${budgetFmt.digits}`;
 
   return (
-    <div data-testid="ledger-budget" className="space-y-1.5">
-      <div className="flex min-w-0 items-baseline justify-between gap-2 whitespace-nowrap">
+    <div data-testid="ledger-budget" className="min-w-0 space-y-1.5">
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
         <span
           data-testid="ledger-budget-pct"
-          className={`whitespace-nowrap text-meta font-bold tabular-nums ${
+          className={`min-w-0 truncate whitespace-nowrap text-meta font-bold tabular-nums ${
             budget.over ? 'text-coral-ink' : 'text-teal-strong'
           }`}
         >
           {leftText}
         </span>
-        <span className="whitespace-nowrap font-mono text-meta font-medium tabular-nums text-ink-muted">
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-meta font-medium tabular-nums text-ink-muted">
           {rightText}
         </span>
       </div>
@@ -89,10 +89,10 @@ export default function LedgerTotalCard({ summary, tripName }) {
       data-testid="ledger-total-card"
       data-variant="a"
       aria-label={ariaLabel}
-      className="relative overflow-visible rounded-2xl border border-line bg-cream-soft shadow-sm"
+      className="relative min-w-0 overflow-hidden rounded-2xl border border-line bg-cream-soft shadow-sm"
     >
       {/* Top main ticket area */}
-      <div className="relative px-4 pb-3.5 pt-3.5 text-center">
+      <div className="relative min-w-0 px-4 pb-3.5 pt-3.5 text-center">
         {/* Top-left rotated airplane sticker */}
         <span
           aria-hidden="true"
@@ -105,18 +105,18 @@ export default function LedgerTotalCard({ summary, tripName }) {
         {filtered && <FilteredStamp className="right-3 top-3" />}
 
         {/* Ticket header label */}
-        <p className="whitespace-nowrap px-12 text-meta font-bold tracking-[0.1em] text-ink-muted">
+        <p className="truncate whitespace-nowrap px-12 text-meta font-bold tracking-[0.1em] text-ink-muted">
           {filtered ? '已篩選 · 總支出' : 'TOTAL · 總支出'}
         </p>
 
         {/* Big amount + hand-drawn marker underline */}
-        <div className="mt-1 inline-flex flex-col items-center">
+        <div className="mt-1 inline-flex max-w-full flex-col items-center">
           <div
             data-testid="ledger-total-amount"
-            className="inline-flex items-baseline justify-center gap-1 whitespace-nowrap font-display tabular-nums text-ink"
+            className="inline-flex max-w-full items-baseline justify-center gap-1 truncate whitespace-nowrap font-display tabular-nums text-ink"
           >
-            <span className="text-xl font-bold leading-none text-teal-strong">{prefix}</span>
-            <span className="text-[34px] font-bold leading-none tracking-[-0.02em]">{digits}</span>
+            <span className="shrink-0 text-xl font-bold leading-none text-teal-strong">{prefix}</span>
+            <span className="truncate text-[34px] font-bold leading-none tracking-[-0.02em]">{digits}</span>
           </div>
           <svg
             aria-hidden="true"
@@ -145,7 +145,7 @@ export default function LedgerTotalCard({ summary, tripName }) {
       </div>
 
       {/* Horizontal perforation + punch holes + bottom stub */}
-      <div className="relative border-t-2 border-dashed border-line px-4 py-2.5">
+      <div className="relative min-w-0 border-t-2 border-dashed border-line px-4 py-2.5">
         <span
           aria-hidden="true"
           className="pointer-events-none absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full border border-line bg-cream"

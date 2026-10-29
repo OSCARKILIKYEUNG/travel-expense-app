@@ -81,28 +81,28 @@ export default function ExpenseCard({
       data-sticker-pop={stickerPop ? 'true' : undefined}
     >
       <article
-        className={`flex items-start justify-between gap-3 rounded-t-card border border-b-0 px-4 pb-2.5 pt-3 shadow-sm transition-colors ${
+        className={`flex min-w-0 items-start justify-between gap-3 rounded-t-card border border-b-0 px-4 pb-2.5 pt-3 shadow-sm transition-colors ${
           highlighted ? 'border-teal-strong bg-teal-soft/60 ring-2 ring-teal-strong' : 'border-line bg-cream-soft'
         }`}
       >
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center gap-1.5">
+          <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5">
             <span
-              className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-meta font-bold ${catStyle}`}
+              className={`inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-md border px-2 py-0.5 text-meta font-bold ${catStyle}`}
             >
-              <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${dotStyle}`} />
-              {expense.category}
+              <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotStyle}`} />
+              <span className="truncate">{expense.category}</span>
             </span>
-            <span className="whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
+            <span className="max-w-full truncate whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
               {expense.assignedTo}
             </span>
-            <span className="whitespace-nowrap text-meta text-ink-muted">{expense.scanned ? '掃描' : '手動'}</span>
+            <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">{expense.scanned ? '掃描' : '手動'}</span>
           </div>
           <h3 className="truncate whitespace-nowrap text-base font-bold leading-snug text-ink">{expense.store}</h3>
           {expense.place && (
-            <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-meta text-ink-muted">
+            <div className="mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-meta text-ink-muted">
               {Icon.pin('h-3.5 w-3.5 shrink-0')}
-              <span className="truncate">{expense.place}</span>
+              <span className="min-w-0 truncate">{expense.place}</span>
             </div>
           )}
         </div>
@@ -202,12 +202,12 @@ export default function ExpenseCard({
   );
 }
 
-/** One-line horizontal chip scroller. */
+/** Contained wrapping chip row that never widens the page. */
 export function ChipRow({ children, label }) {
   return (
     <div
       data-noswipe
-      className="flex items-center gap-2 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex max-w-full min-w-0 flex-wrap items-center gap-2 py-0.5"
       role="group"
       aria-label={label}
     >
@@ -223,7 +223,7 @@ export function Chip({ active, onClick, children, testid }) {
       data-testid={testid}
       aria-pressed={active}
       onClick={onClick}
-      className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border px-3.5 py-2 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+      className={`inline-flex min-h-11 min-w-11 max-w-full items-center justify-center truncate whitespace-nowrap rounded-pill border px-3.5 py-2 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
         active
           ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
           : 'border-teal/40 bg-teal-soft text-teal-strong hover:bg-beige'

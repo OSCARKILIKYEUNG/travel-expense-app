@@ -1233,7 +1233,7 @@ function Header({ trip, trips, onSelectTrip }) {
           </span>
         </button>
 
-        <div className="relative" ref={menuWrapRef}>
+        <div className="relative min-w-0 shrink" ref={menuWrapRef}>
           <button
             ref={btnRef}
             type="button"
@@ -1241,10 +1241,10 @@ function Header({ trip, trips, onSelectTrip }) {
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="flex h-11 min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {Icon.globe('h-3.5 w-3.5 shrink-0')}
-            <span>{trip.name}</span>
+            <span className="min-w-0 truncate">{trip.name}</span>
             {Icon.chevDown('h-3.5 w-3.5 shrink-0')}
           </button>
 
@@ -1252,7 +1252,7 @@ function Header({ trip, trips, onSelectTrip }) {
             <div
               role="menu"
               data-testid="trip-switcher-menu"
-              className="absolute right-0 top-full z-40 mt-2 min-w-[230px] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl"
+              className="absolute right-0 top-full z-40 mt-2 min-w-[230px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl"
             >
               {trips.map((tripOption) => {
                 const isActive = String(tripOption.id) === String(trip.id);
@@ -1266,11 +1266,11 @@ function Header({ trip, trips, onSelectTrip }) {
                       setOpen(false);
                       onSelectTrip(tripOption.id);
                     }}
-                    className={`flex min-h-11 w-full items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
+                    className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
                       isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
                     }`}
                   >
-                    <span>{tripOption.name}</span>
+                    <span className="min-w-0 truncate">{tripOption.name}</span>
                     {isActive && (
                       <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
                         {t('notebook.currentTrip')}
