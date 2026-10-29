@@ -6,7 +6,7 @@ import { Icon, Sparkle, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
 import { ledgerTotalSummary } from './refLedgerTotal';
-import { filterExpenses, fmtHKD, groupLedger, personCounts, undatedHint, zhDate } from './refLogic';
+import { filterExpenses, fmtHKD, groupLedger, matchesPerson, personCounts, undatedHint, zhDate } from './refLogic';
 import { activeFilterCount, tripDates } from './refRules';
 
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
@@ -40,7 +40,16 @@ export default function Ledger({
     return [...new Set([...fromTrip, ...fromExpenses])].sort().reverse();
   }, [trip]);
 
-  const counts = useMemo(() => personCounts(trip.expenses, people), [trip.expenses, people]);
+  const countSource = useMemo(
+    () => filterExpenses(trip.expenses, { person: '全部', category, date, query, payment, payer }, people),
+    [trip.expenses, people, category, date, query, payment, payer],
+  );
+  const counts = useMemo(() => personCounts(countSource, people), [countSource, people]);
+  const showExtraShared =
+    !people.includes('共同') && countSource.some((e) => matchesPerson(e, '共同', people));
+  const extraSharedCount = showExtraShared
+    ? countSource.filter((e) => matchesPerson(e, '共同', people)).length
+    : 0;
   const shown = filterExpenses(trip.expenses, { person, category, date, query, payment, payer }, people);
   const groups = groupLedger(shown);
   const hint = undatedHint(groups);
@@ -192,7 +201,21 @@ export default function Ledger({
 
       {/* Row 2: Person chips on one line */}
       <ChipRow label="篩選人物">
-        {['全部', ...people].map((p) => (
+        <Chip
+          active={person === '全部' && payer === '全部'}
+          onClick={() => {
+            setPerson('全部');
+            setPayer('全部');
+          }}
+        >
+          {`全部 (${counts['全部'] || 0})`}
+        </Chip>
+        {showExtraShared && (
+          <Chip active={person === '共同'} onClick={() => setPerson('共同')}>
+            {`共同 (${extraSharedCount})`}
+          </Chip>
+        )}
+        {people.map((p) => (
           <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
             {p} ({counts[p] || 0})
           </Chip>
