@@ -206,7 +206,8 @@ describe('ledgerTotalSummary', () => {
     expect(shownOscar).toHaveLength(2);
     expect(personCounts(fixture, peopleList)).toEqual({
       全部: 3,
-      共同: 1,
+      // Line items consume the whole card, so 共同's bucket is 0 and is not counted again.
+      共同: 0,
       Oscar: 2,
       阿明: 2,
     });

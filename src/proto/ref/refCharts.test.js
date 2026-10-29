@@ -316,23 +316,25 @@ describe('P4: Charts calculations on adapted legacySeed (toRefExpense / adaptTri
     const people = adaptedTrip.settings.people;
     const assignee = assigneeSplit(adaptedTrip.expenses, people);
     expect(assignee.total).toBe(5397);
+    // 松本清 is card-assigned 共同, but its line items move 300 to Oscar and 200 to 阿明
+    // before the remaining 共同 pool is split. The old whole-card totals double-counted that 500.
     expect(assignee.rows).toEqual([
-      { person: '共同', total: 4048, count: 5, pct: 75 },
-      { person: 'Oscar', total: 915, count: 2, pct: 17 },
-      { person: '阿明', total: 434, count: 1, pct: 8 },
+      { person: '共同', total: 3548, count: 4, pct: 66 },
+      { person: 'Oscar', total: 1215, count: 3, pct: 23 },
+      { person: '阿明', total: 634, count: 2, pct: 12 },
     ]);
     expect(assignee.shares).toEqual([
-      { person: 'Oscar', share: 2939 },
-      { person: '阿明', share: 2458 },
+      { person: 'Oscar', share: 2989 },
+      { person: '阿明', share: 2408 },
     ]);
 
     const settled = settleUp(adaptedTrip.expenses, people);
     expect(settled.rows).toEqual([
-      { person: 'Oscar', paid: 3979, owed: 2939, net: 1040 },
-      { person: '阿明', paid: 1418, owed: 2458, net: -1040 },
+      { person: 'Oscar', paid: 3979, owed: 2989, net: 990 },
+      { person: '阿明', paid: 1418, owed: 2408, net: -990 },
     ]);
     expect(settled.transfers).toEqual([
-      { from: '阿明', to: 'Oscar', amount: 1040 },
+      { from: '阿明', to: 'Oscar', amount: 990 },
     ]);
 
     // Person filter hash ≠ payer filter hash

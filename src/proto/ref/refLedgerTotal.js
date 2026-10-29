@@ -1,11 +1,7 @@
 /**
  * Pure total-card logic for the 帳本 (Ledger) screen.
  */
-import { getDefaultAssignee, resolveAssigneeDisplay } from '../../utils/people';
-import {
-  getPartialMatchPersonShareHKD,
-  getPartialMatchPersonShareOriginal,
-} from '../../utils/personShare';
+import { expenseAllocation } from './refShares';
 
 /**
  * Split an HKD amount into its currency prefix and rounded en-US grouped digits.
@@ -20,21 +16,15 @@ export function splitHKD(n) {
   };
 }
 
-function hasPartialPersonItems(expense, person, people) {
-  return (expense?.items || []).some(
-    (item) => item && (item.assignedTo || resolveAssigneeDisplay(expense.assignedTo, people)) === person,
-  );
-}
-
 /**
  * Compute an expense's HKD and JPY contribution for the ledger total card.
- * When `person` is active (`!== '全部'`), matches classic `Dashboard.jsx` math:
- * - Whole-card assignee (`resolveAssigneeDisplay(e.assignedTo, people) === person`) -> full `hkdAmount` / `originalAmount`.
- * - Partial line-item assignee -> `getPartialMatchPersonShareHKD` / `getPartialMatchPersonShareOriginal`.
+ * When `person` is active (`!== '全部'`), the share is that person's allocation bucket.
+ * JPY is the same fraction of `originalAmount` (bucket / hkdAmount).
+ * Blank card assignee stays in the 共同 bucket, so person totals add up to the full total.
  */
 export function ledgerExpenseShare(
   expense,
-  { person = '全部', people = [], exchangeRates = null, defaultAssignee } = {},
+  { person = '全部', people = [], exchangeRates = null } = {},
 ) {
   if (!expense || typeof expense !== 'object') {
     return { hkd: 0, jpy: 0 };
@@ -48,27 +38,10 @@ export function ledgerExpenseShare(
     return { hkd: fullHkd, jpy: fullJpy };
   }
 
-  const resolvedDefault = defaultAssignee ?? getDefaultAssignee(people);
-  const whole = resolveAssigneeDisplay(expense.assignedTo, people) === person;
-  if (whole) {
-    return { hkd: fullHkd, jpy: fullJpy };
-  }
-
-  if (hasPartialPersonItems(expense, person, people)) {
-    const hkd = getPartialMatchPersonShareHKD(
-      expense,
-      person,
-      exchangeRates,
-      resolvedDefault,
-    );
-    const jpy =
-      curr === 'JPY'
-        ? getPartialMatchPersonShareOriginal(expense, person, resolvedDefault)
-        : 0;
-    return { hkd, jpy };
-  }
-
-  return { hkd: 0, jpy: 0 };
+  const bucket = Number(expenseAllocation(expense, people, exchangeRates)[person] || 0);
+  if (!(bucket > 0)) return { hkd: 0, jpy: 0 };
+  const jpy = curr === 'JPY' && fullHkd > 0 ? (bucket / fullHkd) * fullJpy : 0;
+  return { hkd: bucket, jpy };
 }
 
 /**

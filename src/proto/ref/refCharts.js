@@ -1,8 +1,8 @@
 import { addDays } from '../shared/dates';
 import { normalizePayment } from '../../adapters/refDataAdapter';
 import { expenseDateKey, sortExpenses } from '../../utils/date';
-import { resolveAssigneeDisplay } from '../../utils/people';
 import { REF_CATEGORIES } from './mockRefTrip';
+import { expenseAllocation, personOwed, resolvePayer, settlementParticipants } from './refShares';
 
 function diffDays(fromIso, toIso) {
   const [y1, m1, d1] = String(fromIso).split('-').map(Number);
@@ -265,14 +265,15 @@ export function topExpenses(expenses, n = 5) {
 
 /**
  * Compute per-participant paid/owed/net balances and minimal greedy settlement transfers.
+ * Paid uses resolvePayer (blank / unknown / 共同 -> first participant).
+ * Owed uses allocation: own bucket plus an even split of 共同 and unknown buckets.
  * @param {Array} expenses
  * @param {string[]} people
+ * @param {Record<string, number> | null} [exchangeRates]
  * @returns {{ rows: Array<{ person: string, paid: number, owed: number, net: number }>, transfers: Array<{ from: string, to: string, amount: number }> }}
  */
-export function settleUp(expenses, people) {
-  const participants = (Array.isArray(people) ? people : [])
-    .map((p) => String(p ?? '').trim())
-    .filter((p) => p && p !== '共同');
+export function settleUp(expenses, people, exchangeRates = null) {
+  const participants = settlementParticipants(people);
 
   if (participants.length === 0) {
     return { rows: [], transfers: [] };
@@ -285,18 +286,12 @@ export function settleUp(expenses, people) {
 
   for (const e of expenses || []) {
     const amt = Number(e?.hkdAmount || 0);
-    const payer = String(e?.payer ?? '').trim();
-    const assignedTo = resolveAssigneeDisplay(e?.assignedTo, people);
-    const creditTo = participants.includes(payer) ? payer : participants[0];
-    ledger[creditTo].paid += amt;
+    const creditTo = resolvePayer(e, participants);
+    if (ledger[creditTo]) ledger[creditTo].paid += amt;
 
-    if (participants.includes(assignedTo)) {
-      ledger[assignedTo].owed += amt;
-    } else {
-      const share = amt / participants.length;
-      for (const p of participants) {
-        ledger[p].owed += share;
-      }
+    const owed = personOwed(e, people, exchangeRates);
+    for (const p of participants) {
+      ledger[p].owed += owed[p] || 0;
     }
   }
 
@@ -343,48 +338,73 @@ export function settleUp(expenses, people) {
 }
 
 /**
- * Group expenses by assignee (`assignedTo`, blank resolved via `resolveAssigneeDisplay`)
- * and attach each participant's total share (`owed` from `settleUp`).
+ * Bucket totals from expense allocation. 共同 is shown when it is in `people` or its total is above 0.
+ * Count is the number of expenses with a positive share in that bucket.
+ * `shares` are each participant's settleUp owed amount.
  * @param {Array} expenses
  * @param {string[]} people
+ * @param {Record<string, number> | null} [exchangeRates]
  * @returns {{ total: number, rows: Array<{ person: string, total: number, count: number, pct: number }>, shares: Array<{ person: string, share: number }> }}
  */
-export function assigneeSplit(expenses, people) {
+export function assigneeSplit(expenses, people, exchangeRates = null) {
   const peopleList = (Array.isArray(people) ? people : [])
     .map((p) => String(p ?? '').trim())
     .filter(Boolean);
 
   const buckets = new Map();
-  if (peopleList.includes('共同')) {
-    buckets.set('共同', { total: 0, count: 0 });
-  }
+  const ensure = (who) => {
+    if (!buckets.has(who)) buckets.set(who, { total: 0, count: 0 });
+    return buckets.get(who);
+  };
+
+  if (peopleList.includes('共同')) ensure('共同');
   for (const p of peopleList) {
-    if (p !== '共同' && !buckets.has(p)) {
-      buckets.set(p, { total: 0, count: 0 });
-    }
+    if (p !== '共同') ensure(p);
   }
 
   let grand = 0;
+  const unknownOrder = [];
   for (const e of expenses || []) {
-    const amt = Number(e?.hkdAmount || 0);
-    const who = resolveAssigneeDisplay(e?.assignedTo, peopleList);
-    if (!buckets.has(who)) {
-      buckets.set(who, { total: 0, count: 0 });
+    grand += Number(e?.hkdAmount) || 0;
+    const alloc = expenseAllocation(e, peopleList, exchangeRates);
+    for (const [who, share] of Object.entries(alloc)) {
+      if (!(share > 0)) continue;
+      if (who !== '共同' && !buckets.has(who)) unknownOrder.push(who);
+      const bucket = ensure(who);
+      bucket.total += share;
+      bucket.count += 1;
     }
-    const bucket = buckets.get(who);
-    bucket.total += amt;
-    bucket.count += 1;
-    grand += amt;
   }
 
-  const rows = Array.from(buckets.entries()).map(([person, { total, count }]) => ({
-    person,
-    total,
-    count,
-    pct: grand > 0 ? Math.round((total / grand) * 100) : 0,
-  }));
+  const rowFor = (person) => {
+    const { total, count } = buckets.get(person) || { total: 0, count: 0 };
+    return {
+      person,
+      total,
+      count,
+      pct: grand > 0 ? Math.round((total / grand) * 100) : 0,
+    };
+  };
 
-  const shares = settleUp(expenses, peopleList).rows.map((r) => ({
+  const rows = [];
+  const seen = new Set();
+  const shared = buckets.get('共同');
+  if (peopleList.includes('共同') || (shared && shared.total > 0)) {
+    rows.push(rowFor('共同'));
+    seen.add('共同');
+  }
+  for (const p of peopleList) {
+    if (seen.has(p)) continue;
+    seen.add(p);
+    rows.push(rowFor(p));
+  }
+  for (const who of unknownOrder) {
+    if (seen.has(who)) continue;
+    seen.add(who);
+    rows.push(rowFor(who));
+  }
+
+  const shares = settleUp(expenses, peopleList, exchangeRates).rows.map((r) => ({
     person: r.person,
     share: r.owed,
   }));

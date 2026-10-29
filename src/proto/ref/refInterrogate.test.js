@@ -4,7 +4,14 @@ import { dayStats, expensesOn, filterExpenses, matchesPerson } from './refLogic'
 const people = ['Oscar', 'Mei'];
 const list = [
   { id: 'a', date: '2026年10月22日', hkdAmount: 100, scanned: true, assignedTo: 'Oscar', items: [] },
-  { id: 'b', date: '2026-10-22', hkdAmount: 50, scanned: false, assignedTo: '', items: [{ assignedTo: 'Mei' }] },
+  {
+    id: 'b',
+    date: '2026-10-22',
+    hkdAmount: 50,
+    scanned: false,
+    assignedTo: '',
+    items: [{ assignedTo: 'Mei', price: 20 }, { price: 30 }],
+  },
   { id: 'c', date: '', hkdAmount: 9, scanned: false, assignedTo: 'Mei', items: [] },
 ];
 
@@ -16,6 +23,8 @@ describe('interrogate fixes (grok-4.7-xhigh review, 2026-10-23)', () => {
   });
   it('F8: one person predicate covers blank assignee (共同) and line-item assignees', () => {
     expect(matchesPerson(list[1], 'Mei', people)).toBe(true);
+    expect(matchesPerson(list[1], 'Oscar', people)).toBe(false);
+    expect(matchesPerson(list[1], '共同', people)).toBe(true);
     expect(matchesPerson(list[0], 'Mei', people)).toBe(false);
     expect(matchesPerson(list[0], '全部', people)).toBe(true);
     expect(filterExpenses(list, { person: 'Mei' }, people).map((e) => e.id)).toEqual(['b', 'c']);

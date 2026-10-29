@@ -678,6 +678,10 @@ function DayExpenses({
   const people = trip.settings?.people || ['共同'];
   const list = useMemo(() => dayExpenses(trip.expenses, iso), [trip.expenses, iso]);
   const counts = personCounts(list, people);
+  const showExtraShared = !people.includes('共同') && list.some((e) => matchesPerson(e, '共同', people));
+  const extraSharedCount = showExtraShared
+    ? list.filter((e) => matchesPerson(e, '共同', people)).length
+    : 0;
   const shown = list.filter((e) => matchesPerson(e, person, people));
   return (
     <div className="space-y-2.5">
@@ -706,7 +710,15 @@ function DayExpenses({
         <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">篩選:</span>
         <div className="min-w-0 flex-1">
           <ChipRow label="篩選人物">
-            {['全部', ...people].map((p) => (
+            <Chip active={person === '全部'} onClick={() => setPerson('全部')}>
+              {`全部 (${counts['全部'] || 0})`}
+            </Chip>
+            {showExtraShared && (
+              <Chip active={person === '共同'} onClick={() => setPerson('共同')}>
+                {`共同 (${extraSharedCount})`}
+              </Chip>
+            )}
+            {people.map((p) => (
               <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
                 {p} ({counts[p] || 0})
               </Chip>

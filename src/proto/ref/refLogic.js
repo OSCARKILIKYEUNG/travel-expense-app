@@ -4,7 +4,7 @@
  * the same helpers src/components/expense/ExpenseList.jsx uses.
  */
 import { sortExpenses, expenseDateKey, expenseDateLabel } from '../../utils/date';
-import { resolveAssigneeDisplay } from '../../utils/people';
+import { expenseAllocation, resolvePayer } from './refShares';
 
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 
@@ -123,7 +123,7 @@ export function filterExpenses(
     if (date === 'undated' && e.date) return false;
     if (date !== '全部' && date !== 'undated' && expenseDateKey(e.date) !== date) return false;
     if (normPayment && normPayment !== '全部' && e.payment !== normPayment) return false;
-    if (payer && payer !== '全部' && e.payer !== payer) return false;
+    if (payer && payer !== '全部' && resolvePayer(e, people) !== payer) return false;
     if (q && !`${e.store} ${e.place} ${e.category}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -154,11 +154,15 @@ export function undatedHint(groups) {
   return { count, label: `${count} 筆未有日期` };
 }
 
-/** One person predicate for day chips, day list and ledger (F8): blank assignee counts as 共同; line-item assignees also match. */
+/** True when that person's allocation bucket is above 0. Blank card assignee is 共同, not the first person. */
 export function matchesPerson(e, person, people = []) {
   if (person === '全部') return true;
-  if (resolveAssigneeDisplay(e.assignedTo, people) === person) return true;
-  return (e.items || []).some((it) => it && it.assignedTo && resolveAssigneeDisplay(it.assignedTo, people) === person);
+  if (!person) return false;
+  if (!(Number(e?.hkdAmount) > 0)) {
+    // Zero-amount rows have no buckets; keep them under the card assignee (blank -> 共同).
+    return (String(e?.assignedTo ?? '').trim() || '共同') === person;
+  }
+  return Number(expenseAllocation(e, people, null)[person] || 0) > 0;
 }
 
 /** Expenses on a calendar day, joined by expenseDateKey so stored '2026年10月22日' strings match '2026-10-22' (F1). */

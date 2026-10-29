@@ -140,3 +140,12 @@ describe('ledger (帳本) and dayExpenses', () => {
     expect(filterExpenses(trip.expenses, { payment: 'card', payer: 'Oscar' }, REF_PEOPLE)).toHaveLength(5);
   });
 });
+
+describe('matchesPerson zero-amount rows (2026-10-29 shares fix)', () => {
+  it('keeps a zero-amount row under its card assignee, blank -> 共同', async () => {
+    const { matchesPerson } = await import('./refLogic');
+    expect(matchesPerson({ hkdAmount: 0, assignedTo: 'A' }, 'A', ['共同', 'A'])).toBe(true);
+    expect(matchesPerson({ hkdAmount: 0, assignedTo: '' }, '共同', ['A', 'B'])).toBe(true);
+    expect(matchesPerson({ hkdAmount: 0, assignedTo: '' }, 'A', ['A', 'B'])).toBe(false);
+  });
+});

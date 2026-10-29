@@ -309,12 +309,12 @@ describe('P4: ChartsView and SettingsView on seed=legacy and controlled persiste
     expect(html).toContain('data-testid="chart-assignee-Oscar"');
     expect(html).toContain('data-testid="chart-assignee-阿明"');
     expect(html).toContain('data-testid="chart-assignee-shares"');
-    expect(html).toContain('連共同攤分：Oscar HK$2,939 · 阿明 HK$2,458');
+    expect(html).toContain('連共同攤分：Oscar HK$2,989 · 阿明 HK$2,408');
 
     // Settle rows + transfer
     expect(html).toContain('data-testid="chart-person-Oscar"');
     expect(html).toContain('data-testid="chart-person-阿明"');
-    expect(html).toContain('阿明 要還 Oscar HK$1,040');
+    expect(html).toContain('阿明 要還 Oscar HK$990');
   });
 
   it('renders #settings with seed=legacy showing trip-start-date, trip-end-date, trip-dates-save, budget, and language toggle in zh-TW and en', async () => {

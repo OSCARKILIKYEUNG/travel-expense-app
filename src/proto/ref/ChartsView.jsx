@@ -69,8 +69,15 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
   const cats = useMemo(() => categorySplit(expenses, REF_CATEGORIES), [expenses]);
   const daily = useMemo(() => dailyStacks(expenses, trip, today, REF_CATEGORIES), [expenses, trip, today]);
   const top5 = useMemo(() => topExpenses(expenses, 5), [expenses]);
-  const assignee = useMemo(() => assigneeSplit(expenses, people), [expenses, people]);
-  const settlement = useMemo(() => settleUp(expenses, people), [expenses, people]);
+  const exchangeRates = trip?.exchangeRates || null;
+  const assignee = useMemo(
+    () => assigneeSplit(expenses, people, exchangeRates),
+    [expenses, people, exchangeRates],
+  );
+  const settlement = useMemo(
+    () => settleUp(expenses, people, exchangeRates),
+    [expenses, people, exchangeRates],
+  );
 
   const total = useMemo(() => expenses.reduce((s, e) => s + Number(e?.hkdAmount || 0), 0), [expenses]);
   const byDayDated = useMemo(() => groupLedger(expenses).filter((g) => g.iso), [expenses]);
