@@ -246,3 +246,140 @@ describe('isRemoteNewer', () => {
     expect(isRemoteNewer(T0, null)).toBe(false);
   });
 });
+
+
+describe('settlements survive sync upsert / remote-applied / local-kept', () => {
+  function seedWithSettlement() {
+    db.rows.set(USER, {
+      user_id: USER,
+      trips_data: {
+        trips: [{
+          id: 'trip-1',
+          name: 'Tokyo',
+          expenses: [{ id: 'base', amount: 100 }],
+          settings: { people: ['共同', 'Oscar', '阿明'] },
+          settlements: [{
+            id: 'stl-cloud',
+            tripId: 'trip-1',
+            from: '阿明',
+            to: 'Oscar',
+            amount: 40,
+            currency: 'HKD',
+            hkdAmount: 40,
+            rate: 1,
+            date: '2026-10-20',
+            note: 'cloud',
+            createdAt: T0,
+            updatedAt: T0,
+          }],
+        }],
+        currentTripId: 'trip-1',
+        updatedAt: T0,
+      },
+      app_settings: {},
+      people_list: ['共同', 'Oscar', '阿明'],
+      updated_at: T0,
+      subscription_status: 'active',
+      stripe_customer_id: 'cus_test',
+      stripe_subscription_id: 'sub_test',
+    });
+  }
+
+  it('upsert payload includes settlements on trips_data', async () => {
+    seedWithSettlement();
+    const a = await makeDevice();
+    await a.boot();
+    await a.run(async ({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      ds.addSettlement('trip-1', {
+        id: 'stl-local',
+        from: 'Oscar',
+        to: '阿明',
+        amount: 10,
+        currency: 'HKD',
+        hkdAmount: 10,
+        rate: 1,
+        date: '2026-10-28',
+        note: 'local',
+      });
+    });
+    vi.setSystemTime(new Date('2026-10-28T10:05:00.000Z'));
+    expect(await a.save()).toEqual({ status: 'saved' });
+    const sent = db.upserts.at(-1);
+    const stl = sent.trips_data.trips[0].settlements;
+    expect(stl.map((s) => s.id).sort()).toEqual(['stl-cloud', 'stl-local']);
+  });
+
+  it('remote-applied pull keeps remote settlements', async () => {
+    seedWithSettlement();
+    const a = await makeDevice();
+    const b = await makeDevice();
+    await a.boot();
+    await b.boot();
+
+    vi.setSystemTime(new Date('2026-10-28T10:05:00.000Z'));
+    await b.run(async ({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      ds.addSettlement('trip-1', {
+        id: 'stl-from-b',
+        from: '阿明',
+        to: 'Oscar',
+        amount: 5,
+        currency: 'HKD',
+        hkdAmount: 5,
+        rate: 1,
+        date: '2026-10-28',
+      });
+    });
+    expect(await b.save()).toEqual({ status: 'saved' });
+
+    expect(await a.pull()).toEqual({ changed: true, source: 'remote' });
+    const ids = await a.run(({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      return ds.loadTripsData().trips[0].settlements.map((s) => s.id).sort();
+    });
+    expect(ids).toEqual(['stl-cloud', 'stl-from-b']);
+  });
+
+  it('local-kept save uploads local settlements when this device is newer', async () => {
+    seedWithSettlement();
+    const a = await makeDevice();
+    const b = await makeDevice();
+    await a.boot();
+    await b.boot();
+
+    vi.setSystemTime(new Date('2026-10-28T10:05:00.000Z'));
+    await b.run(async ({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      ds.addSettlement('trip-1', {
+        id: 'stl-from-b',
+        from: '阿明',
+        to: 'Oscar',
+        amount: 5,
+        currency: 'HKD',
+        hkdAmount: 5,
+        rate: 1,
+        date: '2026-10-28',
+      });
+    });
+    await b.save();
+
+    vi.setSystemTime(new Date('2026-10-28T10:07:00.000Z'));
+    await a.run(async ({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      ds.addSettlement('trip-1', {
+        id: 'stl-from-a',
+        from: 'Oscar',
+        to: '阿明',
+        amount: 9,
+        currency: 'HKD',
+        hkdAmount: 9,
+        rate: 1,
+        date: '2026-10-28',
+      });
+    });
+    expect(await a.save()).toEqual({ status: 'local-kept' });
+    const cloudIds = db.rows.get(USER).trips_data.trips[0].settlements.map((s) => s.id).sort();
+    expect(cloudIds).toEqual(['stl-cloud', 'stl-from-a']);
+  });
+});

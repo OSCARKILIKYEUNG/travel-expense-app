@@ -450,14 +450,15 @@ function AppProviderInner({ children, userId }) {
   }, [people, filterPerson, notify, setExpenses, setPeople]);
 
   const removePersonWithReassign = useCallback((deletedName, reassignTo) => {
-    if (!deletedName || !reassignTo) return;
-    DataService.removePersonAndReassignAll(deletedName, reassignTo);
+    if (!deletedName || !reassignTo) return { droppedSettlements: 0 };
+    const { droppedSettlements = 0 } = DataService.removePersonAndReassignAll(deletedName, reassignTo) || {};
     setPeople((p) => p.filter((x) => x !== deletedName));
     setExpenses(sortExpenses(DataService.loadExpenses()));
     const data = DataService.loadTripsData();
     setTrips(data.trips);
     if (filterPerson === deletedName) setFilterPerson(reassignTo);
     notify(i18n.t('toast.personDeleted'));
+    return { droppedSettlements };
   }, [filterPerson, notify, setExpenses, setPeople, setFilterPerson]);
 
   const deleteTrip = useCallback((tripId) => {
@@ -517,6 +518,26 @@ function AppProviderInner({ children, userId }) {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     notify(i18n.t('toast.expenseDeleted'));
   }, [notify]);
+
+  const addSettlement = useCallback((tripId, settlement) => {
+    const row = DataService.addSettlement(tripId, settlement);
+    if (!row) return null;
+    setTrips(DataService.loadTripsData().trips);
+    return row;
+  }, []);
+
+  const updateSettlement = useCallback((tripId, settlementId, patch) => {
+    const row = DataService.updateSettlement(tripId, settlementId, patch);
+    if (!row) return null;
+    setTrips(DataService.loadTripsData().trips);
+    return row;
+  }, []);
+
+  const removeSettlement = useCallback((tripId, settlementId) => {
+    const ok = DataService.removeSettlement(tripId, settlementId);
+    if (ok) setTrips(DataService.loadTripsData().trips);
+    return ok;
+  }, []);
 
   // ---- Duplicate review: resolve conflicts, replace undo ----
   const undoStorageKey = replaceUndoStorageKey(userId);
@@ -622,6 +643,7 @@ function AppProviderInner({ children, userId }) {
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
+    addSettlement, updateSettlement, removeSettlement,
     resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     filterPerson, setFilterPerson,
@@ -637,6 +659,7 @@ function AppProviderInner({ children, userId }) {
     defaultAssignee,
     updateSettings, refreshBilling, applyBillingSnapshot, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
+    addSettlement, updateSettlement, removeSettlement,
     resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
     addCustomExpenseCategory, removeCustomExpenseCategory,
     setFilterPerson, notify,

@@ -267,12 +267,16 @@ export function topExpenses(expenses, n = 5) {
  * Compute per-participant paid/owed/net balances and minimal greedy settlement transfers.
  * Paid uses resolvePayer (blank / unknown / 共同 -> first participant).
  * Owed uses allocation: own bucket plus an even split of 共同 and unknown buckets.
+ * Optional `settlements` (已還錢) adjust net: net = paid − owed + repaid − received.
+ * Settlements whose from/to are not participants are ignored. One-person / empty people
+ * lists ignore settlements (same shape as today).
  * @param {Array} expenses
  * @param {string[]} people
  * @param {Record<string, number> | null} [exchangeRates]
- * @returns {{ rows: Array<{ person: string, paid: number, owed: number, net: number }>, transfers: Array<{ from: string, to: string, amount: number }> }}
+ * @param {Array<{ from?: string, to?: string, hkdAmount?: number }>} [settlements]
+ * @returns {{ rows: Array<{ person: string, paid: number, owed: number, repaid: number, received: number, net: number, remaining: number }>, transfers: Array<{ from: string, to: string, amount: number }> }}
  */
-export function settleUp(expenses, people, exchangeRates = null) {
+export function settleUp(expenses, people, exchangeRates = null, settlements = []) {
   const participants = settlementParticipants(people);
 
   if (participants.length === 0) {
@@ -281,7 +285,7 @@ export function settleUp(expenses, people, exchangeRates = null) {
 
   const ledger = {};
   for (const p of participants) {
-    ledger[p] = { paid: 0, owed: 0 };
+    ledger[p] = { paid: 0, owed: 0, repaid: 0, received: 0 };
   }
 
   for (const e of expenses || []) {
@@ -295,11 +299,27 @@ export function settleUp(expenses, people, exchangeRates = null) {
     }
   }
 
+  // One-person trips keep expense nets only; repayments need ≥2 participants.
+  if (participants.length >= 2 && Array.isArray(settlements) && settlements.length > 0) {
+    const known = new Set(participants);
+    for (const s of settlements) {
+      const from = String(s?.from ?? '').trim();
+      const to = String(s?.to ?? '').trim();
+      if (!from || !to || !known.has(from) || !known.has(to)) continue;
+      const amt = Number(s?.hkdAmount || 0);
+      if (!Number.isFinite(amt) || amt === 0) continue;
+      ledger[from].repaid += amt;
+      ledger[to].received += amt;
+    }
+  }
+
   const rows = participants.map((person) => {
     const paid = ledger[person].paid;
     const owed = ledger[person].owed;
-    const net = paid - owed;
-    return { person, paid, owed, net };
+    const repaid = ledger[person].repaid;
+    const received = ledger[person].received;
+    const net = paid - owed + repaid - received;
+    return { person, paid, owed, repaid, received, net, remaining: net };
   });
 
   const debtors = rows

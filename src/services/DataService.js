@@ -574,6 +574,86 @@ const DataService = {
     });
   },
 
+  // ── Settlements (已還錢) ────────────────────────────
+  _newSettlementId() {
+    return `stl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+
+  /**
+   * Append a repayment on a trip. Creates `trip.settlements` only when the first
+   * row is added — never writes an empty array just because the field was missing.
+   * @returns {object|null} the stored settlement row
+   */
+  addSettlement(tripId, settlement) {
+    if (!settlement || typeof settlement !== 'object') return null;
+    const tripsData = this.loadTripsData();
+    const trip = tripsData.trips.find((t) => t.id === tripId);
+    if (!trip) return null;
+    const now = new Date().toISOString();
+    const row = {
+      id: settlement.id || this._newSettlementId(),
+      tripId,
+      from: String(settlement.from ?? '').trim(),
+      to: String(settlement.to ?? '').trim(),
+      amount: Number(settlement.amount),
+      currency: settlement.currency,
+      hkdAmount: Number(settlement.hkdAmount),
+      rate: settlement.rate,
+      date: settlement.date,
+      note: settlement.note == null ? '' : String(settlement.note),
+      createdAt: settlement.createdAt || now,
+      updatedAt: settlement.updatedAt || now,
+    };
+    if (!Array.isArray(trip.settlements)) trip.settlements = [];
+    trip.settlements.push(row);
+    this.saveTripsData(tripsData);
+    return row;
+  },
+
+  /**
+   * Patch one settlement by id. Does not create an empty settlements array.
+   * @returns {object|null} the updated row
+   */
+  updateSettlement(tripId, settlementId, patch) {
+    if (!patch || typeof patch !== 'object') return null;
+    const tripsData = this.loadTripsData();
+    const trip = tripsData.trips.find((t) => t.id === tripId);
+    if (!trip || !Array.isArray(trip.settlements)) return null;
+    const idx = trip.settlements.findIndex((s) => s && s.id === settlementId);
+    if (idx < 0) return null;
+    const prev = trip.settlements[idx];
+    const next = {
+      ...prev,
+      ...patch,
+      id: prev.id,
+      tripId: prev.tripId,
+      updatedAt: new Date().toISOString(),
+    };
+    if (patch.from !== undefined) next.from = String(patch.from ?? '').trim();
+    if (patch.to !== undefined) next.to = String(patch.to ?? '').trim();
+    if (patch.amount !== undefined) next.amount = Number(patch.amount);
+    if (patch.hkdAmount !== undefined) next.hkdAmount = Number(patch.hkdAmount);
+    if (patch.note !== undefined) next.note = patch.note == null ? '' : String(patch.note);
+    trip.settlements[idx] = next;
+    this.saveTripsData(tripsData);
+    return next;
+  },
+
+  /**
+   * Remove one settlement by id. Leaves `[]` only after an explicit delete emptied it.
+   * @returns {boolean}
+   */
+  removeSettlement(tripId, settlementId) {
+    const tripsData = this.loadTripsData();
+    const trip = tripsData.trips.find((t) => t.id === tripId);
+    if (!trip || !Array.isArray(trip.settlements)) return false;
+    const next = trip.settlements.filter((s) => s && s.id !== settlementId);
+    if (next.length === trip.settlements.length) return false;
+    trip.settlements = next;
+    this.saveTripsData(tripsData);
+    return true;
+  },
+
   // ── People ─────────────────────────────────────────
   loadPeople() {
     const saved = readLogical(KEYS.PEOPLE);
@@ -590,11 +670,21 @@ const DataService = {
     const tripsData = this.loadTripsData();
     for (const trip of tripsData.trips) {
       const list = trip.settings?.people;
-      if (!Array.isArray(list) || !list.some((p) => p === oldName)) continue;
-      trip.settings = {
-        ...trip.settings,
-        people: list.map((p) => (p === oldName ? newName : p)),
-      };
+      if (Array.isArray(list) && list.some((p) => p === oldName)) {
+        trip.settings = {
+          ...trip.settings,
+          people: list.map((p) => (p === oldName ? newName : p)),
+        };
+      }
+      // Settlements live on the trip blob; rename from/to even when people list already matched.
+      if (Array.isArray(trip.settlements) && trip.settlements.length > 0) {
+        trip.settlements = trip.settlements.map((s) => {
+          let next = s;
+          if (s?.from === oldName) next = { ...next, from: newName };
+          if (s?.to === oldName) next = { ...next, to: newName };
+          return next;
+        });
+      }
     }
     this.saveTripsData(tripsData);
   },
@@ -618,6 +708,7 @@ const DataService = {
 
   removePersonAndReassignAll(deletedName, reassignTo) {
     const tripsData = this.loadTripsData();
+    let droppedSettlements = 0;
     const mapExp = (e) => {
       let next = { ...e };
       if (next.assignedTo === deletedName) next.assignedTo = reassignTo;
@@ -634,12 +725,26 @@ const DataService = {
         trip.settings = { ...trip.settings, people: pl.filter((p) => p !== deletedName) };
       }
       trip.expenses = (trip.expenses || []).map(mapExp);
+      if (Array.isArray(trip.settlements) && trip.settlements.length > 0) {
+        const kept = [];
+        for (const s of trip.settlements) {
+          const from = s?.from === deletedName ? reassignTo : s?.from;
+          const to = s?.to === deletedName ? reassignTo : s?.to;
+          if (from === to) {
+            droppedSettlements += 1;
+            continue;
+          }
+          kept.push(from === s.from && to === s.to ? s : { ...s, from, to });
+        }
+        trip.settlements = kept;
+      }
     }
     this.saveTripsData(tripsData);
     const cur = this.getCurrentTrip(tripsData);
     if (cur?.expenses) {
       this.saveExpenses(cur.expenses);
     }
+    return { droppedSettlements };
   },
 
   /**

@@ -182,3 +182,67 @@ describe('mergeRemoteWithLocalStorage', () => {
     expect(read(storage, keys.undo).entries[0].addedId).toBe(10);
   });
 });
+
+
+describe('settlements survive mergeRemoteWithLocalStorage', () => {
+  it('remote-applied keeps settlements on the trip blob', () => {
+    const storage = memoryStorage();
+    const keys = locKeys();
+    put(storage, keys.trips, tripsBlob([oldRec], OLDER));
+    put(storage, keys.expenses, [oldRec]);
+    put(storage, keys.expensesAt, OLDER);
+    put(storage, keys.localAt, OLDER);
+
+    const remoteTrips = {
+      currentTripId: TRIP,
+      updatedAt: NEWER,
+      trips: [{
+        id: TRIP,
+        expenses: [oldRec],
+        settlements: [{ id: 'stl-r', from: 'A', to: 'B', hkdAmount: 12 }],
+      }],
+    };
+    const result = mergeRemoteWithLocalStorage(storage, USER, {
+      trips_data: remoteTrips,
+      updated_at: NEWER,
+      app_settings: {},
+      people_list: [],
+    }, NOW);
+
+    expect(result.source).toBe('remote');
+    expect(read(storage, keys.trips).trips[0].settlements).toEqual([
+      { id: 'stl-r', from: 'A', to: 'B', hkdAmount: 12 },
+    ]);
+  });
+
+  it('local-kept rebuild spreads trip fields so settlements remain', () => {
+    const storage = memoryStorage();
+    const keys = locKeys();
+    const localTrips = {
+      currentTripId: TRIP,
+      updatedAt: NEWER,
+      trips: [{
+        id: TRIP,
+        expenses: [replaced],
+        settlements: [{ id: 'stl-local', from: 'A', to: 'B', hkdAmount: 3 }],
+        settings: { people: ['共同'] },
+      }],
+    };
+    put(storage, keys.trips, localTrips);
+    put(storage, keys.expenses, [replaced]);
+    put(storage, keys.expensesAt, NEWER);
+    put(storage, keys.localAt, NEWER);
+
+    const result = mergeRemoteWithLocalStorage(storage, USER, {
+      trips_data: tripsBlob([oldRec], OLDER),
+      updated_at: ROW_CLOCK,
+      app_settings: {},
+      people_list: [],
+    }, NOW);
+
+    expect(result.source).toBe('local');
+    expect(read(storage, keys.trips).trips[0].settlements).toEqual([
+      { id: 'stl-local', from: 'A', to: 'B', hkdAmount: 3 },
+    ]);
+  });
+});

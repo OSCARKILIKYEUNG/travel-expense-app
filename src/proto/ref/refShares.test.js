@@ -66,8 +66,8 @@ describe('settlement allocation (brief a)', () => {
 
     const settled = settleUp(expensesA, peopleA, null);
     expect(settled.rows).toEqual([
-      { person: 'A', paid: 450, owed: 310, net: 140 },
-      { person: 'B', paid: 300, owed: 440, net: -140 },
+      { person: 'A', paid: 450, owed: 310, repaid: 0, received: 0, net: 140, remaining: 140 },
+      { person: 'B', paid: 300, owed: 440, repaid: 0, received: 0, net: -140, remaining: -140 },
     ]);
     expect(settled.transfers).toEqual([{ from: 'B', to: 'A', amount: 140 }]);
 
@@ -114,8 +114,8 @@ describe('settlement allocation (brief b)', () => {
 
     const settled = settleUp(expensesB, peopleB, null);
     expect(settled.rows).toEqual([
-      { person: '人物A', paid: 900, owed: 450, net: 450 },
-      { person: '1', paid: 80, owed: 530, net: -450 },
+      { person: '人物A', paid: 900, owed: 450, repaid: 0, received: 0, net: 450, remaining: 450 },
+      { person: '1', paid: 80, owed: 530, repaid: 0, received: 0, net: -450, remaining: -450 },
     ]);
     expect(settled.transfers).toEqual([{ from: '1', to: '人物A', amount: 450 }]);
 

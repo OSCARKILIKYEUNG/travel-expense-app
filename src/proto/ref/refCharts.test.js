@@ -15,6 +15,7 @@ import {
   todayVsAverage,
   topExpenses,
 } from './refCharts';
+import { ledgerTotalSummary } from './refLedgerTotal.js';
 
 const trip = createRefTrip(); // 2026-10-18 .. 2026-10-27, budget 15000
 
@@ -182,8 +183,8 @@ describe('settleUp & ledgerHash', () => {
   it('matches Tokyo settleUp oracle (Oscar paid 7953 owed 6316.5, 阿明 paid 3269 owed 4905.5, transfer 阿明 -> Oscar 1637)', () => {
     const res = settleUp(trip.expenses, trip.settings.people);
     expect(res.rows).toEqual([
-      { person: 'Oscar', paid: 7953, owed: 6316.5, net: 1636.5 },
-      { person: '阿明', paid: 3269, owed: 4905.5, net: -1636.5 },
+      { person: 'Oscar', paid: 7953, owed: 6316.5, repaid: 0, received: 0, net: 1636.5, remaining: 1636.5 },
+      { person: '阿明', paid: 3269, owed: 4905.5, repaid: 0, received: 0, net: -1636.5, remaining: -1636.5 },
     ]);
     expect(res.transfers).toEqual([{ from: '阿明', to: 'Oscar', amount: 1637 }]);
   });
@@ -197,9 +198,9 @@ describe('settleUp & ledgerHash', () => {
     ];
     const res = settleUp(expenses, people);
     expect(res.rows).toEqual([
-      { person: 'Oscar', paid: 450, owed: 100, net: 350 },
-      { person: '阿明', paid: 0, owed: 190, net: -190 },
-      { person: 'May', paid: 0, owed: 160, net: -160 },
+      { person: 'Oscar', paid: 450, owed: 100, repaid: 0, received: 0, net: 350, remaining: 350 },
+      { person: '阿明', paid: 0, owed: 190, repaid: 0, received: 0, net: -190, remaining: -190 },
+      { person: 'May', paid: 0, owed: 160, repaid: 0, received: 0, net: -160, remaining: -160 },
     ]);
     expect(res.transfers).toEqual([
       { from: '阿明', to: 'Oscar', amount: 190 },
@@ -330,8 +331,8 @@ describe('P4: Charts calculations on adapted legacySeed (toRefExpense / adaptTri
 
     const settled = settleUp(adaptedTrip.expenses, people);
     expect(settled.rows).toEqual([
-      { person: 'Oscar', paid: 3979, owed: 2989, net: 990 },
-      { person: '阿明', paid: 1418, owed: 2408, net: -990 },
+      { person: 'Oscar', paid: 3979, owed: 2989, repaid: 0, received: 0, net: 990, remaining: 990 },
+      { person: '阿明', paid: 1418, owed: 2408, repaid: 0, received: 0, net: -990, remaining: -990 },
     ]);
     expect(settled.transfers).toEqual([
       { from: '阿明', to: 'Oscar', amount: 990 },
@@ -341,5 +342,139 @@ describe('P4: Charts calculations on adapted legacySeed (toRefExpense / adaptTri
     expect(ledgerHash({ person: 'Oscar' })).toBe('ledger&person=Oscar');
     expect(ledgerHash({ payer: 'Oscar' })).toBe('ledger&payer=Oscar');
     expect(ledgerHash({ person: 'Oscar' })).not.toBe(ledgerHash({ payer: 'Oscar' }));
+  });
+});
+
+
+describe('settleUp repayments (已還錢)', () => {
+  const people = ['共同', 'Oscar', '阿明'];
+  const expenses = [
+    { id: 'e1', hkdAmount: 1000, payer: 'Oscar', assignedTo: '共同' },
+  ];
+  // Without settlements: Oscar paid 1000 owed 500 net +500; 阿明 paid 0 owed 500 net -500
+
+  it('full repay clears nets and transfers', () => {
+    const settlements = [{ id: 's1', from: '阿明', to: 'Oscar', hkdAmount: 500 }];
+    const res = settleUp(expenses, people, null, settlements);
+    expect(res.rows).toEqual([
+      { person: 'Oscar', paid: 1000, owed: 500, repaid: 0, received: 500, net: 0, remaining: 0 },
+      { person: '阿明', paid: 0, owed: 500, repaid: 500, received: 0, net: 0, remaining: 0 },
+    ]);
+    expect(res.transfers).toEqual([]);
+  });
+
+  it('partial repay reduces remaining and recomputes transfer', () => {
+    const settlements = [{ id: 's1', from: '阿明', to: 'Oscar', hkdAmount: 200 }];
+    const res = settleUp(expenses, people, null, settlements);
+    expect(res.rows).toEqual([
+      { person: 'Oscar', paid: 1000, owed: 500, repaid: 0, received: 200, net: 300, remaining: 300 },
+      { person: '阿明', paid: 0, owed: 500, repaid: 200, received: 0, net: -300, remaining: -300 },
+    ]);
+    expect(res.transfers).toEqual([{ from: '阿明', to: 'Oscar', amount: 300 }]);
+  });
+
+  it('over-repay flips net and reverses transfer direction', () => {
+    const settlements = [{ id: 's1', from: '阿明', to: 'Oscar', hkdAmount: 800 }];
+    const res = settleUp(expenses, people, null, settlements);
+    expect(res.rows).toEqual([
+      { person: 'Oscar', paid: 1000, owed: 500, repaid: 0, received: 800, net: -300, remaining: -300 },
+      { person: '阿明', paid: 0, owed: 500, repaid: 800, received: 0, net: 300, remaining: 300 },
+    ]);
+    expect(res.transfers).toEqual([{ from: 'Oscar', to: '阿明', amount: 300 }]);
+  });
+
+  it('ignores settlements whose from/to are not participants', () => {
+    const settlements = [
+      { id: 's1', from: 'Ghost', to: 'Oscar', hkdAmount: 500 },
+      { id: 's2', from: '阿明', to: 'Ghost', hkdAmount: 500 },
+      { id: 's3', from: '阿明', to: 'Oscar', hkdAmount: 100 },
+    ];
+    const res = settleUp(expenses, people, null, settlements);
+    expect(res.rows.find((r) => r.person === 'Oscar')).toMatchObject({
+      received: 100,
+      repaid: 0,
+      net: 400,
+    });
+    expect(res.rows.find((r) => r.person === '阿明')).toMatchObject({
+      repaid: 100,
+      received: 0,
+      net: -400,
+    });
+    expect(res.transfers).toEqual([{ from: '阿明', to: 'Oscar', amount: 400 }]);
+  });
+
+  it('one-person trip ignores settlements (same as expense-only)', () => {
+    const soloPeople = ['共同', 'Oscar'];
+    const settlements = [{ id: 's1', from: 'Oscar', to: 'Oscar', hkdAmount: 999 }];
+    const withStl = settleUp(expenses, soloPeople, null, settlements);
+    const without = settleUp(expenses, soloPeople, null, []);
+    expect(withStl).toEqual(without);
+    expect(withStl.rows).toEqual([
+      { person: 'Oscar', paid: 1000, owed: 1000, repaid: 0, received: 0, net: 0, remaining: 0 },
+    ]);
+    expect(withStl.transfers).toEqual([]);
+  });
+
+  it('defaults settlements to [] so legacy callers keep expense-only nets', () => {
+    const res = settleUp(expenses, people);
+    expect(res.rows.every((r) => r.repaid === 0 && r.received === 0 && r.remaining === r.net)).toBe(true);
+  });
+});
+
+describe('settlements excluded from spend charts / ledger / scan inputs', () => {
+  it('fixture with settlements matches expense-only totals, category, top-5, day stacks, ledger total, scan count', () => {
+    const base = createRefTrip();
+    const settlements = [
+      {
+        id: 'stl-1',
+        tripId: base.id,
+        from: '阿明',
+        to: 'Oscar',
+        amount: 500,
+        currency: 'HKD',
+        hkdAmount: 500,
+        rate: 1,
+        date: '2026-10-22',
+        note: '',
+        createdAt: '2026-10-22T00:00:00.000Z',
+        updatedAt: '2026-10-22T00:00:00.000Z',
+      },
+    ];
+    const withStl = { ...base, settlements };
+    const expenses = base.expenses;
+
+    expect(categorySplit(withStl.expenses)).toEqual(categorySplit(expenses));
+    expect(paymentSplit(withStl.expenses)).toEqual(paymentSplit(expenses));
+    expect(topExpenses(withStl.expenses, 5).map((e) => e.id)).toEqual(
+      topExpenses(expenses, 5).map((e) => e.id),
+    );
+    expect(dailyStacks(withStl.expenses, withStl, REF_TODAY)).toEqual(
+      dailyStacks(expenses, base, REF_TODAY),
+    );
+    expect(
+      remainingPerDay({
+        budget: 15000,
+        expenses: withStl.expenses,
+        startDate: withStl.startDate,
+        endDate: withStl.endDate,
+        today: REF_TODAY,
+      }),
+    ).toEqual(
+      remainingPerDay({
+        budget: 15000,
+        expenses,
+        startDate: base.startDate,
+        endDate: base.endDate,
+        today: REF_TODAY,
+      }),
+    );
+
+    expect(ledgerTotalSummary({ shown: withStl.expenses, all: withStl.expenses, budget: 15000 })).toEqual(
+      ledgerTotalSummary({ shown: expenses, all: expenses, budget: 15000 }),
+    );
+    // Scan / spend counts stay on expenses; settlements are a parallel array.
+    expect(withStl.expenses.length).toBe(expenses.length);
+    expect(withStl.settlements).toHaveLength(1);
+    expect(withStl.expenses.some((e) => e.id === 'stl-1')).toBe(false);
   });
 });

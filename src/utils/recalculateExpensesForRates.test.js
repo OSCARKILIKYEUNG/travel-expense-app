@@ -30,3 +30,18 @@ describe('recalculateExpensesForRates', () => {
     expect(changed).toBe(false);
   });
 });
+
+  it('does not accept or mutate settlements (rate refresh is expenses-only)', () => {
+    const rates = { JPY: 25 };
+    const expenses = [
+      { id: 1, currency: 'JPY', originalAmount: 2000, hkdAmount: 100, rate: 20 },
+    ];
+    const settlements = [
+      { id: 'stl-1', currency: 'JPY', amount: 2000, hkdAmount: 100, rate: 20 },
+    ];
+    const snapshot = structuredClone(settlements);
+    const { changed, expenses: out } = recalculateExpensesForRates(expenses, rates);
+    expect(changed).toBe(true);
+    expect(out[0].hkdAmount).toBe(80);
+    expect(settlements).toEqual(snapshot);
+  });
