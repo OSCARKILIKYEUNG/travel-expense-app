@@ -6,15 +6,47 @@ import { runToastSlide } from '../../motion/stickerKeyframes';
 import { DURATION_MS, EASING } from '../../motion/tokens';
 import { getPrefersReducedMotion } from '../../motion/usePrefersReducedMotion';
 import { palette } from '../../theme/tokens';
+import {
+  Bunting,
+  CategorySticker,
+  DOODLES,
+  Doodle,
+  DoodleSticker,
+  RibbonBanner,
+  STICKER_DOODLE_MAP,
+  ScriptCallout,
+  SunburstRays,
+} from './doodles';
 import { STICKERS } from './mockRefTrip';
+
+export {
+  Bunting,
+  CategorySticker,
+  DOODLES,
+  Doodle,
+  DoodleSticker,
+  RibbonBanner,
+  STICKER_DOODLE_MAP,
+  ScriptCallout,
+  SunburstRays,
+};
 
 /** Visual stationery helpers for ?proto=ref. Uses theme tokens only (no hex literals). */
 
 export const paperDots = {
   backgroundColor: palette.cream,
-  backgroundImage: `radial-gradient(${palette.beige} 0.75px, transparent 0.95px)`,
-  backgroundSize: '5px 5px',
+  backgroundImage: [
+    'radial-gradient(circle 180px at -20px 40px, rgb(var(--c-coral-soft) / 0.85) 0%, rgb(var(--c-coral-soft) / 0.85) 55%, transparent 72%)',
+    'radial-gradient(ellipse 210px 160px at calc(100% + 24px) 110px, rgb(var(--c-teal-soft) / 0.85) 0%, rgb(var(--c-teal-soft) / 0.85) 58%, transparent 75%)',
+    'radial-gradient(circle 190px at -30px calc(100% - 140px), rgb(var(--c-sage-soft) / 0.8) 0%, rgb(var(--c-sage-soft) / 0.8) 52%, transparent 70%)',
+    'radial-gradient(ellipse 220px 150px at calc(100% + 20px) calc(100% - 60px), rgb(var(--c-sand-soft) / 0.85) 0%, rgb(var(--c-sand-soft) / 0.85) 55%, transparent 72%)',
+    `radial-gradient(${palette.beige} 0.75px, transparent 0.95px)`,
+  ].join(', '),
+  backgroundSize: '100% 100%, 100% 100%, 100% 100%, 100% 100%, 5px 5px',
+  backgroundRepeat: 'no-repeat, no-repeat, no-repeat, no-repeat, repeat',
 };
+
+export const paperCanvas = paperDots;
 
 export const cardDots = {
   backgroundColor: palette['cream-soft'],
@@ -77,11 +109,35 @@ export function RoundStamp({ top, bottom, className = '' }) {
       aria-hidden="true"
       className={`pointer-events-none relative flex h-[72px] w-[72px] shrink-0 rotate-6 flex-col items-center justify-center rounded-full border-2 border-dashed border-coral-ink/75 bg-coral-soft/45 px-1 text-center shadow-sm ${className}`}
     >
-      <span className="pointer-events-none absolute inset-1 rounded-full border border-coral-ink/40" />
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 72 72"
+        fill="none"
+        className="pointer-events-none absolute inset-0 h-full w-full text-coral-ink"
+      >
+        <circle
+          cx="36"
+          cy="36"
+          r="30.5"
+          stroke="currentColor"
+          strokeOpacity="0.55"
+          strokeWidth="1.2"
+          strokeDasharray="18 3 8 2"
+        />
+        <circle
+          cx="36"
+          cy="36"
+          r="27.5"
+          stroke="currentColor"
+          strokeOpacity="0.3"
+          strokeWidth="0.9"
+        />
+      </svg>
       <span className="relative whitespace-nowrap font-script text-[14px] font-bold leading-tight text-coral-ink">
         {top}
       </span>
-      <span className="relative my-0.5 h-px w-10 bg-coral-ink/45" />
+      <span className="relative my-0.5 h-px w-11 bg-coral-ink/55" />
       <span className="relative whitespace-nowrap font-script text-meta font-bold leading-none text-coral-ink">
         {bottom}
       </span>
@@ -93,10 +149,34 @@ export function DayStamp({ top, bottom, className = '' }) {
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none flex h-20 w-20 shrink-0 -rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-double border-coral-ink bg-coral-soft text-coral-ink ${className}`}
+      className={`pointer-events-none relative flex h-20 w-20 shrink-0 -rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-double border-coral-ink bg-coral-soft text-coral-ink ${className}`}
     >
-      <span className="whitespace-nowrap font-script text-2xl leading-none">{top}</span>
-      <span className="whitespace-nowrap font-script text-sm leading-none">{bottom}</span>
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 80 80"
+        fill="none"
+        className="pointer-events-none absolute inset-0 h-full w-full text-coral-ink"
+      >
+        <circle
+          cx="40"
+          cy="40"
+          r="32.5"
+          stroke="currentColor"
+          strokeOpacity="0.55"
+          strokeWidth="1.25"
+          strokeDasharray="16 3 7 2"
+        />
+        <path
+          d="M14 27 H66 M14 55 H66"
+          stroke="currentColor"
+          strokeOpacity="0.32"
+          strokeWidth="1"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="relative whitespace-nowrap font-script text-2xl leading-none">{top}</span>
+      <span className="relative whitespace-nowrap font-script text-sm leading-none">{bottom}</span>
     </div>
   );
 }
@@ -163,8 +243,27 @@ export function Sparkle({ className = 'h-3.5 w-3.5' }) {
 
 const EMOJI_BY_ID = Object.fromEntries(STICKERS.map((s) => [s.id, s.emoji]));
 
-export function StickerGraphic({ id, className = 'text-sm leading-none' }) {
-  const glyph = EMOJI_BY_ID[id];
+export function StickerGraphic({ id, size, blob, className = 'text-sm leading-none' }) {
+  if (!id) return null;
+  const mapped = STICKER_DOODLE_MAP[id];
+  if (mapped) {
+    const inferredSize =
+      size ||
+      (className.includes('text-lg') || className.includes('text-xl') ? 'md' : 'sm');
+    const cleanClass = className
+      .replace(/\btext-(?:xs|sm|base|lg|xl|2xl)\b/g, '')
+      .replace(/\bleading-none\b/g, '')
+      .trim();
+    return (
+      <Doodle
+        name={mapped.name}
+        size={inferredSize}
+        blob={blob !== undefined ? blob : mapped.blob}
+        className={`text-ink ${cleanClass}`.trim()}
+      />
+    );
+  }
+  const glyph = EMOJI_BY_ID[id] || (typeof id === 'string' ? id : '');
   if (!glyph) return null;
   return (
     <span aria-hidden="true" className={`select-none ${className}`}>

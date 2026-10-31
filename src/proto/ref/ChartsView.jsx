@@ -4,7 +4,16 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { expenseDateKey } from '../../utils/date';
 import { REF_CATEGORIES } from './mockRefTrip';
-import { CATEGORY_DOT, Icon, Sparkle, Tape } from './parts';
+import {
+  CATEGORY_DOT,
+  CategorySticker,
+  DoodleSticker,
+  Icon,
+  ScriptCallout,
+  Sparkle,
+  Tape,
+  cardDots,
+} from './parts';
 import { fmtHKD, groupLedger } from './refLogic';
 import {
   assigneeSplit,
@@ -341,9 +350,12 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const categorySection = (
     <section key="category" data-section="category" className="paper-panel relative space-y-3 p-4">
       <Tape tone="coral" className="-top-2 right-6 z-10 h-4 w-16 rotate-1" />
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">
-        {t('notebook.charts.categoryTitle')}
-      </h2>
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+          {t('notebook.charts.categoryTitle')}
+        </h2>
+        <ScriptCallout text="Oishii!" className="rotate-2 text-coral-ink" />
+      </div>
 
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
         <div className="relative flex shrink-0 items-center justify-center">
@@ -412,7 +424,11 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                 className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
                 <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap text-meta font-bold text-ink">
-                  <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotTone}`} />
+                  <CategorySticker
+                    category={row.cat}
+                    size="sm"
+                    dotClassName={`h-2.5 w-2.5 ${dotTone}`}
+                  />
                   <span className="min-w-0 truncate">
                     {displayCategory(row.cat)} · {t('notebook.charts.itemsCount', { count: row.count })}
                   </span>
@@ -444,9 +460,22 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
       </div>
 
       {daily.rows.length === 0 ? (
-        <p className="min-w-0 truncate whitespace-nowrap py-2 text-meta text-ink-muted">
-          {t('notebook.charts.dailyNotStarted')}
-        </p>
+        <div
+          data-testid="charts-daily-empty"
+          className="space-y-1.5 rounded-2xl border border-dashed border-line px-3 py-4 text-center"
+          style={cardDots}
+        >
+          <DoodleSticker name="plane" secondary="sparkle" blob="teal" size="xl" />
+          <div>
+            <ScriptCallout text="Let's go!!" className="-rotate-2 text-teal-strong" />
+            <p className="mt-1 font-display text-sm text-ink">
+              {t('notebook.charts.dailyNotStarted')}
+            </p>
+            <p className="mt-0.5 text-meta text-ink-muted">
+              {t('notebook.empty.chartsPreTripHint')}
+            </p>
+          </div>
+        </div>
       ) : (
         <div className="space-y-2">
           {daily.rows.map((row) => {

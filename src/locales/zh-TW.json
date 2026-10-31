@@ -648,6 +648,18 @@
       "payerChip": "邊個俾錢：{{name}} ✕",
       "clearPayerAria": "清除邊個俾錢篩選"
     },
+    "empty": {
+      "ledgerFilteredTitle": "找不到符合條件的消費記錄",
+      "ledgerFilteredHint": "試試放寬搜尋關鍵字或清除篩選條件。",
+      "clearFilters": "清除篩選",
+      "ledgerEmptyTitle": "手帳還是空白的一頁",
+      "ledgerEmptyHint": "拍下第一張收據，或手動記下旅途的第一筆花費吧！",
+      "itineraryTitle": "這天尚未安排行程",
+      "itineraryHint": "點選「✎ 編輯」寫下你想去的景點與小店。",
+      "dayExpensesTitle": "這天還沒有消費記錄",
+      "dayExpensesHint": "點選上方「＋」或掃描收據，記下今天的旅途點滴。",
+      "chartsPreTripHint": "出發後記下第一筆花費，這裡就會呈現每日花費趨勢。"
+    },
     "sync": {
       "saveFailed": "未能同步到雲端，變更已保存在此裝置。",
       "loadFailed": "未能從雲端載入最新資料，正在顯示此裝置的資料。",

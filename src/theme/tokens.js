@@ -20,6 +20,10 @@ export const palette = {
   sakura: '#F2B8C3',
   'sakura-ink': '#95425A',
   'sakura-soft': '#FCEBEF',
+  'sage-soft': '#E4EFE9',
+  'sage-ink': '#355E4B',
+  'sand-soft': '#EFE6D5',
+  ribbon: '#F4C542',
 };
 
 export const categoryPalette = {
@@ -54,7 +58,7 @@ export const chartTheme = {
 
 export const fonts = {
   display: ['Huninn', '"Noto Sans TC"', 'sans-serif'],
-  script: ['Caveat', 'cursive'],
+  script: ['Caveat', 'Huninn', '"Noto Sans TC"', 'cursive'],
   sans: [
     '-apple-system',
     'BlinkMacSystemFont',

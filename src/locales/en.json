@@ -648,6 +648,18 @@
       "payerChip": "Paid by: {{name}} ✕",
       "clearPayerAria": "Clear paid-by filter"
     },
+    "empty": {
+      "ledgerFilteredTitle": "No matching expenses found",
+      "ledgerFilteredHint": "Try another keyword or clear your filters.",
+      "clearFilters": "Clear filters",
+      "ledgerEmptyTitle": "Your notebook page is still blank",
+      "ledgerEmptyHint": "Snap your first receipt or add an expense to start the story!",
+      "itineraryTitle": "No itinerary planned for this day",
+      "itineraryHint": "Tap “✎ Edit” to jot down places to visit.",
+      "dayExpensesTitle": "No expenses recorded for this day",
+      "dayExpensesHint": "Tap “+” or scan a receipt to log today's moments.",
+      "chartsPreTripHint": "Once your trip begins and expenses are logged, daily trends will appear here."
+    },
     "sync": {
       "saveFailed": "Couldn't sync to the cloud. Your changes are saved on this device.",
       "loadFailed": "Couldn't load the latest cloud data. Showing this device's copy.",

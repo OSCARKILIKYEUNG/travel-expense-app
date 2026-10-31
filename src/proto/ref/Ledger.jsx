@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { REF_CATEGORIES } from './mockRefTrip';
-import { Icon, Sparkle, mustardStripe } from './parts';
+import { DoodleSticker, Icon, ScriptCallout, Sparkle, cardDots, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
 import { settleUp } from './refCharts';
@@ -160,6 +160,7 @@ export default function Ledger({
           <Sparkle className="absolute -left-1 top-1 h-3.5 w-3.5" />
           <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">帳本</h1>
           <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Ledger</span>
+          <ScriptCallout text="Oishii!" className="ml-1 -rotate-3 text-coral-ink" />
         </div>
 
         {nonSharedPeople.length >= 2 && (
@@ -415,17 +416,45 @@ export default function Ledger({
           </section>
         ))}
         {displayGroups.length === 0 && (
-          <div className="space-y-3 py-8 text-center">
-            <p className="whitespace-nowrap text-sm text-ink-muted">沒有符合的消費。</p>
-            {hasAnyFilter && (
-              <button
-                type="button"
-                data-testid="ledger-clear-empty"
-                onClick={clearAllFilters}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-4 py-2 text-meta font-bold text-teal-strong shadow-sm hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-              >
-                清除篩選
-              </button>
+          <div
+            data-testid="ledger-empty-state"
+            className="space-y-2.5 rounded-card border border-dashed border-line px-4 py-6 text-center shadow-sm"
+            style={cardDots}
+          >
+            {hasAnyFilter ? (
+              <>
+                <DoodleSticker name="sushi" secondary="camera" blob="coral" size="xl" />
+                <div>
+                  <ScriptCallout text="Hmm… nothing here!" className="-rotate-2 text-coral-ink" />
+                  <p className="mt-1 font-display text-base text-ink">
+                    {t('notebook.empty.ledgerFilteredTitle')}
+                  </p>
+                  <p className="mt-0.5 text-meta text-ink-muted">
+                    {t('notebook.empty.ledgerFilteredHint')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-testid="ledger-clear-empty"
+                  onClick={clearAllFilters}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-4 py-2 text-meta font-bold text-teal-strong shadow-sm hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  {t('notebook.empty.clearFilters')}
+                </button>
+              </>
+            ) : (
+              <>
+                <DoodleSticker name="plane" secondary="suitcase" blob="teal" size="xl" />
+                <div>
+                  <ScriptCallout text="Let's go!!" className="-rotate-2 text-teal-strong" />
+                  <p className="mt-1 font-display text-base text-ink">
+                    {t('notebook.empty.ledgerEmptyTitle')}
+                  </p>
+                  <p className="mt-0.5 text-meta text-ink-muted">
+                    {t('notebook.empty.ledgerEmptyHint')}
+                  </p>
+                </div>
+              </>
             )}
           </div>
         )}

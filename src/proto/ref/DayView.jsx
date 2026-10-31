@@ -1,8 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import '../../i18n';
 import { isStickerTarget } from '../../motion/stickerKeyframes';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS } from './mockRefTrip';
-import { DayStamp, Icon, Sakura, Sparkle, StickerGraphic, Tape, bannerStripe, cardDots } from './parts';
+import {
+  DayStamp,
+  DoodleSticker,
+  Icon,
+  STICKER_DOODLE_MAP,
+  Sakura,
+  ScriptCallout,
+  Sparkle,
+  StickerGraphic,
+  Tape,
+  bannerStripe,
+  cardDots,
+} from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import { dayExpenses, dayStats, dayStrip, fmtHKD, matchesPerson, personCounts } from './refLogic';
 import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
@@ -10,7 +24,7 @@ import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
 const PANES = ['itinerary', 'expenses'];
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const hasSticker = (id) => STICKERS.some((s) => s.id === id);
+const hasSticker = (id) => Boolean(id && (STICKERS.some((s) => s.id === id) || STICKER_DOODLE_MAP[id]));
 
 function usePager(index, setIndex) {
   const track = useRef(null);
@@ -280,6 +294,7 @@ function DayStrip({ text, nav, onDay }) {
 }
 
 function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan, onAdd }) {
+  const { t } = useTranslation();
   const stampTop = dayN ? `Day ${dayN}` : `${m}/${d}`;
   const stampBottom = `${MONTH_EN[m - 1]} ${d}`;
   const hasEmoji = day.sticker && hasSticker(day.sticker);
@@ -329,7 +344,18 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
             </li>
           ))}
           {orderedStops.length === 0 && (
-            <li className="whitespace-nowrap text-sm text-ink-muted">未有行程，按 ✎編輯 加入。</li>
+            <li data-testid="day-itinerary-empty" className="space-y-1.5 py-3 text-center">
+              <DoodleSticker name="torii" secondary="fuji" blob="mustard" size="xl" />
+              <div>
+                <ScriptCallout text="Let's go!!" className="-rotate-2 text-mustard-ink" />
+                <p className="mt-1 font-display text-sm text-ink">
+                  {t('notebook.empty.itineraryTitle')}
+                </p>
+                <p className="mt-0.5 text-meta text-ink-muted">
+                  {t('notebook.empty.itineraryHint')}
+                </p>
+              </div>
+            </li>
           )}
         </ul>
       </div>
@@ -674,6 +700,7 @@ function DayExpenses({
   onEdit,
   onDelete,
 }) {
+  const { t } = useTranslation();
   const [person, setPerson] = useState('全部');
   const people = trip.settings?.people || ['共同'];
   const list = useMemo(() => dayExpenses(trip.expenses, iso), [trip.expenses, iso]);
@@ -741,9 +768,25 @@ function DayExpenses({
         ))}
         {shown.length === 0 &&
           (inTrip ? (
-            <p className="py-6 text-center text-sm text-ink-muted">這日未有消費，按 ＋ 記一筆。</p>
+            <div
+              data-testid="day-expenses-empty"
+              className="space-y-2 rounded-card border border-dashed border-line px-4 py-5 text-center shadow-sm"
+              style={cardDots}
+            >
+              <DoodleSticker name="ramen" secondary="camera" blob="sakura" size="xl" />
+              <div>
+                <ScriptCallout text="Oishii!" className="-rotate-2 text-sakura-ink" />
+                <p className="mt-1 font-display text-sm text-ink">
+                  {t('notebook.empty.dayExpensesTitle')}
+                </p>
+                <p className="mt-0.5 text-meta text-ink-muted">
+                  {t('notebook.empty.dayExpensesHint')}
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="space-y-2.5 rounded-2xl border border-dashed border-line bg-cream-soft p-4 text-center">
+              <DoodleSticker name="suitcase" blob="sand" size="lg" />
               <p className="whitespace-nowrap text-sm text-ink-muted">旅程外 · 這日未有消費</p>
               <button
                 type="button"

@@ -4,12 +4,18 @@ import '../../i18n';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, monthGridSunday } from './mockRefTrip';
 import {
+  Bunting,
+  Doodle,
   HandRing,
   Icon,
+  RibbonBanner,
   RoundStamp,
+  STICKER_DOODLE_MAP,
   Sakura,
+  ScriptCallout,
   Sparkle,
   StickerGraphic,
+  SunburstRays,
   Tape,
   airmail,
   cardDots,
@@ -19,7 +25,7 @@ import {
 import { dayStats, fmtHKD, fmtJPY, shortenTitle } from './refLogic';
 import { expenseDateKey } from '../../utils/date';
 
-const hasSticker = (id) => STICKERS.some((s) => s.id === id);
+const hasSticker = (id) => Boolean(id && (STICKERS.some((s) => s.id === id) || STICKER_DOODLE_MAP[id]));
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAY_KEYS = [
   'notebook.home.weekdays.sun',
@@ -64,16 +70,36 @@ export default function Home({
       <section data-testid="summary" className="relative rounded-card p-[5px] shadow-sm" style={airmail}>
         <Tape tone="coral" className="-top-2.5 left-1/2 z-20 h-5 w-28 -translate-x-1/2 -rotate-2" />
         <div className="relative overflow-hidden rounded-[20px] border border-line bg-cream-soft">
-          <div className="relative p-4">
-            <Sparkle className="absolute right-24 top-3 h-3.5 w-3.5 opacity-75" />
+          {/* Pastel triangle bunting garland at top inner edge */}
+          <Bunting className="h-3.5 w-full opacity-90" />
+
+          {/* Corner Mt. Fuji + Sakura sticker doodle */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-1.5 right-2.5 flex items-end gap-0.5 opacity-80"
+          >
+            <Doodle name="sakura" size="sm" className="-rotate-12 text-ink" />
+            <Doodle name="fuji" size="lg" blob="teal" className="text-ink" />
+          </div>
+
+          <div className="relative px-4 pb-3.5 pt-2">
+            <Sparkle className="absolute right-24 top-2 h-3.5 w-3.5 opacity-75" />
             <div className="flex min-w-0 items-start justify-between gap-2">
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="whitespace-nowrap text-meta font-medium tracking-[0.06em] text-ink-muted">
-                  {trip.name} · {sm}/{sd}–{em}/{ed}
-                </p>
+                <div className="flex min-w-0 flex-col items-start">
+                  <div className="flex items-center gap-1.5 pl-2">
+                    <SunburstRays className="h-3.5 w-16 text-ink" />
+                    <ScriptCallout text="welcome!!" className="-rotate-3 text-coral-ink" />
+                  </div>
+                  <RibbonBanner className="-mt-0.5">
+                    <p className="truncate whitespace-nowrap text-meta font-bold tracking-[0.04em] text-ink">
+                      {trip.name} · {sm}/{sd}–{em}/{ed}
+                    </p>
+                  </RibbonBanner>
+                </div>
                 <h2
                   data-testid="trip-total"
-                  className="whitespace-nowrap font-display text-[26px] leading-[1.1] text-ink"
+                  className="whitespace-nowrap pt-0.5 font-display text-[26px] leading-[1.1] text-ink"
                 >
                   {fmtHKD(total)}
                 </h2>
@@ -195,7 +221,17 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
       <Tape tone="teal" className="-top-2 right-8 h-4 w-20 rotate-1 opacity-85" />
-      <Sakura className="absolute -bottom-2 -right-2 h-8 w-8 opacity-60" />
+      <ScriptCallout
+        text="Let's go!!"
+        className="absolute -top-2.5 left-4 rotate-[-4deg] rounded-pill bg-cream-soft/90 px-1.5 text-teal-strong"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-1.5 -right-1 flex items-center gap-0.5 opacity-75"
+      >
+        <Doodle name="fuji" size="sm" className="text-ink" />
+        <Sakura className="h-7 w-7" />
+      </div>
 
       <div className="mb-2.5 flex min-w-0 items-center justify-between gap-1.5">
         <button

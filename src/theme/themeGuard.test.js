@@ -12,7 +12,16 @@ const TINY_TEXT = /text-\[(?:[0-9]|1[01])px\]/;
 const TINY_FONT = /fontSize="(?:[0-9]|1[01])(?!\d)/;
 const HEX = /#[0-9a-fA-F]{3,8}\b/;
 
-const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-muted', 'teal-strong', 'coral-ink', 'mustard-ink', 'sakura-ink'];
+const TEXT_TOKENS = [
+  'ink',
+  'ink-soft',
+  'ink-muted',
+  'teal-strong',
+  'coral-ink',
+  'mustard-ink',
+  'sakura-ink',
+  'sage-ink',
+];
 
 function walk(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -103,6 +112,7 @@ describe('theme guard', () => {
     const pairs = [
       ['ink', 'beige'], ['ink-muted', 'beige'], ['teal-strong', 'teal-soft'], ['coral-ink', 'coral-soft'],
       ['mustard-ink', 'mustard-soft'], ['sakura-ink', 'sakura-soft'], ['ink', 'mustard'],
+      ['sage-ink', 'sage-soft'], ['ink-soft', 'sand-soft'], ['ink-muted', 'sand-soft'], ['ink', 'ribbon'],
     ];
     for (const [fg, bg] of pairs) {
       expect(contrast(palette[fg], palette[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);

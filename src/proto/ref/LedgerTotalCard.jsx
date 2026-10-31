@@ -1,4 +1,5 @@
 import { palette } from '../../theme/tokens';
+import { Doodle } from './doodles';
 import { splitHKD } from './refLedgerTotal';
 
 function formatSubLine(jpy, count) {
@@ -96,9 +97,9 @@ export default function LedgerTotalCard({ summary, tripName }) {
         {/* Top-left rotated airplane sticker */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-3 flex h-9 w-9 rotate-12 select-none items-center justify-center rounded-full border border-teal/30 bg-teal-soft text-base leading-none shadow-sm"
+          className="pointer-events-none absolute left-3 top-3 flex h-9 w-9 rotate-12 select-none items-center justify-center rounded-full border border-teal/30 bg-teal-soft text-ink shadow-sm"
         >
-          ✈️
+          <Doodle name="plane" size="md" />
         </span>
 
         {/* Top-right filtered rubber stamp */}

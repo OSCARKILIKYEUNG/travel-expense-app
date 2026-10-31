@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { runStickerPop } from '../../motion/stickerKeyframes';
-import { CATEGORY_BADGE, CATEGORY_DOT, Icon, ZigZag } from './parts';
+import { CATEGORY_BADGE, CATEGORY_DOT, CategorySticker, Icon, ZigZag } from './parts';
 import { fmtHKD, fmtJPY } from './refLogic';
 
 /** Compact receipt card with archive typography/badges/zigzag and a ⋯ action menu. */
@@ -90,7 +90,11 @@ export default function ExpenseCard({
             <span
               className={`inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-md border px-2 py-0.5 text-meta font-bold ${catStyle}`}
             >
-              <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotStyle}`} />
+              <CategorySticker
+                category={expense.category}
+                size="sm"
+                dotClassName={`h-2 w-2 ${dotStyle}`}
+              />
               <span className="truncate">{expense.category}</span>
             </span>
             <span className="max-w-full truncate whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">

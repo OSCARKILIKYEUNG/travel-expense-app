@@ -5,7 +5,10 @@ import { I18nextProvider } from 'react-i18next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import ChartsView from './ChartsView';
+import DayView from './DayView';
+import { CategorySticker, DOODLES, Doodle } from './doodles';
 import Ledger from './Ledger';
+import { StickerGraphic } from './parts';
 
 afterEach(() => {
   cleanup();
@@ -217,4 +220,123 @@ describe('ChartsView settlement breakdown sheet', () => {
     expect(onOpenLedger).toHaveBeenCalledWith({ payer: 'A' });
   });
 });
+
+describe('Batch 1 diary-style doodles, category stickers, and empty states', () => {
+  it('renders all 14 inline SVG doodles with aria-hidden="true" and focusable="false"', () => {
+    const required = [
+      'camera',
+      'sushi',
+      'torii',
+      'fuji',
+      'pagoda',
+      'sakura',
+      'plane',
+      'suitcase',
+      'lantern',
+      'ramen',
+      'train',
+      'shoppingBag',
+      'sparkle',
+      'sunburst',
+    ];
+    for (const key of required) {
+      expect(typeof DOODLES[key]).toBe('function');
+      const { container, unmount } = render(
+        createElement(Doodle, { name: key, size: 'md', blob: 'teal' }),
+      );
+      const svg = container.querySelector('svg');
+      expect(svg).toBeTruthy();
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+      expect(svg.getAttribute('focusable')).toBe('false');
+      unmount();
+    }
+  });
+
+  it('maps StickerGraphic ids and stored emojis to SVG doodles while preserving unknown custom glyphs', () => {
+    const { container: c1, unmount: u1 } = render(createElement(StickerGraphic, { id: 'fuji' }));
+    expect(c1.querySelector('svg')).toBeTruthy();
+    u1();
+
+    const { container: c2, unmount: u2 } = render(createElement(StickerGraphic, { id: '🗻' }));
+    expect(c2.querySelector('svg')).toBeTruthy();
+    u2();
+
+    const { container: c3, unmount: u3 } = render(createElement(StickerGraphic, { id: '🐼' }));
+    expect(c3.querySelector('svg')).toBeNull();
+    expect(c3.textContent).toBe('🐼');
+    u3();
+  });
+
+  it('renders CategorySticker SVG for the 6 categories and falls back to colour dot for custom categories', () => {
+    for (const cat of ['飲食', '交通', '購物', '住宿', '娛樂', '其他']) {
+      const { container, unmount } = render(createElement(CategorySticker, { category: cat }));
+      expect(container.querySelector('svg')).toBeTruthy();
+      unmount();
+    }
+    const { container: custom } = render(
+      createElement(CategorySticker, { category: '手信自訂', dotClassName: 'h-2 w-2 bg-ink-muted' }),
+    );
+    expect(custom.querySelector('svg')).toBeNull();
+    expect(custom.querySelector('span.rounded-full')).toBeTruthy();
+  });
+
+  it('renders illustrated empty states in Ledger, DayView, and ChartsView in zh-TW and en', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const emptyTrip = {
+      name: '空白之旅',
+      startDate: '2026-10-18',
+      endDate: '2026-10-20',
+      settings: { people: ['共同', 'Oscar'], budget: null },
+      days: {
+        '2026-10-18': { title: '第一天', note: '', sticker: null, journal: '', itinerary: [] },
+      },
+      expenses: [],
+    };
+
+    const { unmount: uLedger } = renderLedger(emptyTrip);
+    expect(screen.getByTestId('ledger-empty-state').textContent).toContain('手帳還是空白的一頁');
+    uLedger();
+
+    const { unmount: uDay } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(DayView, {
+          trip: emptyTrip,
+          iso: '2026-10-18',
+          pane: 'itinerary',
+          editing: false,
+          onPane: () => {},
+          onEditToggle: () => {},
+          onBack: () => {},
+          onDay: () => {},
+          onUpdateDay: () => {},
+          onScan: () => {},
+          onAdd: () => {},
+          onEditExpense: () => {},
+          onDeleteExpense: () => {},
+        }),
+      ),
+    );
+    expect(screen.getByTestId('day-itinerary-empty').textContent).toContain('這天尚未安排行程');
+    expect(screen.getByTestId('day-expenses-empty').textContent).toContain('這天還沒有消費記錄');
+    uDay();
+
+    const { unmount: uCharts } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: emptyTrip,
+          today: '2026-10-01',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    expect(screen.getByTestId('charts-daily-empty').textContent).toContain('旅程未開始，尚無每日花費趨勢。');
+    uCharts();
+  });
+});
+
 
