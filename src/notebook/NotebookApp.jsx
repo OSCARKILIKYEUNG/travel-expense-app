@@ -132,7 +132,7 @@ export const go = (hash, replace = false) => {
 
 function currentWindowHash(initialHash = '') {
   if (typeof window === 'undefined') return initialHash;
-  return window.location.hash;
+  return window.location.hash || initialHash;
 }
 
 function currentWindowSearch() {
@@ -194,6 +194,9 @@ export default function NotebookApp({
   onAddPerson,
   onRenamePerson,
   onRemovePerson,
+  onAddSettlement,
+  onUpdateSettlement,
+  onRemoveSettlement,
   onSaveRate,
   uiLanguage,
   onChangeUiLanguage,
@@ -216,11 +219,16 @@ export default function NotebookApp({
   const [mockActiveTripId, setMockActiveTripId] = useState(() =>
     buildInitialMockTrips(effectiveSearch, today)[0].id,
   );
+  const [localControlledTrip, setLocalControlledTrip] = useState(null);
+
+  useEffect(() => {
+    setLocalControlledTrip(null);
+  }, [controlledTrip]);
 
   const rawTrip = useMemo(() => {
-    if (isControlled) return controlledTrip;
+    if (isControlled) return localControlledTrip || controlledTrip;
     return mockTrips.find((t) => String(t.id) === String(mockActiveTripId)) || mockTrips[0];
-  }, [isControlled, controlledTrip, mockTrips, mockActiveTripId]);
+  }, [isControlled, localControlledTrip, controlledTrip, mockTrips, mockActiveTripId]);
 
   const trip = useMemo(() => adaptTripForNotebook(rawTrip, { today }), [rawTrip, today]);
 
@@ -337,7 +345,14 @@ export default function NotebookApp({
   const updateActiveMockTrip = useCallback(
     (updater) => {
       if (isControlled) {
-        onUpdateTrip?.(updater);
+        if (onUpdateTrip) {
+          onUpdateTrip(updater);
+        } else {
+          setLocalControlledTrip((prev) => {
+            const base = prev || controlledTrip;
+            return typeof updater === 'function' ? updater(base) : updater;
+          });
+        }
         return;
       }
       setMockTrips((prev) =>
@@ -350,7 +365,7 @@ export default function NotebookApp({
         ),
       );
     },
-    [isControlled, mockActiveTripId, onUpdateTrip],
+    [isControlled, controlledTrip, mockActiveTripId, onUpdateTrip],
   );
 
   const showToast = useCallback((message, undo = null, options = {}) => {
@@ -358,6 +373,134 @@ export default function NotebookApp({
     setToastFocus(false);
     setToast(buildToastState(message, undo, options));
   }, []);
+
+  const settlementActions = useMemo(() => {
+    const fmtAmount = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
+
+    const removeByIdSilent = (targetId) => {
+      if (onRemoveSettlement) {
+        onRemoveSettlement(targetId);
+      } else {
+        updateActiveMockTrip((tr) => ({
+          ...tr,
+          settlements: (Array.isArray(tr.settlements) ? tr.settlements : []).filter(
+            (s) => String(s?.id) !== String(targetId),
+          ),
+        }));
+      }
+    };
+
+    const addSilent = (record) => {
+      if (onAddSettlement) {
+        return onAddSettlement(record) || record;
+      }
+      updateActiveMockTrip((tr) => ({
+        ...tr,
+        settlements: [...(Array.isArray(tr.settlements) ? tr.settlements : []), record],
+      }));
+      return record;
+    };
+
+    const updateSilent = (id, patch) => {
+      if (onUpdateSettlement) {
+        return onUpdateSettlement(id, patch);
+      }
+      const nowIso = new Date().toISOString();
+      updateActiveMockTrip((tr) => ({
+        ...tr,
+        settlements: (Array.isArray(tr.settlements) ? tr.settlements : []).map((s) =>
+          String(s?.id) === String(id) ? { ...s, ...patch, id: s.id, updatedAt: nowIso } : s,
+        ),
+      }));
+      return null;
+    };
+
+    return {
+      add: (settlement) => {
+        if (!settlement || typeof settlement !== 'object') return null;
+        const now = new Date().toISOString();
+        const row = {
+          ...settlement,
+          id: settlement.id || `stl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          tripId: settlement.tripId || trip.id,
+          from: String(settlement.from ?? '').trim(),
+          to: String(settlement.to ?? '').trim(),
+          amount: Number(settlement.amount) || 0,
+          currency: settlement.currency || trip.accountingCurrency || 'HKD',
+          hkdAmount: Number(settlement.hkdAmount) || 0,
+          rate: Number(settlement.rate) > 0 ? Number(settlement.rate) : 1,
+          date: settlement.date == null ? today : String(settlement.date),
+          note: settlement.note == null ? '' : String(settlement.note),
+          createdAt: settlement.createdAt || now,
+          updatedAt: settlement.updatedAt || now,
+        };
+        const saved = addSilent(row) || row;
+        showToast(
+          t('notebook.settle.toastRecorded', {
+            from: saved.from,
+            to: saved.to,
+            amount: fmtAmount(saved.hkdAmount),
+          }),
+          () => {
+            removeByIdSilent(saved.id);
+          },
+        );
+        return saved;
+      },
+      update: (id, patch) => {
+        if (!id || !patch) return null;
+        const prev =
+          (Array.isArray(trip.settlements) ? trip.settlements : []).find(
+            (s) => String(s?.id) === String(id),
+          ) || null;
+        const updated = updateSilent(id, patch);
+        const merged = updated || { ...(prev || {}), ...patch, id };
+        showToast(
+          t('notebook.settle.toastRecorded', {
+            from: merged.from,
+            to: merged.to,
+            amount: fmtAmount(merged.hkdAmount),
+          }),
+          prev
+            ? () => {
+                updateSilent(id, prev);
+              }
+            : null,
+        );
+        return merged;
+      },
+      remove: (idOrObj) => {
+        const targetId =
+          idOrObj && typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
+        if (!targetId) return false;
+        const deleted =
+          (Array.isArray(trip.settlements) ? trip.settlements : []).find(
+            (s) => String(s?.id) === String(targetId),
+          ) || (idOrObj && typeof idOrObj === 'object' ? { ...idOrObj } : null);
+        removeByIdSilent(targetId);
+        showToast(
+          t('notebook.settle.toastDeleted'),
+          deleted
+            ? () => {
+                addSilent(deleted);
+              }
+            : null,
+        );
+        return true;
+      },
+    };
+  }, [
+    trip.id,
+    trip.accountingCurrency,
+    trip.settlements,
+    today,
+    onAddSettlement,
+    onUpdateSettlement,
+    onRemoveSettlement,
+    updateActiveMockTrip,
+    showToast,
+    t,
+  ]);
 
   const toastPaused = toastHover || toastFocus;
   const prevScreenRef = useRef(route.screen);
@@ -1060,10 +1203,12 @@ export default function NotebookApp({
       <Ledger
         key={currentWindowHash(initialHash)}
         trip={trip}
+        today={today}
         initialFilters={route.filters}
         highlightId={highlightId}
         exchangeRates={effectiveExchangeRates}
         defaultAssignee={propDefaultAssignee}
+        settlementActions={settlementActions}
         onScan={() =>
           handleRequestScan({
             date: selectedDay || today,
@@ -1081,6 +1226,7 @@ export default function NotebookApp({
       <ChartsView
         trip={trip}
         today={today}
+        settlementActions={settlementActions}
         onOpenDay={(iso) => openDay(iso, 'expenses')}
         onOpenLedger={(f) => go(ledgerHash(f))}
       />

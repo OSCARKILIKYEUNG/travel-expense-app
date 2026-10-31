@@ -7,17 +7,31 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon, Sparkle, mustardStripe } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
+import { settleUp } from './refCharts';
 import { ledgerTotalSummary } from './refLedgerTotal';
 import { filterExpenses, fmtHKD, groupLedger, matchesPerson, personCounts, undatedHint, zhDate } from './refLogic';
-import { activeFilterCount, tripDates } from './refRules';
+import RepaymentForm from './RepaymentForm';
+import {
+  filterSettlements,
+  hasUnknownParticipant,
+  mergeGroupsWithSettlements,
+  resolveTripAccountingCurrency,
+  resolveTripForeignCurrency,
+  resolveTripRefRate,
+} from './refRepayment';
+import { activeFilterCount, defaultExpenseDate, resolveToday, tripDates } from './refRules';
+
+const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 /** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 未有日期 group. */
 export default function Ledger({
   trip,
+  today,
   initialFilters,
   highlightId,
   exchangeRates,
   defaultAssignee,
+  settlementActions,
   onScan,
   onAdd,
   onEdit,
@@ -32,11 +46,18 @@ export default function Ledger({
   const [payment, setPayment] = useState(() => initialFilters?.payment || '全部');
   const [payer, setPayer] = useState(() => initialFilters?.payer || '全部');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [repaymentModal, setRepaymentModal] = useState(null);
   const filterBtnRef = useRef(null);
   const undatedLabelRef = useRef(null);
 
   const people = trip.settings?.people || ['共同'];
   const nonSharedPeople = useMemo(() => people.filter((p) => p && p !== '共同'), [people]);
+  const accountingCurrency = useMemo(() => resolveTripAccountingCurrency(trip), [trip]);
+  const tripCurrency = useMemo(() => resolveTripForeignCurrency(trip), [trip]);
+  const activeRate = useMemo(() => resolveTripRefRate(trip), [trip]);
+  const effectiveToday = useMemo(() => today || resolveToday(''), [today]);
+  const settlements = useMemo(() => trip.settlements || [], [trip.settlements]);
+
   const allDates = useMemo(() => {
     const fromTrip = tripDates(trip);
     const fromExpenses = trip.expenses.filter((e) => e.date).map((e) => expenseDateKey(e.date));
@@ -55,6 +76,24 @@ export default function Ledger({
     : 0;
   const shown = filterExpenses(trip.expenses, { person, category, date, query, payment, payer }, people);
   const groups = groupLedger(shown);
+  const filteredSettlements = useMemo(
+    () => filterSettlements(settlements, { person, category, date, query, payment, payer }),
+    [settlements, person, category, date, query, payment, payer],
+  );
+  const displayGroups = useMemo(
+    () => mergeGroupsWithSettlements(groups, filteredSettlements),
+    [groups, filteredSettlements],
+  );
+  const settlement = useMemo(
+    () =>
+      settleUp(
+        trip.expenses,
+        people,
+        exchangeRates || trip.exchangeRates || null,
+        settlements,
+      ),
+    [trip.expenses, people, exchangeRates, trip.exchangeRates, settlements],
+  );
   const hint = undatedHint(groups);
   const filterCount = activeFilterCount({ category, date, payment, payer });
   const hasAnyFilter = Boolean(query.trim()) || person !== '全部' || filterCount > 0;
@@ -102,12 +141,50 @@ export default function Ledger({
     return () => document.removeEventListener('keydown', onKey);
   }, [sheetOpen]);
 
+  useEffect(() => {
+    if (!repaymentModal || typeof document === 'undefined') return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setRepaymentModal(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [repaymentModal]);
+
   return (
     <div data-testid="ledger" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3 px-4 pb-6 pt-4">
-      <div className="relative flex min-w-0 items-baseline gap-2">
-        <Sparkle className="absolute -left-1 top-1 h-3.5 w-3.5" />
-        <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">帳本</h1>
-        <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Ledger</span>
+      <div className="relative flex min-w-0 items-center justify-between gap-2">
+        <div className="relative flex min-w-0 items-baseline gap-2">
+          <Sparkle className="absolute -left-1 top-1 h-3.5 w-3.5" />
+          <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">帳本</h1>
+          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Ledger</span>
+        </div>
+
+        {nonSharedPeople.length >= 2 && (
+          <button
+            type="button"
+            data-testid="ledger-add-repayment"
+            onClick={() =>
+              setRepaymentModal({
+                mode: 'add',
+                initial: {
+                  from: '',
+                  to: '',
+                  amount: '',
+                  currency: accountingCurrency,
+                  date: defaultExpenseDate(trip, effectiveToday) || effectiveToday,
+                  note: '',
+                },
+              })
+            }
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3.5 py-2 text-meta font-bold text-teal-strong shadow-sm transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            <span aria-hidden="true">⇄</span>
+            <span>{t('notebook.settle.recordRepayment')}</span>
+          </button>
+        )}
       </div>
 
       <LedgerTotalCard summary={summary} tripName={trip.name} />
@@ -242,7 +319,7 @@ export default function Ledger({
       </div>
 
       <div className="min-w-0 space-y-4">
-        {groups.map((g) => (
+        {displayGroups.map((g) => (
           <section key={g.key} data-testid={`ledger-group-${g.key}`} className="min-w-0 scroll-mt-20 space-y-2">
             <div className="flex min-w-0 items-center gap-2.5 pt-1">
               {g.iso ? (
@@ -267,6 +344,61 @@ export default function Ledger({
               <span className="shrink-0 whitespace-nowrap text-meta font-bold text-ink-soft">{fmtHKD(g.total)}</span>
             </div>
             <div className="min-w-0 space-y-2.5">
+              {(g.settlements || []).map((s) => {
+                const unknown = hasUnknownParticipant(s, nonSharedPeople);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    data-testid="ledger-repayment-row"
+                    onClick={() =>
+                      setRepaymentModal({
+                        mode: 'edit',
+                        initial: s,
+                      })
+                    }
+                    className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2.5 rounded-2xl border-2 border-dashed border-teal/45 bg-cream-soft px-3.5 py-2.5 text-left shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span
+                          aria-hidden="true"
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-soft font-bold text-teal-strong"
+                        >
+                          ⇄
+                        </span>
+                        <span className="shrink-0 rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
+                          {t('notebook.settle.ledgerRepaymentTag')}
+                        </span>
+                        <span className="min-w-0 truncate text-sm font-bold text-ink">
+                          {t('notebook.settle.repaidTo', { from: s.from, to: s.to })}
+                        </span>
+                        {unknown && (
+                          <span
+                            data-testid="ledger-unknown-member"
+                            className="shrink-0 rounded-md border border-coral-ink/40 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink"
+                          >
+                            {t('notebook.settle.unknownMember')}
+                          </span>
+                        )}
+                      </div>
+                      {s.note && (
+                        <p className="min-w-0 truncate text-meta text-ink-muted">{s.note}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end">
+                      <span className="whitespace-nowrap font-mono text-sm font-bold tabular-nums text-teal-strong">
+                        {hk(s.hkdAmount)}
+                      </span>
+                      {s.currency && s.currency !== accountingCurrency && Number(s.amount) > 0 && (
+                        <span className="whitespace-nowrap font-mono text-meta text-ink-muted">
+                          {s.currency} {Math.round(Number(s.amount)).toLocaleString('en-US')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
               {g.items.map((e) => (
                 <ExpenseCard
                   key={e.id}
@@ -279,7 +411,7 @@ export default function Ledger({
             </div>
           </section>
         ))}
-        {groups.length === 0 && (
+        {displayGroups.length === 0 && (
           <div className="space-y-3 py-8 text-center">
             <p className="whitespace-nowrap text-sm text-ink-muted">沒有符合的消費。</p>
             {hasAnyFilter && (
@@ -295,6 +427,72 @@ export default function Ledger({
           </div>
         )}
       </div>
+
+      {repaymentModal &&
+        (typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center overflow-x-hidden bg-ink/40 backdrop-blur-sm sm:items-center"
+                role="dialog"
+                aria-modal="true"
+                aria-label={
+                  repaymentModal.mode === 'edit'
+                    ? t('notebook.settle.edit')
+                    : t('notebook.settle.recordRepayment')
+                }
+                data-testid="ledger-repayment-sheet"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setRepaymentModal(null);
+                }}
+              >
+                <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-3 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
+                  <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
+                    <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+                      {repaymentModal.mode === 'edit'
+                        ? t('notebook.settle.edit')
+                        : t('notebook.settle.recordRepayment')}
+                    </h2>
+                    <button
+                      type="button"
+                      aria-label={t('notebook.settle.close')}
+                      onClick={() => setRepaymentModal(null)}
+                      className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                    >
+                      {Icon.x('h-4 w-4')}
+                    </button>
+                  </div>
+
+                  <RepaymentForm
+                    participants={nonSharedPeople}
+                    initial={repaymentModal.initial}
+                    accountingCurrency={accountingCurrency}
+                    tripCurrency={tripCurrency}
+                    rate={activeRate}
+                    transfers={repaymentModal.mode === 'add' ? settlement.transfers : null}
+                    today={effectiveToday}
+                    onSave={(row) => {
+                      if (repaymentModal.mode === 'edit' && repaymentModal.initial?.id) {
+                        settlementActions?.update?.(repaymentModal.initial.id, row);
+                      } else {
+                        settlementActions?.add?.(row);
+                      }
+                      setRepaymentModal(null);
+                    }}
+                    onDelete={
+                      repaymentModal.mode === 'edit'
+                        ? () => {
+                            settlementActions?.remove?.(repaymentModal.initial);
+                            setRepaymentModal(null);
+                          }
+                        : undefined
+                    }
+                    onCancel={() => setRepaymentModal(null)}
+                  />
+                </div>
+              </div>,
+              document.body,
+            )
+          : null)}
 
       {sheetOpen &&
         createPortal(

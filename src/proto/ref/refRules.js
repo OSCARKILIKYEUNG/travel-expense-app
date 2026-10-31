@@ -537,6 +537,15 @@ export function renamePerson(trip, from, to) {
         ? e.items.map((it) => (it?.assignedTo === cleanFrom ? { ...it, assignedTo: cleanTo } : it))
         : e.items,
     })),
+    ...(Array.isArray(trip.settlements)
+      ? {
+          settlements: trip.settlements.map((s) => ({
+            ...s,
+            ...(s?.from === cleanFrom ? { from: cleanTo } : {}),
+            ...(s?.to === cleanFrom ? { to: cleanTo } : {}),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -571,8 +580,24 @@ export function removePerson(trip, name) {
 
   const remainingPeople = people.filter((p) => p !== target);
   const fallbackPayer = defaultPayer(remainingPeople);
+  const reassignTo = fallbackPayer || '共同';
 
-  return {
+  let droppedSettlements = 0;
+  let nextSettlements;
+  if (Array.isArray(trip.settlements)) {
+    nextSettlements = [];
+    for (const s of trip.settlements) {
+      const from = s?.from === target ? reassignTo : s?.from;
+      const to = s?.to === target ? reassignTo : s?.to;
+      if (from === to) {
+        droppedSettlements += 1;
+        continue;
+      }
+      nextSettlements.push(from === s.from && to === s.to ? s : { ...s, from, to });
+    }
+  }
+
+  const nextTrip = {
     ...trip,
     settings: {
       ...trip.settings,
@@ -586,7 +611,14 @@ export function removePerson(trip, name) {
         ? e.items.map((it) => (it?.assignedTo === target ? { ...it, assignedTo: '共同' } : it))
         : e.items,
     })),
+    ...(nextSettlements !== undefined ? { settlements: nextSettlements } : {}),
   };
+  Object.defineProperty(nextTrip, 'droppedSettlements', {
+    value: droppedSettlements,
+    enumerable: false,
+    configurable: true,
+  });
+  return nextTrip;
 }
 
 /**

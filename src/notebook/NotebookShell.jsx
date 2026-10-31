@@ -44,6 +44,9 @@ export default function NotebookShell() {
     addExpense,
     updateExpense,
     removeExpense,
+    addSettlement,
+    updateSettlement,
+    removeSettlement,
     resolveDuplicateConflicts,
     people,
     setPeople,
@@ -329,15 +332,40 @@ export default function NotebookShell() {
 
   const handleRemovePerson = useCallback(
     (name) => {
-      if (!name || name === '共同') return;
+      if (!name || name === '共同') return { droppedSettlements: 0 };
       const remaining = (people || ['共同']).filter((p) => p !== name);
       const fallbackPayer = defaultPayer(remaining);
-      removePersonWithReassign(name, '共同');
+      const res = removePersonWithReassign(name, '共同');
       setExpenses((prev) =>
         prev.map((e) => (e?.payer === name ? { ...e, payer: fallbackPayer } : e)),
       );
+      return res;
     },
     [people, removePersonWithReassign, setExpenses],
+  );
+
+  const handleAddSettlement = useCallback(
+    (settlement) => {
+      if (!currentTripId) return null;
+      return addSettlement(currentTripId, settlement);
+    },
+    [currentTripId, addSettlement],
+  );
+
+  const handleUpdateSettlement = useCallback(
+    (id, patch) => {
+      if (!currentTripId) return null;
+      return updateSettlement(currentTripId, id, patch);
+    },
+    [currentTripId, updateSettlement],
+  );
+
+  const handleRemoveSettlement = useCallback(
+    (id) => {
+      if (!currentTripId) return false;
+      return removeSettlement(currentTripId, id);
+    },
+    [currentTripId, removeSettlement],
   );
 
   const handleSaveRate = useCallback(
@@ -383,6 +411,9 @@ export default function NotebookShell() {
       onAddPerson={handleAddPerson}
       onRenamePerson={handleRenamePerson}
       onRemovePerson={handleRemovePerson}
+      onAddSettlement={handleAddSettlement}
+      onUpdateSettlement={handleUpdateSettlement}
+      onRemoveSettlement={handleRemoveSettlement}
       onSaveRate={handleSaveRate}
       uiLanguage={uiLanguage}
       onChangeUiLanguage={handleChangeUiLanguage}

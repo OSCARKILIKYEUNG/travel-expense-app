@@ -17,6 +17,15 @@ import {
   todayVsAverage,
   topExpenses,
 } from './refCharts';
+import RepaymentForm from './RepaymentForm';
+import {
+  buildSettlementRow,
+  hasUnknownParticipant,
+  resolveTripAccountingCurrency,
+  resolveTripForeignCurrency,
+  resolveTripRefRate,
+} from './refRepayment';
+import { resolveToday } from './refRules';
 import { settlementBreakdown } from './refShares';
 
 const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
@@ -56,13 +65,19 @@ function formatNetHKD(net) {
  * budget allowance, cash vs card split, SVG category donut, horizontal stacked daily bars,
  * top-5 expenses (in review), and split-bill settlement.
  */
-export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
+export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settlementActions }) {
   const { t } = useTranslation();
   const [settlePerson, setSettlePerson] = useState(null);
+  const [editingSettlement, setEditingSettlement] = useState(null);
   const expenses = useMemo(() => trip?.expenses || [], [trip?.expenses]);
+  const settlements = useMemo(() => trip?.settlements || [], [trip?.settlements]);
   const people = useMemo(() => trip?.settings?.people || ['共同'], [trip?.settings?.people]);
   const participants = useMemo(() => people.filter((p) => p && p !== '共同'), [people]);
   const budget = trip?.settings?.budget ?? null;
+  const accountingCurrency = useMemo(() => resolveTripAccountingCurrency(trip), [trip]);
+  const tripCurrency = useMemo(() => resolveTripForeignCurrency(trip), [trip]);
+  const activeRate = useMemo(() => resolveTripRefRate(trip), [trip]);
+  const effectiveToday = useMemo(() => today || resolveToday(''), [today]);
 
   const mode = useMemo(() => chartsMode(trip, today), [trip, today]);
   const rem = useMemo(
@@ -87,13 +102,17 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
     [expenses, people, exchangeRates],
   );
   const settlement = useMemo(
-    () => settleUp(expenses, people, exchangeRates),
-    [expenses, people, exchangeRates],
+    () => settleUp(expenses, people, exchangeRates, settlements),
+    [expenses, people, exchangeRates, settlements],
   );
   const breakdown = useMemo(
     () => (settlePerson ? settlementBreakdown(expenses, people, exchangeRates, settlePerson) : null),
     [expenses, people, exchangeRates, settlePerson],
   );
+
+  useEffect(() => {
+    setEditingSettlement(null);
+  }, [settlePerson]);
 
   useEffect(() => {
     if (!settlePerson || typeof document === 'undefined') return undefined;
@@ -106,6 +125,25 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [settlePerson]);
+
+  const handleMarkRepaid = (tr) => {
+    const row = buildSettlementRow(
+      {
+        from: tr.from,
+        to: tr.to,
+        amount: tr.amount,
+        currency: accountingCurrency,
+        date: effectiveToday,
+        note: '',
+      },
+      {
+        accountingCurrency,
+        tripCurrency,
+        rate: activeRate,
+      },
+    );
+    settlementActions?.add?.(row);
+  };
 
   const total = useMemo(() => expenses.reduce((s, e) => s + Number(e?.hkdAmount || 0), 0), [expenses]);
   const byDayDated = useMemo(() => groupLedger(expenses).filter((g) => g.iso), [expenses]);
@@ -519,6 +557,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
         {settlement.rows.map((row) => {
           const isPositive = row.net > 0.5;
           const isNegative = row.net < -0.5;
+          const isSettled = !isPositive && !isNegative;
           return (
             <button
               key={row.person}
@@ -537,7 +576,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
                   isPositive ? 'text-teal-strong' : isNegative ? 'text-coral-ink' : 'text-ink-muted'
                 }`}
               >
-                {formatNet(row.net)}
+                {isSettled ? t('notebook.settle.settled') : formatNet(row.net)}
               </span>
             </button>
           );
@@ -549,16 +588,26 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
           settlement.transfers.map((tr) => (
             <div
               key={`${tr.from}-${tr.to}`}
-              className="flex min-h-11 min-w-0 items-center justify-between rounded-xl border border-teal/35 bg-teal-soft/65 px-3 py-2 text-sm font-bold text-teal-strong"
+              className="flex min-h-11 min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-teal/35 bg-teal-soft/65 px-3 py-2 text-sm font-bold text-teal-strong"
             >
               <span className="min-w-0 flex-1 truncate whitespace-nowrap">
                 {tr.from} 要還 {tr.to} {hk(tr.amount)}
               </span>
+              {participants.length >= 2 && (
+                <button
+                  type="button"
+                  data-testid="settle-mark-repaid"
+                  onClick={() => handleMarkRepaid(tr)}
+                  className="inline-flex h-10 min-h-10 min-w-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  {t('notebook.settle.markRepaid')}
+                </button>
+              )}
             </div>
           ))
         ) : (
           <div className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-teal-strong">
-            <span className="whitespace-nowrap">已經夾平 ✓</span>
+            <span className="whitespace-nowrap">已經夾平 ✓ · {t('notebook.settle.settled')}</span>
           </div>
         )}
       </div>
@@ -575,6 +624,43 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
     mode === 'review'
       ? [categorySection, top5Section, summarySection, paymentSection, dailySection, assigneeSection, settleSection]
       : [todaySection || summarySection, paymentSection, categorySection, dailySection, assigneeSection, settleSection];
+
+  const personSettleRow = useMemo(() => {
+    if (!breakdown) return null;
+    return (
+      settlement.rows.find((r) => r.person === breakdown.person) || {
+        person: breakdown.person,
+        paid: breakdown.paidTotal,
+        owed: breakdown.owedTotal,
+        repaid: 0,
+        received: 0,
+        net: breakdown.net,
+        remaining: breakdown.net,
+      }
+    );
+  }, [breakdown, settlement.rows]);
+
+  const sheetSettlements = useMemo(() => {
+    if (!breakdown) return [];
+    return settlements.filter(
+      (s) =>
+        s &&
+        (s.from === breakdown.person ||
+          s.to === breakdown.person ||
+          hasUnknownParticipant(s, participants)),
+    );
+  }, [breakdown, settlements, participants]);
+
+  const suggestedTransfer = useMemo(() => {
+    if (!breakdown) return null;
+    return (
+      settlement.transfers.find(
+        (tr) => tr.from === breakdown.person || tr.to === breakdown.person,
+      ) ||
+      settlement.transfers[0] ||
+      null
+    );
+  }, [breakdown, settlement.transfers]);
 
   const settleSheetNode = breakdown ? (
     <div
@@ -701,6 +787,144 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
           )}
         </div>
 
+        {/* Repayments section */}
+        <div data-testid="settle-sheet-repayments" className="min-w-0 space-y-2.5">
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+              {t('notebook.settle.repaymentSection')}
+            </h3>
+            {personSettleRow && (
+              <span
+                data-testid="settle-sheet-status"
+                className={`shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums ${
+                  personSettleRow.remaining > 0.5
+                    ? 'text-teal-strong'
+                    : personSettleRow.remaining < -0.5
+                      ? 'text-coral-ink'
+                      : 'text-teal-strong'
+                }`}
+              >
+                {Math.abs(personSettleRow.remaining) < 0.5
+                  ? t('notebook.settle.settled')
+                  : personSettleRow.remaining < 0
+                    ? t('notebook.settle.stillOwes', {
+                        amount: hk(Math.abs(personSettleRow.remaining)),
+                      })
+                    : t('notebook.settle.toReceive', {
+                        amount: hk(personSettleRow.remaining),
+                      })}
+              </span>
+            )}
+          </div>
+
+          {sheetSettlements.length === 0 ? (
+            <p className="rounded-xl border border-line/60 bg-cream px-3 py-2 text-meta text-ink-muted">
+              {t('notebook.settle.emptyRepayments')}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {sheetSettlements.map((s) => {
+                const unknown = hasUnknownParticipant(s, participants);
+                const isRepaidByPerson = s.from === breakdown.person;
+                const isReceivedByPerson = s.to === breakdown.person;
+                const dirLabel = isRepaidByPerson
+                  ? t('notebook.settle.repaid')
+                  : isReceivedByPerson
+                    ? t('notebook.settle.received')
+                    : t('notebook.settle.ledgerRepaymentTag');
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setEditingSettlement(s)}
+                    className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-dashed border-teal/45 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span aria-hidden="true" className="shrink-0 font-bold text-teal-strong">
+                          ⇄
+                        </span>
+                        <span className="shrink-0 rounded-md bg-teal-soft px-1.5 py-0.5 text-meta font-bold text-teal-strong">
+                          {dirLabel}
+                        </span>
+                        <span className="min-w-0 truncate text-sm font-bold text-ink">
+                          {t('notebook.settle.repaidTo', { from: s.from, to: s.to })}
+                        </span>
+                        {unknown && (
+                          <span
+                            data-testid="settle-unknown-member"
+                            className="shrink-0 rounded-md border border-coral-ink/40 bg-coral-soft px-1.5 py-0.5 text-meta font-bold text-coral-ink"
+                          >
+                            {t('notebook.settle.unknownMember')}
+                          </span>
+                        )}
+                      </div>
+                      {(s.date || s.note) && (
+                        <p className="min-w-0 truncate text-meta text-ink-muted">
+                          {[
+                            s.date ? shortDayLabel(expenseDateKey(s.date)) : '',
+                            s.note || '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-teal-strong">
+                      {hk(s.hkdAmount)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {(participants.length >= 2 || editingSettlement) && (
+            <RepaymentForm
+              participants={participants}
+              initial={
+                editingSettlement || {
+                  from: suggestedTransfer?.from || breakdown.person || participants[0] || '',
+                  to:
+                    suggestedTransfer?.to ||
+                    participants.find(
+                      (p) => p !== (suggestedTransfer?.from || breakdown.person),
+                    ) ||
+                    participants[0] ||
+                    '',
+                  amount: suggestedTransfer?.amount ? String(suggestedTransfer.amount) : '',
+                  currency: accountingCurrency,
+                  date: effectiveToday,
+                  note: '',
+                }
+              }
+              accountingCurrency={accountingCurrency}
+              tripCurrency={tripCurrency}
+              rate={activeRate}
+              oweAmount={editingSettlement ? 0 : suggestedTransfer?.amount || 0}
+              transfers={editingSettlement ? null : settlement.transfers}
+              today={effectiveToday}
+              onSave={(row) => {
+                if (editingSettlement?.id) {
+                  settlementActions?.update?.(editingSettlement.id, row);
+                  setEditingSettlement(null);
+                } else {
+                  settlementActions?.add?.(row);
+                }
+              }}
+              onDelete={
+                editingSettlement
+                  ? () => {
+                      settlementActions?.remove?.(editingSettlement);
+                      setEditingSettlement(null);
+                    }
+                  : undefined
+              }
+              onCancel={editingSettlement ? () => setEditingSettlement(null) : undefined}
+            />
+          )}
+        </div>
+
         {/* Net row */}
         <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
           <span className="min-w-0 truncate text-sm font-bold text-ink">
@@ -708,14 +932,14 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger }) {
           </span>
           <span
             className={`shrink-0 whitespace-nowrap font-mono text-base font-bold tabular-nums ${
-              breakdown.net > 0.5
+              (personSettleRow?.net ?? breakdown.net) > 0.5
                 ? 'text-teal-strong'
-                : breakdown.net < -0.5
+                : (personSettleRow?.net ?? breakdown.net) < -0.5
                   ? 'text-coral-ink'
                   : 'text-ink-muted'
             }`}
           >
-            {formatNetHKD(breakdown.net)}
+            {formatNetHKD(personSettleRow?.net ?? breakdown.net)}
           </span>
         </div>
 

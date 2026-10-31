@@ -525,13 +525,19 @@ export default function SettingsView({
 
   const handleRemovePerson = (name) => {
     if (name === '共同') return;
+    let dropped = 0;
     if (onRemovePerson) {
-      onRemovePerson(name);
+      const res = onRemovePerson(name);
+      dropped = Number(res?.droppedSettlements) || 0;
     } else {
-      onUpdateTrip?.((tr) => removePerson(tr, name));
+      const next = removePerson(trip, name);
+      dropped = Number(next?.droppedSettlements) || 0;
+      onUpdateTrip?.(next);
     }
     setPersonErrorKey('');
-    onToast?.(t('notebook.toast.personRemoved', { name }));
+    const baseMsg = t('notebook.toast.personRemoved', { name });
+    const suffix = dropped > 0 ? t('notebook.settle.droppedRepayments', { count: dropped }) : '';
+    onToast?.(`${baseMsg}${suffix}`);
   };
 
   const parsedRate = parseRate(rateInput);
