@@ -166,7 +166,7 @@ describe('Ledger person chips', () => {
 });
 
 describe('ChartsView settlement breakdown sheet', () => {
-  it('opens settle-sheet on tapping a person row, displays paid/owed/net breakdown, and routes to ledger on 睇帳本', async () => {
+  it('opens settle-sheet on tapping a person row, displays paid/owed/net breakdown, and routes to ledger on 查看帳本', async () => {
     await i18n.changeLanguage('zh-TW');
     const onOpenLedger = vi.fn();
     const trip = {
@@ -197,10 +197,10 @@ describe('ChartsView settlement breakdown sheet', () => {
     const sheet = screen.getByTestId('settle-sheet');
     expect(sheet.getAttribute('role')).toBe('dialog');
     expect(sheet.getAttribute('aria-modal')).toBe('true');
-    expect(sheet.textContent).toContain('A 嘅夾錢明細');
-    expect(sheet.textContent).toContain('A 俾咗');
+    expect(sheet.textContent).toContain('A 的分帳明細');
+    expect(sheet.textContent).toContain('A 已支付');
     expect(sheet.textContent).toContain('HK$450');
-    expect(sheet.textContent).toContain('未填邊個俾 → 計A');
+    expect(sheet.textContent).toContain('未填付款人 → 計入A');
     expect(sheet.textContent).toContain('應付');
     expect(sheet.textContent).toContain('HK$310');
     expect(sheet.textContent).toContain('自己 HK$100');
@@ -209,7 +209,7 @@ describe('ChartsView settlement breakdown sheet', () => {
     expect(sheet.textContent).toContain('+HK$140');
 
     const ledgerBtn = screen.getByTestId('settle-sheet-ledger');
-    expect(ledgerBtn.textContent).toContain('睇帳本');
+    expect(ledgerBtn.textContent).toContain('查看帳本');
     fireEvent.click(ledgerBtn);
 
     expect(screen.queryByTestId('settle-sheet')).toBeNull();

@@ -7,7 +7,7 @@ const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 /**
  * Controlled repayment form for recording or editing a settlement repayment.
- * Fits within 390px screens with ≥40px touch targets and paper-diary styling.
+ * Fits within 390px screens with ≥44px touch targets and paper-diary styling.
  */
 export default function RepaymentForm({
   participants = [],
@@ -127,6 +127,7 @@ export default function RepaymentForm({
 
   const fromUnknown = Boolean(from) && !cleanParticipants.includes(from);
   const toUnknown = Boolean(to) && !cleanParticipants.includes(to);
+  const displayPerson = (name) => (name === '共同' ? t('expenseCard.shared') : name);
 
   const handleFromChange = (e) => {
     const nextFrom = e.target.value;
@@ -191,7 +192,7 @@ export default function RepaymentForm({
             {!from && <option value="">—</option>}
             {fromUnknown && (
               <option value={from}>
-                {from} ({t('notebook.settle.unknownMember')})
+                {displayPerson(from)} ({t('notebook.settle.unknownMember')})
               </option>
             )}
             {cleanParticipants.map((p) => (
@@ -217,7 +218,7 @@ export default function RepaymentForm({
             {!to && <option value="">—</option>}
             {toUnknown && (
               <option value={to}>
-                {to} ({t('notebook.settle.unknownMember')})
+                {displayPerson(to)} ({t('notebook.settle.unknownMember')})
               </option>
             )}
             {cleanParticipants.map((p) => (
@@ -323,7 +324,7 @@ export default function RepaymentForm({
             type="button"
             data-testid="repayment-delete"
             onClick={() => onDelete(initial)}
-            className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-3.5 text-meta font-bold text-coral-ink transition-colors hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-3.5 text-meta font-bold text-coral-ink transition-colors hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
           >
             {t('notebook.settle.delete')}
           </button>
@@ -333,7 +334,7 @@ export default function RepaymentForm({
             type="button"
             data-testid="repayment-cancel"
             onClick={onCancel}
-            className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {t('notebook.settle.cancel')}
           </button>

@@ -371,7 +371,10 @@ export default function Ledger({
                           {t('notebook.settle.ledgerRepaymentTag')}
                         </span>
                         <span className="min-w-0 truncate text-sm font-bold text-ink">
-                          {t('notebook.settle.repaidTo', { from: s.from, to: s.to })}
+                          {t('notebook.settle.repaidTo', {
+                            from: s.from === '共同' ? t('expenseCard.shared') : s.from,
+                            to: s.to === '共同' ? t('expenseCard.shared') : s.to,
+                          })}
                         </span>
                         {unknown && (
                           <span

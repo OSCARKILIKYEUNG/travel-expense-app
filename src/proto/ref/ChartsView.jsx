@@ -30,13 +30,13 @@ import { settlementBreakdown } from './refShares';
 
 const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
-const SHORT_WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-function shortDayLabel(iso) {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '未有日期';
+function shortDayLabel(iso, t) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return t('notebook.charts.undated');
   const [y, m, d] = iso.split('-').map(Number);
-  const w = SHORT_WEEK[new Date(y, m - 1, d).getDay()];
-  return `${m}/${d} ${w}`;
+  const wKey = WEEKDAY_KEYS[new Date(y, m - 1, d).getDay()];
+  return `${m}/${d} ${t(`notebook.home.weekdays.${wKey}`)}`;
 }
 
 const CATEGORY_STROKE = {
@@ -149,39 +149,45 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const byDayDated = useMemo(() => groupLedger(expenses).filter((g) => g.iso), [expenses]);
   const dayCount = byDayDated.length || 1;
   const summaryAvg = Math.round(total / dayCount);
+  const displayPerson = (name) => (name === '共同' ? t('expenseCard.shared') : name);
+  const displayCategory = (cat) => t(`categories.${cat}`, { defaultValue: cat });
 
   const todaySection = rem ? (
     <section key="today" data-section="today" className="paper-panel relative space-y-3 p-4">
       <Tape tone="mustard" className="-top-2 left-6 z-10 h-4 w-20 -rotate-1" />
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-xl border border-line bg-cream p-3">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">今日使咗</p>
-          <p className="mt-0.5 whitespace-nowrap font-display text-xl font-bold tabular-nums text-teal-strong">
+        <div className="min-w-0 rounded-xl border border-line bg-cream p-3">
+          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.charts.spentToday')}
+          </p>
+          <p className="mt-0.5 truncate whitespace-nowrap font-display text-xl font-bold tabular-nums text-teal-strong">
             {hk(tva.today)}
           </p>
         </div>
-        <div className="rounded-xl border border-line bg-cream p-3">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">旅程日均</p>
-          <p className="mt-0.5 whitespace-nowrap font-display text-xl font-bold tabular-nums text-ink">
+        <div className="min-w-0 rounded-xl border border-line bg-cream p-3">
+          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.charts.tripDailyAvg')}
+          </p>
+          <p className="mt-0.5 truncate whitespace-nowrap font-display text-xl font-bold tabular-nums text-ink">
             {hk(tva.avg)}
           </p>
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-line bg-cream px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0 space-y-1.5 rounded-xl border border-line bg-cream px-3 py-2.5">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <p
-            className={`whitespace-nowrap text-sm font-bold ${
+            className={`min-w-0 truncate whitespace-nowrap text-sm font-bold ${
               rem.over ? 'text-coral-ink' : 'text-teal-strong'
             }`}
           >
             {rem.over
-              ? `已超出預算 ${hk(Math.abs(rem.left))}`
+              ? t('notebook.charts.overBudget', { amount: hk(Math.abs(rem.left)) })
               : mode === 'before'
-                ? `旅程未開始 · 每日可以使 ${hk(rem.perDay)}`
+                ? t('notebook.charts.allowanceBefore', { amount: hk(rem.perDay) })
                 : rem.lastDay
-                  ? `今日仲可以使 ${hk(rem.perDay)}`
-                  : `之後每日仲可以使 ${hk(rem.perDay)}`}
+                  ? t('notebook.charts.allowanceLastDay', { amount: hk(rem.perDay) })
+                  : t('notebook.charts.allowanceRemaining', { amount: hk(rem.perDay) })}
           </p>
         </div>
         <div className="h-2.5 overflow-hidden rounded-pill bg-beige">
@@ -190,8 +196,12 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
             style={{ width: `${Math.min(100, Math.max(4, rem.pct))}%` }}
           />
         </div>
-        <p className="whitespace-nowrap font-mono text-meta font-semibold text-ink-soft">
-          已用 {hk(rem.spent)} / {hk(rem.budget)} · {rem.pct}%
+        <p className="truncate whitespace-nowrap font-mono text-meta font-semibold text-ink-soft">
+          {t('notebook.charts.budgetProgress', {
+            spent: hk(rem.spent),
+            budget: hk(rem.budget),
+            pct: rem.pct,
+          })}
         </p>
       </div>
     </section>
@@ -200,29 +210,48 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const summarySection = (
     <section key="summary" data-section="summary" className="space-y-2.5">
       <div className="grid grid-cols-3 gap-2.5">
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">總花費</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-teal-strong">{fmtHKD(total)}</p>
+        <div className="paper-panel min-w-0 p-3 text-center">
+          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.charts.totalSpend')}
+          </p>
+          <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-teal-strong">
+            {fmtHKD(total)}
+          </p>
         </div>
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">天數</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-ink">{byDayDated.length} 日</p>
+        <div className="paper-panel min-w-0 p-3 text-center">
+          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.charts.daysLabel')}
+          </p>
+          <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-ink">
+            {t('notebook.charts.daysCount', { count: byDayDated.length })}
+          </p>
         </div>
-        <div className="paper-panel p-3 text-center">
-          <p className="whitespace-nowrap text-meta font-medium text-ink-muted">日均</p>
-          <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-ink">{fmtHKD(summaryAvg)}</p>
+        <div className="paper-panel min-w-0 p-3 text-center">
+          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.charts.dailyAvg')}
+          </p>
+          <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-ink">
+            {fmtHKD(summaryAvg)}
+          </p>
         </div>
       </div>
       {mode === 'review' && rem && (
-        <div className="paper-panel flex items-center justify-between px-4 py-2.5">
+        <div className="paper-panel flex min-w-0 items-center justify-between px-4 py-2.5">
           <span
-            className={`whitespace-nowrap text-meta font-bold ${
+            className={`min-w-0 truncate whitespace-nowrap text-meta font-bold ${
               rem.over ? 'text-coral-ink' : 'text-teal-strong'
             }`}
           >
             {rem.over
-              ? `預算 ${hk(rem.budget)} · 已超出 ${hk(Math.abs(rem.left))}（${rem.pct}%）`
-              : `預算 ${hk(rem.budget)} · 用咗 ${rem.pct}%`}
+              ? t('notebook.charts.reviewBudgetOver', {
+                  budget: hk(rem.budget),
+                  over: hk(Math.abs(rem.left)),
+                  pct: rem.pct,
+                })
+              : t('notebook.charts.reviewBudgetUsed', {
+                  budget: hk(rem.budget),
+                  pct: rem.pct,
+                })}
           </span>
         </div>
       )}
@@ -234,9 +263,13 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   const paymentSection = (
     <section key="payment" data-section="payment" className="paper-panel space-y-2.5 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">現金 vs 卡</h2>
-        <span className="whitespace-nowrap text-meta font-medium text-ink-muted">點按篩選帳本</span>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+          {t('notebook.charts.cashVsCard')}
+        </h2>
+        <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-muted">
+          {t('notebook.charts.tapToFilterLedger')}
+        </span>
       </div>
 
       <div className="flex h-3 overflow-hidden rounded-pill bg-beige">
@@ -259,11 +292,14 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           type="button"
           data-testid="chart-pay-cash"
           onClick={() => onOpenLedger?.({ payment: 'cash' })}
-          className="flex min-h-11 items-center justify-between gap-1.5 rounded-xl border border-line bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="flex min-h-11 min-w-0 flex-col items-start justify-center gap-0.5 rounded-xl border border-line bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-meta font-bold text-ink">
             <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-mustard" />
-            <span>現金 {hk(pay.cash.total)} · {cashPct}%</span>
+            <span>{t('notebook.charts.cash')}</span>
+          </span>
+          <span className="min-w-0 whitespace-nowrap text-meta font-bold tabular-nums text-ink">
+            {hk(pay.cash.total)} · {cashPct}%
           </span>
         </button>
 
@@ -271,11 +307,14 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           type="button"
           data-testid="chart-pay-card"
           onClick={() => onOpenLedger?.({ payment: 'card' })}
-          className="flex min-h-11 items-center justify-between gap-1.5 rounded-xl border border-line bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="flex min-h-11 min-w-0 flex-col items-start justify-center gap-0.5 rounded-xl border border-line bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-meta font-bold text-ink">
             <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-teal-strong" />
-            <span>卡 {hk(pay.card.total)} · {cardPct}%</span>
+            <span>{t('notebook.charts.card')}</span>
+          </span>
+          <span className="min-w-0 whitespace-nowrap text-meta font-bold tabular-nums text-ink">
+            {hk(pay.card.total)} · {cardPct}%
           </span>
         </button>
       </div>
@@ -302,7 +341,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const categorySection = (
     <section key="category" data-section="category" className="paper-panel relative space-y-3 p-4">
       <Tape tone="coral" className="-top-2 right-6 z-10 h-4 w-16 rotate-1" />
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">類別花費分佈</h2>
+      <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        {t('notebook.charts.categoryTitle')}
+      </h2>
 
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
         <div className="relative flex shrink-0 items-center justify-center">
@@ -310,7 +351,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
             viewBox="0 0 160 160"
             className="h-36 w-36 shrink-0"
             role="img"
-            aria-label="類別花費分佈圓環圖"
+            aria-label={t('notebook.charts.categoryDonutAria')}
           >
             <circle
               cx="80"
@@ -345,7 +386,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               fontSize="12"
               className="fill-current text-meta font-medium text-ink-muted"
             >
-              總花費
+              {t('notebook.charts.totalSpend')}
             </text>
             <text
               x="80"
@@ -368,12 +409,12 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                 type="button"
                 data-testid={`chart-cat-${row.cat}`}
                 onClick={() => onOpenLedger?.({ category: row.cat })}
-                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
                 <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap text-meta font-bold text-ink">
                   <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotTone}`} />
-                  <span>
-                    {row.cat} · {row.count} 筆
+                  <span className="min-w-0 truncate">
+                    {displayCategory(row.cat)} · {t('notebook.charts.itemsCount', { count: row.count })}
                   </span>
                 </span>
                 <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink-soft">
@@ -391,17 +432,21 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   const dailySection = (
     <section key="daily" data-section="daily" className="paper-panel space-y-2.5 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">每日花費</h2>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+          {t('notebook.charts.dailyTitle')}
+        </h2>
         {daily.rows.length > 0 && (
-          <span className="whitespace-nowrap font-mono text-meta font-semibold text-ink-muted">
-            日均 {hk(daily.avg)}
+          <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink-muted">
+            {t('notebook.charts.dailyAvgAmount', { amount: hk(daily.avg) })}
           </span>
         )}
       </div>
 
       {daily.rows.length === 0 ? (
-        <p className="whitespace-nowrap py-2 text-meta text-ink-muted">旅程未開始，尚無每日花費趨勢。</p>
+        <p className="min-w-0 truncate whitespace-nowrap py-2 text-meta text-ink-muted">
+          {t('notebook.charts.dailyNotStarted')}
+        </p>
       ) : (
         <div className="space-y-2">
           {daily.rows.map((row) => {
@@ -413,17 +458,17 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                 type="button"
                 data-testid={`chart-bar-${row.iso}`}
                 onClick={() => onOpenDay?.(row.iso)}
-                className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                className={`flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                   row.isToday
                     ? 'border-teal-strong bg-teal-soft/60 ring-1 ring-teal-strong'
                     : 'border-line/60 bg-cream hover:bg-beige/50'
                 }`}
               >
-                <span className="flex w-[5.5rem] shrink-0 items-center gap-1 whitespace-nowrap text-meta font-bold text-ink">
-                  <span>{shortDayLabel(row.iso)}</span>
+                <span className="flex min-w-[5.5rem] shrink-0 items-center gap-1 whitespace-nowrap text-meta font-bold text-ink">
+                  <span>{shortDayLabel(row.iso, t)}</span>
                   {row.isToday && (
                     <span className="rounded-pill bg-teal-strong px-1.5 py-0.5 text-meta font-bold leading-none text-white">
-                      今日
+                      {t('notebook.charts.todayBadge')}
                     </span>
                   )}
                 </span>
@@ -467,7 +512,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   const top5Section = (
     <section key="top5" data-section="top5" className="paper-panel space-y-2.5 p-4">
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">最貴 5 筆</h2>
+      <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        {t('notebook.charts.top5Title')}
+      </h2>
       <div className="space-y-2">
         {top5.map((e, idx) => (
           <button
@@ -475,7 +522,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
             type="button"
             data-testid={`chart-top-${e.id}`}
             onClick={() => onOpenLedger?.({ focus: e.id })}
-            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-beige font-mono text-meta font-bold text-ink-soft">
@@ -486,7 +533,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               </span>
             </span>
             <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
-              {e.date ? shortDayLabel(expenseDateKey(e.date)) : '未有日期'}
+              {e.date ? shortDayLabel(expenseDateKey(e.date), t) : t('notebook.charts.undated')}
             </span>
             <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
               {hk(e.hkdAmount)}
@@ -499,9 +546,13 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   const assigneeSection = (
     <section key="assignee" data-section="assignee" className="paper-panel space-y-2.5 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">人物花費分配</h2>
-        <span className="whitespace-nowrap text-meta text-ink-muted">點按睇帳本</span>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+          {t('notebook.charts.assigneeTitle')}
+        </h2>
+        <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
+          {t('notebook.charts.tapToViewLedger')}
+        </span>
       </div>
 
       <div className="space-y-2">
@@ -522,12 +573,14 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               type="button"
               data-testid={`chart-assignee-${row.person}`}
               onClick={() => onOpenLedger?.({ person: row.person })}
-              className="min-h-11 w-full space-y-1.5 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="min-h-11 w-full min-w-0 space-y-1.5 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
-              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
-                <span className="truncate text-meta font-bold text-ink">{row.person}</span>
+              <div className="flex min-w-0 items-center justify-between gap-2 whitespace-nowrap">
+                <span className="min-w-0 truncate text-meta font-bold text-ink">
+                  {displayPerson(row.person)}
+                </span>
                 <span className="shrink-0 font-mono text-sm font-bold text-ink">
-                  {hk(row.total)} · {row.count} 筆
+                  {hk(row.total)} · {t('notebook.charts.itemsCount', { count: row.count })}
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-pill bg-beige">
@@ -543,7 +596,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
       {assignee.shares.length > 0 && (
         <p data-testid="chart-assignee-shares" className="truncate whitespace-nowrap text-meta text-ink-muted">
-          連共同攤分：{assignee.shares.map((s) => `${s.person} ${hk(s.share)}`).join(' · ')}
+          {t('notebook.charts.sharesLine', {
+            shares: assignee.shares.map((s) => `${displayPerson(s.person)} ${hk(s.share)}`).join(' · '),
+          })}
         </p>
       )}
     </section>
@@ -551,7 +606,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   const settleSection = (
     <section key="settle" data-section="settle" className="paper-panel space-y-2.5 p-4">
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">夾錢結算</h2>
+      <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        {t('notebook.charts.settleTitle')}
+      </h2>
 
       <div className="space-y-2">
         {settlement.rows.map((row) => {
@@ -569,7 +626,11 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line/60 bg-cream px-3 py-2 text-left transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               <span className="min-w-0 flex-1 truncate whitespace-nowrap text-meta font-semibold text-ink">
-                {row.person} 俾咗 {hk(row.paid)} · 應付 {hk(row.owed)}
+                {t('notebook.charts.personSummary', {
+                  name: displayPerson(row.person),
+                  paid: hk(row.paid),
+                  owed: hk(row.owed),
+                })}
               </span>
               <span
                 className={`shrink-0 whitespace-nowrap font-mono text-sm font-bold ${
@@ -591,14 +652,18 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               className="flex min-h-11 min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-teal/35 bg-teal-soft/65 px-3 py-2 text-sm font-bold text-teal-strong"
             >
               <span className="min-w-0 flex-1 truncate whitespace-nowrap">
-                {tr.from} 要還 {tr.to} {hk(tr.amount)}
+                {t('notebook.charts.transferLine', {
+                  from: displayPerson(tr.from),
+                  to: displayPerson(tr.to),
+                  amount: hk(tr.amount),
+                })}
               </span>
               {participants.length >= 2 && (
                 <button
                   type="button"
                   data-testid="settle-mark-repaid"
                   onClick={() => handleMarkRepaid(tr)}
-                  className="inline-flex h-10 min-h-10 min-w-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
                   {t('notebook.settle.markRepaid')}
                 </button>
@@ -607,14 +672,16 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           ))
         ) : (
           <div className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-teal-strong">
-            <span className="whitespace-nowrap">已經夾平 ✓ · {t('notebook.settle.settled')}</span>
+            <span className="whitespace-nowrap">{t('notebook.charts.allSettled')}</span>
           </div>
         )}
       </div>
 
       {participants.length > 0 && (
         <p className="truncate whitespace-nowrap text-meta text-ink-muted">
-          共同消費由 {participants.join('、')} 平分
+          {t('notebook.charts.sharedSplitBy', {
+            names: participants.map(displayPerson).join(t('notebook.charts.nameSeparator')),
+          })}
         </p>
       )}
     </section>
@@ -676,7 +743,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
       <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-4 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
           <h2 id="settle-sheet-title" className="min-w-0 flex-1 truncate font-display text-lg text-ink">
-            {t('notebook.settle.sheetTitle', { name: breakdown.person })}
+            {t('notebook.settle.sheetTitle', { name: displayPerson(breakdown.person) })}
           </h2>
           <button
             type="button"
@@ -692,7 +759,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         <div className="space-y-2">
           <div className="flex min-w-0 items-baseline justify-between gap-2">
             <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
-              {t('notebook.settle.paidTitle', { name: breakdown.person })}
+              {t('notebook.settle.paidTitle', { name: displayPerson(breakdown.person) })}
             </h3>
             <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
               {hk(breakdown.paidTotal)}
@@ -715,7 +782,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                       {line.title || t('common.unnamedStore')}
                     </span>
                     <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
-                      {line.date ? shortDayLabel(expenseDateKey(line.date)) : t('notebook.settle.undated')}
+                      {line.date ? shortDayLabel(expenseDateKey(line.date), t) : t('notebook.settle.undated')}
                     </span>
                     <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-teal-strong">
                       {hk(line.hkd)}
@@ -723,7 +790,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                   </div>
                   {line.blankPayer && (
                     <p className="min-w-0 truncate text-meta text-ink-muted">
-                      {t('notebook.settle.blankPayerTag', { name: breakdown.person })}
+                      {t('notebook.settle.blankPayerTag', { name: displayPerson(breakdown.person) })}
                     </p>
                   )}
                 </div>
@@ -848,7 +915,10 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                           {dirLabel}
                         </span>
                         <span className="min-w-0 truncate text-sm font-bold text-ink">
-                          {t('notebook.settle.repaidTo', { from: s.from, to: s.to })}
+                          {t('notebook.settle.repaidTo', {
+                            from: displayPerson(s.from),
+                            to: displayPerson(s.to),
+                          })}
                         </span>
                         {unknown && (
                           <span
@@ -862,7 +932,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                       {(s.date || s.note) && (
                         <p className="min-w-0 truncate text-meta text-ink-muted">
                           {[
-                            s.date ? shortDayLabel(expenseDateKey(s.date)) : '',
+                            s.date ? shortDayLabel(expenseDateKey(s.date), t) : '',
                             s.note || '',
                           ]
                             .filter(Boolean)
@@ -952,7 +1022,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
             setSettlePerson(null);
             onOpenLedger?.({ payer: targetPayer });
           }}
-          className="btn-primary min-h-11 w-full whitespace-nowrap !py-2.5 text-sm"
+          className="btn-primary min-h-11 min-w-11 w-full whitespace-nowrap !py-2.5 text-sm"
         >
           {t('notebook.settle.viewInLedger')}
         </button>
@@ -960,12 +1030,20 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
     </div>
   ) : null;
 
+  const chartsTitle = t('notebook.charts.title');
+  const chartsTitleScript = t('notebook.charts.titleScript');
+  const showChartsTitleScript = Boolean(chartsTitleScript) && chartsTitleScript !== chartsTitle;
+
   return (
     <div data-testid="page-charts" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-4 px-4 pb-6 pt-4">
       <div className="relative flex min-w-0 items-baseline gap-2">
         <Sparkle className="absolute -left-1 top-1 h-4 w-4" />
-        <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">統計圖表</h1>
-        <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Charts</span>
+        <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">{chartsTitle}</h1>
+        {showChartsTitleScript && (
+          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+            {chartsTitleScript}
+          </span>
+        )}
       </div>
       {sections}
       {settleSheetNode &&

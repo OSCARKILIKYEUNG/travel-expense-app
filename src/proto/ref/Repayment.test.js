@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import zhTW from '../../locales/zh-TW.json';
 import NotebookApp from '../../notebook/NotebookApp';
 import SettingsView from '../../notebook/SettingsView';
 import ChartsView from './ChartsView';
@@ -98,7 +99,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
       ),
     );
 
-    expect(screen.getByText(/A 要還 B HK\$300/)).toBeTruthy();
+    expect(screen.getByText(/A 應還 B HK\$300/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('settle-mark-repaid'));
 
     expect(screen.getByTestId('chart-person-A').textContent).toContain('已結清');
@@ -111,7 +112,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     // Undo restores the transfer row
     fireEvent.click(screen.getByTestId('toast-undo'));
     expect(screen.getByTestId('settle-mark-repaid')).toBeTruthy();
-    expect(screen.getByText(/A 要還 B HK\$300/)).toBeTruthy();
+    expect(screen.getByText(/A 應還 B HK\$300/)).toBeTruthy();
   });
 
   it('Partial form in settle-sheet: changing amount to half and saving updates remaining to 尚欠 $half, and warns on overpay', async () => {
@@ -325,5 +326,109 @@ describe('PR-repay-2: Settlement repayment UI', () => {
 
     fireEvent.click(screen.getByTestId('person-remove-A'));
     expect(onToast).toHaveBeenCalledWith('已移除「A」，其消費已歸入共同（已移除 2 筆還款記錄）');
+  });
+
+  it('EN render of ChartsView (including settle section, daily bar date label, categories, and Shared person) contains no CJK labels except user data', async () => {
+    await i18n.changeLanguage('en');
+    const trip = createTwoPersonTrip({
+      settings: {
+        people: ['共同', 'Oscar', 'Ming'],
+        rate: 0.05,
+        budget: 5000,
+      },
+      expenses: [
+        {
+          id: 'e1',
+          date: '2026-10-22',
+          store: 'Sushi Dinner',
+          place: 'Ginza',
+          category: '飲食',
+          assignedTo: '共同',
+          payer: 'Ming',
+          payment: 'card',
+          currency: 'HKD',
+          originalAmount: 600,
+          hkdAmount: 600,
+          items: [],
+        },
+      ],
+    });
+
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-22',
+          settlementActions: { add: vi.fn(), update: vi.fn(), remove: vi.fn() },
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+
+    const chartsPage = screen.getByTestId('page-charts');
+    expect(chartsPage.textContent).toContain('10/22 Thu');
+    expect(chartsPage.textContent).toContain('Food & drink');
+    expect(chartsPage.textContent).toContain('Shared');
+    expect(chartsPage.textContent).toContain('Settle up');
+    expect(chartsPage.textContent).toContain('Oscar paid HK$0 · owes HK$300');
+    expect(chartsPage.textContent).toContain('Oscar owes Ming HK$300');
+    expect(chartsPage.textContent).toContain('Mark repaid');
+    expect(chartsPage.textContent).toContain('Shared costs split evenly by Oscar, Ming');
+    expect(chartsPage.textContent).not.toMatch(/[\u3400-\u9fff]/);
+
+    // Open settle sheet in EN and verify no CJK characters either
+    fireEvent.click(screen.getByTestId('chart-person-Oscar'));
+    const sheet = screen.getByTestId('settle-sheet');
+    expect(sheet.textContent).toContain("Oscar's split");
+    expect(sheet.textContent).toContain('Record repayment');
+    expect(sheet.textContent).not.toMatch(/[\u3400-\u9fff]/);
+  });
+
+  it('zh-TW notebook.settle.* and notebook.charts.* values contain no Cantonese particles/words', () => {
+    const settleValues = Object.entries(zhTW.notebook?.settle || {});
+    const chartsValues = Object.entries(zhTW.notebook?.charts || {});
+    expect(settleValues.length).toBeGreaterThan(0);
+    expect(chartsValues.length).toBeGreaterThan(0);
+
+    const cantoneseTokens = ['嘅', '俾', '咗', '睇', '邊個', '仲', '啲', '冇', '係', '喺', '未有', '要還', '使咗', '可以使', '夾錢', '夾平'];
+    for (const [key, val] of [...settleValues, ...chartsValues]) {
+      for (const token of cantoneseTokens) {
+        expect(String(val), `key ${key} contains forbidden Cantonese token "${token}"`).not.toContain(
+          token,
+        );
+      }
+    }
+  });
+
+  it('settle-mark-repaid and repayment tap targets have min-h-11 and min-w-11 (≥44px)', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const trip = createTwoPersonTrip();
+
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-22',
+          settlementActions: { add: vi.fn(), update: vi.fn(), remove: vi.fn() },
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+
+    const markBtn = screen.getByTestId('settle-mark-repaid');
+    expect(markBtn.className).toContain('min-h-11');
+    expect(markBtn.className).toContain('min-w-11');
+
+    fireEvent.click(screen.getByTestId('chart-person-A'));
+    const sheet = screen.getByTestId('settle-sheet');
+    expect(within(sheet).getByTestId('repayment-save').className).toContain('min-h-11');
+    expect(within(sheet).getByTestId('repayment-save').className).toContain('min-w-11');
+    expect(within(sheet).getByTestId('repayment-amount').className).toContain('min-h-11');
   });
 });

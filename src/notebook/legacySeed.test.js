@@ -314,7 +314,7 @@ describe('P4: ChartsView and SettingsView on seed=legacy and controlled persiste
     // Settle rows + transfer
     expect(html).toContain('data-testid="chart-person-Oscar"');
     expect(html).toContain('data-testid="chart-person-阿明"');
-    expect(html).toContain('阿明 要還 Oscar HK$990');
+    expect(html).toContain('阿明 應還 Oscar HK$990');
   });
 
   it('renders #settings with seed=legacy showing trip-start-date, trip-end-date, trip-dates-save, budget, and language toggle in zh-TW and en', async () => {
