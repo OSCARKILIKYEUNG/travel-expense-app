@@ -165,7 +165,7 @@ export function mergeGroupsWithSettlements(expenseGroups = [], settlements = [])
     if (!g) {
       g = {
         key,
-        label: iso ? expenseDateLabel(iso) : '未有日期',
+        label: iso ? expenseDateLabel(iso) : '無日期',
         iso: iso || null,
         items: [],
         settlements: [],

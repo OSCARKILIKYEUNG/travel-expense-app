@@ -7,6 +7,7 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import {
   CATEGORY_DOT,
   CategorySticker,
+  Doodle,
   DoodleSticker,
   Icon,
   ScriptCallout,
@@ -271,11 +272,15 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const cardPct = pay.total > 0 ? Math.round((pay.card.total / pay.total) * 100) : 0;
 
   const paymentSection = (
-    <section key="payment" data-section="payment" className="paper-panel space-y-2.5 p-4">
+    <section key="payment" data-section="payment" className="paper-panel relative space-y-2.5 p-4">
+      <Tape tone="teal" className="-top-2 left-8 z-10 h-4 w-16 -rotate-1" />
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
-          {t('notebook.charts.cashVsCard')}
-        </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Doodle name="camera" size="sm" blob="teal" className="text-ink" />
+          <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.cashVsCard')}
+          </h2>
+        </div>
         <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-muted">
           {t('notebook.charts.tapToFilterLedger')}
         </span>
@@ -351,10 +356,16 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
     <section key="category" data-section="category" className="paper-panel relative space-y-3 p-4">
       <Tape tone="coral" className="-top-2 right-6 z-10 h-4 w-16 rotate-1" />
       <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">
-          {t('notebook.charts.categoryTitle')}
-        </h2>
-        <ScriptCallout text="Oishii!" className="rotate-2 text-coral-ink" />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Doodle name="sushi" size="sm" blob="coral" className="text-ink" />
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.categoryTitle')}
+          </h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <Sparkle className="h-3 w-3" />
+          <ScriptCallout text="Oishii!" className="rotate-2 text-coral-ink" />
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
@@ -447,11 +458,16 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const avgPct = daily.max > 0 ? Math.min(100, Math.max(0, Math.round((daily.avg / daily.max) * 100))) : 0;
 
   const dailySection = (
-    <section key="daily" data-section="daily" className="paper-panel space-y-2.5 p-4">
+    <section key="daily" data-section="daily" className="paper-panel relative space-y-2.5 p-4">
+      <Tape tone="sakura" className="-top-2 left-10 z-10 h-4 w-20 rotate-1" />
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
-          {t('notebook.charts.dailyTitle')}
-        </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Doodle name="train" size="sm" blob="teal" className="text-ink" />
+          <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.dailyTitle')}
+          </h2>
+          <ScriptCallout text="go!!" className="-rotate-2 text-teal-strong" />
+        </div>
         {daily.rows.length > 0 && (
           <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink-muted">
             {t('notebook.charts.dailyAvgAmount', { amount: hk(daily.avg) })}
@@ -540,10 +556,17 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const top5Section = (
-    <section key="top5" data-section="top5" className="paper-panel space-y-2.5 p-4">
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">
-        {t('notebook.charts.top5Title')}
-      </h2>
+    <section key="top5" data-section="top5" className="paper-panel relative space-y-2.5 p-4">
+      <Tape tone="mustard" className="-top-2 right-8 z-10 h-4 w-16 -rotate-1" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Doodle name="pagoda" size="sm" blob="sakura" className="text-ink" />
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.top5Title')}
+          </h2>
+        </div>
+        <ScriptCallout text="Nice" className="rotate-2 text-mustard-ink" />
+      </div>
       <div className="space-y-2">
         {top5.map((e, idx) => (
           <button
@@ -574,11 +597,15 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const assigneeSection = (
-    <section key="assignee" data-section="assignee" className="paper-panel space-y-2.5 p-4">
+    <section key="assignee" data-section="assignee" className="paper-panel relative space-y-2.5 p-4">
+      <Tape tone="sage" className="-top-2 right-10 z-10 h-4 w-20 rotate-1" />
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
-          {t('notebook.charts.assigneeTitle')}
-        </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Doodle name="suitcase" size="sm" blob="mustard" className="text-ink" />
+          <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.assigneeTitle')}
+          </h2>
+        </div>
         <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
           {t('notebook.charts.tapToViewLedger')}
         </span>
@@ -634,10 +661,17 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const settleSection = (
-    <section key="settle" data-section="settle" className="paper-panel space-y-2.5 p-4">
-      <h2 className="whitespace-nowrap font-display text-lg text-ink">
-        {t('notebook.charts.settleTitle')}
-      </h2>
+    <section key="settle" data-section="settle" className="paper-panel relative space-y-2.5 p-4">
+      <Tape tone="dots" className="-top-2 left-8 z-10 h-4 w-20 -rotate-1" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Doodle name="sakura" size="sm" className="text-ink" />
+          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+            {t('notebook.charts.settleTitle')}
+          </h2>
+        </div>
+        <Sparkle className="h-3.5 w-3.5" />
+      </div>
 
       <div className="space-y-2">
         {settlement.rows.map((row) => {
@@ -1065,14 +1099,21 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
   return (
     <div data-testid="page-charts" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-4 px-4 pb-6 pt-4">
-      <div className="relative flex min-w-0 items-baseline gap-2">
-        <Sparkle className="absolute -left-1 top-1 h-4 w-4" />
-        <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">{chartsTitle}</h1>
-        {showChartsTitleScript && (
-          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
-            {chartsTitleScript}
-          </span>
-        )}
+      <div className="relative flex min-w-0 items-center justify-between gap-2">
+        <div className="relative flex min-w-0 items-baseline gap-2">
+          <Sparkle className="absolute -left-1 top-1 h-4 w-4" />
+          <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">{chartsTitle}</h1>
+          {showChartsTitleScript && (
+            <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+              {chartsTitleScript}
+            </span>
+          )}
+          <ScriptCallout text="Shopping" className="ml-1 -rotate-2 text-sakura-ink" />
+        </div>
+        <span aria-hidden="true" className="pointer-events-none inline-flex items-center gap-1">
+          <Doodle name="lantern" size="sm" blob="sage" className="-rotate-6 text-ink" />
+          <Doodle name="fuji" size="sm" blob="teal" className="rotate-6 text-ink" />
+        </span>
       </div>
       {sections}
       {settleSheetNode &&

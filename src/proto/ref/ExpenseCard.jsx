@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import '../../i18n';
 import { runStickerPop } from '../../motion/stickerKeyframes';
 import { CATEGORY_BADGE, CATEGORY_DOT, CategorySticker, Icon, ZigZag } from './parts';
 import { fmtHKD, fmtJPY } from './refLogic';
@@ -13,6 +15,7 @@ export default function ExpenseCard({
   onEdit,
   onDelete,
 }) {
+  const { t } = useTranslation();
   const [menu, setMenu] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const cardRef = useRef(null);
@@ -95,12 +98,16 @@ export default function ExpenseCard({
                 size="sm"
                 dotClassName={`h-2 w-2 ${dotStyle}`}
               />
-              <span className="truncate">{expense.category}</span>
+              <span className="truncate">
+                {t(`categories.${expense.category}`, { defaultValue: expense.category })}
+              </span>
             </span>
             <span className="max-w-full truncate whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
-              {expense.assignedTo}
+              {expense.assignedTo === '共同' ? t('expenseCard.shared') : expense.assignedTo}
             </span>
-            <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">{expense.scanned ? '掃描' : '手動'}</span>
+            <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
+              {expense.scanned ? t('notebook.expenseCard.scanned') : t('notebook.expenseCard.manual')}
+            </span>
           </div>
           <h3 className="truncate whitespace-nowrap text-base font-bold leading-snug text-ink">{expense.store}</h3>
           {expense.place && (
@@ -120,7 +127,7 @@ export default function ExpenseCard({
             <button
               ref={moreBtnRef}
               type="button"
-              aria-label="更多動作"
+              aria-label={t('notebook.expenseCard.moreActionsAria')}
               aria-haspopup="menu"
               aria-expanded={menu}
               onClick={() => setMenu((v) => !v)}
@@ -142,7 +149,7 @@ export default function ExpenseCard({
                   }}
                   className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm text-ink hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
                 >
-                  {Icon.pencil()} 編輯
+                  {Icon.pencil()} {t('expenseCard.edit')}
                 </button>
                 <button
                   type="button"
@@ -153,7 +160,7 @@ export default function ExpenseCard({
                   }}
                   className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap border-t border-line px-3 py-2.5 text-sm text-coral-ink hover:bg-coral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral-ink"
                 >
-                  {Icon.trash()} 刪除
+                  {Icon.trash()} {t('expenseCard.delete')}
                 </button>
               </div>
             )}
@@ -168,13 +175,15 @@ export default function ExpenseCard({
             className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
-            aria-label="刪除確認"
+            aria-label={t('deleteDialog.title')}
             onClick={(e) => {
               if (e.target === e.currentTarget) setConfirm(false);
             }}
           >
             <div className="w-full max-w-xs rounded-card border border-line bg-cream-soft p-4 shadow-xl">
-              <p className="whitespace-nowrap font-display text-lg text-ink">刪除這筆消費？</p>
+              <p className="whitespace-nowrap font-display text-lg text-ink">
+                {t('notebook.expenseCard.confirmDeleteTitle')}
+              </p>
               <p className="mt-1 truncate whitespace-nowrap text-sm text-ink-soft">
                 {expense.store} · {fmtHKD(expense.hkdAmount)}
               </p>
@@ -184,7 +193,7 @@ export default function ExpenseCard({
                   onClick={() => setConfirm(false)}
                   className="min-h-11 flex-1 whitespace-nowrap rounded-2xl border border-line bg-cream py-2.5 text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
-                  取消
+                  {t('deleteDialog.cancel')}
                 </button>
                 <button
                   type="button"
@@ -195,7 +204,7 @@ export default function ExpenseCard({
                   }}
                   className="min-h-11 flex-1 whitespace-nowrap rounded-2xl bg-coral-ink py-2.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                 >
-                  刪除
+                  {t('deleteDialog.confirm')}
                 </button>
               </div>
             </div>

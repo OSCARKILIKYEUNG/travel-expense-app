@@ -79,27 +79,82 @@ export const washiNav = {
     'repeating-linear-gradient(90deg, rgb(var(--c-mustard)) 0 12px, rgb(var(--c-teal) / 0.55) 12px 18px, rgb(var(--c-coral) / 0.45) 18px 24px, rgb(var(--c-cream-soft)) 24px 30px)',
 };
 
-const TAPE_PATTERNS = {
+export const TAPE_PATTERNS = {
   coral:
-    'repeating-linear-gradient(-45deg, rgb(var(--c-coral) / 0.55) 0 6px, rgb(var(--c-sakura-soft) / 0.85) 6px 12px)',
+    'repeating-linear-gradient(-45deg, rgb(var(--c-coral) / 0.58) 0 6px, rgb(var(--c-sakura-soft) / 0.88) 6px 12px)',
   teal:
-    'repeating-linear-gradient(45deg, rgb(var(--c-teal) / 0.42) 0 6px, rgb(var(--c-teal-soft) / 0.9) 6px 12px)',
+    'repeating-linear-gradient(45deg, rgb(var(--c-teal) / 0.46) 0 6px, rgb(var(--c-teal-soft) / 0.92) 6px 12px)',
   sakura:
-    'repeating-linear-gradient(45deg, rgb(var(--c-sakura) / 0.65) 0 7px, rgb(var(--c-cream-soft) / 0.9) 7px 14px)',
+    'repeating-linear-gradient(45deg, rgb(var(--c-sakura) / 0.68) 0 7px, rgb(var(--c-cream-soft) / 0.92) 7px 14px)',
   sage:
-    'repeating-linear-gradient(-45deg, rgb(var(--c-sage) / 0.65) 0 6px, rgb(var(--c-cream-soft) / 0.88) 6px 12px)',
+    'repeating-linear-gradient(-45deg, rgb(var(--c-sage) / 0.68) 0 6px, rgb(var(--c-cream-soft) / 0.9) 6px 12px)',
   mustard:
-    'repeating-linear-gradient(-35deg, rgb(var(--c-mustard) / 0.62) 0 8px, rgb(var(--c-mustard-soft) / 0.92) 8px 15px)',
+    'repeating-linear-gradient(-35deg, rgb(var(--c-mustard) / 0.66) 0 8px, rgb(var(--c-mustard-soft) / 0.94) 8px 15px)',
+  dots:
+    'radial-gradient(circle, rgb(var(--c-coral) / 0.55) 1.5px, transparent 1.9px), linear-gradient(90deg, rgb(var(--c-mustard-soft) / 0.94), rgb(var(--c-sakura-soft) / 0.92))',
 };
+
+export const TAPE_TORN_CLIP =
+  'polygon(0% 0%, 96.5% 0%, 100% 17%, 95.5% 34%, 100% 51%, 95.5% 68%, 100% 85%, 96.5% 100%, 3.5% 100%, 0% 85%, 4.5% 68%, 0% 51%, 4.5% 34%, 0% 17%)';
 
 export function Tape({ tone = 'coral', className = '' }) {
   const bg = TAPE_PATTERNS[tone] || TAPE_PATTERNS.coral;
+  const isDots = tone === 'dots';
   return (
     <span
       aria-hidden="true"
-      className={`pointer-events-none absolute inline-block h-4 w-20 rounded-sm border border-line/60 shadow-sm ${className}`}
-      style={{ backgroundImage: bg }}
+      data-tape-tone={tone}
+      className={`pointer-events-none absolute inline-block h-4 w-20 border-y border-line/65 shadow-sm ${className}`}
+      style={{
+        backgroundImage: bg,
+        ...(isDots ? { backgroundSize: '8px 8px, 100% 100%' } : {}),
+        clipPath: TAPE_TORN_CLIP,
+        WebkitClipPath: TAPE_TORN_CLIP,
+      }}
     />
+  );
+}
+
+/**
+ * Notched ticket-ribbon SVG background for Ledger date group tabs and DayView date badges.
+ * Purely decorative (`aria-hidden="true"`, `pointer-events-none`), scales seamlessly to text width.
+ */
+export function NotchedTabBg({ tone = 'mustard', className = '' }) {
+  const styles =
+    tone === 'coral'
+      ? {
+          fill: 'rgb(var(--c-coral-soft))',
+          stroke: 'rgb(var(--c-coral-ink) / 0.45)',
+          perf: 'rgb(var(--c-coral-ink) / 0.35)',
+        }
+      : {
+          fill: 'rgb(var(--c-mustard-soft))',
+          stroke: 'rgb(var(--c-mustard-ink) / 0.48)',
+          perf: 'rgb(var(--c-mustard-ink) / 0.35)',
+        };
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 180 40"
+      preserveAspectRatio="none"
+      className={`pointer-events-none absolute inset-0 h-full w-full select-none ${className}`.trim()}
+    >
+      <path
+        d="M4 2 H174 L165 20 L174 38 H4 Q10 20 4 2 Z"
+        fill={styles.fill}
+        stroke={styles.stroke}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M13 6 V34"
+        stroke={styles.perf}
+        strokeWidth="1.1"
+        strokeDasharray="2.5 2.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

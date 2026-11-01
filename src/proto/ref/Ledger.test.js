@@ -4,11 +4,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
+import AddForm from './AddForm';
 import ChartsView from './ChartsView';
 import DayView from './DayView';
 import { CategorySticker, DOODLES, Doodle } from './doodles';
 import Ledger from './Ledger';
-import { StickerGraphic } from './parts';
+import { StickerGraphic, TAPE_TORN_CLIP, Tape } from './parts';
 
 afterEach(() => {
   cleanup();
@@ -135,8 +136,8 @@ describe('Ledger person chips', () => {
     );
 
     const payerChip = screen.getByTestId('ledger-payer-chip');
-    expect(payerChip.textContent).toContain('邊個俾錢：A ✕');
-    expect(payerChip.getAttribute('aria-label')).toBe('清除邊個俾錢篩選');
+    expect(payerChip.textContent).toContain('付款人：A ✕');
+    expect(payerChip.getAttribute('aria-label')).toBe('清除付款人篩選');
 
     fireEvent.click(payerChip);
     expect(screen.queryByTestId('ledger-payer-chip')).toBeNull();
@@ -336,6 +337,284 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     );
     expect(screen.getByTestId('charts-daily-empty').textContent).toContain('旅程未開始，尚無每日花費趨勢。');
     uCharts();
+  });
+
+  it('Batch 2: renders torn-edge Tape (including dots tone), notched date tabs, and full zh-TW 書面語 / EN i18n in AddForm and Ledger', async () => {
+    const { container: tapeContainer, unmount: uTape } = render(
+      createElement(Tape, { tone: 'dots', className: 'h-4 w-20' }),
+    );
+    const tapeSpan = tapeContainer.querySelector('span[data-tape-tone="dots"]');
+    expect(tapeSpan).toBeTruthy();
+    expect(tapeSpan.style.clipPath).toBe(TAPE_TORN_CLIP);
+    uTape();
+
+    await i18n.changeLanguage('zh-TW');
+    const onSave = vi.fn();
+    const { unmount: uFormZh } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(AddForm, {
+          defaultDate: '2026-10-22',
+          people: ['共同', 'Oscar', '阿明'],
+          onCancel: () => {},
+          onSave,
+        }),
+      ),
+    );
+    const formZh = screen.getByTestId('expense-form');
+    expect(formZh.textContent).toContain('付款人');
+    expect(formZh.textContent).toContain('拍照或選擇照片，金額與店舖會自動填入');
+    expect(formZh.textContent).toContain('設為無日期');
+    expect(formZh.textContent).not.toContain('邊個俾錢');
+    expect(formZh.textContent).not.toContain('影相或揀相');
+    expect(formZh.textContent).not.toContain('未有日期');
+
+    // Category sticker pills in AddForm are the sole category picker (radiogroup + radio + aria-checked + roving tabindex)
+    expect(document.getElementById('ref-cat')).toBeNull();
+    const catGroup = screen.getByTestId('form-category-pills');
+    expect(catGroup.getAttribute('role')).toBe('radiogroup');
+    expect(catGroup.getAttribute('aria-labelledby')).toBe('ref-cat-label');
+    const foodPill = screen.getByTestId('form-cat-飲食');
+    const shoppingPill = screen.getByTestId('form-cat-購物');
+    expect(foodPill.getAttribute('role')).toBe('radio');
+    expect(foodPill.getAttribute('aria-checked')).toBe('true');
+    expect(foodPill.getAttribute('tabindex')).toBe('0');
+    expect(shoppingPill.querySelector('svg')).toBeTruthy();
+    expect(shoppingPill.getAttribute('role')).toBe('radio');
+    expect(shoppingPill.getAttribute('aria-checked')).toBe('false');
+    expect(shoppingPill.getAttribute('tabindex')).toBe('-1');
+    fireEvent.click(shoppingPill);
+    expect(shoppingPill.getAttribute('aria-checked')).toBe('true');
+    expect(shoppingPill.getAttribute('tabindex')).toBe('0');
+    expect(foodPill.getAttribute('aria-checked')).toBe('false');
+    expect(foodPill.getAttribute('tabindex')).toBe('-1');
+    uFormZh();
+
+    // EN AddForm has zero CJK chrome and wrapping scan status
+    await i18n.changeLanguage('en');
+    const { unmount: uFormEn } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(AddForm, {
+          defaultDate: '2026-10-22',
+          people: ['共同', 'Oscar', 'Ming'],
+          onCancel: () => {},
+          onSave: () => {},
+        }),
+      ),
+    );
+    const formEn = screen.getByTestId('expense-form');
+    const scanStatus = screen.getByTestId('form-scan-status');
+    expect(scanStatus.className).not.toContain('whitespace-nowrap');
+    expect(scanStatus.className).toContain('break-words');
+    expect(formEn.textContent).toContain('Paid by');
+    expect(formEn.textContent).toContain('Take or choose a photo — amount and shop fill in automatically');
+    expect(formEn.textContent).toContain('Set as no date');
+    expect(formEn.textContent).toContain('Oct 22 Thu');
+    expect(formEn.textContent).toContain('Food & drink');
+    expect(formEn.textContent).toContain('Shared');
+    expect(formEn.textContent).not.toMatch(/[\u3400-\u9fff]/);
+    uFormEn();
+
+    // Ledger notched date tabs in zh-TW and EN
+    await i18n.changeLanguage('zh-TW');
+    const ledgerTrip = {
+      name: 'Trip',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'A', 'B'], budget: null },
+      expenses: [
+        ...expensesA,
+        { id: 99, hkdAmount: 120, assignedTo: '共同', payer: 'A', store: 'Undated shop', category: '購物', currency: 'HKD', date: '' },
+      ],
+    };
+    const { container: ledgerContainer, unmount: uLedger2 } = renderLedger(ledgerTrip);
+    expect(ledgerContainer.querySelectorAll('[data-notched-tab="date"]').length).toBeGreaterThan(0);
+    expect(ledgerContainer.querySelector('[data-notched-tab="undated"]').textContent).toBe('無日期');
+    expect(screen.getByTestId('ledger-undated-hint').textContent).toContain('1 筆無日期');
+    uLedger2();
+  });
+
+  it('AddForm category pill click and keyboard navigation update saved category and prefill from scanDraft/initial', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const onSave = vi.fn();
+    const { unmount } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(AddForm, {
+          defaultDate: '2026-10-22',
+          people: ['共同', 'Oscar'],
+          onCancel: () => {},
+          onSave,
+        }),
+      ),
+    );
+
+    const transportPill = screen.getByTestId('form-cat-交通');
+    const shoppingPill = screen.getByTestId('form-cat-購物');
+    fireEvent.click(transportPill);
+    expect(transportPill.getAttribute('aria-checked')).toBe('true');
+
+    // Keyboard ArrowRight moves from 交通 (index 1) to 購物 (index 2)
+    fireEvent.keyDown(transportPill, { key: 'ArrowRight' });
+    expect(shoppingPill.getAttribute('aria-checked')).toBe('true');
+    expect(transportPill.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.change(screen.getByTestId('form-amount'), { target: { value: '2500' } });
+    fireEvent.change(document.getElementById('ref-store'), { target: { value: 'Tokyu Hands' } });
+    fireEvent.click(screen.getByTestId('form-save'));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].category).toBe('購物');
+    unmount();
+
+    // Scan prefill selects scanned category pill
+    const { unmount: uScan } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(AddForm, {
+          defaultDate: '2026-10-22',
+          people: ['共同', 'Oscar'],
+          scanDraft: {
+            originalAmount: 4200,
+            currency: 'JPY',
+            store: 'JR East',
+            category: '交通',
+            date: '2026-10-22',
+          },
+          onCancel: () => {},
+          onSave: () => {},
+        }),
+      ),
+    );
+    expect(screen.getByTestId('form-cat-交通').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('form-cat-飲食').getAttribute('aria-checked')).toBe('false');
+    uScan();
+  });
+
+  it('DayView renders localized chrome in zh-TW and EN (zero CJK chrome in EN while preserving 全部/共同 filter logic)', async () => {
+    const enSeedTrip = {
+      name: 'Tokyo Trip',
+      startDate: '2026-10-18',
+      endDate: '2026-10-27',
+      settings: { people: ['共同', 'Oscar', 'Alex'], budget: 15000 },
+      days: {
+        '2026-10-20': {
+          title: 'Ginza Walk',
+          note: 'Ginza',
+          sticker: 'shopping',
+          journal: 'Sunny afternoon.',
+          itinerary: [{ id: 's1', time: '11:00', title: 'Itoya Stationery', done: false }],
+        },
+      },
+      expenses: [
+        {
+          id: 'e1',
+          date: '2026-10-20',
+          store: 'Itoya',
+          place: 'Ginza',
+          category: '購物',
+          assignedTo: '共同',
+          payer: 'Oscar',
+          payment: 'card',
+          currency: 'JPY',
+          originalAmount: 6820,
+          hkdAmount: 359,
+          scanned: true,
+        },
+        {
+          id: 'e2',
+          date: '2026-10-20',
+          store: 'Cafe',
+          place: 'Ginza',
+          category: '飲食',
+          assignedTo: 'Oscar',
+          payer: 'Oscar',
+          payment: 'cash',
+          currency: 'JPY',
+          originalAmount: 1000,
+          hkdAmount: 53,
+          scanned: false,
+        },
+      ],
+    };
+
+    await i18n.changeLanguage('en');
+    const { unmount: uReadEn } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(DayView, {
+          trip: enSeedTrip,
+          iso: '2026-10-20',
+          pane: 'expenses',
+          editing: false,
+          onPane: () => {},
+          onEditToggle: () => {},
+          onBack: () => {},
+          onDay: () => {},
+          onUpdateDay: () => {},
+          onScan: () => {},
+          onAdd: () => {},
+          onEditExpense: () => {},
+          onDeleteExpense: () => {},
+        }),
+      ),
+    );
+
+    const dayViewEl = screen.getByTestId('day-view');
+    expect(dayViewEl.textContent).toContain('← Calendar');
+    expect(dayViewEl.textContent).toContain('Oct 20 Tue');
+    expect(dayViewEl.textContent).toContain('Itinerary 1');
+    expect(dayViewEl.textContent).toContain('Day spending 2');
+    expect(dayViewEl.textContent).toContain('Day total');
+    expect(dayViewEl.textContent).toContain('Scanned 1 · Manual 1');
+    expect(dayViewEl.textContent).toContain('All (2)');
+    expect(dayViewEl.textContent).toContain('Shared (1)');
+    expect(dayViewEl.textContent).not.toMatch(/[\u3400-\u9fff]/);
+
+    // Clicking Shared (1) filters using internal '共同' key
+    fireEvent.click(screen.getByRole('button', { name: 'Shared (1)' }));
+    expect(screen.getByTestId('expense-e1')).toBeTruthy();
+    expect(screen.queryByTestId('expense-e2')).toBeNull();
+    uReadEn();
+
+    // Edit mode in EN also has zero CJK chrome
+    const { unmount: uEditEn } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(DayView, {
+          trip: enSeedTrip,
+          iso: '2026-10-20',
+          pane: 'itinerary',
+          editing: true,
+          onPane: () => {},
+          onEditToggle: () => {},
+          onBack: () => {},
+          onDay: () => {},
+          onUpdateDay: () => {},
+          onScan: () => {},
+          onAdd: () => {},
+          onEditExpense: () => {},
+          onDeleteExpense: () => {},
+        }),
+      ),
+    );
+    const editorEl = screen.getByTestId('itinerary-editor');
+    expect(editorEl.textContent).toContain('Day title');
+    expect(editorEl.textContent).toContain('Done');
+    expect(editorEl.textContent).toContain('Sticker');
+    expect(editorEl.textContent).toContain('Calendar tag');
+    expect(editorEl.textContent).toContain('+ Add');
+    expect(editorEl.textContent).not.toMatch(/[\u3400-\u9fff]/);
+    uEditEn();
+
+    await i18n.changeLanguage('zh-TW');
   });
 });
 

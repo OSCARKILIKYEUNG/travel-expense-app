@@ -387,14 +387,18 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     expect(sheet.textContent).not.toMatch(/[\u3400-\u9fff]/);
   });
 
-  it('zh-TW notebook.settle.* and notebook.charts.* values contain no Cantonese particles/words', () => {
+  it('zh-TW notebook.settle.*, notebook.charts.*, notebook.ledger.*, and notebook.addForm.* values contain no Cantonese particles/words', () => {
     const settleValues = Object.entries(zhTW.notebook?.settle || {});
     const chartsValues = Object.entries(zhTW.notebook?.charts || {});
+    const ledgerValues = Object.entries(zhTW.notebook?.ledger || {});
+    const addFormValues = Object.entries(zhTW.notebook?.addForm || {});
     expect(settleValues.length).toBeGreaterThan(0);
     expect(chartsValues.length).toBeGreaterThan(0);
+    expect(ledgerValues.length).toBeGreaterThan(0);
+    expect(addFormValues.length).toBeGreaterThan(0);
 
-    const cantoneseTokens = ['嘅', '俾', '咗', '睇', '邊個', '仲', '啲', '冇', '係', '喺', '未有', '要還', '使咗', '可以使', '夾錢', '夾平'];
-    for (const [key, val] of [...settleValues, ...chartsValues]) {
+    const cantoneseTokens = ['嘅', '俾', '咗', '睇', '邊個', '仲', '啲', '冇', '係', '喺', '未有', '影相', '揀相', '要還', '使咗', '可以使', '夾錢', '夾平'];
+    for (const [key, val] of [...settleValues, ...chartsValues, ...ledgerValues, ...addFormValues]) {
       for (const token of cantoneseTokens) {
         expect(String(val), `key ${key} contains forbidden Cantonese token "${token}"`).not.toContain(
           token,

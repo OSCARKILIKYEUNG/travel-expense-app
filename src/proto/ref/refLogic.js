@@ -7,15 +7,33 @@ import { sortExpenses, expenseDateKey, expenseDateLabel } from '../../utils/date
 import { expenseAllocation, resolvePayer } from './refShares';
 
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const fmtHKD = (n) => `HKD $${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 export const fmtJPY = (n) => `JPY ¥${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
-/** '2026-10-22' -> '10月22日 週四' (zh-HK style, used instead of the browser's mm/dd/yyyy). */
+/** '2026-10-22' -> '10月22日 週四' (written zh style, used instead of the browser's mm/dd/yyyy). */
 export function zhDate(iso) {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '未有日期';
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '無日期';
   const [y, m, d] = iso.split('-').map(Number);
   return `${m}月${d}日 ${WEEK[new Date(y, m - 1, d).getDay()]}`;
+}
+
+/** Locale-aware date formatter for Notebook UI ('10月22日 週四' in zh-TW, 'Oct 22 Thu' in en, '無日期'/'No date' when empty). */
+export function formatNotebookDate(iso, { t, lang } = {}) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return typeof t === 'function' ? t('notebook.ledger.undated') : '無日期';
+  }
+  const isEn = typeof lang === 'string' && lang.toLowerCase().startsWith('en');
+  if (!isEn) {
+    return zhDate(iso);
+  }
+  const [y, m, d] = iso.split('-').map(Number);
+  const wIdx = new Date(y, m - 1, d).getDay();
+  const wKey = WEEKDAY_KEYS[wIdx];
+  const weekday = typeof t === 'function' ? t(`notebook.home.weekdays.${wKey}`) : WEEK[wIdx];
+  return `${MONTH_EN[m - 1]} ${d} ${weekday}`;
 }
 
 /** Build the hash string for opening the add/edit expense flow from { date, scan, id, dateSource }. */
@@ -129,7 +147,7 @@ export function filterExpenses(
   });
 }
 
-/** Ledger groups: dated groups first (newest date first, items in sortExpenses order), then 未有日期 last (items newest-recorded first), each with an HKD subtotal. */
+/** Ledger groups: dated groups first (newest date first, items in sortExpenses order), then 無日期 last (items newest-recorded first), each with an HKD subtotal. */
 export function groupLedger(list) {
   const undated = sortExpenses(list.filter((e) => !e.date));
   const dated = sortExpenses(list.filter((e) => e.date));
@@ -143,7 +161,7 @@ export function groupLedger(list) {
     }
     g.items.push(e);
   }
-  if (undated.length) groups.push({ key: 'undated', label: '未有日期', iso: null, items: undated });
+  if (undated.length) groups.push({ key: 'undated', label: '無日期', iso: null, items: undated });
   return groups.map((g) => ({ ...g, total: g.items.reduce((s, e) => s + Number(e.hkdAmount || 0), 0) }));
 }
 
@@ -151,7 +169,7 @@ export function undatedHint(groups) {
   const g = (groups || []).find((x) => x && x.key === 'undated');
   const count = g?.items?.length || 0;
   if (!count) return null;
-  return { count, label: `${count} 筆未有日期` };
+  return { count, label: `${count} 筆無日期` };
 }
 
 /** True when that person's allocation bucket is above 0. Blank card assignee is 共同, not the first person. */

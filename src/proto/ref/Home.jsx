@@ -69,21 +69,30 @@ export default function Home({
       {/* Airmail summary postcard */}
       <section data-testid="summary" className="relative rounded-card p-[5px] shadow-sm" style={airmail}>
         <Tape tone="coral" className="-top-2.5 left-1/2 z-20 h-5 w-28 -translate-x-1/2 -rotate-2" />
+        <Tape tone="mustard" className="-top-2 right-6 z-20 h-4 w-16 rotate-3 opacity-85" />
         <div className="relative overflow-hidden rounded-[20px] border border-line bg-cream-soft">
           {/* Pastel triangle bunting garland at top inner edge */}
           <Bunting className="h-3.5 w-full opacity-90" />
 
-          {/* Corner Mt. Fuji + Sakura sticker doodle */}
+          {/* Corner Mt. Fuji + Torii + Sakura + Pagoda sticker collage cluster */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-1.5 right-2.5 flex items-end gap-0.5 opacity-80"
+            className="pointer-events-none absolute bottom-1.5 right-2.5 flex items-end gap-1 opacity-85"
           >
+            <ScriptCallout text="cute!!" className="mb-2 -rotate-6 text-sakura-ink" />
+            <Doodle name="torii" size="md" blob="coral" className="-rotate-6 text-ink" />
             <Doodle name="sakura" size="sm" className="-rotate-12 text-ink" />
             <Doodle name="fuji" size="lg" blob="teal" className="text-ink" />
           </div>
 
           <div className="relative px-4 pb-3.5 pt-2">
-            <Sparkle className="absolute right-24 top-2 h-3.5 w-3.5 opacity-75" />
+            <Sparkle className="absolute right-24 top-2 h-3.5 w-3.5 opacity-80" />
+            <Doodle
+              name="plane"
+              size="sm"
+              blob="mustard"
+              className="pointer-events-none absolute right-20 top-6 -rotate-12 text-ink opacity-80"
+            />
             <div className="flex min-w-0 items-start justify-between gap-2">
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex min-w-0 flex-col items-start">
@@ -221,14 +230,17 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
       <Tape tone="teal" className="-top-2 right-8 h-4 w-20 rotate-1 opacity-85" />
+      <Tape tone="sakura" className="-top-2 left-24 h-3.5 w-14 -rotate-2 opacity-80" />
       <ScriptCallout
         text="Let's go!!"
         className="absolute -top-2.5 left-4 rotate-[-4deg] rounded-pill bg-cream-soft/90 px-1.5 text-teal-strong"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-1.5 -right-1 flex items-center gap-0.5 opacity-75"
+        className="pointer-events-none absolute -bottom-1.5 -right-1 flex items-center gap-1 opacity-80"
       >
+        <Doodle name="lantern" size="sm" blob="coral" className="-rotate-6 text-ink" />
+        <Doodle name="train" size="sm" blob="teal" className="rotate-3 text-ink" />
         <Doodle name="fuji" size="sm" className="text-ink" />
         <Sakura className="h-7 w-7" />
       </div>

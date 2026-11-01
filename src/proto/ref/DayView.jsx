@@ -6,8 +6,10 @@ import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS } from './mockRefTrip';
 import {
   DayStamp,
+  Doodle,
   DoodleSticker,
   Icon,
+  NotchedTabBg,
   STICKER_DOODLE_MAP,
   Sakura,
   ScriptCallout,
@@ -18,11 +20,18 @@ import {
   cardDots,
 } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
-import { dayExpenses, dayStats, dayStrip, fmtHKD, matchesPerson, personCounts } from './refLogic';
+import {
+  dayExpenses,
+  dayStats,
+  dayStrip,
+  fmtHKD,
+  formatNotebookDate,
+  matchesPerson,
+  personCounts,
+} from './refLogic';
 import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
 
 const PANES = ['itinerary', 'expenses'];
-const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const hasSticker = (id) => Boolean(id && (STICKERS.some((s) => s.id === id) || STICKER_DOODLE_MAP[id]));
 
@@ -94,6 +103,7 @@ export default function DayView({
   onEditExpense,
   onDeleteExpense,
 }) {
+  const { t, i18n: activeI18n } = useTranslation();
   const handleScan = (targetIso) => {
     if (typeof onRequestScan === 'function') {
       onRequestScan(targetIso);
@@ -105,22 +115,22 @@ export default function DayView({
   const setIndex = (i) => onPane(PANES[i]);
   const { track, handlers, style } = usePager(index, setIndex);
   const day = trip.days[iso] || { title: '', note: '', sticker: null, journal: '', itinerary: [] };
-  const [y, m, d] = iso.split('-').map(Number);
-  const weekday = WEEK[new Date(y, m - 1, d).getDay()];
+  const [, m, d] = iso.split('-').map(Number);
+  const formattedDate = formatNotebookDate(iso, { t, lang: activeI18n.language });
   const nav = dayNav(trip, iso);
   const { inTrip } = nav;
   const nearestTripDay = nav.next || nav.prev || trip.startDate;
   const dayN = inTrip ? dayCounter(trip, iso).n : null;
   const stats = dayStats(trip.expenses, iso);
   const strip = dayStrip({ n: dayN, title: day.title, hkd: stats.total });
-  const hints = ['左滑看消費', '右滑回行程'];
+  const hints = [t('notebook.day.swipeLeftHint'), t('notebook.day.swipeRightHint')];
 
   useEffect(() => {
     if (!highlightId) window.scrollTo(0, 0);
   }, [iso, highlightId]);
 
   return (
-    <div data-testid="day-view" className="space-y-2.5 px-4 pt-4">
+    <div data-testid="day-view" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-4">
       {/* Top date navigator banner */}
       <header
         className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-mustard-ink/35 bg-mustard-soft px-2 py-1.5 shadow-sm"
@@ -134,26 +144,28 @@ export default function DayView({
           onClick={onBack}
           className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
-          ← 月曆
+          {t('notebook.day.backToCalendar')}
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-1">
           <h1 className="whitespace-nowrap font-display text-sm text-ink">
-            {m}月{d}日 {weekday}
+            {formattedDate}
           </h1>
           <span
-            className={`shrink-0 whitespace-nowrap rounded-lg border-2 border-dashed px-1.5 py-0.5 text-meta font-semibold ${
+            data-notched-tab="day-badge"
+            className={`relative inline-flex shrink-0 items-center whitespace-nowrap rounded-md pl-3.5 pr-3.5 py-0.5 text-meta font-semibold ${
               dayN
-                ? 'border-coral-ink bg-coral-soft font-script text-coral-ink'
-                : 'border-ink-muted bg-cream-soft text-ink-muted'
+                ? 'font-script text-coral-ink'
+                : 'border border-dashed border-ink-muted bg-cream-soft text-ink-muted'
             }`}
           >
-            {dayN ? `Day ${dayN}` : '旅程外'}
+            {dayN && <NotchedTabBg tone="coral" />}
+            <span className="relative z-10">{dayN ? `Day ${dayN}` : t('notebook.day.outsideTrip')}</span>
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            aria-label="前一日"
+            aria-label={t('notebook.day.prevDayAria')}
             disabled={!nav.prev}
             aria-disabled={!nav.prev}
             onClick={() => nav.prev && onDay(nav.prev)}
@@ -163,7 +175,7 @@ export default function DayView({
           </button>
           <button
             type="button"
-            aria-label="後一日"
+            aria-label={t('notebook.day.nextDayAria')}
             disabled={!nav.next}
             aria-disabled={!nav.next}
             onClick={() => nav.next && onDay(nav.next)}
@@ -178,8 +190,8 @@ export default function DayView({
       <div className="space-y-1.5">
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-beige/80 p-1" role="tablist">
           {[
-            ['itinerary', '行程手札', day.itinerary.length],
-            ['expenses', '當日消費', stats.count],
+            ['itinerary', t('notebook.day.tabItinerary'), day.itinerary.length],
+            ['expenses', t('notebook.day.tabExpenses'), stats.count],
           ].map(([id, label, n], i) => (
             <button
               key={id}
@@ -311,9 +323,11 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
         <DayStamp top={stampTop} bottom={stampBottom} />
         <div className="min-w-0 flex-1">
           <p className="whitespace-nowrap text-meta text-ink-muted">
-            今日主行程{day.note ? ` · ${day.note}` : ''}
+            {t('notebook.day.mainItinerary')}{day.note ? ` · ${day.note}` : ''}
           </p>
-          <h2 className="truncate whitespace-nowrap font-display text-xl text-ink">{day.title || '未有標題'}</h2>
+          <h2 className="truncate whitespace-nowrap font-display text-xl text-ink">
+            {day.title || t('notebook.dayView.noTitle')}
+          </h2>
         </div>
         <button
           type="button"
@@ -321,16 +335,20 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
           onClick={onEdit}
           className="mt-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3.5 py-2 text-meta font-bold text-teal-strong shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
-          ✎編輯
+          {t('notebook.day.editBtn')}
         </button>
       </div>
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
         <Tape tone="teal" className="-top-2.5 right-4 z-10 h-4 w-14 rotate-2" />
-        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-          <span className="whitespace-nowrap text-meta text-ink-muted">今日行程 · {orderedStops.length} 站</span>
+        <div className="mb-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+          <span className="whitespace-nowrap text-meta text-ink-muted">
+            {t('notebook.day.stopsSummary', { count: orderedStops.length })}
+          </span>
           {day.note && (
-            <span className="whitespace-nowrap text-meta font-medium text-teal-strong">月曆小字：{day.note}</span>
+            <span className="min-w-0 truncate whitespace-nowrap text-meta font-medium text-teal-strong">
+              {t('notebook.day.calendarNoteValue', { note: day.note })}
+            </span>
           )}
         </div>
         <ul className="m-0 list-none space-y-1 p-0">
@@ -360,9 +378,14 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
         </ul>
       </div>
 
-      <div className="rounded-2xl border border-line bg-cream px-3 py-2">
-        <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">今日隨筆</span>
-        <p className="truncate whitespace-nowrap text-sm text-ink-soft">{day.journal || '未有隨筆'}</p>
+      <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
+        <Doodle name="pagoda" size="sm" blob="sakura" className="pointer-events-none absolute right-2.5 top-2 text-ink opacity-75" />
+        <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">
+          {t('notebook.day.journalTitle')}
+        </span>
+        <p className="truncate whitespace-nowrap text-sm text-ink-soft">
+          {day.journal || t('notebook.dayView.noJournal')}
+        </p>
       </div>
 
       {inTrip ? (
@@ -373,7 +396,7 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
             onClick={onScan}
             className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-3 py-3 text-base font-bold text-white shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            掃描收據
+            {t('notebook.day.scanReceipt')}
           </button>
           <button
             type="button"
@@ -381,22 +404,24 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
             onClick={onAdd}
             className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-white px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            記一筆
+            {t('notebook.day.addEntry')}
           </button>
         </div>
       ) : (
         <div
           data-testid="outside-trip-banner"
-          className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-line bg-cream px-3 py-2.5"
+          className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-dashed border-line bg-cream px-3 py-2.5"
         >
-          <span className="whitespace-nowrap text-sm font-semibold text-ink-muted">旅程外 · 此日不計入旅程消費</span>
+          <span className="min-w-0 flex-1 break-words text-sm font-semibold text-ink-muted">
+            {t('notebook.day.outsideTripBanner')}
+          </span>
           <button
             type="button"
             data-testid="back-to-trip"
             onClick={onReturnToTrip}
             className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-3.5 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            回到旅程
+            {t('notebook.day.backToTrip')}
           </button>
         </div>
       )}
@@ -405,9 +430,10 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
 }
 
 function ItineraryEditor({ day, onChange, onDone }) {
+  const { t } = useTranslation();
   const [time, setTime] = useState('');
   const [badTimeInput, setBadTimeInput] = useState(false);
-  const [timeError, setTimeError] = useState('');
+  const [timeError, setTimeError] = useState(false);
   const [what, setWhat] = useState('');
   const [editingStopId, setEditingStopId] = useState(null);
   const [editingStopTime, setEditingStopTime] = useState('');
@@ -425,9 +451,9 @@ function ItineraryEditor({ day, onChange, onDone }) {
     setBadTimeInput(nextBad);
     const invalid = isTimeEntryInvalid({ value: nextVal, badInput: nextBad });
     if (!invalid) {
-      setTimeError('');
+      setTimeError(false);
     } else if (showError) {
-      setTimeError('請輸入 HH:MM 時間');
+      setTimeError(true);
     }
     return invalid;
   };
@@ -440,14 +466,14 @@ function ItineraryEditor({ day, onChange, onDone }) {
     if (isTimeEntryInvalid({ value: currentVal, badInput: currentBad })) {
       setTime(currentVal);
       setBadTimeInput(currentBad);
-      setTimeError('請輸入 HH:MM 時間');
+      setTimeError(true);
       return;
     }
     if (!what.trim()) return;
     const rawTime = String(currentVal ?? '').trim();
     const cleanTime = rawTime ? parseHHMM(rawTime) : '';
     if (rawTime && !cleanTime) {
-      setTimeError('請輸入 HH:MM 時間');
+      setTimeError(true);
       return;
     }
     const next = sortStops([
@@ -458,14 +484,14 @@ function ItineraryEditor({ day, onChange, onDone }) {
     if (el) el.value = '';
     setTime('');
     setBadTimeInput(false);
-    setTimeError('');
+    setTimeError(false);
     setWhat('');
   };
 
   const commitStopTime = (stopId, rawVal, inputEl = editStopInputRef.current) => {
     const bad = Boolean(inputEl?.validity?.badInput);
     if (isTimeEntryInvalid({ value: rawVal, badInput: bad })) {
-      setTimeError('請輸入 HH:MM 時間');
+      setTimeError(true);
       return;
     }
     const trimmed = String(rawVal ?? '').trim();
@@ -473,18 +499,18 @@ function ItineraryEditor({ day, onChange, onDone }) {
       const next = sortStops(day.itinerary.map((s) => (s.id === stopId ? { ...s, time: '' } : s)));
       onChange({ itinerary: next });
       setEditingStopId(null);
-      setTimeError('');
+      setTimeError(false);
       return;
     }
     const valid = parseHHMM(trimmed);
     if (!valid) {
-      setTimeError('請輸入 HH:MM 時間');
+      setTimeError(true);
       return;
     }
     const next = sortStops(day.itinerary.map((s) => (s.id === stopId ? { ...s, time: valid } : s)));
     onChange({ itinerary: next });
     setEditingStopId(null);
-    setTimeError('');
+    setTimeError(false);
   };
 
   const field =
@@ -502,7 +528,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
           <label htmlFor="ref-title" className="whitespace-nowrap text-meta font-medium text-ink-muted">
-            今日標題
+            {t('notebook.day.titleLabel')}
           </label>
           <button
             type="button"
@@ -510,7 +536,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
             onClick={onDone}
             className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            完成
+            {t('notebook.day.done')}
           </button>
         </div>
         <input
@@ -518,26 +544,28 @@ function ItineraryEditor({ day, onChange, onDone }) {
           className={field}
           value={day.title}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="例如：富士山一日遊"
+          placeholder={t('notebook.day.titlePlaceholder')}
         />
       </div>
 
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">貼紙</span>
+          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.day.stickerLabel')}
+          </span>
           <button
             type="button"
             onClick={() => onChange({ sticker: null })}
             className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-line bg-beige px-3 py-2 text-meta font-semibold text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            清除
+            {t('notebook.day.clear')}
           </button>
         </div>
         <div
           data-noswipe
           className="-mx-3 flex gap-2 overflow-x-auto px-3 py-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="radiogroup"
-          aria-label="貼紙"
+          aria-label={t('notebook.day.stickerLabel')}
         >
           {STICKERS.map((s) => (
             <button
@@ -545,7 +573,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
               type="button"
               role="radio"
               aria-checked={day.sticker === s.id}
-              aria-label={s.label}
+              aria-label={t(`notebook.day.stickers.${s.id}`, { defaultValue: s.label })}
               onClick={() => onChange({ sticker: s.id })}
               className={`flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border-2 bg-cream text-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                 day.sticker === s.id ? 'border-teal-strong ring-2 ring-teal-strong' : 'border-white shadow-sm'
@@ -559,14 +587,14 @@ function ItineraryEditor({ day, onChange, onDone }) {
 
       <div>
         <label htmlFor="ref-note" className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted">
-          月曆小字
+          {t('notebook.day.calendarNoteLabel')}
         </label>
         <input
           id="ref-note"
           className={`${field} !w-24`}
           value={day.note}
           onChange={(e) => onChange({ note: capCellNote(e.target.value) })}
-          placeholder="富士"
+          placeholder={t('notebook.day.calendarNotePlaceholder')}
         />
       </div>
 
@@ -577,13 +605,13 @@ function ItineraryEditor({ day, onChange, onDone }) {
               <input
                 ref={editStopInputRef}
                 type="time"
-                aria-label={`${s.title} 時間`}
+                aria-label={t('notebook.day.stopTimeAria', { title: s.title })}
                 value={editingStopTime}
                 onChange={(e) => {
                   const nextVal = e.target.value;
                   setEditingStopTime(nextVal);
                   if (!isTimeEntryInvalid({ value: nextVal, badInput: Boolean(e.target.validity?.badInput) })) {
-                    setTimeError('');
+                    setTimeError(false);
                   }
                 }}
                 onBlur={(e) => commitStopTime(s.id, editingStopTime, e.target)}
@@ -593,7 +621,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
                     commitStopTime(s.id, editingStopTime, e.target);
                   } else if (e.key === 'Escape') {
                     setEditingStopId(null);
-                    setTimeError('');
+                    setTimeError(false);
                   }
                 }}
                 className="h-11 min-h-11 w-36 shrink-0 rounded-pill border border-teal-strong bg-white px-2 font-mono text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-teal"
@@ -601,11 +629,11 @@ function ItineraryEditor({ day, onChange, onDone }) {
             ) : (
               <button
                 type="button"
-                aria-label={`修改時間 ${s.title}`}
+                aria-label={t('notebook.day.editStopTimeAria', { title: s.title })}
                 onClick={() => {
                   setEditingStopId(s.id);
                   setEditingStopTime(parseHHMM(s.time) || '');
-                  setTimeError('');
+                  setTimeError(false);
                 }}
                 className="inline-flex h-11 min-h-11 min-w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2.5 font-mono text-meta tabular-nums text-teal-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
@@ -615,7 +643,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-ink">{s.title}</span>
             <button
               type="button"
-              aria-label={`刪除 ${s.title}`}
+              aria-label={t('notebook.day.deleteStopAria', { title: s.title })}
               onClick={() => onChange({ itinerary: day.itinerary.filter((x) => x.id !== s.id) })}
               className="btn-icon-danger h-11 w-11 min-h-11 min-w-11 shrink-0"
             >
@@ -629,7 +657,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
         <div className="flex min-w-0 items-center gap-1.5">
           <input
             ref={timeInputRef}
-            aria-label="時間"
+            aria-label={t('notebook.day.timeAria')}
             type="time"
             placeholder="09:30"
             className={`${field} !w-36 shrink-0 !px-2 font-mono tabular-nums`}
@@ -646,8 +674,8 @@ function ItineraryEditor({ day, onChange, onDone }) {
             onBlur={(e) => syncTimeFromInput(e.target, { showError: true })}
           />
           <input
-            aria-label="地點或活動"
-            placeholder="地點／活動"
+            aria-label={t('notebook.day.placeOrActivityAria')}
+            placeholder={t('notebook.day.placeOrActivityPlaceholder')}
             className={`${field} min-w-0 flex-1 !px-2.5`}
             value={what}
             onFocus={() => syncTimeFromInput(timeInputRef.current, { showError: true })}
@@ -661,19 +689,19 @@ function ItineraryEditor({ day, onChange, onDone }) {
             disabled={!what.trim() || isTimeInvalid}
             className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-2xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
           >
-            ＋加入
+            {t('notebook.day.addStopBtn')}
           </button>
         </div>
         {timeError && (
           <p role="alert" data-testid="time-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
-            {timeError}
+            {t('notebook.day.timeFormatError')}
           </p>
         )}
       </form>
 
       <div>
         <label htmlFor="ref-journal" className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted">
-          今日隨筆
+          {t('notebook.day.journalTitle')}
         </label>
         <textarea
           id="ref-journal"
@@ -703,6 +731,7 @@ function DayExpenses({
   const { t } = useTranslation();
   const [person, setPerson] = useState('全部');
   const people = trip.settings?.people || ['共同'];
+  const displayPerson = (name) => (name === '共同' ? t('expenseCard.shared') : name);
   const list = useMemo(() => dayExpenses(trip.expenses, iso), [trip.expenses, iso]);
   const counts = personCounts(list, people);
   const showExtraShared = !people.includes('共同') && list.some((e) => matchesPerson(e, '共同', people));
@@ -714,15 +743,20 @@ function DayExpenses({
     <div className="space-y-2.5">
       <div className="rounded-2xl border border-line bg-cream-soft px-3.5 py-2.5 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">當日合計</span>
+          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">
+            {t('notebook.day.dayTotal')}
+          </span>
           <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-semibold text-teal-strong">
-            掃描 {stats.scanned} · 手動 {stats.manual}
+            {t('notebook.day.scannedManualSummary', {
+              scanned: stats.scanned,
+              manual: stats.manual,
+            })}
           </span>
           {inTrip && (
             <button
               type="button"
               data-testid="day-add"
-              aria-label="新增這日的消費"
+              aria-label={t('notebook.day.addDayExpenseAria')}
               onClick={() => onAdd(iso)}
               className="ml-auto flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-full bg-teal-strong text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
@@ -734,20 +768,22 @@ function DayExpenses({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">篩選:</span>
+        <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">
+          {t('notebook.day.filterLabel')}
+        </span>
         <div className="min-w-0 flex-1">
-          <ChipRow label="篩選人物">
+          <ChipRow label={t('notebook.day.filterPersonAria')}>
             <Chip active={person === '全部'} onClick={() => setPerson('全部')}>
-              {`全部 (${counts['全部'] || 0})`}
+              {t('notebook.day.allCount', { count: counts['全部'] || 0 })}
             </Chip>
             {showExtraShared && (
               <Chip active={person === '共同'} onClick={() => setPerson('共同')}>
-                {`共同 (${extraSharedCount})`}
+                {`${displayPerson('共同')} (${extraSharedCount})`}
               </Chip>
             )}
             {people.map((p) => (
               <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
-                {p} ({counts[p] || 0})
+                {displayPerson(p)} ({counts[p] || 0})
               </Chip>
             ))}
           </ChipRow>
@@ -787,13 +823,15 @@ function DayExpenses({
           ) : (
             <div className="space-y-2.5 rounded-2xl border border-dashed border-line bg-cream-soft p-4 text-center">
               <DoodleSticker name="suitcase" blob="sand" size="lg" />
-              <p className="whitespace-nowrap text-sm text-ink-muted">旅程外 · 這日未有消費</p>
+              <p className="whitespace-nowrap text-sm text-ink-muted">
+                {t('notebook.dayView.outsideNoExpenses')}
+              </p>
               <button
                 type="button"
                 onClick={onReturnToTrip}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
-                回到旅程
+                {t('notebook.day.backToTrip')}
               </button>
             </div>
           ))}

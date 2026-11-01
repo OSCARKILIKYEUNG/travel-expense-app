@@ -270,13 +270,13 @@ export function shouldKeepToastOnRoute(prevScreen, nextScreen) {
 
 /**
  * P1-3: Toast copy after add / edit / delete.
- * e.g. '已記錄 HKD $88 · 10月22日' / '已更新 …' / '已刪除 …' (undated -> '未有日期').
+ * e.g. '已記錄 HKD $88 · 10月22日' / '已更新 …' / '已刪除 …' (undated -> '無日期').
  */
 export function saveToastMessage({ kind, expense } = {}) {
   const verb = kind === 'edit' ? '已更新' : kind === 'delete' ? '已刪除' : '已記錄';
   const amountText = fmtHKD(expense?.hkdAmount ?? 0);
   const iso = expense?.date ? normalizeDate(expense.date) : null;
-  let dateText = '未有日期';
+  let dateText = '無日期';
   if (iso && isValidISODate(iso)) {
     const [, m, d] = iso.split('-').map(Number);
     dateText = `${m}月${d}日`;
@@ -345,17 +345,23 @@ export function applyUndo(expenses, undo) {
 }
 
 /**
- * P1-2/P1-4: Return a one-line zh-HK hint when AddForm save is disabled, or null when valid.
+ * P1-2/P1-4: Return a one-line hint when AddForm save is disabled, or null when valid.
  */
-export function saveBlockReason({ amount, store } = {}) {
+export function saveBlockReason({ amount, store, t } = {}) {
   const rawAmt = typeof amount === 'boolean' ? '' : String(amount ?? '').trim();
   const numAmt = Number(rawAmt);
   const hasAmount = rawAmt !== '' && Number.isFinite(numAmt) && numAmt > 0;
   const hasStore = Boolean(String(store ?? '').trim());
 
-  if (!hasAmount && !hasStore) return '請填寫金額及店舗';
-  if (!hasAmount) return '請填寫金額';
-  if (!hasStore) return '請填寫店舗';
+  if (!hasAmount && !hasStore) {
+    return typeof t === 'function' ? t('notebook.addForm.blockAmountAndStore') : '請填寫金額及店舗';
+  }
+  if (!hasAmount) {
+    return typeof t === 'function' ? t('notebook.addForm.blockAmount') : '請填寫金額';
+  }
+  if (!hasStore) {
+    return typeof t === 'function' ? t('notebook.addForm.blockStore') : '請填寫店舗';
+  }
   return null;
 }
 
@@ -503,7 +509,7 @@ export function buildReport(trip) {
   lines.push('', '【每日花費】');
   const groups = groupLedger(expenses);
   for (const g of groups) {
-    const label = g.iso ? zhDate(g.iso) : '未有日期';
+    const label = g.iso ? zhDate(g.iso) : '無日期';
     lines.push(`- ${label}：${fmtHKD(g.total)}（${g.items.length} 筆）`);
   }
 

@@ -63,7 +63,7 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
     expect(adapted.expenses.every((e) => e.payment === 'cash' || e.payment === 'card')).toBe(true);
   });
 
-  it('orders dated groups newest first, puts 未有日期 last, and computes undatedHint on adapted legacy seed', () => {
+  it('orders dated groups newest first, puts 無日期 last, and computes undatedHint on adapted legacy seed', () => {
     const adapted = adaptTripForNotebook(createLegacySeedTrip(), { today: '2026-10-22' });
     const groups = groupLedger(adapted.expenses);
 
@@ -71,7 +71,7 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
     expect(groups[0].iso).toBe('2026-10-22');
     expect(groups[groups.length - 1]).toMatchObject({
       key: 'undated',
-      label: '未有日期',
+      label: '無日期',
       iso: null,
     });
     expect(groups[groups.length - 1].items).toHaveLength(1);
@@ -79,7 +79,7 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
 
     expect(undatedHint(groups)).toEqual({
       count: 1,
-      label: '1 筆未有日期',
+      label: '1 筆無日期',
     });
   });
 

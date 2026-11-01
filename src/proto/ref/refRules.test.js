@@ -122,10 +122,10 @@ describe('P1-3 & P1-4: postSaveTarget & saveToastMessage', () => {
       '已更新 HKD $316 · 10月20日',
     );
     expect(saveToastMessage({ kind: 'delete', expense: { hkdAmount: 984, date: '' } })).toBe(
-      '已刪除 HKD $984 · 未有日期',
+      '已刪除 HKD $984 · 無日期',
     );
     expect(saveToastMessage({ kind: 'add', expense: { hkdAmount: 50, date: null } })).toBe(
-      '已記錄 HKD $50 · 未有日期',
+      '已記錄 HKD $50 · 無日期',
     );
   });
 

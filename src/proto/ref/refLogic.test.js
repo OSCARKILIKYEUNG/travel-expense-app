@@ -61,7 +61,7 @@ describe('ref routes (two-pane day view)', () => {
 describe('display', () => {
   it('formats zh-HK dates instead of mm/dd/yyyy', () => {
     expect(zhDate('2026-10-22')).toBe('10月22日 週四');
-    expect(zhDate('')).toBe('未有日期');
+    expect(zhDate('')).toBe('無日期');
   });
   it('keeps the day strip on one line by shortening the title, not the font', () => {
     expect(dayStrip({ n: 5, title: '富士山一日遊', hkd: 1086 })).toBe('Day 5・富士山一日遊・HKD $1,086');
@@ -74,7 +74,7 @@ describe('display', () => {
 });
 
 describe('ledger (帳本) and dayExpenses', () => {
-  it('puts dated groups newest first and 未有日期 last with unchanged subtotals', () => {
+  it('puts dated groups newest first and 無日期 last with unchanged subtotals', () => {
     const g = groupLedger(trip.expenses);
     expect(g[0].iso).toBe('2026-10-22');
     expect(g[0].total).toBe(1086);
@@ -85,7 +85,7 @@ describe('ledger (帳本) and dayExpenses', () => {
       '2026-10-19',
       '2026-10-18',
     ]);
-    expect(g[g.length - 1]).toMatchObject({ key: 'undated', label: '未有日期', iso: null });
+    expect(g[g.length - 1]).toMatchObject({ key: 'undated', label: '無日期', iso: null });
     expect(g.reduce((s, x) => s + x.items.length, 0)).toBe(17);
 
     // Multiple undated items are ordered newest-recorded first
@@ -101,7 +101,7 @@ describe('ledger (帳本) and dayExpenses', () => {
     expect(undatedHint(groupLedger(trip.expenses.filter((e) => e.date)))).toBeNull();
     expect(undatedHint(groupLedger(trip.expenses))).toEqual({
       count: 1,
-      label: '1 筆未有日期',
+      label: '1 筆無日期',
     });
     const threeUndated = groupLedger([
       ...trip.expenses,
@@ -110,7 +110,7 @@ describe('ledger (帳本) and dayExpenses', () => {
     ]);
     expect(undatedHint(threeUndated)).toEqual({
       count: 3,
-      label: '3 筆未有日期',
+      label: '3 筆無日期',
     });
   });
   it('orders dayExpenses newest first (by time on 10-22, by recorded order on 10-20)', () => {
