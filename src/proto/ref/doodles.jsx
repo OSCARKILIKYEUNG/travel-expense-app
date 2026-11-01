@@ -696,16 +696,3 @@ export function Bunting({ className = 'h-3.5 w-full' }) {
   );
 }
 
-/**
- * Tilted handwritten script callout ("welcome!!", "Let's go!!", "Oishii!") — purely decorative (`aria-hidden="true"`).
- */
-export function ScriptCallout({ text, className = '-rotate-3 text-teal-strong' }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`pointer-events-none select-none whitespace-nowrap font-script text-sm font-bold leading-none ${className}`.trim()}
-    >
-      {text}
-    </span>
-  );
-}

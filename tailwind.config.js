@@ -30,6 +30,7 @@ export default {
       fontFamily: {
         sans: fonts.sans,
         display: fonts.display,
+        'serif-display': fonts.serifDisplay,
         script: fonts.script,
         mono: ['"SF Mono"', '"Fira Code"', '"Fira Mono"', 'Menlo', 'monospace'],
       },

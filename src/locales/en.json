@@ -708,7 +708,6 @@
       "placeLabel": "Location",
       "placePlaceholder": "City or area…",
       "categoryLabel": "Category",
-      "categoryPickerAria": "Choose category sticker",
       "assignToLabel": "Assign to",
       "advancedToggle": "Advanced",
       "taxSectionTitle": "Tax / discount (optional)",
@@ -804,6 +803,29 @@
       "recovered": "Synced to the cloud",
       "remoteApplied": "Loaded newer changes from another device",
       "localKept": "Another device saved changes; kept the newer edits on this device"
+    },
+    "journal": {
+      "destinationSummaryAria": "Destination: {{country}} ({{cities}})",
+      "countries": {
+        "JP": {
+          "name": "JAPAN",
+          "subtitle": "日本 · Japan"
+        },
+        "generic": {
+          "name": "TRAVEL JOURNAL",
+          "subtitle": "Field notes & expenses"
+        }
+      },
+      "cities": {
+        "tokyo": "TOKYO",
+        "fuji": "FUJI",
+        "narita": "NARITA",
+        "yokohama": "YOKOHAMA",
+        "osaka": "OSAKA",
+        "kyoto": "KYOTO",
+        "sapporo": "SAPPORO",
+        "fukuoka": "FUKUOKA"
+      }
     }
   }
 }

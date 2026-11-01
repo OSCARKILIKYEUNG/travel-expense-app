@@ -8,10 +8,6 @@ import {
   CategorySticker,
   Doodle,
   Icon,
-  Sakura,
-  ScriptCallout,
-  Sparkle,
-  Tape,
 } from './parts';
 import { fmtHKD, formatNotebookDate } from './refLogic';
 import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
@@ -242,14 +238,6 @@ export default function AddForm({
       style={{ scrollPaddingBottom: '12rem' }}
     >
       <div className="relative flex min-w-0 items-center gap-3">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 -top-1 flex items-center gap-1"
-        >
-          <Sparkle className="h-3.5 w-3.5" />
-          <Doodle name="plane" size="sm" blob="teal" className="rotate-6 text-ink" />
-          <Sakura className="h-7 w-7 opacity-80" />
-        </div>
         <button
           type="button"
           data-testid="back"
@@ -260,12 +248,9 @@ export default function AddForm({
           {Icon.back('h-5 w-5')}
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">
-              {t('notebook.addForm.eyebrow')}
-            </p>
-            <ScriptCallout text="Memo!!" className="-rotate-2 text-teal-strong" />
-          </div>
+          <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
+            {t('notebook.addForm.eyebrow')}
+          </p>
           <h1 className="truncate whitespace-nowrap font-display text-2xl leading-tight tracking-[-0.03em] text-ink">
             {initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle')}
           </h1>
@@ -274,7 +259,6 @@ export default function AddForm({
 
       {!initial && (
         <div className="relative min-w-0">
-          <Tape tone="teal" className="-top-2 right-7 z-10 h-4 w-16 rotate-2" />
           <button
             type="button"
             data-testid="form-scan"
@@ -287,7 +271,6 @@ export default function AddForm({
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold text-teal-strong">
                 <span className="min-w-0 truncate">{t('notebook.addForm.scanTitle')}</span>
-                <Sparkle className="h-3 w-3 shrink-0" />
               </span>
               <span
                 data-testid="form-scan-status"
@@ -307,15 +290,10 @@ export default function AddForm({
 
       {/* Card 1: Amount & currency first */}
       <div className="paper-panel relative space-y-2.5 p-4">
-        <Tape tone="mustard" className="-top-2 left-6 z-10 h-4 w-20 -rotate-1" />
-        <Tape tone="dots" className="-top-2 right-8 z-10 h-3.5 w-14 rotate-2 opacity-90" />
         <div className="flex items-baseline justify-between">
-          <div className="flex items-center gap-1.5">
-            <Doodle name="shoppingBag" size="sm" blob="sakura" className="text-ink" />
-            <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
-              {t('notebook.addForm.amountTitle')}
-            </h2>
-          </div>
+          <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
+            {t('notebook.addForm.amountTitle')}
+          </h2>
           <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
             ≈ {fmtHKD(hkd)}
           </span>
@@ -424,15 +402,10 @@ export default function AddForm({
 
       {/* Card 2: Basic info */}
       <div className="paper-panel relative space-y-3 p-4">
-        <Tape tone="sakura" className="-top-2 right-6 z-10 h-4 w-20 rotate-1" />
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <Doodle name="suitcase" size="sm" blob="mustard" className="text-ink" />
-            <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
-              {t('notebook.addForm.basicTitle')}
-            </h2>
-          </div>
-          <ScriptCallout text="Shopping" className="rotate-2 text-sakura-ink" />
+          <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
+            {t('notebook.addForm.basicTitle')}
+          </h2>
         </div>
 
         <div>

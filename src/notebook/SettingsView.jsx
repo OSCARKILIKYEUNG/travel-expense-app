@@ -17,7 +17,6 @@ import {
   setRate,
   setTripDates,
 } from '../proto/ref/refRules';
-import { Sakura, Sparkle, Tape } from '../proto/ref/parts';
 import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeDate } from '../utils/duplicates';
 import { normalizeUiLanguage } from '../utils/locale';
@@ -586,14 +585,13 @@ export default function SettingsView({
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
       <div className="relative space-y-1">
-        <Sparkle className="absolute right-2 top-2 h-4 w-4" />
-        <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">
+        <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
           {t('settings.pageEyebrow')}
         </p>
         <div className="flex items-baseline gap-2">
           <h1 className="whitespace-nowrap font-display text-2xl text-ink">{settingsTitle}</h1>
           {showSettingsTitleScript && (
-            <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+            <span className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-teal-strong">
               {settingsTitleScript}
             </span>
           )}
@@ -698,7 +696,6 @@ export default function SettingsView({
 
       {/* Trip management */}
       <section className="paper-panel relative space-y-2.5 p-4">
-        <Tape tone="teal" className="-top-2 left-6 z-10 h-4 w-16 -rotate-1" />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.tripsTitle')}</h2>
@@ -989,6 +986,7 @@ export default function SettingsView({
         <div className="space-y-2">
           {people.map((p) => {
             const isShared = p === '共同';
+            const displayPersonName = isShared ? t('expenseCard.shared') : p;
             const isEditing = editingPerson === p;
             return (
               <div
@@ -999,7 +997,7 @@ export default function SettingsView({
                 {isEditing ? (
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <input
-                      aria-label={t('notebook.settings.renamePersonInputAria', { name: p })}
+                      aria-label={t('notebook.settings.renamePersonInputAria', { name: displayPersonName })}
                       data-testid={`rename-input-${p}`}
                       value={editingName}
                       onChange={(e) => {
@@ -1039,7 +1037,7 @@ export default function SettingsView({
                 ) : (
                   <>
                     <div className="min-w-0 flex-1">
-                      <span className="whitespace-nowrap font-semibold text-ink">{p}</span>
+                      <span className="whitespace-nowrap font-semibold text-ink">{displayPersonName}</span>
                       <span className="ml-2 whitespace-nowrap text-meta font-medium text-ink-muted">
                         {t('trip.records', { count: counts[p] || 0 })}
                       </span>
@@ -1053,7 +1051,7 @@ export default function SettingsView({
                         <button
                           type="button"
                           data-testid={`person-edit-${p}`}
-                          aria-label={t('notebook.settings.renamePersonAria', { name: p })}
+                          aria-label={t('notebook.settings.renamePersonAria', { name: displayPersonName })}
                           onClick={() => {
                             setEditingPerson(p);
                             setEditingName(p);
@@ -1066,7 +1064,7 @@ export default function SettingsView({
                         <button
                           type="button"
                           data-testid={`person-remove-${p}`}
-                          aria-label={t('notebook.settings.removePersonAria', { name: p })}
+                          aria-label={t('notebook.settings.removePersonAria', { name: displayPersonName })}
                           onClick={() => handleRemovePerson(p)}
                           className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-meta font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                         >
@@ -1199,7 +1197,6 @@ export default function SettingsView({
 
       {/* About */}
       <section className="paper-panel relative space-y-1 p-4">
-        <Sakura className="absolute right-3 top-3 h-6 w-6 opacity-70" />
         <h2 className="whitespace-nowrap font-display text-base text-ink">
           {t('notebook.settings.aboutTitle')}
         </h2>

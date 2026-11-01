@@ -1,3 +1,5 @@
+import '@fontsource/cormorant-garamond/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-600.css';
 import '@fontsource/huninn/400.css';
 import '@fontsource/caveat/600.css';
 import '@fontsource/caveat/700.css';

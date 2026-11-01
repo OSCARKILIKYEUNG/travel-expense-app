@@ -30,7 +30,7 @@ import {
 import { ledgerHash } from '../proto/ref/refCharts';
 import { applyDuplicateDecisions } from '../utils/duplicateDecisions';
 import { normalizeDate } from '../utils/duplicates';
-import { Icon, Sparkle, Toast, paperDots, washiNav } from '../proto/ref/parts';
+import { Icon, Toast, paperDots } from '../proto/ref/parts';
 import Home from '../proto/ref/Home';
 import DayView from '../proto/ref/DayView';
 import Ledger from '../proto/ref/Ledger';
@@ -1363,13 +1363,12 @@ function Header({ trip, trips, onSelectTrip }) {
           onClick={() => go('')}
           className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
-          <Sparkle className="absolute left-0.5 top-0 h-3.5 w-3.5" />
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
             {Icon.pin('h-[18px] w-[18px]')}
           </span>
           <span className="min-w-0 leading-none">
             {showBrandScript && (
-              <span className="block whitespace-nowrap font-script text-lg font-semibold leading-none text-teal-strong">
+              <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
                 {brandScript}
               </span>
             )}
@@ -1448,7 +1447,6 @@ function BottomNav({ tab }) {
       aria-label={t('notebook.navAria')}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
-      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5" style={washiNav} />
       <div className="mx-auto grid max-w-lg grid-cols-4">
         {NAV.map(([id, labelKey, hash, icon]) => {
           const active = tab === id;

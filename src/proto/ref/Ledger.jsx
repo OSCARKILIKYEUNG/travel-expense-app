@@ -7,15 +7,10 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import {
   CATEGORY_DOT,
   CategorySticker,
-  Doodle,
   DoodleSticker,
   Icon,
   NotchedTabBg,
-  ScriptCallout,
-  Sparkle,
-  Tape,
   cardDots,
-  mustardStripe,
 } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
@@ -183,19 +178,13 @@ export default function Ledger({
   return (
     <div data-testid="ledger" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3 px-4 pb-6 pt-4">
       <div className="relative flex min-w-0 items-center justify-between gap-2">
-        <div className="relative flex min-w-0 items-baseline gap-2">
-          <Sparkle className="absolute -left-1 top-1 h-3.5 w-3.5" />
-          <h1 className="whitespace-nowrap pl-4 font-display text-2xl text-ink">{ledgerTitle}</h1>
+        <div className="min-w-0">
           {showLedgerTitleScript && (
-            <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">
+            <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
               {ledgerTitleScript}
-            </span>
+            </p>
           )}
-          <ScriptCallout text="Oishii!" className="ml-1 -rotate-3 text-coral-ink" />
-          <span aria-hidden="true" className="pointer-events-none inline-flex items-center gap-1 pl-0.5">
-            <Doodle name="ramen" size="sm" blob="coral" className="-rotate-6 text-ink" />
-            <Doodle name="shoppingBag" size="sm" blob="sakura" className="rotate-6 text-ink" />
-          </span>
+          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{ledgerTitle}</h1>
         </div>
 
         {nonSharedPeople.length >= 2 && (
@@ -239,11 +228,8 @@ export default function Ledger({
         </div>
       )}
 
-      {/* Quick scan / manual add ribbon */}
-      <div
-        className="relative flex min-h-[56px] min-w-0 items-center justify-between gap-2 overflow-hidden rounded-2xl border border-mustard-ink/30 bg-mustard-soft px-2.5 py-1.5 shadow-sm"
-        style={mustardStripe}
-      >
+      {/* Quick scan / manual add bar */}
+      <div className="relative flex min-h-[56px] min-w-0 items-center justify-between gap-2 overflow-hidden rounded-2xl border border-line bg-cream-soft px-2.5 py-1.5 shadow-sm">
         <button
           type="button"
           data-testid="ledger-scan"
@@ -257,7 +243,7 @@ export default function Ledger({
           type="button"
           data-testid="ledger-add"
           onClick={onAdd}
-          className="inline-flex h-11 min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 truncate whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="inline-flex h-11 min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 truncate whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="shrink-0 text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
           <span className="truncate">{t('notebook.home.addEntry')}</span>
@@ -366,7 +352,6 @@ export default function Ledger({
                   className="relative inline-flex min-h-11 min-w-11 max-w-full truncate items-center gap-1.5 whitespace-nowrap rounded-md pl-5 pr-5 py-1.5 text-meta font-bold text-ink hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
                   <NotchedTabBg tone="mustard" />
-                  <Sparkle className="relative z-10 h-3 w-3 shrink-0" />
                   <span className="relative z-10 truncate">{fmtDate(g.iso)}</span>
                 </button>
               ) : (
@@ -467,7 +452,6 @@ export default function Ledger({
               <>
                 <DoodleSticker name="sushi" secondary="camera" blob="coral" size="xl" />
                 <div>
-                  <ScriptCallout text="Hmm… nothing here!" className="-rotate-2 text-coral-ink" />
                   <p className="mt-1 font-display text-base text-ink">
                     {t('notebook.empty.ledgerFilteredTitle')}
                   </p>
@@ -488,7 +472,6 @@ export default function Ledger({
               <>
                 <DoodleSticker name="plane" secondary="suitcase" blob="teal" size="xl" />
                 <div>
-                  <ScriptCallout text="Let's go!!" className="-rotate-2 text-teal-strong" />
                   <p className="mt-1 font-display text-base text-ink">
                     {t('notebook.empty.ledgerEmptyTitle')}
                   </p>

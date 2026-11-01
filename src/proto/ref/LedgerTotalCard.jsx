@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { palette } from '../../theme/tokens';
-import { Doodle, ScriptCallout, Sparkle, Tape } from './parts';
+import { Tape } from './parts';
 import { splitHKD } from './refLedgerTotal';
 
 function formatSubLine(jpy, count, t) {
@@ -99,35 +99,18 @@ export default function LedgerTotalCard({ summary, tripName }) {
       aria-label={ariaLabel}
       className="relative min-w-0 overflow-hidden rounded-2xl border border-line bg-cream-soft shadow-sm"
     >
-      {/* Top torn-edge washi tape accents */}
-      <Tape tone="mustard" className="left-1/2 -top-1.5 z-20 h-3.5 w-20 -translate-x-1/2 -rotate-1 opacity-90" />
-      <Tape tone="sakura" className="right-16 -top-1.5 z-20 h-3 w-14 rotate-2 opacity-80" />
+      {/* Single subtle torn-edge washi tape accent */}
+      <Tape tone="mustard" className="left-1/2 -top-1.5 z-20 h-3.5 w-20 -translate-x-1/2 -rotate-1 opacity-75" />
 
       {/* Top main ticket area */}
-      <div className="relative min-w-0 px-4 pb-3.5 pt-6 text-center">
-        {/* Top-left rotated airplane + sakura sticker cluster */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-3.5 flex h-9 w-9 rotate-12 select-none items-center justify-center rounded-full border border-teal/30 bg-teal-soft text-ink shadow-sm"
-        >
-          <Doodle name="plane" size="md" />
-        </span>
-        <Sparkle className="absolute left-12 top-3 h-3 w-3 opacity-80" />
-        <Doodle
-          name="sakura"
-          size="sm"
-          className="pointer-events-none absolute bottom-2 right-3 rotate-12 text-ink opacity-75"
-        />
-
-        {/* Top-right filtered rubber stamp or decorative callout */}
-        {filtered ? (
+      <div className="relative min-w-0 px-4 pb-3.5 pt-5 text-center">
+        {/* Top-right filtered rubber stamp when filtered */}
+        {filtered && (
           <FilteredStamp label={t('notebook.ledger.filteredStamp')} className="right-3 top-3.5" />
-        ) : (
-          <ScriptCallout text="Nice!!" className="absolute right-3.5 top-3.5 rotate-3 text-teal-strong" />
         )}
 
         {/* Ticket header label */}
-        <p className="truncate whitespace-nowrap px-12 text-meta font-bold tracking-[0.1em] text-ink-muted">
+        <p className="truncate whitespace-nowrap px-8 font-serif-display text-sm font-semibold uppercase tracking-[0.12em] text-ink-soft">
           {filtered ? t('notebook.ledger.totalHeaderFiltered') : t('notebook.ledger.totalHeader')}
         </p>
 
@@ -180,12 +163,10 @@ export default function LedgerTotalCard({ summary, tripName }) {
         {budget ? (
           <BudgetBlock budget={budget} filtered={filtered} t={t} />
         ) : (
-          <div className="flex items-center justify-center gap-1.5">
-            <Doodle name="suitcase" size="xs" className="text-ink-muted" />
-            <p className="truncate whitespace-nowrap text-center font-mono text-meta font-semibold tracking-wider text-ink-muted">
+          <div className="flex items-center justify-center">
+            <p className="truncate whitespace-nowrap text-center font-serif-display text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">
               {tripName || t('notebook.ledger.defaultTripName')} · ADMIT ONE
             </p>
-            <Doodle name="torii" size="xs" className="text-ink-muted" />
           </div>
         )}
       </div>

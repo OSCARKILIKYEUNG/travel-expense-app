@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { palette, themeColor } from './tokens.js';
+import { fonts, palette, themeColor } from './tokens.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const srcRoot = path.join(repoRoot, 'src');
@@ -110,9 +110,11 @@ describe('theme guard', () => {
 
   it('keeps the tinted pairs components actually use at AA (interrogate)', () => {
     const pairs = [
+      ['ink-soft', 'cream'], ['ink-soft', 'cream-soft'], ['teal-strong', 'cream'], ['teal-strong', 'cream-soft'],
       ['ink', 'beige'], ['ink-muted', 'beige'], ['teal-strong', 'teal-soft'], ['coral-ink', 'coral-soft'],
       ['mustard-ink', 'mustard-soft'], ['sakura-ink', 'sakura-soft'], ['ink', 'mustard'],
       ['sage-ink', 'sage-soft'], ['ink-soft', 'sand-soft'], ['ink-muted', 'sand-soft'], ['ink', 'ribbon'],
+      ['ink', 'wash-sky'], ['ink', 'wash-ochre'], ['ink-soft', 'wash-sky'], ['ink-soft', 'wash-ochre'],
     ];
     for (const [fg, bg] of pairs) {
       expect(contrast(palette[fg], palette[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
@@ -120,5 +122,6 @@ describe('theme guard', () => {
     // White text on filled buttons (btn-primary, btn-danger, btn-danger-soft:hover).
     expect(contrast('#FFFFFF', palette['teal-strong'])).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#FFFFFF', palette['coral-ink'])).toBeGreaterThanOrEqual(4.5);
+    expect(fonts.serifDisplay[0]).toBe('"Cormorant Garamond"');
   });
 });

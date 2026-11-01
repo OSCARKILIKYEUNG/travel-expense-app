@@ -23,6 +23,8 @@ export const palette = {
   'sage-soft': '#E4EFE9',
   'sage-ink': '#355E4B',
   'sand-soft': '#EFE6D5',
+  'wash-sky': '#E7EFF0',
+  'wash-ochre': '#F3E4C6',
   ribbon: '#F4C542',
 };
 
@@ -57,6 +59,15 @@ export const chartTheme = {
 };
 
 export const fonts = {
+  serifDisplay: [
+    '"Cormorant Garamond"',
+    '"Songti TC"',
+    '"Hiragino Mincho ProN"',
+    '"Noto Serif TC"',
+    '"PMingLiU"',
+    'Huninn',
+    'serif',
+  ],
   display: ['Huninn', '"Noto Sans TC"', 'sans-serif'],
   script: ['Caveat', 'Huninn', '"Noto Sans TC"', 'cursive'],
   sans: [

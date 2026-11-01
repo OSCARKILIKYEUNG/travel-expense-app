@@ -15,6 +15,8 @@ export default defineConfig({
       includeAssets: ['icons/*.png'],
       // 避免 Service Worker 攔截 /api，導致 POST 收據辨識回傳 HTML 或失敗
       workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['**/*.woff', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2'],
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {

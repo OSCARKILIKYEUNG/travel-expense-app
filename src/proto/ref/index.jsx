@@ -35,7 +35,7 @@ import {
 } from './refRules';
 import { ledgerHash } from './refCharts';
 import { normalizeDate } from '../../utils/duplicates';
-import { Icon, Sakura, Sparkle, Tape, Toast, paperDots, washiNav } from './parts';
+import { Icon, Toast, paperDots } from './parts';
 import Home from './Home';
 import DayView from './DayView';
 import Ledger from './Ledger';
@@ -466,12 +466,11 @@ function Header({ trip, trips, onSelectTrip }) {
           onClick={() => go('')}
           className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
-          <Sparkle className="absolute left-0.5 top-0 h-3.5 w-3.5" />
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
             {Icon.pin('h-[18px] w-[18px]')}
           </span>
           <span className="min-w-0 leading-none">
-            <span className="block whitespace-nowrap font-script text-lg font-semibold leading-none text-teal-strong">
+            <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
               Travel notebook
             </span>
             <span className="block whitespace-nowrap font-display text-base tracking-[-0.03em] text-ink">
@@ -548,7 +547,6 @@ function BottomNav({ tab }) {
       aria-label="導航"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
-      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5" style={washiNav} />
       <div className="mx-auto grid max-w-lg grid-cols-4">
         {NAV.map(([id, label, hash, icon]) => {
           const active = tab === id;
@@ -700,17 +698,15 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
       <div className="relative space-y-1">
-        <Sparkle className="absolute right-2 top-2 h-4 w-4" />
-        <p className="whitespace-nowrap text-meta font-medium tracking-[0.12em] text-ink-muted">旅遊手帳設定</p>
+        <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">旅遊手帳設定</p>
         <div className="flex items-baseline gap-2">
           <h1 className="whitespace-nowrap font-display text-2xl text-ink">設定</h1>
-          <span className="whitespace-nowrap font-script text-lg font-bold text-teal-strong">Settings</span>
+          <span className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-teal-strong">Settings</span>
         </div>
       </div>
 
       {/* Trip management */}
       <section className="paper-panel relative space-y-2.5 p-4">
-        <Tape tone="teal" className="-top-2 left-6 z-10 h-4 w-16 -rotate-1" />
         <div className="flex items-center justify-between">
           <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程管理</h2>
           <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
@@ -1000,7 +996,6 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
 
       {/* About */}
       <section className="paper-panel relative space-y-1 p-4">
-        <Sakura className="absolute right-3 top-3 h-6 w-6 opacity-70" />
         <h2 className="whitespace-nowrap font-display text-base text-ink">關於旅遊手帳</h2>
         <p className="whitespace-nowrap text-meta text-ink-soft">
           原幣合計 {fmtJPY(totalJPY)} · 離線手札示範模式

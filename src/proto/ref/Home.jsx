@@ -4,22 +4,17 @@ import '../../i18n';
 import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS, monthGridSunday } from './mockRefTrip';
 import {
-  Bunting,
-  Doodle,
+  CountryFlag,
   HandRing,
   Icon,
-  RibbonBanner,
+  JapanMiniMap,
+  LandscapeStrip,
   RoundStamp,
   STICKER_DOODLE_MAP,
-  Sakura,
-  ScriptCallout,
-  Sparkle,
   StickerGraphic,
-  SunburstRays,
-  Tape,
-  airmail,
   cardDots,
-  mustardStripe,
+  editorialTrackingClass,
+  resolveTripDestination,
   ruledPaper,
 } from './parts';
 import { dayStats, fmtHKD, fmtJPY, shortenTitle } from './refLogic';
@@ -47,7 +42,7 @@ export default function Home({
   onScan,
   onAdd,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n: activeI18n } = useTranslation();
   const [showJpy, setShowJpy] = useState(false);
   const total = trip.expenses.reduce((s, e) => s + e.hkdAmount, 0);
   const jpy = trip.expenses.filter((e) => e.currency === 'JPY').reduce((s, e) => s + e.originalAmount, 0);
@@ -63,122 +58,134 @@ export default function Home({
         : { top: t('notebook.home.stampAfter'), bottom: `${counter.total} DAYS` };
   const [, sm, sd] = trip.startDate.split('-').map(Number);
   const [, em, ed] = trip.endDate.split('-').map(Number);
+  const dest = resolveTripDestination(trip);
+  const countryHeading = t(dest.nameKey);
+  const countrySubtitle = t(dest.subtitleKey);
 
   return (
     <div data-testid="home" className="space-y-4 px-4 pb-6 pt-5">
-      {/* Airmail summary postcard */}
-      <section data-testid="summary" className="relative rounded-card p-[5px] shadow-sm" style={airmail}>
-        <Tape tone="coral" className="-top-2.5 left-1/2 z-20 h-5 w-28 -translate-x-1/2 -rotate-2" />
-        <Tape tone="mustard" className="-top-2 right-6 z-20 h-4 w-16 rotate-3 opacity-85" />
-        <div className="relative overflow-hidden rounded-[20px] border border-line bg-cream-soft">
-          {/* Pastel triangle bunting garland at top inner edge */}
-          <Bunting className="h-3.5 w-full opacity-90" />
-
-          {/* Corner Mt. Fuji + Torii + Sakura + Pagoda sticker collage cluster */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute bottom-1.5 right-2.5 flex items-end gap-1 opacity-85"
-          >
-            <ScriptCallout text="cute!!" className="mb-2 -rotate-6 text-sakura-ink" />
-            <Doodle name="torii" size="md" blob="coral" className="-rotate-6 text-ink" />
-            <Doodle name="sakura" size="sm" className="-rotate-12 text-ink" />
-            <Doodle name="fuji" size="lg" blob="teal" className="text-ink" />
-          </div>
-
-          <div className="relative px-4 pb-3.5 pt-2">
-            <Sparkle className="absolute right-24 top-2 h-3.5 w-3.5 opacity-80" />
-            <Doodle
-              name="plane"
-              size="sm"
-              blob="mustard"
-              className="pointer-events-none absolute right-20 top-6 -rotate-12 text-ink opacity-80"
-            />
-            <div className="flex min-w-0 items-start justify-between gap-2">
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex min-w-0 flex-col items-start">
-                  <div className="flex items-center gap-1.5 pl-2">
-                    <SunburstRays className="h-3.5 w-16 text-ink" />
-                    <ScriptCallout text="welcome!!" className="-rotate-3 text-coral-ink" />
-                  </div>
-                  <RibbonBanner className="-mt-0.5">
-                    <p className="truncate whitespace-nowrap text-meta font-bold tracking-[0.04em] text-ink">
-                      {trip.name} · {sm}/{sd}–{em}/{ed}
-                    </p>
-                  </RibbonBanner>
-                </div>
-                <h2
-                  data-testid="trip-total"
-                  className="whitespace-nowrap pt-0.5 font-display text-[26px] leading-[1.1] text-ink"
-                >
-                  {fmtHKD(total)}
-                </h2>
-                <div className="pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowJpy((v) => !v)}
-                    aria-expanded={showJpy}
-                    className="inline-flex min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/85 px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+      {/* Hobonichi editorial trip cover card */}
+      <section
+        data-testid="summary"
+        className="relative overflow-hidden rounded-card border border-line bg-cream-soft shadow-sm"
+      >
+        <div className="px-4 pb-3.5 pt-4">
+          {/* Editorial destination header + hairline country mini-map */}
+          {!dest.isFallback ? (
+            <div className="flex min-w-0 items-start justify-between gap-2 border-b border-line/60 pb-3">
+              <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CountryFlag code={dest.code} />
+                  <p
+                    className={`min-w-0 truncate font-serif-display text-xl font-semibold uppercase leading-tight text-ink ${editorialTrackingClass(countryHeading)}`}
                   >
-                    <span>
-                      {fmtJPY(jpy)} · {t('notebook.home.recordsCount', { count: trip.expenses.length })}
-                    </span>
-                    <span className={`shrink-0 transition-transform ${showJpy ? 'rotate-180' : ''}`}>
-                      {Icon.chevDown('h-3.5 w-3.5')}
-                    </span>
-                  </button>
+                    {countryHeading}
+                  </p>
                 </div>
-                <div
-                  data-testid="today-line"
-                  className="whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
-                >
-                  {counter.label}
-                  {counter.phase === 'during'
-                    ? ` · ${t('notebook.home.todaySpend', { amount: fmtHKD(todaySpend) })}`
-                    : ''}
-                </div>
-              </div>
-              <RoundStamp top={stamp.top} bottom={stamp.bottom} className="mt-0.5" />
-            </div>
-
-            {showJpy && (
-              <div className="mt-2.5 flex items-center justify-between border-t border-dashed border-line pt-2 text-meta">
-                <span className="whitespace-nowrap font-medium text-ink-muted">
-                  {t('notebook.home.jpyOriginalTotal')}
+                <p className="truncate font-serif-display text-sm font-semibold tracking-[0.06em] text-ink-soft">
+                  {countrySubtitle}
+                </p>
+                <p className="truncate whitespace-nowrap text-meta font-medium text-ink-soft">
+                  {trip.name} · {sm}/{sd}–{em}/{ed}
+                </p>
+                <span className="sr-only">
+                  {t('notebook.journal.destinationSummaryAria', {
+                    country: countryHeading,
+                    localName: dest.localName,
+                    cities: dest.cities.map((c) => t(c.labelKey)).join(', '),
+                  })}
                 </span>
-                <span className="whitespace-nowrap font-mono font-semibold text-ink">{fmtJPY(jpy)}</span>
               </div>
-            )}
+              <JapanMiniMap cities={dest.cities} t={t} lang={activeI18n.language} />
+            </div>
+          ) : (
+            <div className="min-w-0 space-y-1 border-b border-line/60 pb-3">
+              <p
+                className={`truncate font-serif-display text-sm font-semibold uppercase text-ink-soft ${editorialTrackingClass(countryHeading)}`}
+              >
+                {countryHeading}
+              </p>
+              <p className="truncate whitespace-nowrap text-meta font-medium text-ink-soft">
+                {trip.name} · {sm}/{sd}–{em}/{ed}
+              </p>
+            </div>
+          )}
+
+          {/* Spend summary + postmark stamp */}
+          <div className="mt-3 flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0 flex-1 space-y-1">
+              <h2
+                data-testid="trip-total"
+                className="whitespace-nowrap font-display text-[26px] leading-[1.1] text-ink"
+              >
+                {fmtHKD(total)}
+              </h2>
+              <div className="pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowJpy((v) => !v)}
+                  aria-expanded={showJpy}
+                  className="inline-flex min-h-11 min-w-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-beige/75 px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  <span>
+                    {fmtJPY(jpy)} · {t('notebook.home.recordsCount', { count: trip.expenses.length })}
+                  </span>
+                  <span className={`shrink-0 transition-transform ${showJpy ? 'rotate-180' : ''}`}>
+                    {Icon.chevDown('h-3.5 w-3.5')}
+                  </span>
+                </button>
+              </div>
+              <div
+                data-testid="today-line"
+                className="whitespace-nowrap pt-0.5 text-meta font-medium text-ink-soft"
+              >
+                {counter.label}
+                {counter.phase === 'during'
+                  ? ` · ${t('notebook.home.todaySpend', { amount: fmtHKD(todaySpend) })}`
+                  : ''}
+              </div>
+            </div>
+            <RoundStamp top={stamp.top} bottom={stamp.bottom} />
           </div>
 
-          {counter.phase === 'during' && (
-            <div className="border-t border-line bg-cream/70" style={ruledPaper}>
-              <button
-                type="button"
-                data-testid="today-row"
-                onClick={() => onOpenDay(today)}
-                className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-beige/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
-              >
-                <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
-                  <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
-                    {t('notebook.home.todayJournal')}
-                  </span>
-                  <span className="min-w-0 truncate whitespace-nowrap font-display text-xs text-ink">
-                    Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
-                  </span>
-                </span>
-                <span className="shrink-0 whitespace-nowrap text-meta font-semibold text-teal-strong">›</span>
-              </button>
+          {showJpy && (
+            <div className="mt-2.5 flex items-center justify-between border-t border-dashed border-line pt-2 text-meta">
+              <span className="whitespace-nowrap font-medium text-ink-muted">
+                {t('notebook.home.jpyOriginalTotal')}
+              </span>
+              <span className="whitespace-nowrap font-mono font-semibold text-ink">{fmtJPY(jpy)}</span>
             </div>
           )}
         </div>
+
+        {/* Watercolor & ink landscape strip slot (reserved 68px height, zero CLS) */}
+        <LandscapeStrip src={trip.coverAsset || null} />
+
+        {counter.phase === 'during' && (
+          <div className="border-t border-line bg-cream/70" style={ruledPaper}>
+            <button
+              type="button"
+              data-testid="today-row"
+              onClick={() => onOpenDay(today)}
+              className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-beige/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
+            >
+              <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
+                <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
+                  {t('notebook.home.todayJournal')}
+                </span>
+                <span className="min-w-0 truncate whitespace-nowrap font-display text-xs text-ink">
+                  Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
+                </span>
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-meta font-semibold text-teal-strong">›</span>
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* Quick scan / manual add ribbon */}
-      <div
-        className="relative flex min-h-[56px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-mustard-ink/30 bg-mustard-soft px-2.5 py-1.5 shadow-sm"
-        style={mustardStripe}
-      >
+      {/* Quick scan / manual add bar */}
+      <div className="relative flex min-h-[56px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-line bg-cream-soft px-2.5 py-1.5 shadow-sm">
         <button
           type="button"
           data-testid="home-scan"
@@ -192,7 +199,7 @@ export default function Home({
           type="button"
           data-testid="home-add"
           onClick={onAdd}
-          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-white px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
           <span>{t('notebook.home.addEntry')}</span>
@@ -229,22 +236,6 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
 
   return (
     <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
-      <Tape tone="teal" className="-top-2 right-8 h-4 w-20 rotate-1 opacity-85" />
-      <Tape tone="sakura" className="-top-2 left-24 h-3.5 w-14 -rotate-2 opacity-80" />
-      <ScriptCallout
-        text="Let's go!!"
-        className="absolute -top-2.5 left-4 rotate-[-4deg] rounded-pill bg-cream-soft/90 px-1.5 text-teal-strong"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-1.5 -right-1 flex items-center gap-1 opacity-80"
-      >
-        <Doodle name="lantern" size="sm" blob="coral" className="-rotate-6 text-ink" />
-        <Doodle name="train" size="sm" blob="teal" className="rotate-3 text-ink" />
-        <Doodle name="fuji" size="sm" className="text-ink" />
-        <Sakura className="h-7 w-7" />
-      </div>
-
       <div className="mb-2.5 flex min-w-0 items-center justify-between gap-1.5">
         <button
           type="button"
@@ -258,7 +249,9 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
           <h3 className="whitespace-nowrap font-display text-base text-ink">
             {monthTitle}
             {showMonthEnGloss && (
-              <span className="font-script text-teal-strong"> · {monthEn}</span>
+              <span className="ml-1.5 font-serif-display text-sm font-semibold uppercase tracking-[0.1em] text-teal-strong">
+                · {monthEn}
+              </span>
             )}
           </h3>
           {!hasTripInMonth && month !== tripStartMonth && (

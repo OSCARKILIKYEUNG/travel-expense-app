@@ -6,17 +6,11 @@ import { capCellNote, dayCounter } from '../shared/display';
 import { STICKERS } from './mockRefTrip';
 import {
   DayStamp,
-  Doodle,
   DoodleSticker,
   Icon,
   NotchedTabBg,
   STICKER_DOODLE_MAP,
-  Sakura,
-  ScriptCallout,
-  Sparkle,
   StickerGraphic,
-  Tape,
-  bannerStripe,
   cardDots,
 } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
@@ -132,17 +126,12 @@ export default function DayView({
   return (
     <div data-testid="day-view" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-4">
       {/* Top date navigator banner */}
-      <header
-        className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-mustard-ink/35 bg-mustard-soft px-2 py-1.5 shadow-sm"
-        style={bannerStripe}
-      >
-        <Tape tone="sakura" className="-top-2 right-14 z-30 h-4 w-16 rotate-2 opacity-90" />
-        <Sparkle className="absolute left-12 top-0.5 z-10 h-3 w-3 opacity-80" />
+      <header className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-line bg-cream-soft px-2 py-1.5 shadow-sm">
         <button
           type="button"
           data-testid="back"
           onClick={onBack}
-          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-meta font-bold text-ink transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           {t('notebook.day.backToCalendar')}
         </button>
@@ -154,7 +143,7 @@ export default function DayView({
             data-notched-tab="day-badge"
             className={`relative inline-flex shrink-0 items-center whitespace-nowrap rounded-md pl-3.5 pr-3.5 py-0.5 text-meta font-semibold ${
               dayN
-                ? 'font-script text-coral-ink'
+                ? 'font-serif-display tracking-[0.04em] text-coral-ink'
                 : 'border border-dashed border-ink-muted bg-cream-soft text-ink-muted'
             }`}
           >
@@ -317,12 +306,10 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
       className="relative space-y-3 overflow-hidden rounded-card border border-line bg-cream-soft p-3"
       style={cardDots}
     >
-      <Sakura className="absolute right-1 top-1 h-7 w-7 opacity-70" />
-
       <div className="flex items-center gap-3">
         <DayStamp top={stampTop} bottom={stampBottom} />
         <div className="min-w-0 flex-1">
-          <p className="whitespace-nowrap text-meta text-ink-muted">
+          <p className="whitespace-nowrap font-serif-display text-sm font-semibold tracking-[0.06em] text-ink-soft">
             {t('notebook.day.mainItinerary')}{day.note ? ` · ${day.note}` : ''}
           </p>
           <h2 className="truncate whitespace-nowrap font-display text-xl text-ink">
@@ -340,7 +327,6 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
       </div>
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <Tape tone="teal" className="-top-2.5 right-4 z-10 h-4 w-14 rotate-2" />
         <div className="mb-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
           <span className="whitespace-nowrap text-meta text-ink-muted">
             {t('notebook.day.stopsSummary', { count: orderedStops.length })}
@@ -365,7 +351,6 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
             <li data-testid="day-itinerary-empty" className="space-y-1.5 py-3 text-center">
               <DoodleSticker name="torii" secondary="fuji" blob="mustard" size="xl" />
               <div>
-                <ScriptCallout text="Let's go!!" className="-rotate-2 text-mustard-ink" />
                 <p className="mt-1 font-display text-sm text-ink">
                   {t('notebook.empty.itineraryTitle')}
                 </p>
@@ -379,7 +364,6 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
       </div>
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <Doodle name="pagoda" size="sm" blob="sakura" className="pointer-events-none absolute right-2.5 top-2 text-ink opacity-75" />
         <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">
           {t('notebook.day.journalTitle')}
         </span>
@@ -523,8 +507,6 @@ function ItineraryEditor({ day, onChange, onDone }) {
       data-testid="itinerary-editor"
       className="relative space-y-2.5 rounded-card border border-line bg-cream-soft p-3 shadow-sm"
     >
-      <Sparkle className="absolute right-16 top-3.5 h-3.5 w-3.5 opacity-80" />
-
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
           <label htmlFor="ref-title" className="whitespace-nowrap text-meta font-medium text-ink-muted">
@@ -811,7 +793,6 @@ function DayExpenses({
             >
               <DoodleSticker name="ramen" secondary="camera" blob="sakura" size="xl" />
               <div>
-                <ScriptCallout text="Oishii!" className="-rotate-2 text-sakura-ink" />
                 <p className="mt-1 font-display text-sm text-ink">
                   {t('notebook.empty.dayExpensesTitle')}
                 </p>
