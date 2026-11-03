@@ -129,6 +129,8 @@ describe('journalAtlas — CountryFlag, JapanMiniMap, and LandscapeStrip compone
     const zhSvg = zhContainer.querySelector('svg[data-testid="japan-mini-map"]');
     expect(zhSvg).toBeTruthy();
     expect(zhSvg.getAttribute('aria-hidden')).toBe('true');
+    expect(zhSvg.getAttribute('class')).toContain('w-[148px]');
+    expect(zhSvg.getAttribute('class')).toContain('lg:w-[200px]');
     const islands = [...zhSvg.querySelectorAll('path[data-map-island]')].map((el) =>
       el.getAttribute('data-map-island'),
     );
@@ -164,7 +166,10 @@ describe('journalAtlas — CountryFlag, JapanMiniMap, and LandscapeStrip compone
     const strip = fallbackContainer.querySelector('[data-testid="landscape-strip"]');
     expect(strip).toBeTruthy();
     expect(strip.getAttribute('aria-hidden')).toBe('true');
-    expect(strip.querySelector('svg')).toBeTruthy();
+    const stripSvg = strip.querySelector('svg');
+    expect(stripSvg).toBeTruthy();
+    expect(stripSvg.getAttribute('viewBox')).toBe('-321 0 1000 68');
+    expect(stripSvg.getAttribute('preserveAspectRatio')).toBe('xMidYMid slice');
     expect(strip.querySelector('img')).toBeNull();
     u1();
 

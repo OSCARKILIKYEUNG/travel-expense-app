@@ -21,6 +21,10 @@ const OPTIONS = {
     label: 'Option A — gemini-4-argon-high',
     load: lazy(() => import('./option-a-argon/index.jsx')),
   },
+  artkit: {
+    label: 'Art kit — journal drawing set (A3)',
+    load: lazy(() => import('../journal/art/ArtKitGallery.jsx')),
+  },
 };
 
 export default function ProtoRoot({ id }) {

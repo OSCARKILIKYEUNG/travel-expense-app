@@ -110,7 +110,7 @@ export default function LedgerTotalCard({ summary, tripName }) {
         )}
 
         {/* Ticket header label */}
-        <p className="truncate whitespace-nowrap px-8 font-serif-display text-sm font-semibold uppercase tracking-[0.12em] text-ink-soft">
+        <p className="truncate whitespace-nowrap px-8 font-hand text-sm font-semibold uppercase tracking-[0.12em] text-ink-soft">
           {filtered ? t('notebook.ledger.totalHeaderFiltered') : t('notebook.ledger.totalHeader')}
         </p>
 
@@ -121,7 +121,7 @@ export default function LedgerTotalCard({ summary, tripName }) {
             className="inline-flex max-w-full items-baseline justify-center gap-1 truncate whitespace-nowrap font-display tabular-nums text-ink"
           >
             <span className="shrink-0 text-xl font-bold leading-none text-teal-strong">{prefix}</span>
-            <span className="truncate text-[34px] font-bold leading-none tracking-[-0.02em]">{digits}</span>
+            <span className="truncate text-hero-lg font-bold leading-none tracking-[-0.02em]">{digits}</span>
           </div>
           <svg
             aria-hidden="true"
@@ -165,7 +165,7 @@ export default function LedgerTotalCard({ summary, tripName }) {
         ) : (
           <div className="flex items-center justify-center">
             <p className="truncate whitespace-nowrap text-center font-serif-display text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">
-              {tripName || t('notebook.ledger.defaultTripName')} · ADMIT ONE
+              <span className="font-hand">{tripName || t('notebook.ledger.defaultTripName')}</span> · ADMIT ONE
             </p>
           </div>
         )}

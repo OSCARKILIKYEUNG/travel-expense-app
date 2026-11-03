@@ -159,10 +159,14 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const displayCategory = (cat) => t(`categories.${cat}`, { defaultValue: cat });
 
   const todaySection = rem ? (
-    <section key="today" data-section="today" className="paper-panel relative space-y-3 p-4">
+    <section
+      key="today"
+      data-section="today"
+      className="paper-panel relative min-w-0 space-y-3 p-4 lg:col-span-2"
+    >
       <div className="grid grid-cols-2 gap-2.5">
         <div className="min-w-0 rounded-xl border border-line bg-cream p-3">
-          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+          <p className="truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.charts.spentToday')}
           </p>
           <p className="mt-0.5 truncate whitespace-nowrap font-display text-xl font-bold tabular-nums text-teal-strong">
@@ -170,7 +174,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           </p>
         </div>
         <div className="min-w-0 rounded-xl border border-line bg-cream p-3">
-          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+          <p className="truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.charts.tripDailyAvg')}
           </p>
           <p className="mt-0.5 truncate whitespace-nowrap font-display text-xl font-bold tabular-nums text-ink">
@@ -213,10 +217,10 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   ) : null;
 
   const summarySection = (
-    <section key="summary" data-section="summary" className="space-y-2.5">
+    <section key="summary" data-section="summary" className="min-w-0 space-y-2.5 lg:col-span-2">
       <div className="grid grid-cols-3 gap-2.5">
         <div className="paper-panel min-w-0 p-3 text-center">
-          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+          <p className="truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.charts.totalSpend')}
           </p>
           <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-teal-strong">
@@ -224,7 +228,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           </p>
         </div>
         <div className="paper-panel min-w-0 p-3 text-center">
-          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+          <p className="truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.charts.daysLabel')}
           </p>
           <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-ink">
@@ -232,7 +236,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           </p>
         </div>
         <div className="paper-panel min-w-0 p-3 text-center">
-          <p className="truncate whitespace-nowrap text-meta font-medium text-ink-muted">
+          <p className="truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.charts.dailyAvg')}
           </p>
           <p className="mt-0.5 truncate whitespace-nowrap text-sm font-bold tabular-nums text-ink">
@@ -267,9 +271,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const cardPct = pay.total > 0 ? Math.round((pay.card.total / pay.total) * 100) : 0;
 
   const paymentSection = (
-    <section key="payment" data-section="payment" className="paper-panel relative space-y-2.5 p-4">
+    <section key="payment" data-section="payment" className="paper-panel relative min-w-0 space-y-2.5 p-4">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.cashVsCard')}
         </h2>
         <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-muted">
@@ -344,9 +348,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   });
 
   const categorySection = (
-    <section key="category" data-section="category" className="paper-panel relative space-y-3 p-4">
+    <section key="category" data-section="category" className="paper-panel relative min-w-0 space-y-3 p-4">
       <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.categoryTitle')}
         </h2>
       </div>
@@ -355,7 +359,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         <div className="relative flex shrink-0 items-center justify-center">
           <svg
             viewBox="0 0 160 160"
-            className="h-36 w-36 shrink-0"
+            className="h-36 w-36 shrink-0 lg:h-40 lg:w-40"
             role="img"
             aria-label={t('notebook.charts.categoryDonutAria')}
           >
@@ -441,9 +445,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   const avgPct = daily.max > 0 ? Math.min(100, Math.max(0, Math.round((daily.avg / daily.max) * 100))) : 0;
 
   const dailySection = (
-    <section key="daily" data-section="daily" className="paper-panel relative space-y-2.5 p-4">
+    <section key="daily" data-section="daily" className="paper-panel relative min-w-0 space-y-2.5 p-4">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.dailyTitle')}
         </h2>
         {daily.rows.length > 0 && (
@@ -461,7 +465,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         >
           <DoodleSticker name="plane" secondary="sparkle" blob="teal" size="xl" />
           <div>
-            <p className="mt-1 font-display text-sm text-ink">
+            <p className="mt-1 font-hand text-sm text-ink">
               {t('notebook.charts.dailyNotStarted')}
             </p>
             <p className="mt-0.5 text-meta text-ink-muted">
@@ -533,9 +537,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const top5Section = (
-    <section key="top5" data-section="top5" className="paper-panel relative space-y-2.5 p-4">
+    <section key="top5" data-section="top5" className="paper-panel relative min-w-0 space-y-2.5 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.top5Title')}
         </h2>
       </div>
@@ -569,9 +573,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const assigneeSection = (
-    <section key="assignee" data-section="assignee" className="paper-panel relative space-y-2.5 p-4">
+    <section key="assignee" data-section="assignee" className="paper-panel relative min-w-0 space-y-2.5 p-4">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.assigneeTitle')}
         </h2>
         <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
@@ -629,9 +633,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
   );
 
   const settleSection = (
-    <section key="settle" data-section="settle" className="paper-panel relative space-y-2.5 p-4">
+    <section key="settle" data-section="settle" className="paper-panel relative min-w-0 space-y-2.5 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.charts.settleTitle')}
         </h2>
       </div>
@@ -768,7 +772,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
     >
       <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-4 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
-          <h2 id="settle-sheet-title" className="min-w-0 flex-1 truncate font-display text-lg text-ink">
+          <h2 id="settle-sheet-title" className="min-w-0 flex-1 truncate font-hand text-lg text-ink">
             {t('notebook.settle.sheetTitle', { name: displayPerson(breakdown.person) })}
           </h2>
           <button
@@ -784,7 +788,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         {/* Paid section */}
         <div className="space-y-2">
           <div className="flex min-w-0 items-baseline justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+            <h3 className="min-w-0 flex-1 truncate font-hand text-meta font-bold text-ink-muted">
               {t('notebook.settle.paidTitle', { name: displayPerson(breakdown.person) })}
             </h3>
             <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
@@ -828,7 +832,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         {/* Owed section */}
         <div className="space-y-2">
           <div className="flex min-w-0 items-baseline justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+            <h3 className="min-w-0 flex-1 truncate font-hand text-meta font-bold text-ink-muted">
               {t('notebook.settle.owedTitle')}
             </h3>
             <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold tabular-nums text-ink">
@@ -883,7 +887,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         {/* Repayments section */}
         <div data-testid="settle-sheet-repayments" className="min-w-0 space-y-2.5">
           <div className="flex min-w-0 items-baseline justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-meta font-bold text-ink-muted">
+            <h3 className="min-w-0 flex-1 truncate font-hand text-meta font-bold text-ink-muted">
               {t('notebook.settle.repaymentSection')}
             </h3>
             {personSettleRow && (
@@ -1023,7 +1027,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
 
         {/* Net row */}
         <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
-          <span className="min-w-0 truncate text-sm font-bold text-ink">
+          <span className="min-w-0 truncate font-hand text-sm font-bold text-ink">
             {t('notebook.settle.netLabel')}
           </span>
           <span
@@ -1065,14 +1069,16 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
       <div className="relative flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           {showChartsTitleScript && (
-            <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
+            <p className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
               {chartsTitleScript}
             </p>
           )}
-          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{chartsTitle}</h1>
+          <h1 className="whitespace-nowrap font-hand text-2xl text-ink">{chartsTitle}</h1>
         </div>
       </div>
-      {sections}
+      <div className="min-w-0 space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+        {sections}
+      </div>
       {settleSheetNode &&
         (typeof document !== 'undefined' ? createPortal(settleSheetNode, document.body) : settleSheetNode)}
     </div>

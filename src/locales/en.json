@@ -456,7 +456,7 @@
     "brand": "Travel notebook",
     "brandScript": "Travel notebook",
     "currentTrip": "Current",
-    "navAria": "Navigation",
+    "navAria": "Main navigation",
     "nav": {
       "home": "Calendar",
       "ledger": "Ledger",
@@ -825,6 +825,57 @@
         "kyoto": "KYOTO",
         "sapporo": "SAPPORO",
         "fukuoka": "FUKUOKA"
+      }
+    },
+    "artkit": {
+      "title": "Journal Art Kit — Drawing Set (A3)",
+      "subtitle": "First-party fine-liner icons, washi decor & destination route packs",
+      "sections": {
+        "coreIcons": "Core Line Icons",
+        "categoryIcons": "Category Icons",
+        "decor": "Decorative Primitives",
+        "jpPack": "Japan Destination Pack (Coastline + Route Dots + Vignettes)",
+        "genericPack": "Generic Destination Pack (Route Dots Only + Vignettes)"
+      },
+      "decorLabels": {
+        "washBlobs": "Watercolor Wash Blobs",
+        "toneSky": "Sky",
+        "toneLeaf": "Leaf",
+        "toneBerry": "Berry",
+        "toneWheat": "Wheat",
+        "routeLine": "Dotted Route Line",
+        "hatchSea": "Ruled Hatch Sea",
+        "washiLabel": "Kraft Washi Label",
+        "washiSampleText": "Trip Notes",
+        "navyTape": "Navy Masking Tape",
+        "todayRing": "Today Stamp Ring",
+        "tornEdge": "Torn Paper Edge"
+      },
+      "jpCities": {
+        "tokyo": "Tokyo",
+        "fuji": "Mt. Fuji",
+        "osaka": "Osaka"
+      },
+      "jpVignettes": {
+        "fuji": "Mt. Fuji",
+        "castle": "Castle",
+        "pagoda": "Pagoda",
+        "gate": "Gate",
+        "lantern": "Lantern",
+        "latticeTower": "Lattice Tower",
+        "dango": "Dango",
+        "persimmon": "Persimmon",
+        "smallTrain": "Small Train"
+      },
+      "genericCities": {
+        "seoul": "Seoul",
+        "busan": "Busan",
+        "jeju": "Jeju"
+      },
+      "genericVignettes": {
+        "suitcase": "Suitcase",
+        "plane": "Plane",
+        "compass": "Compass"
       }
     }
   }

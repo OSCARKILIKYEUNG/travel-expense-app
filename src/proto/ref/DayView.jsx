@@ -37,6 +37,7 @@ function usePager(index, setIndex) {
   const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const handlers = {
     onPointerDown: (e) => {
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) return;
       if (e.target.closest('input,textarea,select,[data-noswipe],.overflow-x-auto,[role=dialog],[role=menu]')) return;
       if (document.querySelector('[role=dialog][aria-modal=true]')) return;
       if (e.clientX < 24 || e.clientX > window.innerWidth - 24) return;
@@ -78,6 +79,25 @@ function usePager(index, setIndex) {
   return { track, handlers, style };
 }
 
+function useIsDesktopLg() {
+  const [isDesktopLg, setIsDesktopLg] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(min-width: 1024px)').matches),
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setIsDesktopLg(Boolean(mql.matches));
+    sync();
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', sync);
+      return () => mql.removeEventListener('change', sync);
+    }
+    mql.addListener?.(sync);
+    return () => mql.removeListener?.(sync);
+  }, []);
+  return isDesktopLg;
+}
+
 export default function DayView({
   trip,
   iso,
@@ -108,6 +128,7 @@ export default function DayView({
   const index = Math.max(0, PANES.indexOf(pane));
   const setIndex = (i) => onPane(PANES[i]);
   const { track, handlers, style } = usePager(index, setIndex);
+  const isDesktopLg = useIsDesktopLg();
   const day = trip.days[iso] || { title: '', note: '', sticker: null, journal: '', itinerary: [] };
   const [, m, d] = iso.split('-').map(Number);
   const formattedDate = formatNotebookDate(iso, { t, lang: activeI18n.language });
@@ -124,19 +145,22 @@ export default function DayView({
   }, [iso, highlightId]);
 
   return (
-    <div data-testid="day-view" className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-4">
+    <div
+      data-testid="day-view"
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-4 lg:mx-auto lg:max-w-6xl"
+    >
       {/* Top date navigator banner */}
       <header className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-line bg-cream-soft px-2 py-1.5 shadow-sm">
         <button
           type="button"
           data-testid="back"
           onClick={onBack}
-          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-meta font-bold text-ink transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream px-2.5 sm:px-3 text-sm font-bold text-ink transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
           {t('notebook.day.backToCalendar')}
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-1">
-          <h1 className="whitespace-nowrap font-display text-sm text-ink">
+          <h1 className="whitespace-nowrap font-hand text-sm text-ink">
             {formattedDate}
           </h1>
           <span
@@ -144,7 +168,7 @@ export default function DayView({
             className={`relative inline-flex shrink-0 items-center whitespace-nowrap rounded-md pl-3.5 pr-3.5 py-0.5 text-meta font-semibold ${
               dayN
                 ? 'font-serif-display tracking-[0.04em] text-coral-ink'
-                : 'border border-dashed border-ink-muted bg-cream-soft text-ink-muted'
+                : 'border border-dashed border-ink-muted bg-cream-soft font-hand text-ink-muted'
             }`}
           >
             {dayN && <NotchedTabBg tone="coral" />}
@@ -175,8 +199,8 @@ export default function DayView({
         </div>
       </header>
 
-      {/* Two-segment control */}
-      <div className="space-y-1.5">
+      {/* Two-segment control (mobile/tablet only; hidden at lg where both panes sit side by side) */}
+      <div className="space-y-1.5 lg:hidden">
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-beige/80 p-1" role="tablist">
           {[
             ['itinerary', t('notebook.day.tabItinerary'), day.itinerary.length],
@@ -195,7 +219,7 @@ export default function DayView({
                   : 'text-ink-soft hover:bg-cream-soft/50 hover:text-ink'
               }`}
             >
-              {label} {n}
+              <span className="font-hand">{label}</span> {n}
             </button>
           ))}
         </div>
@@ -211,14 +235,19 @@ export default function DayView({
         </div>
       </div>
 
-      {/* Pager */}
-      <div className="-mx-4 overflow-hidden">
-        <div ref={track} className="flex touch-pan-y" style={style} {...handlers}>
+      {/* Pager (swipe on mobile/tablet; 2-column side-by-side grid at lg) */}
+      <div className="-mx-4 overflow-hidden lg:mx-0 lg:overflow-visible">
+        <div
+          ref={track}
+          className="flex touch-pan-y lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:!transform-none"
+          style={style}
+          {...handlers}
+        >
           <section
             data-testid="pane-itinerary"
-            ref={(el) => el && el.toggleAttribute('inert', index !== 0)}
-            aria-hidden={index !== 0}
-            className="w-full shrink-0 touch-pan-y px-4 pb-6"
+            ref={(el) => el && el.toggleAttribute('inert', !isDesktopLg && index !== 0)}
+            aria-hidden={!isDesktopLg && index !== 0}
+            className="w-full min-w-0 shrink-0 touch-pan-y px-4 pb-6 lg:px-0"
           >
             <DayStrip text={strip} nav={nav} onDay={onDay} />
             {editing ? (
@@ -243,9 +272,9 @@ export default function DayView({
           </section>
           <section
             data-testid="pane-expenses"
-            ref={(el) => el && el.toggleAttribute('inert', index !== 1)}
-            aria-hidden={index !== 1}
-            className="w-full shrink-0 touch-pan-y px-4 pb-6"
+            ref={(el) => el && el.toggleAttribute('inert', !isDesktopLg && index !== 1)}
+            aria-hidden={!isDesktopLg && index !== 1}
+            className="w-full min-w-0 shrink-0 touch-pan-y px-4 pb-6 lg:px-0"
           >
             <DayStrip text={strip} nav={nav} onDay={onDay} />
             <DayExpenses
@@ -309,10 +338,10 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
       <div className="flex items-center gap-3">
         <DayStamp top={stampTop} bottom={stampBottom} />
         <div className="min-w-0 flex-1">
-          <p className="whitespace-nowrap font-serif-display text-sm font-semibold tracking-[0.06em] text-ink-soft">
+          <p className="whitespace-nowrap font-hand text-sm font-semibold tracking-[0.06em] text-ink-soft">
             {t('notebook.day.mainItinerary')}{day.note ? ` · ${day.note}` : ''}
           </p>
-          <h2 className="truncate whitespace-nowrap font-display text-xl text-ink">
+          <h2 className="truncate whitespace-nowrap font-hand text-xl text-ink">
             {day.title || t('notebook.dayView.noTitle')}
           </h2>
         </div>
@@ -328,11 +357,11 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
         <div className="mb-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-          <span className="whitespace-nowrap text-meta text-ink-muted">
+          <span className="whitespace-nowrap font-hand text-meta text-ink-muted">
             {t('notebook.day.stopsSummary', { count: orderedStops.length })}
           </span>
           {day.note && (
-            <span className="min-w-0 truncate whitespace-nowrap text-meta font-medium text-teal-strong">
+            <span className="min-w-0 truncate whitespace-nowrap font-hand text-meta font-medium text-teal-strong">
               {t('notebook.day.calendarNoteValue', { note: day.note })}
             </span>
           )}
@@ -351,7 +380,7 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
             <li data-testid="day-itinerary-empty" className="space-y-1.5 py-3 text-center">
               <DoodleSticker name="torii" secondary="fuji" blob="mustard" size="xl" />
               <div>
-                <p className="mt-1 font-display text-sm text-ink">
+                <p className="mt-1 font-hand text-sm text-ink">
                   {t('notebook.empty.itineraryTitle')}
                 </p>
                 <p className="mt-0.5 text-meta text-ink-muted">
@@ -364,7 +393,7 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
       </div>
 
       <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <span className="mb-1 block whitespace-nowrap text-meta text-ink-muted">
+        <span className="mb-1 block whitespace-nowrap font-hand text-meta text-ink-muted">
           {t('notebook.day.journalTitle')}
         </span>
         <p className="truncate whitespace-nowrap text-sm text-ink-soft">
@@ -509,7 +538,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
     >
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <label htmlFor="ref-title" className="whitespace-nowrap text-meta font-medium text-ink-muted">
+          <label htmlFor="ref-title" className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.day.titleLabel')}
           </label>
           <button
@@ -532,7 +561,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
 
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">
+          <span className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.day.stickerLabel')}
           </span>
           <button
@@ -568,7 +597,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
       </div>
 
       <div>
-        <label htmlFor="ref-note" className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted">
+        <label htmlFor="ref-note" className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
           {t('notebook.day.calendarNoteLabel')}
         </label>
         <input
@@ -682,7 +711,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
       </form>
 
       <div>
-        <label htmlFor="ref-journal" className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted">
+        <label htmlFor="ref-journal" className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
           {t('notebook.day.journalTitle')}
         </label>
         <textarea
@@ -725,7 +754,7 @@ function DayExpenses({
     <div className="space-y-2.5">
       <div className="rounded-2xl border border-line bg-cream-soft px-3.5 py-2.5 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-meta font-medium text-ink-muted">
+          <span className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
             {t('notebook.day.dayTotal')}
           </span>
           <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-semibold text-teal-strong">
@@ -750,7 +779,7 @@ function DayExpenses({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-muted">
+        <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-muted">
           {t('notebook.day.filterLabel')}
         </span>
         <div className="min-w-0 flex-1">
@@ -793,7 +822,7 @@ function DayExpenses({
             >
               <DoodleSticker name="ramen" secondary="camera" blob="sakura" size="xl" />
               <div>
-                <p className="mt-1 font-display text-sm text-ink">
+                <p className="mt-1 font-hand text-sm text-ink">
                   {t('notebook.empty.dayExpensesTitle')}
                 </p>
                 <p className="mt-0.5 text-meta text-ink-muted">

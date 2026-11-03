@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fonts, palette, themeColor } from './tokens.js';
+import { categoryPalette, fonts, palette, personPalette, themeColor, typeScale } from './tokens.js';
+import tailwindConfig from '../../tailwind.config.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const srcRoot = path.join(repoRoot, 'src');
@@ -16,12 +17,31 @@ const TEXT_TOKENS = [
   'ink',
   'ink-soft',
   'ink-muted',
+  'route',
+  'stamp',
   'teal-strong',
   'coral-ink',
   'mustard-ink',
   'sakura-ink',
   'sage-ink',
 ];
+
+const JOURNAL_NEW_TOKENS = {
+  paper: '#FBF8F1',
+  'paper-shade': '#F1EADB',
+  desk: '#E7DCC8',
+  rule: '#BFD0E0',
+  grid: '#D5DDE8',
+  route: '#1F3A68',
+  'route-soft': '#DCE5F2',
+  'tape-navy': '#2B4A7F',
+  kraft: '#CDAE84',
+  'kraft-ink': '#4A3519',
+  'wash-leaf': '#8DAA78',
+  'wash-berry': '#D2544E',
+  'wash-wheat': '#E3B977',
+  stamp: '#B23A30',
+};
 
 function walk(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -101,10 +121,19 @@ describe('theme guard', () => {
     expect(manifest?.[1]).toBe(themeColor);
   });
 
-  it('keeps text tokens at least 4.5:1 on cream and cream-soft', () => {
+  it('keeps text tokens at least 4.5:1 on paper (cream) and cream-soft', () => {
     for (const key of TEXT_TOKENS) {
-      expect(contrast(palette[key], palette.cream)).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(palette[key], palette['cream-soft'])).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(palette[key], palette.paper), `${key} on paper`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(palette[key], palette.cream), `${key} on cream`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(palette[key], palette['cream-soft']), `${key} on cream-soft`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('defines all journal artwork tokens with exact hex values and wires them into Tailwind colors', () => {
+    const twColors = tailwindConfig?.theme?.colors || {};
+    for (const [token, expectedHex] of Object.entries(JOURNAL_NEW_TOKENS)) {
+      expect(palette[token], `palette.${token}`).toBe(expectedHex);
+      expect(twColors[token], `tailwind colors.${token}`).toBe(`rgb(var(--c-${token}) / <alpha-value>)`);
     }
   });
 
@@ -113,8 +142,11 @@ describe('theme guard', () => {
       ['ink-soft', 'cream'], ['ink-soft', 'cream-soft'], ['teal-strong', 'cream'], ['teal-strong', 'cream-soft'],
       ['ink', 'beige'], ['ink-muted', 'beige'], ['teal-strong', 'teal-soft'], ['coral-ink', 'coral-soft'],
       ['mustard-ink', 'mustard-soft'], ['sakura-ink', 'sakura-soft'], ['ink', 'mustard'],
-      ['sage-ink', 'sage-soft'], ['ink-soft', 'sand-soft'], ['ink-muted', 'sand-soft'], ['ink', 'ribbon'],
+      ['sage-ink', 'sage-soft'], ['ink-soft', 'sand-soft'], ['ink-muted', 'sand-soft'], ['paper', 'ribbon'],
       ['ink', 'wash-sky'], ['ink', 'wash-ochre'], ['ink-soft', 'wash-sky'], ['ink-soft', 'wash-ochre'],
+      ['kraft-ink', 'kraft'],
+      ['paper', 'tape-navy'], ['cream-soft', 'tape-navy'],
+      ['paper', 'teal-strong'], ['cream-soft', 'teal-strong'],
     ];
     for (const [fg, bg] of pairs) {
       expect(contrast(palette[fg], palette[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
@@ -123,5 +155,45 @@ describe('theme guard', () => {
     expect(contrast('#FFFFFF', palette['teal-strong'])).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#FFFFFF', palette['coral-ink'])).toBeGreaterThanOrEqual(4.5);
     expect(fonts.serifDisplay[0]).toBe('"Cormorant Garamond"');
+  });
+
+  it('keeps categoryPalette and personPalette fills at least 3:1 against paper', () => {
+    for (const [category, fill] of Object.entries(categoryPalette)) {
+      expect(contrast(fill, palette.paper), `categoryPalette.${category} on paper`).toBeGreaterThanOrEqual(3);
+    }
+    expect(personPalette).toHaveLength(8);
+    personPalette.forEach((fill, index) => {
+      expect(contrast(fill, palette.paper), `personPalette[${index}] (${fill}) on paper`).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  it('ensures src/theme/journal.css contains no raw hex and defines all required texture utilities', () => {
+    const journalCssPath = path.join(srcRoot, 'theme', 'journal.css');
+    expect(fs.existsSync(journalCssPath)).toBe(true);
+    const css = fs.readFileSync(journalCssPath, 'utf8');
+    expect(HEX.test(css)).toBe(false);
+    for (const cls of ['.jr-grid', '.jr-ruled', '.jr-washi', '.jr-tape-navy', '.jr-torn', '.jr-pin', '.jr-desk', '.jr-paper']) {
+      expect(css).toContain(cls);
+    }
+  });
+
+  it('defines desktop type-scale tokens (>=12px on mobile, stepped up at lg >=1024px) wired into tailwind fontSize', () => {
+    const configuredSizes = tailwindConfig?.theme?.extend?.fontSize || {};
+    expect(typeScale.meta).toMatchObject({ mobileSize: '12px', desktopSize: '14px' });
+    expect(typeScale.sm).toMatchObject({ mobileSize: '14px', desktopSize: '15px' });
+    expect(typeScale.base).toMatchObject({ mobileSize: '16px', desktopSize: '17px' });
+    expect(typeScale.lg).toMatchObject({ mobileSize: '18px', desktopSize: '20px' });
+    expect(typeScale.xl).toMatchObject({ mobileSize: '20px', desktopSize: '22px' });
+    expect(typeScale['2xl']).toMatchObject({ mobileSize: '24px', desktopSize: '28px' });
+    expect(typeScale['hero-sm']).toMatchObject({ mobileSize: '26px', desktopSize: '30px' });
+    expect(typeScale['hero-lg']).toMatchObject({ mobileSize: '34px', desktopSize: '38px' });
+
+    for (const [key, spec] of Object.entries(typeScale)) {
+      const mobilePx = parseFloat(spec.mobileSize);
+      const desktopPx = parseFloat(spec.desktopSize);
+      expect(mobilePx, `${key} mobile >= 12px`).toBeGreaterThanOrEqual(12);
+      expect(desktopPx, `${key} desktop > mobile`).toBeGreaterThan(mobilePx);
+      expect(configuredSizes[key]?.[0]).toContain(`var(${spec.sizeVar}`);
+    }
   });
 });

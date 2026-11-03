@@ -1,3 +1,6 @@
+@import './theme/fonts.css';
+@import './theme/journal.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

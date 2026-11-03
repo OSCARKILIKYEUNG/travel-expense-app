@@ -417,8 +417,8 @@ export default function RefProto({ onRequestScan, scanState, scanDraft } = {}) {
 
   return (
     <div className="min-h-screen text-ink" style={paperDots}>
-      <Header trip={trip} trips={trips} onSelectTrip={selectTrip} />
-      <main className="mx-auto max-w-5xl pb-24">{body}</main>
+      <Header trip={trip} trips={trips} onSelectTrip={selectTrip} tab={tab} />
+      <main className="mx-auto max-w-5xl pb-24 lg:max-w-6xl lg:pb-10">{body}</main>
       <Toast
         toast={toast}
         aboveSaveBar={route.screen === 'add'}
@@ -432,7 +432,7 @@ export default function RefProto({ onRequestScan, scanState, scanDraft } = {}) {
   );
 }
 
-function Header({ trip, trips, onSelectTrip }) {
+function Header({ trip, trips, onSelectTrip, tab }) {
   const [open, setOpen] = useState(false);
   const menuWrapRef = useRef(null);
   const btnRef = useRef(null);
@@ -460,74 +460,80 @@ function Header({ trip, trips, onSelectTrip }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-cream-soft/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <button
-          type="button"
-          onClick={() => go('')}
-          className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
-            {Icon.pin('h-[18px] w-[18px]')}
-          </span>
-          <span className="min-w-0 leading-none">
-            <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
-              Travel notebook
-            </span>
-            <span className="block whitespace-nowrap font-display text-base tracking-[-0.03em] text-ink">
-              旅遊手帳
-            </span>
-          </span>
-        </button>
-
-        <div className="relative min-w-0 shrink" ref={menuWrapRef}>
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:flex-initial lg:justify-start lg:gap-3">
           <button
-            ref={btnRef}
             type="button"
-            data-testid="trip-switcher"
-            aria-haspopup="menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-            className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            onClick={() => go('')}
+            className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            {Icon.globe('h-3.5 w-3.5 shrink-0')}
-            <span className="min-w-0 truncate">{trip.name}</span>
-            {Icon.chevDown('h-3.5 w-3.5 shrink-0')}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
+              {Icon.pin('h-[18px] w-[18px]')}
+            </span>
+            <span className="min-w-0 leading-none">
+              <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
+                Travel notebook
+              </span>
+              <span className="block whitespace-nowrap font-hand text-base tracking-[-0.03em] text-ink">
+                旅遊手帳
+              </span>
+            </span>
           </button>
 
-          {open && (
-            <div
-              role="menu"
-              data-testid="trip-switcher-menu"
-              className="absolute right-0 top-full z-40 mt-2 min-w-[230px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl"
+          <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-line lg:block" />
+
+          <div className="relative min-w-0 shrink" ref={menuWrapRef}>
+            <button
+              ref={btnRef}
+              type="button"
+              data-testid="trip-switcher"
+              aria-haspopup="menu"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+              className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
-              {trips.map((t) => {
-                const isActive = t.id === trip.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="menuitem"
-                    data-testid={`switch-trip-${t.id}`}
-                    onClick={() => {
-                      setOpen(false);
-                      onSelectTrip(t.id);
-                    }}
-                    className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
-                      isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
-                    }`}
-                  >
-                    <span className="min-w-0 truncate">{t.name}</span>
-                    {isActive && (
-                      <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
-                        當前
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+              {Icon.globe('h-3.5 w-3.5 shrink-0')}
+              <span className="min-w-0 truncate font-hand">{trip.name}</span>
+              {Icon.chevDown('h-3.5 w-3.5 shrink-0')}
+            </button>
+
+            {open && (
+              <div
+                role="menu"
+                data-testid="trip-switcher-menu"
+                className="absolute right-0 top-full z-40 mt-2 min-w-[230px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl lg:left-0 lg:right-auto"
+              >
+                {trips.map((t) => {
+                  const isActive = t.id === trip.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="menuitem"
+                      data-testid={`switch-trip-${t.id}`}
+                      onClick={() => {
+                        setOpen(false);
+                        onSelectTrip(t.id);
+                      }}
+                      className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
+                        isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
+                      }`}
+                    >
+                      <span className="min-w-0 truncate font-hand">{t.name}</span>
+                      {isActive && (
+                        <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 font-hand text-meta font-bold text-teal-strong">
+                          當前
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
+
+        <DesktopNav tab={tab} />
       </div>
     </header>
   );
@@ -540,12 +546,43 @@ const NAV = [
   ['settings', '設定', 'settings', Icon.gear],
 ];
 
+function DesktopNav({ tab }) {
+  return (
+    <nav
+      data-testid="desktop-nav"
+      aria-label="主要導覽"
+      className="hidden lg:flex lg:items-center lg:gap-1.5"
+    >
+      {NAV.map(([id, label, hash, icon]) => {
+        const active = tab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            data-testid={`desktop-nav-${id}`}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => go(hash)}
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+              active
+                ? 'border-teal/45 bg-teal-soft font-bold text-teal-strong shadow-sm'
+                : 'border-transparent text-ink-soft hover:bg-beige/60 hover:text-ink'
+            }`}
+          >
+            {icon('h-[18px] w-[18px] shrink-0')}
+            <span className="font-hand">{label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function BottomNav({ tab }) {
   return (
     <nav
       data-testid="nav"
-      aria-label="導航"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      aria-label="主要導覽"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       <div className="mx-auto grid max-w-lg grid-cols-4">
         {NAV.map(([id, label, hash, icon]) => {
@@ -562,7 +599,7 @@ function BottomNav({ tab }) {
               }`}
             >
               {icon('h-[22px] w-[22px]')}
-              <span className="whitespace-nowrap text-meta font-medium">{label}</span>
+              <span className="whitespace-nowrap font-hand text-sm font-medium">{label}</span>
             </button>
           );
         })}
@@ -696,20 +733,20 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
   };
 
   return (
-    <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
+    <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
       <div className="relative space-y-1">
-        <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">旅遊手帳設定</p>
+        <p className="whitespace-nowrap font-hand text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">旅遊手帳設定</p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-display text-2xl text-ink">設定</h1>
-          <span className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-teal-strong">Settings</span>
+          <h1 className="whitespace-nowrap font-hand text-2xl text-ink">設定</h1>
+          <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-teal-strong">Settings</span>
         </div>
       </div>
 
       {/* Trip management */}
       <section className="paper-panel relative space-y-2.5 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程管理</h2>
-          <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
+          <h2 className="whitespace-nowrap font-hand text-lg text-ink">旅程管理</h2>
+          <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 font-hand text-meta font-bold text-teal-strong">
             當前旅程
           </span>
         </div>
@@ -729,7 +766,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{t.name}</span>
+                  <span className="whitespace-nowrap font-hand text-sm font-bold text-teal-strong">{t.name}</span>
                   <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
                     {t.expenses.length} 筆記錄
                   </span>
@@ -746,7 +783,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
       {/* Trip Budget */}
       <section className="paper-panel space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">旅程預算</h2>
+          <h2 className="whitespace-nowrap font-hand text-lg text-ink">旅程預算</h2>
           <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
             {currentBudget ? fmtHKD(currentBudget) : '未設定'}
           </span>
@@ -771,7 +808,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
           <button
             type="submit"
             data-testid="budget-save"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             儲存
           </button>
@@ -780,7 +817,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
               type="button"
               data-testid="budget-clear"
               onClick={handleClearBudget}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               清除
             </button>
@@ -790,7 +827,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
 
       {/* People / Members */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">人物管理</h2>
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">人物管理</h2>
         <div className="space-y-2">
           {people.map((p) => {
             const isShared = p === '共同';
@@ -826,7 +863,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                       type="button"
                       data-testid={`rename-save-${p}`}
                       onClick={() => handleRenameSubmit(p)}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white"
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white"
                     >
                       儲存
                     </button>
@@ -836,7 +873,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                         setEditingPerson(null);
                         setPersonError('');
                       }}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft"
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft"
                     >
                       取消
                     </button>
@@ -850,7 +887,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                       </span>
                     </div>
                     {isShared ? (
-                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 text-meta font-semibold text-ink-muted">
+                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 font-hand text-meta font-semibold text-ink-muted">
                         預設
                       </span>
                     ) : (
@@ -864,7 +901,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                             setEditingName(p);
                             setPersonError('');
                           }}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                         >
                           改名
                         </button>
@@ -873,7 +910,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                           data-testid={`person-remove-${p}`}
                           aria-label={`移除 ${p}`}
                           onClick={() => handleRemovePerson(p)}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-meta font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-sm font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                         >
                           移除
                         </button>
@@ -901,7 +938,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
           <button
             type="submit"
             data-testid="add-person-btn"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             ＋新增
           </button>
@@ -915,14 +952,14 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
 
       {/* Currency & Exchange Rate */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">貨幣與匯率</h2>
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">貨幣與匯率</h2>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">旅程主要外幣</p>
+            <p className="whitespace-nowrap font-hand text-meta text-ink-muted">旅程主要外幣</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">JPY 日元</p>
           </div>
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">記帳貨幣</p>
+            <p className="whitespace-nowrap font-hand text-meta text-ink-muted">記帳貨幣</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">HKD 港幣</p>
           </div>
         </div>
@@ -950,7 +987,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
               type="submit"
               data-testid="rate-save"
               disabled={isRateInvalid}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
             >
               更新匯率
             </button>
@@ -965,7 +1002,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
 
       {/* Data & Export */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">資料管理</h2>
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">資料管理</h2>
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -996,7 +1033,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
 
       {/* About */}
       <section className="paper-panel relative space-y-1 p-4">
-        <h2 className="whitespace-nowrap font-display text-base text-ink">關於旅遊手帳</h2>
+        <h2 className="whitespace-nowrap font-hand text-base text-ink">關於旅遊手帳</h2>
         <p className="whitespace-nowrap text-meta text-ink-soft">
           原幣合計 {fmtJPY(totalJPY)} · 離線手札示範模式
         </p>

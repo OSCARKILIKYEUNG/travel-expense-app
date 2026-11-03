@@ -155,7 +155,7 @@ export default function RepaymentForm({
 
   const fieldClass =
     'h-11 min-h-11 w-full min-w-0 rounded-xl border border-line bg-white px-2.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal';
-  const labelClass = 'mb-1 block truncate whitespace-nowrap text-meta font-medium text-ink-muted';
+  const labelClass = 'mb-1 block truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted';
 
   return (
     <form
@@ -165,7 +165,7 @@ export default function RepaymentForm({
       className="min-w-0 space-y-2.5 rounded-xl border border-line bg-cream p-3"
     >
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <h4 className="min-w-0 truncate font-display text-sm font-bold text-ink">
+        <h4 className="min-w-0 truncate font-hand text-sm font-bold text-ink">
           {initial?.id ? t('notebook.settle.edit') : t('notebook.settle.recordRepayment')}
         </h4>
         {currency !== accCode && preview.hkdAmount > 0 && (

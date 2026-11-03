@@ -91,7 +91,7 @@ export default function ExpenseCard({
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5">
             <span
-              className={`inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-md border px-2 py-0.5 text-meta font-bold ${catStyle}`}
+              className={`inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-md border px-2 py-0.5 text-sm font-bold ${catStyle}`}
             >
               <CategorySticker
                 category={expense.category}
@@ -102,10 +102,10 @@ export default function ExpenseCard({
                 {t(`categories.${expense.category}`, { defaultValue: expense.category })}
               </span>
             </span>
-            <span className="max-w-full truncate whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
+            <span className="max-w-full truncate whitespace-nowrap rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-sm font-bold text-teal-strong">
               {expense.assignedTo === '共同' ? t('expenseCard.shared') : expense.assignedTo}
             </span>
-            <span className="shrink-0 whitespace-nowrap text-meta text-ink-muted">
+            <span className="shrink-0 whitespace-nowrap text-sm text-ink-muted">
               {expense.scanned ? t('notebook.expenseCard.scanned') : t('notebook.expenseCard.manual')}
             </span>
           </div>
@@ -236,7 +236,7 @@ export function Chip({ active, onClick, children, testid }) {
       data-testid={testid}
       aria-pressed={active}
       onClick={onClick}
-      className={`inline-flex min-h-11 min-w-11 max-w-full items-center justify-center truncate whitespace-nowrap rounded-pill border px-3.5 py-2 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+      className={`inline-flex min-h-11 min-w-11 max-w-full items-center justify-center truncate whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
         active
           ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
           : 'border-teal/40 bg-teal-soft text-teal-strong hover:bg-beige'

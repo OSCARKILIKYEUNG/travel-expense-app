@@ -582,7 +582,7 @@ export function JapanMiniMap({ cities = [], t, lang = 'zh-TW', className = '' })
       'data-testid': 'japan-mini-map',
       viewBox: `0 0 ${JAPAN_MAP_VIEWBOX.width} ${JAPAN_MAP_VIEWBOX.height}`,
       fill: 'none',
-      className: `pointer-events-none h-[106px] w-[148px] shrink-0 select-none ${className}`.trim(),
+      className: `pointer-events-none h-[106px] w-[148px] shrink-0 select-none lg:h-[143px] lg:w-[200px] ${className}`.trim(),
     },
     /* Subtle latitude hairline */
     createElement('path', {
@@ -673,7 +673,7 @@ export function JapanMiniMap({ cities = [], t, lang = 'zh-TW', className = '' })
             y: String(labelY),
             textAnchor: 'end',
             fontSize: '12',
-            className: 'fill-current font-serif-display font-bold tracking-[0.03em] text-ink',
+            className: 'fill-current font-hand font-bold tracking-[0.03em] text-ink',
           },
           groupedLabel,
         )
@@ -682,9 +682,12 @@ export function JapanMiniMap({ cities = [], t, lang = 'zh-TW', className = '' })
 }
 
 /**
- * Reserved-aspect bottom watercolor/ink landscape strip (`~358×68px`) for the Home trip cover card.
- * Accepts an optional WebP `src` (for Batch J2) and gracefully falls back to a layered
- * Hobonichi watercolor-wash + fine-ink Mt. Fuji & coastal horizon SVG.
+ * Reserved-aspect bottom watercolor/ink landscape strip (`~358×68px` at mobile) for the Home trip cover card.
+ * Uses an extended horizontal SVG `viewBox="-321 0 1000 68"` (centred on `x=179`, the midpoint of `0..358`)
+ * with `preserveAspectRatio="xMidYMid slice"` inside a `h-[68px]` slot:
+ * - At 390px (`~356×68px`), scale is 1:1 and the visible window is `x ∈ [0..358]`, identical to the mobile composition.
+ * - At wider viewports (768–1440px), scale stays 1:1 so Mt. Fuji is never cropped or enlarged while the horizon,
+ *   hills, shoreline, and reeds extend naturally across the wider card.
  */
 export function LandscapeStrip({ src = null, className = '' }) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -695,7 +698,7 @@ export function LandscapeStrip({ src = null, className = '' }) {
     {
       'aria-hidden': 'true',
       'data-testid': 'landscape-strip',
-      className: `pointer-events-none relative h-[68px] w-full overflow-hidden border-t border-line/60 bg-cream select-none ${className}`.trim(),
+      className: `pointer-events-none relative h-[68px] w-full overflow-hidden border-t border-line/60 bg-cream-soft select-none ${className}`.trim(),
     },
     showBitmap
       ? createElement('img', {
@@ -707,28 +710,28 @@ export function LandscapeStrip({ src = null, className = '' }) {
           loading: 'eager',
           decoding: 'async',
           onError: () => setImgFailed(true),
-          className: 'pointer-events-none block h-full w-full select-none object-cover',
+          className: 'pointer-events-none mx-auto block h-full w-full max-w-[358px] select-none object-cover',
         })
       : createElement(
           'svg',
           {
             'aria-hidden': 'true',
             focusable: 'false',
-            viewBox: '0 0 358 68',
+            viewBox: '-321 0 1000 68',
             preserveAspectRatio: 'xMidYMid slice',
             fill: 'none',
             className: 'pointer-events-none block h-full w-full select-none',
           },
           /* Soft mineral sky wash & warm autumn horizon glow */
           createElement('rect', {
-            x: '0',
+            x: '-321',
             y: '0',
-            width: '358',
+            width: '1000',
             height: '68',
             fill: 'rgb(var(--c-cream-soft))',
           }),
           createElement('path', {
-            d: 'M0 0 H358 V44 Q240 50 120 42 T0 46 Z',
+            d: 'M-321 0 H679 V45 Q520 39 358 44 Q240 50 120 42 T0 46 Q-160 50 -321 44 Z',
             fill: 'rgb(var(--c-wash-sky) / 0.65)',
           }),
           createElement('ellipse', {
@@ -744,12 +747,12 @@ export function LandscapeStrip({ src = null, className = '' }) {
             r: '9',
             fill: 'rgb(var(--c-coral) / 0.35)',
           }),
-          /* Distant misty hills */
+          /* Distant misty hills (exact [0..358] control points preserved, extended horizontally) */
           createElement('path', {
-            d: 'M0 46 Q48 33 102 41 T215 38 T358 43 V68 H0 Z',
+            d: 'M-321 44 Q-220 36 -110 42 Q-52 46 0 46 Q48 33 102 41 T215 38 T358 43 T510 40 T679 44 V68 H-321 Z',
             fill: 'rgb(var(--c-teal-soft) / 0.65)',
           }),
-          /* Mt. Fuji silhouette wash + snow cap + ink ridge line */
+          /* Mt. Fuji silhouette wash + snow cap + ink ridge line (natural size at x=162..256) */
           createElement('path', {
             d: 'M162 46 C181 36 194 21 202 11 H216 C224 21 237 36 256 46 Z',
             fill: 'rgb(var(--c-teal) / 0.28)',
@@ -767,28 +770,28 @@ export function LandscapeStrip({ src = null, className = '' }) {
           }),
           /* Midground sage hills & ochre sandy shore wash */
           createElement('path', {
-            d: 'M0 50 Q76 39 154 48 T310 46 L358 49 V68 H0 Z',
+            d: 'M-321 49 Q-210 41 -105 47 Q-50 51 0 50 Q76 39 154 48 T310 46 L358 49 Q495 42 679 48 V68 H-321 Z',
             fill: 'rgb(var(--c-sage-soft) / 0.82)',
           }),
           createElement('path', {
-            d: 'M0 54 Q95 47 188 55 T358 52 V68 H0 Z',
+            d: 'M-321 53 Q-160 48 0 54 Q95 47 188 55 T358 52 T520 54 T679 52 V68 H-321 Z',
             fill: 'rgb(var(--c-wash-ochre) / 0.78)',
           }),
           /* Fine pen-and-ink shoreline contours, water ripples, and autumn reeds */
           createElement('path', {
-            d: 'M8 50 Q78 41 152 49 M178 54 Q264 49 348 53',
+            d: 'M-290 52 Q-150 46 -12 52 M8 50 Q78 41 152 49 M178 54 Q264 49 348 53 M374 51 Q505 44 650 52',
             stroke: 'rgb(var(--c-ink-soft) / 0.6)',
             strokeWidth: '0.8',
             strokeLinecap: 'round',
           }),
           createElement('path', {
-            d: 'M124 58 H162 M136 62 H182 M270 59 H308',
+            d: 'M-190 59 H-148 M-85 61 H-42 M124 58 H162 M136 62 H182 M270 59 H308 M430 58 H472 M545 61 H586',
             stroke: 'rgb(var(--c-teal-strong) / 0.45)',
             strokeWidth: '0.75',
             strokeLinecap: 'round',
           }),
           createElement('path', {
-            d: 'M38 58 L35 46 M41 59 L42 45 M45 59 L48 48 M316 57 L314 47 M320 58 L322 46',
+            d: 'M-218 58 L-220 47 M-214 59 L-212 46 M38 58 L35 46 M41 59 L42 45 M45 59 L48 48 M316 57 L314 47 M320 58 L322 46 M596 58 L594 47 M600 59 L602 46',
             stroke: 'rgb(var(--c-ink-soft) / 0.65)',
             strokeWidth: '0.85',
             strokeLinecap: 'round',

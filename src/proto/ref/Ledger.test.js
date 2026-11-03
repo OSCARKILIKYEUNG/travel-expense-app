@@ -616,6 +616,90 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
 
     await i18n.changeLanguage('zh-TW');
   });
+
+  it('D2 desktop two-column layouts at lg: Ledger sticky right rail, Charts 2-column grid, and DayView side-by-side panes', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const trip = {
+      name: '夾錢',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'A', 'B'], budget: 5000 },
+      days: {
+        '2026-10-01': {
+          title: 'Day 1',
+          note: 'Tokyo',
+          sticker: null,
+          journal: 'Note',
+          itinerary: [{ id: 's1', time: '09:00', title: 'Stop 1', done: false }],
+        },
+      },
+      expenses: expensesA,
+    };
+
+    const { unmount: uLedger } = renderLedger(trip);
+    const ledgerEl = screen.getByTestId('ledger');
+    expect(ledgerEl.className).toContain('lg:max-w-6xl');
+    const rail = ledgerEl.querySelector('aside');
+    expect(rail).toBeTruthy();
+    expect(rail.className).toContain('lg:sticky');
+    expect(rail.className).toContain('lg:top-20');
+    expect(rail.querySelector('[data-testid="ledger-total-card"]')).toBeTruthy();
+    expect(rail.querySelector('[data-testid="ledger-search"]')).toBeTruthy();
+    expect(rail.querySelector('[data-testid="ledger-filter-btn"]')).toBeTruthy();
+    expect(rail.querySelector('[data-testid="ledger-add-repayment"]')).toBeTruthy();
+    uLedger();
+
+    const { unmount: uCharts } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    const chartsEl = screen.getByTestId('page-charts');
+    const chartsGrid = chartsEl.querySelector('.lg\\:grid-cols-2');
+    expect(chartsGrid).toBeTruthy();
+    const todayCard = chartsEl.querySelector('[data-section="today"]');
+    expect(todayCard.className).toContain('lg:col-span-2');
+    uCharts();
+
+    const { unmount: uDay } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(DayView, {
+          trip,
+          iso: '2026-10-01',
+          pane: 'itinerary',
+          editing: false,
+          onPane: () => {},
+          onEditToggle: () => {},
+          onBack: () => {},
+          onDay: () => {},
+          onUpdateDay: () => {},
+          onScan: () => {},
+          onAdd: () => {},
+          onEditExpense: () => {},
+          onDeleteExpense: () => {},
+        }),
+      ),
+    );
+    const dayEl = screen.getByTestId('day-view');
+    expect(dayEl.className).toContain('lg:max-w-6xl');
+    expect(screen.getByTestId('tab-itinerary')).toBeTruthy();
+    expect(screen.getByTestId('tab-expenses')).toBeTruthy();
+    const paneItin = screen.getByTestId('pane-itinerary');
+    const paneExp = screen.getByTestId('pane-expenses');
+    expect(paneItin).toBeTruthy();
+    expect(paneExp).toBeTruthy();
+    expect(paneItin.parentElement.className).toContain('lg:grid-cols-2');
+    uDay();
+  });
 });
 
 

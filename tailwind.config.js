@@ -1,5 +1,5 @@
 import plugin from 'tailwindcss/plugin';
-import { fonts, palette, radii } from './src/theme/tokens.js';
+import { fonts, palette, radii, typeScale } from './src/theme/tokens.js';
 
 function channels(hex) {
   const h = hex.replace('#', '');
@@ -20,6 +20,16 @@ for (const key of Object.keys(palette)) {
   colors[key] = `rgb(var(--c-${key}) / <alpha-value>)`;
 }
 
+// Central font-size utility tokens driven by `--fs-*` / `--lh-*` CSS variables.
+// Below `lg` (<1024px) they resolve to baseline mobile sizes; at `@media (min-width: 1024px)`
+// they step up for desktop reading distance without altering root `1rem = 16px` spacing.
+const fontSize = {};
+for (const [token, spec] of Object.entries(typeScale)) {
+  fontSize[token] = [
+    `var(${spec.sizeVar}, ${spec.mobileSize})`,
+    { lineHeight: `var(${spec.lineHeightVar}, ${spec.mobileLineHeight})` },
+  ];
+}
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -32,11 +42,10 @@ export default {
         display: fonts.display,
         'serif-display': fonts.serifDisplay,
         script: fonts.script,
+        hand: fonts.hand,
         mono: ['"SF Mono"', '"Fira Code"', '"Fira Mono"', 'Menlo', 'monospace'],
       },
-      fontSize: {
-        meta: ['12px', { lineHeight: '1.45' }],
-      },
+      fontSize,
       borderRadius: {
         card: radii.card,
         control: radii.control,
@@ -65,7 +74,19 @@ export default {
       for (const [key, hex] of Object.entries(palette)) {
         vars[`--c-${key}`] = channels(hex);
       }
-      addBase({ ':root': vars });
+      const lgVars = {};
+      for (const spec of Object.values(typeScale)) {
+        vars[spec.sizeVar] = spec.mobileSize;
+        vars[spec.lineHeightVar] = spec.mobileLineHeight;
+        lgVars[spec.sizeVar] = spec.desktopSize;
+        lgVars[spec.lineHeightVar] = spec.desktopLineHeight;
+      }
+      addBase({
+        ':root': vars,
+        '@media (min-width: 1024px)': {
+          ':root': lgVars,
+        },
+      });
     }),
   ],
 };

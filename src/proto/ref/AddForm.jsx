@@ -205,7 +205,7 @@ export default function AddForm({
   const valid = !blockReason;
   const field =
     'min-h-11 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal';
-  const label = 'mb-1 block whitespace-nowrap text-sm font-medium text-ink-soft';
+  const label = 'mb-1 block whitespace-nowrap font-hand text-sm font-medium text-ink-soft';
   const displayCategory = (cat) => t(`categories.${cat}`, { defaultValue: cat });
   const displayPerson = (name) => (name === '共同' ? t('expenseCard.shared') : name);
   const categoryOptions =
@@ -234,7 +234,7 @@ export default function AddForm({
       onSubmit={submit}
       onFocusCapture={handleFocusCapture}
       data-testid="expense-form"
-      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3.5 px-4 pb-52 pt-4 scroll-pb-48"
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3.5 px-4 pb-52 pt-4 scroll-pb-48 lg:mx-auto lg:max-w-2xl"
       style={{ scrollPaddingBottom: '12rem' }}
     >
       <div className="relative flex min-w-0 items-center gap-3">
@@ -248,10 +248,10 @@ export default function AddForm({
           {Icon.back('h-5 w-5')}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
+          <p className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
             {t('notebook.addForm.eyebrow')}
           </p>
-          <h1 className="truncate whitespace-nowrap font-display text-2xl leading-tight tracking-[-0.03em] text-ink">
+          <h1 className="truncate whitespace-nowrap font-hand text-2xl leading-tight tracking-[-0.03em] text-ink">
             {initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle')}
           </h1>
         </div>
@@ -291,7 +291,7 @@ export default function AddForm({
       {/* Card 1: Amount & currency first */}
       <div className="paper-panel relative space-y-2.5 p-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
+          <h2 className="whitespace-nowrap font-hand text-lg leading-snug tracking-[-0.02em] text-ink">
             {t('notebook.addForm.amountTitle')}
           </h2>
           <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
@@ -336,7 +336,7 @@ export default function AddForm({
 
         {payers.length > 0 && (
           <div className="flex items-center justify-between gap-2 pt-0.5">
-            <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-soft">
+            <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
               {t('notebook.addForm.payerLabel')}
             </span>
             <div
@@ -353,7 +353,7 @@ export default function AddForm({
                     data-testid={`form-payer-${name}`}
                     aria-pressed={active}
                     onClick={() => setF((s) => ({ ...s, payer: name }))}
-                    className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border px-3.5 py-2 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                    className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                       active
                         ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
                         : 'border-teal/40 bg-teal-soft text-teal-strong hover:bg-beige'
@@ -368,7 +368,7 @@ export default function AddForm({
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <span className="shrink-0 whitespace-nowrap text-sm font-medium text-ink-soft">
+          <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
             {t('notebook.addForm.paymentMethodLabel')}
           </span>
           <div
@@ -388,7 +388,7 @@ export default function AddForm({
                   data-testid={opt.testid}
                   aria-pressed={active}
                   onClick={() => setF((s) => ({ ...s, payment: opt.id }))}
-                  className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill px-4 py-1.5 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill px-4 py-1.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                     active ? 'bg-teal-strong text-white shadow-sm' : 'text-ink-soft hover:bg-beige'
                   }`}
                 >
@@ -403,7 +403,7 @@ export default function AddForm({
       {/* Card 2: Basic info */}
       <div className="paper-panel relative space-y-3 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-display text-lg leading-snug tracking-[-0.02em] text-ink">
+          <h2 className="whitespace-nowrap font-hand text-lg leading-snug tracking-[-0.02em] text-ink">
             {t('notebook.addForm.basicTitle')}
           </h2>
         </div>
@@ -425,7 +425,7 @@ export default function AddForm({
         <div className="flex items-end gap-2.5">
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex h-7 items-center justify-between">
-              <label htmlFor="ref-date" className="whitespace-nowrap text-sm font-medium text-ink-soft">
+              <label htmlFor="ref-date" className="whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
                 {t('notebook.addForm.dateLabel')}
               </label>
               {f.date && (
@@ -457,7 +457,7 @@ export default function AddForm({
 
           <div className="w-28 shrink-0">
             <div className="mb-1 flex h-7 items-center">
-              <label htmlFor="ref-time" className="whitespace-nowrap text-sm font-medium text-ink-soft">
+              <label htmlFor="ref-time" className="whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
                 {t('notebook.addForm.timeLabel')}
               </label>
             </div>
@@ -536,7 +536,7 @@ export default function AddForm({
                       setF((s) => ({ ...s, category: c }));
                     }
                   }}
-                  className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border px-3 py-1.5 text-meta font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border px-3 py-1.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
                     active
                       ? 'border-teal-strong bg-teal-soft text-teal-strong ring-1 ring-teal-strong shadow-sm'
                       : 'border-line bg-cream text-ink-soft hover:bg-beige/70'
@@ -577,12 +577,12 @@ export default function AddForm({
           </button>
           {advanced && (
             <div className="space-y-2 border-t border-line px-3 pb-3 pt-2">
-              <p className="whitespace-nowrap text-meta font-bold text-ink-muted">
+              <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
                 {t('notebook.addForm.taxSectionTitle')}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor="ref-subtotal" className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">
+                  <label htmlFor="ref-subtotal" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.subtotalLabel')}
                   </label>
                   <input
@@ -594,13 +594,13 @@ export default function AddForm({
                   />
                 </div>
                 <div>
-                  <label htmlFor="ref-tax" className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">
+                  <label htmlFor="ref-tax" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.taxLabel')}
                   </label>
                   <input id="ref-tax" type="number" value={f.tax} onChange={set('tax')} className={field} />
                 </div>
                 <div>
-                  <label htmlFor="ref-refund" className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">
+                  <label htmlFor="ref-refund" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.taxRefundLabel')}
                   </label>
                   <input
@@ -612,7 +612,7 @@ export default function AddForm({
                   />
                 </div>
                 <div>
-                  <label htmlFor="ref-discount" className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">
+                  <label htmlFor="ref-discount" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.discountLabel')}
                   </label>
                   <input
@@ -625,7 +625,7 @@ export default function AddForm({
                 </div>
               </div>
               <div>
-                <label htmlFor="ref-note2" className="mb-0.5 block whitespace-nowrap text-meta text-ink-muted">
+                <label htmlFor="ref-note2" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
                   {t('notebook.addForm.noteLabel')}
                 </label>
                 <textarea
@@ -650,12 +650,12 @@ export default function AddForm({
         {blockReason && (
           <p
             data-testid="form-save-hint"
-            className="mx-auto mb-1.5 max-w-5xl whitespace-nowrap text-center text-meta font-semibold text-ink-muted"
+            className="mx-auto mb-1.5 max-w-5xl lg:max-w-2xl whitespace-nowrap text-center text-meta font-semibold text-ink-muted"
           >
             {blockReason}
           </p>
         )}
-        <div className="mx-auto flex max-w-5xl gap-3">
+        <div className="mx-auto flex max-w-5xl lg:max-w-2xl gap-3">
           <button
             type="button"
             onClick={onCancel}

@@ -63,11 +63,16 @@ export default function Home({
   const countrySubtitle = t(dest.subtitleKey);
 
   return (
-    <div data-testid="home" className="space-y-4 px-4 pb-6 pt-5">
+    <div
+      data-testid="home"
+      className="space-y-4 px-4 pb-6 pt-5 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-6 lg:gap-y-4 lg:space-y-0"
+    >
       {/* Hobonichi editorial trip cover card */}
       <section
         data-testid="summary"
-        className="relative overflow-hidden rounded-card border border-line bg-cream-soft shadow-sm"
+        className={`relative min-w-0 overflow-hidden border border-line bg-cream-soft shadow-sm lg:col-span-5 lg:rounded-card ${
+          counter.phase === 'during' ? 'rounded-t-card' : 'rounded-card'
+        }`}
       >
         <div className="px-4 pb-3.5 pt-4">
           {/* Editorial destination header + hairline country mini-map */}
@@ -82,11 +87,11 @@ export default function Home({
                     {countryHeading}
                   </p>
                 </div>
-                <p className="truncate font-serif-display text-sm font-semibold tracking-[0.06em] text-ink-soft">
+                <p className="truncate font-hand text-sm font-semibold tracking-[0.06em] text-ink-soft">
                   {countrySubtitle}
                 </p>
                 <p className="truncate whitespace-nowrap text-meta font-medium text-ink-soft">
-                  {trip.name} · {sm}/{sd}–{em}/{ed}
+                  <span className="font-hand">{trip.name}</span> · {sm}/{sd}–{em}/{ed}
                 </p>
                 <span className="sr-only">
                   {t('notebook.journal.destinationSummaryAria', {
@@ -106,7 +111,7 @@ export default function Home({
                 {countryHeading}
               </p>
               <p className="truncate whitespace-nowrap text-meta font-medium text-ink-soft">
-                {trip.name} · {sm}/{sd}–{em}/{ed}
+                <span className="font-hand">{trip.name}</span> · {sm}/{sd}–{em}/{ed}
               </p>
             </div>
           )}
@@ -116,7 +121,7 @@ export default function Home({
             <div className="min-w-0 flex-1 space-y-1">
               <h2
                 data-testid="trip-total"
-                className="whitespace-nowrap font-display text-[26px] leading-[1.1] text-ink"
+                className="whitespace-nowrap font-display text-hero-sm leading-[1.1] text-ink"
               >
                 {fmtHKD(total)}
               </h2>
@@ -150,7 +155,7 @@ export default function Home({
 
           {showJpy && (
             <div className="mt-2.5 flex items-center justify-between border-t border-dashed border-line pt-2 text-meta">
-              <span className="whitespace-nowrap font-medium text-ink-muted">
+              <span className="whitespace-nowrap font-hand font-medium text-ink-muted">
                 {t('notebook.home.jpyOriginalTotal')}
               </span>
               <span className="whitespace-nowrap font-mono font-semibold text-ink">{fmtJPY(jpy)}</span>
@@ -160,37 +165,40 @@ export default function Home({
 
         {/* Watercolor & ink landscape strip slot (reserved 68px height, zero CLS) */}
         <LandscapeStrip src={trip.coverAsset || null} />
-
-        {counter.phase === 'during' && (
-          <div className="border-t border-line bg-cream/70" style={ruledPaper}>
-            <button
-              type="button"
-              data-testid="today-row"
-              onClick={() => onOpenDay(today)}
-              className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-beige/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
-            >
-              <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
-                <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
-                <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink">
-                  {t('notebook.home.todayJournal')}
-                </span>
-                <span className="min-w-0 truncate whitespace-nowrap font-display text-xs text-ink">
-                  Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
-                </span>
-              </span>
-              <span className="shrink-0 whitespace-nowrap text-meta font-semibold text-teal-strong">›</span>
-            </button>
-          </div>
-        )}
       </section>
 
+      {counter.phase === 'during' && (
+        <div
+          className="!mt-0 min-w-0 overflow-hidden rounded-b-card border border-t-0 border-line bg-cream/70 shadow-sm lg:col-span-7 lg:col-start-6 lg:row-start-2 lg:rounded-card lg:border-t"
+          style={ruledPaper}
+        >
+          <button
+            type="button"
+            data-testid="today-row"
+            onClick={() => onOpenDay(today)}
+            className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-beige/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
+          >
+            <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+              <span className="shrink-0 text-coral-ink">{Icon.pin('h-[15px] w-[15px]')}</span>
+              <span className="shrink-0 whitespace-nowrap rounded-md border border-coral-ink/25 bg-coral-soft px-2 py-0.5 font-hand text-meta font-bold text-coral-ink">
+                {t('notebook.home.todayJournal')}
+              </span>
+              <span className="min-w-0 truncate whitespace-nowrap font-hand text-xs text-ink">
+                Day {counter.n} · {shortenTitle(todayDay?.title || '', 8)}
+              </span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap text-meta font-semibold text-teal-strong">›</span>
+          </button>
+        </div>
+      )}
+
       {/* Quick scan / manual add bar */}
-      <div className="relative flex min-h-[56px] items-center justify-between gap-2 overflow-hidden rounded-2xl border border-line bg-cream-soft px-2.5 py-1.5 shadow-sm">
+      <div className="relative flex min-h-[56px] min-w-0 items-center justify-center gap-2 overflow-hidden rounded-2xl border border-line bg-cream-soft px-2.5 py-1.5 shadow-sm lg:col-span-5 lg:col-start-1 lg:row-start-2">
         <button
           type="button"
           data-testid="home-scan"
           onClick={onScan}
-          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal lg:max-w-[320px]"
         >
           {Icon.camera('h-[15px] w-[15px] shrink-0')}
           <span>{t('notebook.home.scanReceipt')}</span>
@@ -199,7 +207,7 @@ export default function Home({
           type="button"
           data-testid="home-add"
           onClick={onAdd}
-          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-meta font-bold text-ink shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-sm font-bold text-ink shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal lg:max-w-[320px]"
         >
           <span className="text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
           <span>{t('notebook.home.addEntry')}</span>
@@ -235,7 +243,11 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
   const showMonthEnGloss = Boolean(monthEn) && !monthTitle.includes(monthEn);
 
   return (
-    <div data-testid="calendar" className="relative rounded-card border border-line p-3 shadow-sm" style={cardDots}>
+    <div
+      data-testid="calendar"
+      className="relative min-w-0 rounded-card border border-line p-3 shadow-sm lg:col-span-7 lg:col-start-6 lg:row-start-1"
+      style={cardDots}
+    >
       <div className="mb-2.5 flex min-w-0 items-center justify-between gap-1.5">
         <button
           type="button"
@@ -246,7 +258,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
           ‹
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-          <h3 className="whitespace-nowrap font-display text-base text-ink">
+          <h3 className="whitespace-nowrap font-hand text-base text-ink">
             {monthTitle}
             {showMonthEnGloss && (
               <span className="ml-1.5 font-serif-display text-sm font-semibold uppercase tracking-[0.1em] text-teal-strong">
@@ -274,7 +286,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
         </button>
       </div>
 
-      <div className="-mx-2 mb-1 grid grid-cols-7 border-b border-line/70 pb-1 text-center text-meta font-bold">
+      <div className="-mx-2 mb-1 grid grid-cols-7 border-b border-line/70 pb-1 text-center font-hand text-meta font-bold">
         {WEEKDAY_KEYS.map((wKey, i) => (
           <div key={wKey} className={i === 0 ? 'text-coral-ink' : i === 6 ? 'text-teal-strong' : 'text-ink-muted'}>
             {t(wKey)}
@@ -334,7 +346,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                   {note ? (
                     <span
                       data-cell-note
-                      className="relative z-10 block w-full whitespace-nowrap text-center text-meta leading-tight tracking-[-0.02em] text-ink-soft"
+                      className="relative z-10 block w-full whitespace-nowrap text-center font-hand text-meta leading-tight tracking-[-0.02em] text-ink-soft"
                     >
                       {note}
                     </span>

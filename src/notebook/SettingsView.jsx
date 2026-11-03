@@ -583,15 +583,15 @@ export default function SettingsView({
   const showSettingsTitleScript = Boolean(settingsTitleScript) && settingsTitleScript !== settingsTitle;
 
   return (
-    <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4">
+    <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
       <div className="relative space-y-1">
-        <p className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
+        <p className="whitespace-nowrap font-hand text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
           {t('settings.pageEyebrow')}
         </p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-display text-2xl text-ink">{settingsTitle}</h1>
+          <h1 className="whitespace-nowrap font-hand text-2xl text-ink">{settingsTitle}</h1>
           {showSettingsTitleScript && (
-            <span className="whitespace-nowrap font-serif-display text-[15px] font-semibold uppercase tracking-[0.08em] text-teal-strong">
+            <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-teal-strong">
               {settingsTitleScript}
             </span>
           )}
@@ -601,12 +601,12 @@ export default function SettingsView({
       {/* Account */}
       {account?.email && (
         <section data-testid="account-card" className="paper-panel space-y-2.5 p-4">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
             {t('notebook.settings.accountTitle')}
           </h2>
 
           <div className="flex items-baseline justify-between gap-3">
-            <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-soft">
+            <span className="shrink-0 whitespace-nowrap font-hand text-meta font-medium text-ink-soft">
               {t('notebook.settings.accountEmail')}
             </span>
             <span
@@ -618,7 +618,7 @@ export default function SettingsView({
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <span className="shrink-0 whitespace-nowrap text-meta font-medium text-ink-soft">
+            <span className="shrink-0 whitespace-nowrap font-hand text-meta font-medium text-ink-soft">
               {t('settings.billingPlanLabel')}
             </span>
             {account.plan === 'pro' ? (
@@ -677,7 +677,7 @@ export default function SettingsView({
       <section className="paper-panel space-y-2.5 p-4">
         <label
           htmlFor="notebook-language-select"
-          className="block whitespace-nowrap font-display text-lg text-ink"
+          className="block whitespace-nowrap font-hand text-lg text-ink"
         >
           {t('settings.language')}
         </label>
@@ -698,8 +698,8 @@ export default function SettingsView({
       <section className="paper-panel relative space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.tripsTitle')}</h2>
-            <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-bold text-teal-strong">
+            <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.tripsTitle')}</h2>
+            <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 font-hand text-meta font-bold text-teal-strong">
               {t('notebook.settings.currentTripBadge')}
             </span>
           </div>
@@ -708,7 +708,7 @@ export default function SettingsView({
             data-testid="add-trip-btn"
             aria-expanded={showAddTrip}
             onClick={handleOpenAddTrip}
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3.5 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3.5 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {t('trip.addTrip')}
           </button>
@@ -724,7 +724,7 @@ export default function SettingsView({
             <div>
               <label
                 htmlFor="notebook-new-trip-name"
-                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted"
               >
                 {t('trip.tripName')}
               </label>
@@ -748,7 +748,7 @@ export default function SettingsView({
               <div>
                 <label
                   htmlFor="notebook-new-trip-start"
-                  className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                  className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted"
                 >
                   {t('trip.startDate')}
                 </label>
@@ -766,7 +766,7 @@ export default function SettingsView({
               <div>
                 <label
                   htmlFor="notebook-new-trip-currency"
-                  className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                  className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted"
                 >
                   {t('trip.tripCurrency')}
                 </label>
@@ -805,14 +805,14 @@ export default function SettingsView({
                 type="button"
                 data-testid="new-trip-cancel"
                 onClick={handleCancelAddTrip}
-                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
                 {t('settings.cancel')}
               </button>
               <button
                 type="submit"
                 data-testid="new-trip-submit"
-                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
               >
                 {t('trip.create')}
               </button>
@@ -837,7 +837,7 @@ export default function SettingsView({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="whitespace-nowrap text-sm font-bold text-teal-strong">{tr.name}</span>
+                  <span className="whitespace-nowrap font-hand text-sm font-bold text-teal-strong">{tr.name}</span>
                   <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
                     {t('trip.records', { count: (tr.expenses || []).length })}
                   </span>
@@ -854,7 +854,7 @@ export default function SettingsView({
       {/* Trip Dates */}
       <section className="paper-panel space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
             {t('notebook.settings.datesTitle')}
           </h2>
           <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
@@ -870,7 +870,7 @@ export default function SettingsView({
             <div>
               <label
                 htmlFor="ref-trip-start-date"
-                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted"
               >
                 {t('notebook.settings.startDateLabel')}
               </label>
@@ -892,7 +892,7 @@ export default function SettingsView({
             <div>
               <label
                 htmlFor="ref-trip-end-date"
-                className="mb-1 block whitespace-nowrap text-meta font-medium text-ink-muted"
+                className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted"
               >
                 {t('notebook.settings.endDateLabel')}
               </label>
@@ -916,7 +916,7 @@ export default function SettingsView({
             <button
               type="submit"
               data-testid="trip-dates-save"
-              className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               {t('notebook.settings.saveDates')}
             </button>
@@ -936,7 +936,7 @@ export default function SettingsView({
       {/* Trip Budget */}
       <section className="paper-panel space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-display text-lg text-ink">
+          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
             {t('notebook.settings.budgetTitle')}
           </h2>
           <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
@@ -963,7 +963,7 @@ export default function SettingsView({
           <button
             type="submit"
             data-testid="budget-save"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {t('notebook.settings.save')}
           </button>
@@ -972,7 +972,7 @@ export default function SettingsView({
               type="button"
               data-testid="budget-clear"
               onClick={handleClearBudget}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             >
               {t('notebook.settings.clear')}
             </button>
@@ -982,7 +982,7 @@ export default function SettingsView({
 
       {/* People / Members */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.peopleTitle')}</h2>
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.peopleTitle')}</h2>
         <div className="space-y-2">
           {people.map((p) => {
             const isShared = p === '共同';
@@ -1019,7 +1019,7 @@ export default function SettingsView({
                       type="button"
                       data-testid={`rename-save-${p}`}
                       onClick={() => handleRenameSubmit(p)}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white"
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white"
                     >
                       {t('notebook.settings.save')}
                     </button>
@@ -1029,7 +1029,7 @@ export default function SettingsView({
                         setEditingPerson(null);
                         setPersonErrorKey('');
                       }}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft"
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft"
                     >
                       {t('settings.cancel')}
                     </button>
@@ -1043,7 +1043,7 @@ export default function SettingsView({
                       </span>
                     </div>
                     {isShared ? (
-                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 text-meta font-semibold text-ink-muted">
+                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 font-hand text-meta font-semibold text-ink-muted">
                         {t('notebook.settings.defaultPersonBadge')}
                       </span>
                     ) : (
@@ -1057,7 +1057,7 @@ export default function SettingsView({
                             setEditingName(p);
                             setPersonErrorKey('');
                           }}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                         >
                           {t('notebook.settings.rename')}
                         </button>
@@ -1066,7 +1066,7 @@ export default function SettingsView({
                           data-testid={`person-remove-${p}`}
                           aria-label={t('notebook.settings.removePersonAria', { name: displayPersonName })}
                           onClick={() => handleRemovePerson(p)}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-meta font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-sm font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                         >
                           {t('notebook.settings.remove')}
                         </button>
@@ -1094,7 +1094,7 @@ export default function SettingsView({
           <button
             type="submit"
             data-testid="add-person-btn"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             {t('notebook.settings.addPersonButton')}
           </button>
@@ -1108,18 +1108,18 @@ export default function SettingsView({
 
       {/* Currency & Exchange Rate */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">
           {t('notebook.settings.currencyAndRatesTitle')}
         </h2>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">{t('trip.tripCurrency')}</p>
+            <p className="whitespace-nowrap font-hand text-meta text-ink-muted">{t('trip.tripCurrency')}</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
               {t('notebook.settings.jpyLabel')}
             </p>
           </div>
           <div className="rounded-xl border border-line bg-cream p-2.5">
-            <p className="whitespace-nowrap text-meta text-ink-muted">{t('trip.accountingCurrency')}</p>
+            <p className="whitespace-nowrap font-hand text-meta text-ink-muted">{t('trip.accountingCurrency')}</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
               {t('notebook.settings.hkdLabel')}
             </p>
@@ -1151,7 +1151,7 @@ export default function SettingsView({
               type="submit"
               data-testid="rate-save"
               disabled={isRateInvalid}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
             >
               {t('notebook.settings.updateRate')}
             </button>
@@ -1166,7 +1166,7 @@ export default function SettingsView({
 
       {/* Data & Export */}
       <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-display text-lg text-ink">{t('settings.dataTitle')}</h2>
+        <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.dataTitle')}</h2>
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -1197,7 +1197,7 @@ export default function SettingsView({
 
       {/* About */}
       <section className="paper-panel relative space-y-1 p-4">
-        <h2 className="whitespace-nowrap font-display text-base text-ink">
+        <h2 className="whitespace-nowrap font-hand text-base text-ink">
           {t('notebook.settings.aboutTitle')}
         </h2>
         <p className="whitespace-nowrap text-meta text-ink-soft">
