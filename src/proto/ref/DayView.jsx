@@ -1,23 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import {
+  CameraIcon,
+  PencilIcon,
+  TriangleDownIcon,
+  WashiLabel,
+  packKeyForTrip,
+} from '../../journal/art/index.js';
+import { SuitcaseVignette } from '../../journal/art/packs/generic.jsx';
 import { isStickerTarget } from '../../motion/stickerKeyframes';
 import { capCellNote, dayCounter } from '../shared/display';
+import { dayStampLines, localDayStrip } from './dayHeader';
 import { STICKERS } from './mockRefTrip';
 import {
-  DayStamp,
   DoodleSticker,
   Icon,
-  NotchedTabBg,
   STICKER_DOODLE_MAP,
   StickerGraphic,
-  cardDots,
 } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import {
   dayExpenses,
   dayStats,
-  dayStrip,
   fmtHKD,
   formatNotebookDate,
   matchesPerson,
@@ -26,8 +31,82 @@ import {
 import { dayNav, isTimeEntryInvalid, parseHHMM, sortStops } from './refRules';
 
 const PANES = ['itinerary', 'expenses'];
-const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const hasSticker = (id) => Boolean(id && (STICKERS.some((s) => s.id === id) || STICKER_DOODLE_MAP[id]));
+
+const LazyJpDayVignette = lazy(() =>
+  import('../../journal/art/packs/jp.jsx').then((m) => {
+    const pack = m.default || m;
+    const Fuji = m.FujiVignette || pack?.vignettes?.fuji;
+    const Pagoda = m.PagodaVignette || pack?.vignettes?.pagoda;
+    const Comp = Fuji || Pagoda;
+    return {
+      default: function JpDayVignette() {
+        return Comp ? <Comp className="h-8 w-11" /> : null;
+      },
+    };
+  }),
+);
+
+function DayVignette({ trip }) {
+  const packKey = packKeyForTrip(trip);
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="day-vignette"
+      data-pack={packKey}
+      className="pointer-events-none shrink-0 select-none"
+    >
+      {packKey === 'jp' ? (
+        <Suspense fallback={<span aria-hidden="true" className="inline-block h-8 w-11" />}>
+          <LazyJpDayVignette />
+        </Suspense>
+      ) : (
+        <SuitcaseVignette className="h-8 w-8" />
+      )}
+    </div>
+  );
+}
+
+function DayStampBadge({ top, bottom }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="day-stamp"
+      className="pointer-events-none relative flex h-[4.25rem] w-[4.25rem] shrink-0 -rotate-3 flex-col items-center justify-center gap-0.5 rounded-full border border-stamp/75 bg-paper px-1 text-center text-stamp"
+    >
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 68 68"
+        fill="none"
+        className="pointer-events-none absolute inset-0 h-full w-full text-stamp"
+      >
+        <circle
+          cx="34"
+          cy="34"
+          r="30.5"
+          stroke="currentColor"
+          strokeOpacity="0.48"
+          strokeWidth="1"
+          strokeDasharray="14 3 6 2"
+        />
+        <path
+          d="M14 19 H54 M14 49 H54"
+          stroke="currentColor"
+          strokeOpacity="0.3"
+          strokeWidth="0.85"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="relative whitespace-nowrap font-hand text-xs font-bold leading-none tracking-tight text-stamp">
+        {top}
+      </span>
+      <span className="relative whitespace-nowrap font-hand text-xs font-bold leading-none tracking-tighter tabular-nums text-stamp">
+        {bottom}
+      </span>
+    </div>
+  );
+}
 
 function usePager(index, setIndex) {
   const track = useRef(null);
@@ -137,7 +216,13 @@ export default function DayView({
   const nearestTripDay = nav.next || nav.prev || trip.startDate;
   const dayN = inTrip ? dayCounter(trip, iso).n : null;
   const stats = dayStats(trip.expenses, iso);
-  const strip = dayStrip({ n: dayN, title: day.title, hkd: stats.total });
+  const strip = localDayStrip({
+    n: dayN,
+    title: day.title,
+    hkd: stats.total,
+    t,
+    lang: activeI18n.language,
+  });
   const hints = [t('notebook.day.swipeLeftHint'), t('notebook.day.swipeRightHint')];
 
   useEffect(() => {
@@ -147,32 +232,31 @@ export default function DayView({
   return (
     <div
       data-testid="day-view"
-      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-4 lg:mx-auto lg:max-w-6xl"
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-3.5 lg:mx-auto lg:max-w-6xl"
     >
-      {/* Top date navigator banner */}
-      <header className="relative flex min-w-0 items-center gap-1.5 rounded-2xl border border-line bg-cream-soft px-2 py-1.5 shadow-sm">
+      {/* Top date navigator paper strip */}
+      <header className="jr-taped-card relative flex min-w-0 items-center gap-1 sm:gap-1.5 bg-paper px-1.5 sm:px-2 py-1.5">
         <button
           type="button"
           data-testid="back"
           onClick={onBack}
-          className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-xl border border-line bg-cream px-2.5 sm:px-3 text-sm font-bold text-ink transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 font-hand text-sm font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
         >
           {t('notebook.day.backToCalendar')}
         </button>
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-1">
-          <h1 className="whitespace-nowrap font-hand text-sm text-ink">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:gap-1.5 px-0.5 sm:px-1">
+          <h1 className="shrink-0 whitespace-nowrap font-hand text-sm font-bold text-ink">
             {formattedDate}
           </h1>
           <span
             data-notched-tab="day-badge"
-            className={`relative inline-flex shrink-0 items-center whitespace-nowrap rounded-md pl-3.5 pr-3.5 py-0.5 text-meta font-semibold ${
+            className={`shrink-0 items-center whitespace-nowrap rounded-sm border py-0.5 font-hand text-meta font-bold ${
               dayN
-                ? 'font-serif-display tracking-[0.04em] text-coral-ink'
-                : 'border border-dashed border-ink-muted bg-cream-soft font-hand text-ink-muted'
+                ? 'hidden sm:inline-flex border-stamp bg-paper px-2 text-stamp'
+                : 'inline-flex border-dashed border-ink-muted bg-paper-shade px-1.5 sm:px-2 tracking-tight text-ink-muted'
             }`}
           >
-            {dayN && <NotchedTabBg tone="coral" />}
-            <span className="relative z-10">{dayN ? `Day ${dayN}` : t('notebook.day.outsideTrip')}</span>
+            {dayN ? t('notebook.day.dayBadge', { n: dayN }) : t('notebook.day.outsideTrip')}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -182,7 +266,7 @@ export default function DayView({
             disabled={!nav.prev}
             aria-disabled={!nav.prev}
             onClick={() => nav.prev && onDay(nav.prev)}
-            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-40"
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-sm border border-ink-soft/45 bg-paper text-base font-bold text-ink transition-opacity hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-40"
           >
             ‹
           </button>
@@ -192,16 +276,19 @@ export default function DayView({
             disabled={!nav.next}
             aria-disabled={!nav.next}
             onClick={() => nav.next && onDay(nav.next)}
-            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-line bg-cream-soft text-base text-ink transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-40"
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-sm border border-ink-soft/45 bg-paper text-base font-bold text-ink transition-opacity hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-40"
           >
             ›
           </button>
         </div>
       </header>
 
-      {/* Two-segment control (mobile/tablet only; hidden at lg where both panes sit side by side) */}
+      {/* Mobile notebook index tabs (hidden at lg where both panes sit side by side) */}
       <div className="space-y-1.5 lg:hidden">
-        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-beige/80 p-1" role="tablist">
+        <div
+          className="grid grid-cols-2 gap-1 rounded-sm border border-ink-soft/45 bg-paper-shade p-1"
+          role="tablist"
+        >
           {[
             ['itinerary', t('notebook.day.tabItinerary'), day.itinerary.length],
             ['expenses', t('notebook.day.tabExpenses'), stats.count],
@@ -213,13 +300,14 @@ export default function DayView({
               aria-selected={index === i}
               data-testid={`tab-${id}`}
               onClick={() => setIndex(i)}
-              className={`min-h-11 min-w-0 whitespace-nowrap rounded-xl px-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+              className={`min-h-11 min-w-0 whitespace-nowrap rounded-sm px-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                 index === i
-                  ? 'border border-teal/40 bg-cream-soft text-teal-strong shadow-sm'
-                  : 'text-ink-soft hover:bg-cream-soft/50 hover:text-ink'
+                  ? 'border-b-2 border-route bg-paper text-ink'
+                  : 'bg-paper-shade text-ink-soft hover:bg-paper/60 hover:text-ink'
               }`}
             >
-              <span className="font-hand">{label}</span> {n}
+              <span className="font-hand">{label}</span>{' '}
+              <span className="font-display tabular-nums">{n}</span>
             </button>
           ))}
         </div>
@@ -228,10 +316,12 @@ export default function DayView({
           {PANES.map((p, i) => (
             <span
               key={p}
-              className={`rounded-full transition-all ${index === i ? 'h-2 w-5 bg-teal-strong' : 'h-2 w-2 bg-line'}`}
+              className={`rounded-full transition-all ${
+                index === i ? 'h-2 w-5 bg-route' : 'h-2 w-2 bg-ink-soft/30'
+              }`}
             />
           ))}
-          <span className="whitespace-nowrap text-meta text-ink-muted">{hints[index]}</span>
+          <span className="whitespace-nowrap font-hand text-meta text-ink-muted">{hints[index]}</span>
         </div>
       </div>
 
@@ -249,7 +339,14 @@ export default function DayView({
             aria-hidden={!isDesktopLg && index !== 0}
             className="w-full min-w-0 shrink-0 touch-pan-y px-4 pb-6 lg:px-0"
           >
-            <DayStrip text={strip} nav={nav} onDay={onDay} />
+            <DayStrip
+              text={strip}
+              n={dayN}
+              title={day.title}
+              hkd={stats.total}
+              nav={nav}
+              onDay={onDay}
+            />
             {editing ? (
               <ItineraryEditor
                 day={day}
@@ -258,6 +355,7 @@ export default function DayView({
               />
             ) : (
               <ItineraryRead
+                trip={trip}
                 day={day}
                 m={m}
                 d={d}
@@ -276,7 +374,15 @@ export default function DayView({
             aria-hidden={!isDesktopLg && index !== 1}
             className="w-full min-w-0 shrink-0 touch-pan-y px-4 pb-6 lg:px-0"
           >
-            <DayStrip text={strip} nav={nav} onDay={onDay} />
+            <DayStrip
+              text={strip}
+              n={dayN}
+              title={day.title}
+              hkd={stats.total}
+              nav={nav}
+              onDay={onDay}
+              className="lg:hidden"
+            />
             <DayExpenses
               trip={trip}
               iso={iso}
@@ -297,8 +403,13 @@ export default function DayView({
   );
 }
 
-function DayStrip({ text, nav, onDay }) {
+function DayStrip({ text, n, title, hkd, nav, onDay, className = '' }) {
+  const { t, i18n: activeI18n } = useTranslation();
   const startX = useRef(null);
+  const resolvedText =
+    text !== undefined
+      ? text
+      : localDayStrip({ n, title, hkd, t, lang: activeI18n.language });
   return (
     <div
       data-testid="day-strip"
@@ -316,69 +427,110 @@ function DayStrip({ text, nav, onDay }) {
       onPointerCancel={() => {
         startX.current = null;
       }}
-      className="mb-2.5 whitespace-nowrap rounded-xl border border-dashed border-line bg-cream-soft/90 px-3 py-1 text-center text-meta font-semibold text-ink-soft"
+      className={`mb-2.5 truncate whitespace-nowrap rounded-sm border border-dashed border-kraft bg-paper-shade/90 px-3 py-1 text-center font-display text-meta font-semibold tabular-nums text-kraft-ink ${className}`.trim()}
     >
-      {text}
+      {resolvedText}
     </div>
   );
 }
 
-function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan, onAdd }) {
-  const { t } = useTranslation();
-  const stampTop = dayN ? `Day ${dayN}` : `${m}/${d}`;
-  const stampBottom = `${MONTH_EN[m - 1]} ${d}`;
+function ItineraryRead({
+  trip,
+  day,
+  m,
+  d,
+  dayN,
+  inTrip,
+  onReturnToTrip,
+  onEdit,
+  onScan,
+  onAdd,
+}) {
+  const { t, i18n: activeI18n } = useTranslation();
+  const stamp = dayStampLines({
+    dayN,
+    m,
+    d,
+    lang: activeI18n.language,
+    t,
+  });
   const hasEmoji = day.sticker && hasSticker(day.sticker);
   const orderedStops = useMemo(() => sortStops(day.itinerary), [day.itinerary]);
 
   return (
-    <div
-      className="relative space-y-3 overflow-hidden rounded-card border border-line bg-cream-soft p-3"
-      style={cardDots}
-    >
-      <div className="flex items-center gap-3">
-        <DayStamp top={stampTop} bottom={stampBottom} />
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-nowrap font-hand text-sm font-semibold tracking-[0.06em] text-ink-soft">
-            {t('notebook.day.mainItinerary')}{day.note ? ` · ${day.note}` : ''}
-          </p>
-          <h2 className="truncate whitespace-nowrap font-hand text-xl text-ink">
+    <div className="jr-taped-card jr-grid relative space-y-3 overflow-hidden p-3">
+      {/* Header row: round stamp-red day stamp + label/title/note + top-right vignette & edit button */}
+      <div className="flex min-w-0 items-start gap-2.5">
+        <DayStampBadge top={stamp.top} bottom={stamp.bottom} />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-ink-soft">
+                {t('notebook.day.mainItinerary')}
+              </span>
+              {day.note && (
+                <WashiLabel tilt={-1} className="px-2.5 py-0.5">
+                  {day.note}
+                </WashiLabel>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <DayVignette trip={trip} />
+              <button
+                type="button"
+                data-testid="itinerary-edit"
+                onClick={onEdit}
+                className="jr-btn-paper inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+              >
+                {t('notebook.day.editBtn')}
+              </button>
+            </div>
+          </div>
+
+          <h2 className="truncate whitespace-nowrap font-hand text-xl font-bold text-ink">
             {day.title || t('notebook.dayView.noTitle')}
           </h2>
         </div>
-        <button
-          type="button"
-          data-testid="itinerary-edit"
-          onClick={onEdit}
-          className="mt-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3.5 py-2 text-meta font-bold text-teal-strong shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-        >
-          {t('notebook.day.editBtn')}
-        </button>
       </div>
 
-      <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <div className="mb-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-          <span className="whitespace-nowrap font-hand text-meta text-ink-muted">
+      {/* Itinerary ▼ stack on grid paper */}
+      <div className="jr-grid relative rounded-sm border border-ink-soft/35 bg-paper/90 px-3 py-2.5">
+        <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <WashiLabel tilt={-1}>
             {t('notebook.day.stopsSummary', { count: orderedStops.length })}
-          </span>
-          {day.note && (
-            <span className="min-w-0 truncate whitespace-nowrap font-hand text-meta font-medium text-teal-strong">
-              {t('notebook.day.calendarNoteValue', { note: day.note })}
-            </span>
+          </WashiLabel>
+          {hasEmoji && (
+            <StickerGraphic id={day.sticker} className="shrink-0 text-sm leading-none" />
           )}
         </div>
         <ul className="m-0 list-none space-y-1 p-0">
-          {orderedStops.map((s) => (
-            <li key={s.id} className="flex min-w-0 items-center gap-2">
-              <span className="w-12 shrink-0 whitespace-nowrap rounded-md bg-mustard-soft px-1 text-center font-mono text-meta tabular-nums text-mustard-ink">
-                {parseHHMM(s.time) || '—'}
-              </span>
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-ink">{s.title}</span>
-              {hasEmoji && <StickerGraphic id={day.sticker} className="shrink-0 text-sm leading-none" />}
+          {orderedStops.map((s, idx) => (
+            <li key={s.id} className="min-w-0">
+              {idx > 0 && (
+                <div
+                  aria-hidden="true"
+                  className="my-0.5 flex w-12 items-center justify-center py-0.5 text-route opacity-100"
+                >
+                  <TriangleDownIcon className="h-3.5 w-3.5 fill-current text-route opacity-100 lg:h-4 lg:w-4" />
+                </div>
+              )}
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="w-12 shrink-0 whitespace-nowrap rounded-sm border border-kraft-ink/25 bg-kraft px-1.5 py-0.5 text-center font-display text-meta font-bold tabular-nums text-kraft-ink">
+                  {parseHHMM(s.time) || '—'}
+                </span>
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-medium text-ink lg:text-base">
+                  {s.title}
+                </span>
+              </div>
             </li>
           ))}
           {orderedStops.length === 0 && (
             <li data-testid="day-itinerary-empty" className="space-y-1.5 py-3 text-center">
-              <DoodleSticker name="torii" secondary="fuji" blob="mustard" size="xl" />
+              {packKeyForTrip(trip) === 'jp' ? (
+                <DoodleSticker name="torii" secondary="fuji" blob="sand" size="xl" />
+              ) : (
+                <DoodleSticker name="suitcase" secondary="plane" blob="sand" size="xl" />
+              )}
               <div>
                 <p className="mt-1 font-hand text-sm text-ink">
                   {t('notebook.empty.itineraryTitle')}
@@ -392,47 +544,50 @@ function ItineraryRead({ day, m, d, dayN, inTrip, onReturnToTrip, onEdit, onScan
         </ul>
       </div>
 
-      <div className="relative rounded-2xl border border-line bg-cream px-3 py-2">
-        <span className="mb-1 block whitespace-nowrap font-hand text-meta text-ink-muted">
+      {/* 今日隨筆 ruled note */}
+      <div className="jr-ruled relative rounded-sm border border-ink-soft/35 px-3 py-2">
+        <span className="mb-1 block whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
           {t('notebook.day.journalTitle')}
         </span>
-        <p className="truncate whitespace-nowrap text-sm text-ink-soft">
+        <p className="line-clamp-2 break-words text-sm leading-relaxed text-ink">
           {day.journal || t('notebook.dayView.noJournal')}
         </p>
       </div>
 
       {inTrip ? (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid min-w-0 grid-cols-2 gap-3">
           <button
             type="button"
             data-testid="day-scan"
             onClick={onScan}
-            className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-3 py-3 text-base font-bold text-white shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-navy inline-flex min-h-12 min-h-[48px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2 text-sm font-bold tracking-tight transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
           >
-            {t('notebook.day.scanReceipt')}
+            <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
+            <span className="font-hand">{t('notebook.day.scanReceipt')}</span>
           </button>
           <button
             type="button"
             data-testid="itinerary-add"
             onClick={onAdd}
-            className="inline-flex min-h-11 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-2xl border border-line bg-white px-3 py-3 text-base font-bold text-ink shadow-sm transition-colors hover:bg-cream-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex min-h-12 min-h-[48px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2 text-sm font-bold tracking-tight transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
           >
-            {t('notebook.day.addEntry')}
+            <PencilIcon className="h-5 w-5 shrink-0 text-route" />
+            <span className="font-hand">{t('notebook.day.addEntry')}</span>
           </button>
         </div>
       ) : (
         <div
           data-testid="outside-trip-banner"
-          className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-dashed border-line bg-cream px-3 py-2.5"
+          className="flex min-w-0 items-center justify-between gap-2 rounded-sm border border-dashed border-stamp bg-paper px-3 py-2.5"
         >
-          <span className="min-w-0 flex-1 break-words text-sm font-semibold text-ink-muted">
+          <span className="min-w-0 flex-1 break-words text-sm font-semibold text-ink-soft">
             {t('notebook.day.outsideTripBanner')}
           </span>
           <button
             type="button"
             data-testid="back-to-trip"
             onClick={onReturnToTrip}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-3.5 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-navy inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3.5 py-2 font-hand text-meta font-bold text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.day.backToTrip')}
           </button>
@@ -527,25 +682,25 @@ function ItineraryEditor({ day, onChange, onDone }) {
   };
 
   const field =
-    'h-11 min-h-11 w-full rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal';
+    'h-11 min-h-11 w-full rounded-sm border border-ink-soft bg-paper px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route';
 
   const orderedStops = useMemo(() => sortStops(day.itinerary), [day.itinerary]);
 
   return (
     <div
       data-testid="itinerary-editor"
-      className="relative space-y-2.5 rounded-card border border-line bg-cream-soft p-3 shadow-sm"
+      className="jr-taped-card jr-grid relative space-y-2.5 p-3"
     >
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <label htmlFor="ref-title" className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
+          <label htmlFor="ref-title" className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
             {t('notebook.day.titleLabel')}
           </label>
           <button
             type="button"
             data-testid="itinerary-done"
             onClick={onDone}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-navy inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 font-hand text-meta font-bold text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.day.done')}
           </button>
@@ -561,13 +716,13 @@ function ItineraryEditor({ day, onChange, onDone }) {
 
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
+          <span className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
             {t('notebook.day.stickerLabel')}
           </span>
           <button
             type="button"
             onClick={() => onChange({ sticker: null })}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-line bg-beige px-3 py-2 text-meta font-semibold text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-3 py-2 font-hand text-meta font-bold text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.day.clear')}
           </button>
@@ -586,8 +741,10 @@ function ItineraryEditor({ day, onChange, onDone }) {
               aria-checked={day.sticker === s.id}
               aria-label={t(`notebook.day.stickers.${s.id}`, { defaultValue: s.label })}
               onClick={() => onChange({ sticker: s.id })}
-              className={`flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border-2 bg-cream text-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
-                day.sticker === s.id ? 'border-teal-strong ring-2 ring-teal-strong' : 'border-white shadow-sm'
+              className={`flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border bg-paper text-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
+                day.sticker === s.id
+                  ? 'border-2 border-route ring-2 ring-route'
+                  : 'border-ink-soft/45'
               }`}
             >
               <StickerGraphic id={s.id} className="text-lg leading-none" />
@@ -597,7 +754,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
       </div>
 
       <div>
-        <label htmlFor="ref-note" className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
+        <label htmlFor="ref-note" className="mb-1 block whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
           {t('notebook.day.calendarNoteLabel')}
         </label>
         <input
@@ -635,7 +792,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
                     setTimeError(false);
                   }
                 }}
-                className="h-11 min-h-11 w-36 shrink-0 rounded-pill border border-teal-strong bg-white px-2 font-mono text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                className="h-11 min-h-11 w-36 shrink-0 rounded-sm border border-route bg-paper px-2 font-display text-meta tabular-nums text-ink focus:outline-none focus:ring-2 focus:ring-route"
               />
             ) : (
               <button
@@ -646,7 +803,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
                   setEditingStopTime(parseHHMM(s.time) || '');
                   setTimeError(false);
                 }}
-                className="inline-flex h-11 min-h-11 min-w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-pill bg-teal-soft px-2.5 font-mono text-meta tabular-nums text-teal-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="inline-flex h-11 min-h-11 min-w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-sm border border-kraft-ink/25 bg-kraft px-2.5 font-display text-meta font-bold tabular-nums text-kraft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
                 {parseHHMM(s.time) || '—'}
               </button>
@@ -656,7 +813,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
               type="button"
               aria-label={t('notebook.day.deleteStopAria', { title: s.title })}
               onClick={() => onChange({ itinerary: day.itinerary.filter((x) => x.id !== s.id) })}
-              className="btn-icon-danger h-11 w-11 min-h-11 min-w-11 shrink-0"
+              className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-stamp/45 bg-paper text-sm font-bold text-stamp transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp"
             >
               ✕
             </button>
@@ -671,7 +828,7 @@ function ItineraryEditor({ day, onChange, onDone }) {
             aria-label={t('notebook.day.timeAria')}
             type="time"
             placeholder="09:30"
-            className={`${field} !w-36 shrink-0 !px-2 font-mono tabular-nums`}
+            className={`${field} !w-36 shrink-0 !px-2 font-display tabular-nums`}
             value={time}
             onChange={(e) => syncTimeFromInput(e.target)}
             onInput={(e) => syncTimeFromInput(e.target)}
@@ -698,26 +855,26 @@ function ItineraryEditor({ day, onChange, onDone }) {
           <button
             type="submit"
             disabled={!what.trim() || isTimeInvalid}
-            className="h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-2xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+            className="jr-btn-paper h-11 min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-sm px-3 font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50"
           >
             {t('notebook.day.addStopBtn')}
           </button>
         </div>
         {timeError && (
-          <p role="alert" data-testid="time-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+          <p role="alert" data-testid="time-error" className="whitespace-nowrap text-meta font-semibold text-stamp">
             {t('notebook.day.timeFormatError')}
           </p>
         )}
       </form>
 
       <div>
-        <label htmlFor="ref-journal" className="mb-1 block whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
+        <label htmlFor="ref-journal" className="mb-1 block whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
           {t('notebook.day.journalTitle')}
         </label>
         <textarea
           id="ref-journal"
           rows={3}
-          className="w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+          className="jr-ruled w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-route"
           value={day.journal}
           onChange={(e) => onChange({ journal: e.target.value })}
         />
@@ -752,34 +909,42 @@ function DayExpenses({
   const shown = list.filter((e) => matchesPerson(e, person, people));
   return (
     <div className="space-y-2.5">
-      <div className="rounded-2xl border border-line bg-cream-soft px-3.5 py-2.5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap font-hand text-meta font-medium text-ink-muted">
-            {t('notebook.day.dayTotal')}
-          </span>
-          <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 text-meta font-semibold text-teal-strong">
+      <div className="jr-taped-card jr-grid relative flex min-w-0 items-center justify-between gap-3 px-3.5 py-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5">
+            <WashiLabel tilt={-1}>{t('notebook.day.dayTotal')}</WashiLabel>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="whitespace-nowrap font-display text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink">
+              {fmtHKD(stats.total)}
+            </span>
+            <span className="whitespace-nowrap font-display text-xs font-medium tabular-nums text-ink-muted">
+              {t('notebook.day.countBeside', { count: stats.count })}
+            </span>
+          </div>
+          <p className="mt-1 whitespace-nowrap font-display text-meta tabular-nums text-ink-muted">
             {t('notebook.day.scannedManualSummary', {
               scanned: stats.scanned,
               manual: stats.manual,
             })}
-          </span>
-          {inTrip && (
-            <button
-              type="button"
-              data-testid="day-add"
-              aria-label={t('notebook.day.addDayExpenseAria')}
-              onClick={() => onAdd(iso)}
-              className="ml-auto flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-full bg-teal-strong text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-            >
-              {Icon.plus('h-4 w-4')}
-            </button>
-          )}
+          </p>
         </div>
-        <div className="mt-0.5 whitespace-nowrap text-xl font-bold text-ink">{fmtHKD(stats.total)}</div>
+
+        {inTrip && (
+          <button
+            type="button"
+            data-testid="day-add"
+            aria-label={t('notebook.day.addDayExpenseAria')}
+            onClick={() => onAdd(iso)}
+            className="ml-auto flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-ink-soft bg-tape-navy text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+          >
+            {Icon.plus('h-4 w-4 text-paper')}
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-muted">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 whitespace-nowrap font-hand text-sm font-bold text-ink-soft">
           {t('notebook.day.filterLabel')}
         </span>
         <div className="min-w-0 flex-1">
@@ -817,8 +982,7 @@ function DayExpenses({
           (inTrip ? (
             <div
               data-testid="day-expenses-empty"
-              className="space-y-2 rounded-card border border-dashed border-line px-4 py-5 text-center shadow-sm"
-              style={cardDots}
+              className="jr-taped-card jr-grid space-y-2 border-dashed bg-paper px-4 py-5 text-center"
             >
               <DoodleSticker name="ramen" secondary="camera" blob="sakura" size="xl" />
               <div>
@@ -831,7 +995,7 @@ function DayExpenses({
               </div>
             </div>
           ) : (
-            <div className="space-y-2.5 rounded-2xl border border-dashed border-line bg-cream-soft p-4 text-center">
+            <div className="jr-taped-card space-y-2.5 border-dashed bg-paper p-4 text-center">
               <DoodleSticker name="suitcase" blob="sand" size="lg" />
               <p className="whitespace-nowrap text-sm text-ink-muted">
                 {t('notebook.dayView.outsideNoExpenses')}
@@ -839,7 +1003,7 @@ function DayExpenses({
               <button
                 type="button"
                 onClick={onReturnToTrip}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill bg-teal-strong px-4 py-2 text-meta font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="jr-btn-navy inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 font-hand text-meta font-bold text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
                 {t('notebook.day.backToTrip')}
               </button>

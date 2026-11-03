@@ -148,9 +148,330 @@
   pointer-events: none;
 }
 
+/* Notebook page sheet: single page in hand on mobile (<1024px), open two-page spread book block at lg (>=1024px).
+ * Never uses overflow:hidden so sticky rails inside children continue to work at lg.
+ */
+.jr-page-sheet {
+  position: relative;
+  border-radius: 3px 6px 20px 3px;
+  border: 1px solid rgb(var(--c-ink-soft) / 0.58);
+  background-color: rgb(var(--c-paper));
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgb(var(--c-grid) / 0.3) 0px,
+      rgb(var(--c-grid) / 0.3) 1px,
+      transparent 1px,
+      transparent 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgb(var(--c-grid) / 0.3) 0px,
+      rgb(var(--c-grid) / 0.3) 1px,
+      transparent 1px,
+      transparent 16px
+    );
+  box-shadow:
+    2px 2px 0 rgb(var(--c-paper-shade)),
+    3px 3px 0 rgb(var(--c-ink-soft) / 0.32),
+    4px 5px 0 rgb(var(--c-paper)),
+    5px 6px 0 rgb(var(--c-ink-soft) / 0.26),
+    0 8px 18px rgb(var(--c-ink) / 0.14);
+}
+
+@media (min-width: 1024px) {
+  .jr-page-sheet {
+    border-radius: 4px;
+    border-color: rgb(var(--c-ink-soft) / 0.68);
+    box-shadow:
+      -3px 3px 0 rgb(var(--c-paper-shade)),
+      -5px 5px 0 rgb(var(--c-ink-soft) / 0.28),
+      3px 3px 0 rgb(var(--c-paper-shade)),
+      5px 5px 0 rgb(var(--c-ink-soft) / 0.28),
+      0 14px 28px rgb(var(--c-ink-soft) / 0.15),
+      0 4px 8px rgb(var(--c-ink-soft) / 0.1);
+  }
+}
+
+/* Sheet inner content offset on mobile (~20px total left offset including binding).
+ * Screen roots that already carry .px-4 (16px) get +4px so total inner left padding is 20px.
+ */
+.jr-page-body {
+  padding-left: 20px;
+  padding-right: 12px;
+}
+
+.jr-page-body:has(> .px-4) {
+  padding-left: 4px;
+  padding-right: 0;
+}
+
+@media (min-width: 1024px) {
+  .jr-page-body,
+  .jr-page-body:has(> .px-4) {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Left stitched/ring binding strip on mobile (<1024px); hidden at lg */
+.jr-binding {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 16px;
+  z-index: 15;
+  pointer-events: none;
+  overflow: hidden;
+  border-right: 1px dashed rgb(var(--c-kraft-ink) / 0.42);
+  background-image:
+    linear-gradient(
+      to right,
+      rgb(var(--c-ink) / 0.16) 0%,
+      rgb(var(--c-paper-shade) / 0.88) 56%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle at 8px 18px,
+      rgb(var(--c-desk)) 0px,
+      rgb(var(--c-desk)) 2.8px,
+      rgb(var(--c-ink-soft) / 0.55) 3px,
+      rgb(var(--c-ink-soft) / 0.55) 3.8px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 16px,
+      rgb(var(--c-kraft-ink) / 0.55) 16px,
+      rgb(var(--c-kraft-ink) / 0.55) 19px,
+      transparent 19px,
+      transparent 36px
+    );
+  background-size: 100% 100%, 16px 36px, 5px 36px;
+  background-repeat: no-repeat, repeat-y, repeat-y;
+  background-position: 0 0, 0 6px, 0 6px;
+}
+
+/* Hanging cloth bookmark ribbon in stamp colour; top-right on mobile, near gutter at lg */
+.jr-ribbon {
+  position: absolute;
+  top: -6px;
+  right: 16px;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .jr-ribbon-spread {
+    right: auto;
+    left: var(--jr-gutter-x, 50%);
+    transform: translateX(-50%);
+  }
+}
+
+/* Dog-eared curled page corner at bottom-right */
+.jr-page-curl {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Desktop lg two-page spread centre gutter (soft vertical gradient + thin fold line) */
+.jr-spread-gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--jr-gutter-x, 50%);
+  width: 24px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgb(var(--c-paper-shade) / 0.65) 30%,
+    rgb(var(--c-ink) / 0.14) 48%,
+    rgb(var(--c-ink-soft) / 0.48) 50%,
+    rgb(var(--c-ink) / 0.12) 52%,
+    rgb(var(--c-paper-shade) / 0.65) 70%,
+    transparent 100%
+  );
+}
+
+/* Shell header: mobile (<1024px) navy cloth cover band with kraft edge;
+ * desktop (lg >=1024px) paper strip with faint horizontal ruled texture and thin ink-soft bottom rule.
+ */
+.jr-cover-band {
+  position: relative;
+  background-color: rgb(var(--c-tape-navy));
+  color: rgb(var(--c-paper));
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgb(var(--c-paper) / 0.04) 0px,
+      rgb(var(--c-paper) / 0.04) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgb(var(--c-route) / 0.35) 0px,
+      rgb(var(--c-route) / 0.35) 1px,
+      transparent 1px,
+      transparent 5px
+    );
+  border-bottom: 3px solid rgb(var(--c-kraft));
+  box-shadow: 0 2px 6px rgb(var(--c-ink) / 0.22);
+}
+
+/* Dashed stitching line inset near the bottom edge of the mobile cover band */
+.jr-cover-stitch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 0;
+  border-bottom: 1.5px dashed rgb(var(--c-paper-shade) / 0.78);
+  pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .jr-cover-band {
+    background-color: rgb(var(--c-paper));
+    color: rgb(var(--c-ink));
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 23px,
+      rgb(var(--c-rule) / 0.48) 23px,
+      rgb(var(--c-rule) / 0.48) 24px
+    );
+    border-bottom: 1px solid rgb(var(--c-ink-soft) / 0.58);
+    box-shadow: 0 1px 3px rgb(var(--c-ink) / 0.08);
+  }
+}
+
+/* Desktop nav notebook index tabs on the paper strip */
+.jr-desktop-tab {
+  border-radius: 6px 6px 2px 2px;
+}
+
+.jr-desktop-tab-active {
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-route));
+  border-color: rgb(var(--c-ink-soft) / 0.68);
+  box-shadow: 1px 1px 0 rgb(var(--c-paper-shade));
+}
+
+/* Mobile bottom nav: paper index tabs sticking up from the bottom edge onto the desk */
+.jr-bottom-nav {
+  background-color: rgb(var(--c-desk));
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgb(var(--c-ink-soft) / 0.35) 0px,
+      rgb(var(--c-paper-shade) / 0.85) 1px,
+      rgb(var(--c-paper-shade) / 0.85) 3px,
+      rgb(var(--c-ink-soft) / 0.32) 4px,
+      transparent 4px
+    );
+  padding-top: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.jr-index-tab {
+  position: relative;
+  background-color: rgb(var(--c-paper-shade));
+  color: rgb(var(--c-ink-soft));
+  border: 1px solid rgb(var(--c-ink-soft) / 0.62);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.jr-index-tab-active {
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-route));
+  border-color: rgb(var(--c-ink-soft) / 0.78);
+  transform: translateY(-2px);
+  box-shadow:
+    0 -2px 5px rgb(var(--c-ink) / 0.1),
+    1px 0 0 rgb(var(--c-paper-shade));
+}
+
+/* Taped paper card on notebook page (straight, 1px ink-soft outline, no heavy shadow) */
+.jr-taped-card {
+  position: relative;
+  border: 1px solid rgb(var(--c-ink-soft) / 0.55);
+  border-radius: 3px;
+}
+
+/* Home destination map responsive height cap: shrinks first at <390px so 375px first screen keeps title + total */
+.jr-home-map svg {
+  max-height: 118px;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 389px) {
+  .jr-home-map svg {
+    max-height: 92px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .jr-home-map svg {
+    max-height: 184px;
+  }
+}
+
+/* Single-line horizontal chip strip with hidden scrollbar */
+.jr-chip-row {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.jr-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Stamped primary action buttons on Home / Ledger */
+.jr-btn-navy {
+  background-color: rgb(var(--c-tape-navy));
+  color: rgb(var(--c-paper));
+  border: 1px solid rgb(var(--c-ink-soft));
+  box-shadow: 2px 2px 0 rgb(var(--c-ink-soft));
+}
+
+.jr-btn-paper {
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-ink-soft));
+  box-shadow: 2px 2px 0 rgb(var(--c-ink-soft));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .jr-washi,
-  .jr-tape-navy {
+  .jr-tape-navy,
+  .jr-page-sheet,
+  .jr-binding,
+  .jr-ribbon,
+  .jr-page-curl,
+  .jr-spread-gutter,
+  .jr-cover-band,
+  .jr-desktop-tab,
+  .jr-index-tab,
+  .jr-index-tab-active {
     transition: none;
+    animation: none;
   }
 }

@@ -72,12 +72,6 @@ export const ruledPaper = {
   backgroundImage: `repeating-linear-gradient(180deg, transparent 0 26px, ${palette.line} 26px 27px)`,
 };
 
-export const airmail = {
-  backgroundImage:
-    'repeating-linear-gradient(-45deg, rgb(var(--c-coral) / 0.45) 0 10px, rgb(var(--c-cream-soft)) 10px 18px, rgb(var(--c-teal) / 0.45) 18px 28px, rgb(var(--c-cream-soft)) 28px 36px)',
-  boxShadow: '0 10px 24px rgb(var(--c-ink) / 0.07)',
-};
-
 export const mustardStripe = {
   backgroundImage:
     'repeating-linear-gradient(-45deg, rgb(var(--c-mustard) / 0.28) 0 10px, rgb(var(--c-mustard-soft) / 0.95) 10px 20px)',

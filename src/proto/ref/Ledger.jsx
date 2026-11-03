@@ -1,16 +1,23 @@
+import { formatAccountingAmount } from '../../utils/currency';
 import { expenseDateKey } from '../../utils/date';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import {
+  CameraIcon,
+  FilterIcon,
+  PencilIcon,
+  RepayIcon,
+  SearchIcon,
+  WashiLabel,
+} from '../../journal/art/index.js';
 import { REF_CATEGORIES } from './mockRefTrip';
 import {
   CATEGORY_DOT,
   CategorySticker,
   DoodleSticker,
   Icon,
-  NotchedTabBg,
-  cardDots,
 } from './parts';
 import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
@@ -36,9 +43,7 @@ import {
 } from './refRepayment';
 import { activeFilterCount, defaultExpenseDate, resolveToday, tripDates } from './refRules';
 
-const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
-
-/** 帳本: full trip ledger with scan/add ribbon, row 1 search + 篩選 button, row 2 person chips, and 無日期 group. */
+/** 帳本: full trip ledger with hand-lettered header, grid total card, scan/add actions, search/filter, payer chips, and date groups. */
 export default function Ledger({
   trip,
   today,
@@ -178,19 +183,21 @@ export default function Ledger({
   return (
     <div
       data-testid="ledger"
-      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3 px-4 pb-6 pt-4 lg:mx-auto lg:max-w-6xl lg:overflow-visible"
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3 px-4 pb-6 pt-3.5 lg:mx-auto lg:max-w-6xl lg:overflow-visible"
     >
       <div className="min-w-0 space-y-3 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-6 lg:space-y-0">
-        {/* Right column at lg: sticky rail with total card, repayment action, scan/add, search/filter, and person chips */}
-        <aside className="min-w-0 space-y-3 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:sticky lg:top-20">
+        {/* Left column at lg: sticky rail with header, total card, undated hint, scan/add, search/filter, and person chips */}
+        <aside className="min-w-0 space-y-3 lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:sticky lg:top-20 lg:self-start">
           <div className="relative flex min-w-0 items-center justify-between gap-2">
             <div className="min-w-0">
               {showLedgerTitleScript && (
-                <p className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
+                <p className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-ink-soft">
                   {ledgerTitleScript}
                 </p>
               )}
-              <h1 className="whitespace-nowrap font-hand text-2xl text-ink">{ledgerTitle}</h1>
+              <h1 className="whitespace-nowrap font-hand text-2xl font-bold tracking-wider text-ink">
+                {ledgerTitle}
+              </h1>
             </div>
 
             {nonSharedPeople.length >= 2 && (
@@ -210,9 +217,9 @@ export default function Ledger({
                     },
                   })
                 }
-                className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-3.5 py-2 text-sm font-bold text-teal-strong shadow-sm transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 font-hand text-xs font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
-                <span aria-hidden="true">⇄</span>
+                <RepayIcon className="h-4 w-4 shrink-0 text-route" />
                 <span>{t('notebook.settle.recordRepayment')}</span>
               </button>
             )}
@@ -227,270 +234,273 @@ export default function Ledger({
                 data-testid="ledger-undated-hint"
                 aria-label={t('notebook.ledger.jumpToUndatedAria', { count: hint.count })}
                 onClick={jumpToUndated}
-                className="inline-flex min-h-11 min-w-11 max-w-full items-center truncate whitespace-nowrap rounded-pill border border-coral-ink/30 bg-coral-soft px-3 text-meta font-bold text-coral-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className="inline-flex min-h-11 min-w-11 max-w-full items-center gap-1.5 truncate whitespace-nowrap rounded-pill border border-stamp bg-paper px-3.5 py-1.5 font-hand text-xs font-bold tabular-nums text-stamp transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
-                {t('notebook.ledger.undatedHint', { count: hint.count })} ›
+                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-stamp" />
+                <span className="truncate">{t('notebook.ledger.undatedHint', { count: hint.count })} ›</span>
               </button>
             </div>
           )}
 
-          {/* Quick scan / manual add bar */}
-          <div className="relative flex min-h-[56px] min-w-0 items-center justify-between gap-2 overflow-hidden rounded-2xl border border-line bg-cream-soft px-2.5 py-1.5 shadow-sm">
+          {/* Quick scan / manual add actions (matching Home) */}
+          <div className="grid min-w-0 grid-cols-2 gap-3">
             <button
               type="button"
               data-testid="ledger-scan"
               onClick={onScan}
-              className="inline-flex h-11 min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 truncate whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="jr-btn-navy inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
-              {Icon.camera('h-[15px] w-[15px] shrink-0')}
-              <span className="truncate">{t('notebook.home.scanReceipt')}</span>
+              <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
+              <span className="truncate font-hand">{t('notebook.home.scanReceipt')}</span>
             </button>
             <button
               type="button"
               data-testid="ledger-add"
               onClick={onAdd}
-              className="inline-flex h-11 min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 truncate whitespace-nowrap rounded-xl border border-line bg-cream px-3 text-sm font-bold text-ink shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="jr-btn-paper inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
-              <span className="shrink-0 text-teal-strong">{Icon.plus('h-[15px] w-[15px] shrink-0')}</span>
-              <span className="truncate">{t('notebook.home.addEntry')}</span>
+              <PencilIcon className="h-5 w-5 shrink-0 text-route" />
+              <span className="truncate font-hand">{t('notebook.home.addEntry')}</span>
             </button>
           </div>
 
-          {/* Row 1: Search input with clear (×) + 篩選 button with active count badge */}
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-pill border border-line bg-white pl-3.5 pr-1 text-ink-muted shadow-sm focus-within:ring-2 focus-within:ring-teal">
-              {Icon.search('h-4 w-4 shrink-0')}
-              <input
-                aria-label={t('notebook.ledger.searchAria')}
-                data-testid="ledger-search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('notebook.ledger.searchPlaceholder')}
-                className="h-11 min-h-11 w-full min-w-0 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-ink-muted"
-              />
-              {query && (
-                <button
-                  type="button"
-                  aria-label={t('notebook.ledger.clearSearchAria')}
-                  data-testid="ledger-search-clear"
-                  onClick={() => setQuery('')}
-                  className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-                >
-                  {Icon.x('h-4 w-4')}
-                </button>
-              )}
+          {/* Search input + 篩選 button + Payer chips */}
+          <div className="jr-taped-card min-w-0 space-y-2 bg-paper-shade/85 p-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-sm border border-ink-soft/55 bg-paper pl-2.5 pr-1 text-ink-muted focus-within:ring-2 focus-within:ring-route">
+                <SearchIcon className="h-4 w-4 shrink-0 text-ink-muted" />
+                <input
+                  aria-label={t('notebook.ledger.searchAria')}
+                  data-testid="ledger-search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t('notebook.ledger.searchPlaceholder')}
+                  className="h-11 min-h-11 w-full min-w-0 bg-transparent px-2 text-xs text-ink outline-none placeholder:text-ink-muted lg:text-sm"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label={t('notebook.ledger.clearSearchAria')}
+                    data-testid="ledger-search-clear"
+                    onClick={() => setQuery('')}
+                    className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                  >
+                    {Icon.x('h-4 w-4')}
+                  </button>
+                )}
+              </div>
+
+              <button
+                ref={filterBtnRef}
+                type="button"
+                data-testid="ledger-filter-btn"
+                aria-haspopup="dialog"
+                aria-expanded={sheetOpen}
+                onClick={() => setSheetOpen(true)}
+                className={`inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm border px-2.5 py-1.5 font-hand text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
+                  filterCount > 0
+                    ? 'border-ink-soft bg-tape-navy text-paper'
+                    : 'border-ink-soft/55 bg-paper text-ink hover:bg-paper-shade'
+                }`}
+              >
+                <FilterIcon className="h-4 w-4 shrink-0" />
+                <span>{t('notebook.ledger.filterBtn')}</span>
+                {filterCount > 0 && (
+                  <span
+                    data-testid="ledger-filter-badge"
+                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-paper px-1.5 font-display text-xs font-bold leading-none tabular-nums text-route"
+                  >
+                    {filterCount}
+                  </span>
+                )}
+              </button>
             </div>
 
-            <button
-              ref={filterBtnRef}
-              type="button"
-              data-testid="ledger-filter-btn"
-              aria-haspopup="dialog"
-              aria-expanded={sheetOpen}
-              onClick={() => setSheetOpen(true)}
-              className={`inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
-                filterCount > 0
-                  ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
-                  : 'border-line bg-cream-soft text-ink-soft hover:bg-beige'
-              }`}
-            >
-              {Icon.filter('h-4 w-4 shrink-0')}
-              <span>{t('notebook.ledger.filterBtn')}</span>
-              {filterCount > 0 && (
-                <span
-                  data-testid="ledger-filter-badge"
-                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-meta font-extrabold leading-none text-teal-strong"
-                >
-                  {filterCount}
-                </span>
+            <div className="min-w-0 space-y-1.5">
+              {payer !== '全部' && (
+                <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    data-testid="ledger-payer-chip"
+                    aria-label={t('notebook.ledger.clearPayerAria')}
+                    onClick={() => setPayer('全部')}
+                    className="inline-flex min-h-11 min-w-11 max-w-full items-center justify-center truncate whitespace-nowrap rounded-sm border border-ink-soft bg-tape-navy px-3 py-1.5 font-hand text-xs font-bold text-paper transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                  >
+                    <span className="min-w-0 truncate">{t('notebook.ledger.payerChip', { name: payer })}</span>
+                  </button>
+                </div>
               )}
-            </button>
-          </div>
 
-          {/* Row 2: Active payer chip + Person chips */}
-          <div className="min-w-0 space-y-1.5">
-            {payer !== '全部' && (
-              <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="ledger-payer-chip"
-                  aria-label={t('notebook.ledger.clearPayerAria')}
-                  onClick={() => setPayer('全部')}
-                  className="inline-flex min-h-11 min-w-11 max-w-full items-center justify-center truncate whitespace-nowrap rounded-pill border border-teal-strong bg-teal-soft px-3.5 py-2 text-sm font-bold text-teal-strong shadow-sm transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              <ChipRow label={t('notebook.ledger.filterPersonAria')}>
+                <Chip
+                  active={person === '全部' && payer === '全部'}
+                  onClick={() => {
+                    setPerson('全部');
+                    setPayer('全部');
+                  }}
                 >
-                  <span className="min-w-0 truncate">{t('notebook.ledger.payerChip', { name: payer })}</span>
-                </button>
-              </div>
-            )}
-
-            <ChipRow label={t('notebook.ledger.filterPersonAria')}>
-              <Chip
-                active={person === '全部' && payer === '全部'}
-                onClick={() => {
-                  setPerson('全部');
-                  setPayer('全部');
-                }}
-              >
-                {t('notebook.ledger.allCount', { count: counts['全部'] || 0 })}
-              </Chip>
-              {showExtraShared && (
-                <Chip active={person === '共同'} onClick={() => setPerson('共同')}>
-                  {`${displayPerson('共同')} (${extraSharedCount})`}
+                  {t('notebook.ledger.allCount', { count: counts['全部'] || 0 })}
                 </Chip>
-              )}
-              {people.map((p) => (
-                <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
-                  {displayPerson(p)} ({counts[p] || 0})
-                </Chip>
-              ))}
-            </ChipRow>
+                {showExtraShared && (
+                  <Chip active={person === '共同'} onClick={() => setPerson('共同')}>
+                    {`${displayPerson('共同')} (${extraSharedCount})`}
+                  </Chip>
+                )}
+                {people.map((p) => (
+                  <Chip key={p} active={person === p} onClick={() => setPerson(p)}>
+                    {displayPerson(p)} ({counts[p] || 0})
+                  </Chip>
+                ))}
+              </ChipRow>
+            </div>
           </div>
         </aside>
 
-        {/* Left column at lg: expense list (date tabs + list) */}
-        <div className="min-w-0 space-y-4 lg:col-span-7 lg:col-start-1 lg:row-start-1">
-        {displayGroups.map((g) => (
-          <section key={g.key} data-testid={`ledger-group-${g.key}`} className="min-w-0 scroll-mt-20 space-y-2">
-            <div className="flex min-w-0 items-center gap-2.5 pt-1">
-              {g.iso ? (
-                <button
-                  type="button"
-                  data-notched-tab="date"
-                  onClick={() => onOpenDay(g.iso)}
-                  className="relative inline-flex min-h-11 min-w-11 max-w-full truncate items-center gap-1.5 whitespace-nowrap rounded-md pl-5 pr-5 py-1.5 text-meta font-bold text-ink hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-                >
-                  <NotchedTabBg tone="mustard" />
-                  <span className="relative z-10 truncate font-hand">{fmtDate(g.iso)}</span>
-                </button>
-              ) : (
-                <span
-                  ref={undatedLabelRef}
-                  id="ledger-undated-label"
-                  data-notched-tab="undated"
-                  tabIndex={-1}
-                  className="relative inline-flex min-h-11 max-w-full truncate items-center gap-1.5 whitespace-nowrap rounded-md pl-5 pr-5 py-1.5 text-meta font-bold text-coral-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-                >
-                  <NotchedTabBg tone="coral" />
-                  <span className="relative z-10 truncate font-hand">{t('notebook.ledger.undated')}</span>
-                </span>
-              )}
-              <span className="h-0 min-w-2 flex-1 border-t border-dashed border-line" />
-              <span className="shrink-0 whitespace-nowrap rounded-pill bg-beige/75 px-2.5 py-0.5 font-mono text-meta font-bold text-ink-soft">
-                {fmtHKD(g.total)}
-              </span>
-            </div>
-            <div className="min-w-0 space-y-2.5">
-              {(g.settlements || []).map((s) => {
-                const unknown = hasUnknownParticipant(s, nonSharedPeople);
-                return (
+        {/* Right column at lg: expense list (date groups + cards) */}
+        <div className="min-w-0 space-y-4 lg:col-span-7 lg:col-start-6 lg:row-start-1">
+          {displayGroups.map((g) => (
+            <section key={g.key} data-testid={`ledger-group-${g.key}`} className="min-w-0 scroll-mt-20 space-y-2.5">
+              <div className="flex min-w-0 items-center gap-2.5 pt-0.5">
+                {g.iso ? (
                   <button
-                    key={s.id}
                     type="button"
-                    data-testid="ledger-repayment-row"
-                    onClick={() =>
-                      setRepaymentModal({
-                        mode: 'edit',
-                        initial: s,
-                      })
-                    }
-                    className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2.5 rounded-2xl border-2 border-dashed border-teal/45 bg-cream-soft px-3.5 py-2.5 text-left shadow-sm transition-colors hover:bg-beige/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                    data-notched-tab="date"
+                    onClick={() => onOpenDay(g.iso)}
+                    className="inline-flex min-h-11 min-w-11 max-w-full items-center whitespace-nowrap py-1.5 text-left hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                   >
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span
-                          aria-hidden="true"
-                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-soft font-bold text-teal-strong"
-                        >
-                          ⇄
-                        </span>
-                        <span className="shrink-0 rounded-md border border-teal/30 bg-teal-soft px-2 py-0.5 text-meta font-bold text-teal-strong">
-                          {t('notebook.settle.ledgerRepaymentTag')}
-                        </span>
-                        <span className="min-w-0 truncate text-sm font-bold text-ink">
-                          {t('notebook.settle.repaidTo', {
-                            from: s.from === '共同' ? t('expenseCard.shared') : s.from,
-                            to: s.to === '共同' ? t('expenseCard.shared') : s.to,
-                          })}
-                        </span>
-                        {unknown && (
+                    <WashiLabel tilt={-1} className="truncate px-3 py-1">
+                      {fmtDate(g.iso)}
+                    </WashiLabel>
+                  </button>
+                ) : (
+                  <span
+                    ref={undatedLabelRef}
+                    id="ledger-undated-label"
+                    data-notched-tab="undated"
+                    tabIndex={-1}
+                    className="inline-flex min-h-11 max-w-full items-center whitespace-nowrap py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                  >
+                    <span className="truncate rounded-sm border border-stamp bg-paper px-3 py-1 font-hand text-xs font-bold tracking-wider text-stamp">
+                      {t('notebook.ledger.undated')}
+                    </span>
+                  </span>
+                )}
+                <span className="h-0 min-w-2 flex-1 border-t border-dashed border-ink-soft/40" />
+                <span className="shrink-0 whitespace-nowrap rounded-sm border border-ink-soft/30 bg-paper-shade/85 px-2 py-0.5 font-display text-xs font-bold tabular-nums text-ink">
+                  {fmtHKD(g.total)}
+                </span>
+              </div>
+              <div className="min-w-0 space-y-2.5">
+                {(g.settlements || []).map((s) => {
+                  const unknown = hasUnknownParticipant(s, nonSharedPeople);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      data-testid="ledger-repayment-row"
+                      onClick={() =>
+                        setRepaymentModal({
+                          mode: 'edit',
+                          initial: s,
+                        })
+                      }
+                      className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2.5 rounded-sm border border-dashed border-route/55 bg-paper px-3 py-2.5 text-left transition-colors hover:bg-paper-shade/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span
-                            data-testid="ledger-unknown-member"
-                            className="shrink-0 rounded-md border border-coral-ink/40 bg-coral-soft px-2 py-0.5 text-meta font-bold text-coral-ink"
+                            aria-hidden="true"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-route-soft font-bold text-route"
                           >
-                            {t('notebook.settle.unknownMember')}
+                            ⇄
+                          </span>
+                          <span className="shrink-0 rounded-sm border border-route/30 bg-route-soft px-2 py-0.5 font-hand text-xs font-bold text-route">
+                            {t('notebook.settle.ledgerRepaymentTag')}
+                          </span>
+                          <span className="min-w-0 truncate text-sm font-bold text-ink">
+                            {t('notebook.settle.repaidTo', {
+                              from: s.from === '共同' ? t('expenseCard.shared') : s.from,
+                              to: s.to === '共同' ? t('expenseCard.shared') : s.to,
+                            })}
+                          </span>
+                          {unknown && (
+                            <span
+                              data-testid="ledger-unknown-member"
+                              className="shrink-0 rounded-sm border border-stamp/45 bg-paper px-2 py-0.5 font-hand text-xs font-bold text-stamp"
+                            >
+                              {t('notebook.settle.unknownMember')}
+                            </span>
+                          )}
+                        </div>
+                        {s.note && (
+                          <p className="min-w-0 truncate text-xs text-ink-muted">{s.note}</p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end font-display tabular-nums">
+                        <span className="whitespace-nowrap text-sm font-bold text-route">
+                          {formatAccountingAmount(s.hkdAmount, accountingCurrency)}
+                        </span>
+                        {s.currency && s.currency !== accountingCurrency && Number(s.amount) > 0 && (
+                          <span className="whitespace-nowrap text-xs text-ink-muted">
+                            {s.currency} {Math.round(Number(s.amount)).toLocaleString('en-US')}
                           </span>
                         )}
                       </div>
-                      {s.note && (
-                        <p className="min-w-0 truncate text-meta text-ink-muted">{s.note}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end">
-                      <span className="whitespace-nowrap font-mono text-sm font-bold tabular-nums text-teal-strong">
-                        {hk(s.hkdAmount)}
-                      </span>
-                      {s.currency && s.currency !== accountingCurrency && Number(s.amount) > 0 && (
-                        <span className="whitespace-nowrap font-mono text-meta text-ink-muted">
-                          {s.currency} {Math.round(Number(s.amount)).toLocaleString('en-US')}
-                        </span>
-                      )}
-                    </div>
+                    </button>
+                  );
+                })}
+                {g.items.map((e) => (
+                  <ExpenseCard
+                    key={e.id}
+                    expense={e}
+                    highlighted={e.id === highlightId}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          {displayGroups.length === 0 && (
+            <div
+              data-testid="ledger-empty-state"
+              className="jr-taped-card jr-grid space-y-2.5 border-dashed px-4 py-6 text-center"
+            >
+              {hasAnyFilter ? (
+                <>
+                  <DoodleSticker name="sushi" secondary="camera" blob="coral" size="xl" />
+                  <div>
+                    <p className="mt-1 font-hand text-base text-ink">
+                      {t('notebook.empty.ledgerFilteredTitle')}
+                    </p>
+                    <p className="mt-0.5 text-meta text-ink-muted">
+                      {t('notebook.empty.ledgerFilteredHint')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="ledger-clear-empty"
+                    onClick={clearAllFilters}
+                    className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                  >
+                    {t('notebook.empty.clearFilters')}
                   </button>
-                );
-              })}
-              {g.items.map((e) => (
-                <ExpenseCard
-                  key={e.id}
-                  expense={e}
-                  highlighted={e.id === highlightId}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                />
-              ))}
+                </>
+              ) : (
+                <>
+                  <DoodleSticker name="plane" secondary="suitcase" blob="teal" size="xl" />
+                  <div>
+                    <p className="mt-1 font-hand text-base text-ink">
+                      {t('notebook.empty.ledgerEmptyTitle')}
+                    </p>
+                    <p className="mt-0.5 text-meta text-ink-muted">
+                      {t('notebook.empty.ledgerEmptyHint')}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
-          </section>
-        ))}
-        {displayGroups.length === 0 && (
-          <div
-            data-testid="ledger-empty-state"
-            className="space-y-2.5 rounded-card border border-dashed border-line px-4 py-6 text-center shadow-sm"
-            style={cardDots}
-          >
-            {hasAnyFilter ? (
-              <>
-                <DoodleSticker name="sushi" secondary="camera" blob="coral" size="xl" />
-                <div>
-                  <p className="mt-1 font-hand text-base text-ink">
-                    {t('notebook.empty.ledgerFilteredTitle')}
-                  </p>
-                  <p className="mt-0.5 text-meta text-ink-muted">
-                    {t('notebook.empty.ledgerFilteredHint')}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  data-testid="ledger-clear-empty"
-                  onClick={clearAllFilters}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill border border-teal/40 bg-teal-soft px-4 py-2 text-sm font-bold text-teal-strong shadow-sm hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-                >
-                  {t('notebook.empty.clearFilters')}
-                </button>
-              </>
-            ) : (
-              <>
-                <DoodleSticker name="plane" secondary="suitcase" blob="teal" size="xl" />
-                <div>
-                  <p className="mt-1 font-hand text-base text-ink">
-                    {t('notebook.empty.ledgerEmptyTitle')}
-                  </p>
-                  <p className="mt-0.5 text-meta text-ink-muted">
-                    {t('notebook.empty.ledgerEmptyHint')}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+          )}
         </div>
       </div>
 
@@ -511,9 +521,9 @@ export default function Ledger({
                   if (e.target === e.currentTarget) setRepaymentModal(null);
                 }}
               >
-                <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-3 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
-                  <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
-                    <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg text-ink">
+                <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-3 overflow-y-auto overflow-x-hidden rounded-t-card border border-ink-soft/60 bg-paper p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-sm">
+                  <div className="flex min-w-0 items-center justify-between gap-2 border-b border-dashed border-ink-soft/35 pb-2.5">
+                    <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg font-bold text-ink">
                       {repaymentModal.mode === 'edit'
                         ? t('notebook.settle.edit')
                         : t('notebook.settle.recordRepayment')}
@@ -522,13 +532,14 @@ export default function Ledger({
                       type="button"
                       aria-label={t('notebook.settle.close')}
                       onClick={() => setRepaymentModal(null)}
-                      className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                      className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-ink-soft/40 bg-paper text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                     >
                       {Icon.x('h-4 w-4')}
                     </button>
                   </div>
 
                   <RepaymentForm
+                    hideTitle
                     participants={nonSharedPeople}
                     initial={repaymentModal.initial}
                     accountingCurrency={accountingCurrency}
@@ -572,23 +583,23 @@ export default function Ledger({
               if (e.target === e.currentTarget) closeSheet();
             }}
           >
-            <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-4 overflow-y-auto overflow-x-hidden rounded-t-card border border-line bg-cream-soft p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-card">
-              <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
-                <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg text-ink">
+            <div className="max-h-[85vh] w-full max-w-lg min-w-0 space-y-4 overflow-y-auto overflow-x-hidden rounded-t-card border border-ink-soft/60 bg-paper p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-xl sm:rounded-sm">
+              <div className="flex min-w-0 items-center justify-between gap-2 border-b border-dashed border-ink-soft/35 pb-2.5">
+                <h2 className="min-w-0 truncate whitespace-nowrap font-hand text-lg font-bold text-ink">
                   {t('notebook.ledger.filterSheetTitle')}
                 </h2>
                 <button
                   type="button"
                   aria-label={t('notebook.ledger.closeFilterAria')}
                   onClick={closeSheet}
-                  className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-ink-soft/40 bg-paper text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                 >
                   {Icon.x('h-4 w-4')}
                 </button>
               </div>
 
               <div className="space-y-2">
-                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
+                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
                   {t('notebook.ledger.categoryLabel')}
                 </p>
                 <div
@@ -619,7 +630,7 @@ export default function Ledger({
               </div>
 
               <div className="space-y-2">
-                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
+                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
                   {t('notebook.ledger.paymentMethodLabel')}
                 </p>
                 <div
@@ -645,7 +656,7 @@ export default function Ledger({
               </div>
 
               <div className="space-y-2">
-                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
+                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
                   {t('notebook.ledger.payerLabel')}
                 </p>
                 <div
@@ -667,7 +678,7 @@ export default function Ledger({
               </div>
 
               <div className="space-y-2">
-                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
+                <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-soft">
                   {t('notebook.ledger.dateLabel')}
                 </p>
                 <div
@@ -702,7 +713,7 @@ export default function Ledger({
                 </div>
               </div>
 
-              <div className="flex gap-3 border-t border-line pt-3">
+              <div className="flex gap-3 border-t border-dashed border-ink-soft/35 pt-3">
                 <button
                   type="button"
                   data-testid="filter-sheet-clear"
@@ -712,7 +723,7 @@ export default function Ledger({
                     setPayment('全部');
                     setPayer('全部');
                   }}
-                  className="btn-secondary min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
+                  className="jr-btn-paper min-h-11 flex-1 whitespace-nowrap rounded-sm px-3 py-2.5 font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                 >
                   {t('notebook.empty.clearFilters')}
                 </button>
@@ -720,7 +731,7 @@ export default function Ledger({
                   type="button"
                   data-testid="filter-sheet-done"
                   onClick={closeSheet}
-                  className="btn-primary min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
+                  className="jr-btn-navy min-h-11 flex-1 whitespace-nowrap rounded-sm px-3 py-2.5 font-hand text-sm font-bold text-paper hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                 >
                   {t('notebook.ledger.done')}
                 </button>

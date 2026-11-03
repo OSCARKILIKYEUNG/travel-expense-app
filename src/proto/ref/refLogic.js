@@ -11,6 +11,7 @@ const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const fmtHKD = (n) => `HKD $${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
+export const fmtHKDShort = (n) => `$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 export const fmtJPY = (n) => `JPY ¥${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 /** '2026-10-22' -> '10月22日 週四' (written zh style, used instead of the browser's mm/dd/yyyy). */

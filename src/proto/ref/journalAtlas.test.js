@@ -204,15 +204,15 @@ describe('journalAtlas — CountryFlag, JapanMiniMap, and LandscapeStrip compone
     );
 
     const summary = screen.getByTestId('summary');
-    expect(summary.textContent).toContain('JAPAN');
     expect(summary.textContent).toContain('日本');
+    expect(summary.textContent).not.toContain('JAPAN');
     expect(summary.textContent).toContain('東京秋日之旅');
     expect(summary.textContent).toContain('目的地：日本（東京, 富士, 成田）');
     expect(screen.getByTestId('country-flag-jp')).toBeTruthy();
     expect(screen.getByTestId('japan-mini-map')).toBeTruthy();
     expect(screen.getByTestId('landscape-strip')).toBeTruthy();
     expect(screen.getByTestId('trip-total').textContent).toBe('HKD $11,222');
-    expect(screen.getByTestId('today-line').textContent).toContain('HKD $1,086');
+    expect(screen.getByTestId('today-line').textContent).toBe('今日 $1,086');
     expect(screen.getByTestId('today-row')).toBeTruthy();
     expect(screen.getByTestId('calendar')).toBeTruthy();
     uHomeZh();
@@ -241,12 +241,35 @@ describe('journalAtlas — CountryFlag, JapanMiniMap, and LandscapeStrip compone
         }),
       ),
     );
-    expect(screen.getByTestId('summary').textContent).toContain('TRAVEL JOURNAL');
+    expect(screen.getByTestId('summary').textContent).toContain('旅途手札');
     expect(screen.getByTestId('summary').textContent).toContain('冰島環島遊');
     expect(screen.queryByTestId('country-flag-jp')).toBeNull();
     expect(screen.queryByTestId('japan-mini-map')).toBeNull();
+    expect(screen.getByTestId('destination-map').getAttribute('data-pack')).toBe('generic');
     expect(screen.getByTestId('landscape-strip')).toBeTruthy();
     uUnknown();
+
+    // Osaka trip (budget: null) omits budget pill while Tokyo trip (budget: 15000) shows it
+    const osakaTrip = createOsakaTrip();
+    const { unmount: uOsaka } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(Home, {
+          trip: osakaTrip,
+          today: '2026-11-14',
+          month: '2026-11',
+          setMonth: () => {},
+          onOpenDay: () => {},
+          onScan: () => {},
+          onAdd: () => {},
+        }),
+      ),
+    );
+    expect(screen.queryByTestId('home-budget-pill')).toBeNull();
+    expect(screen.getByTestId('summary').textContent).toContain('旅費');
+    expect(screen.getByTestId('summary').textContent).toContain('旅伴 Oscar、阿明');
+    uOsaka();
   });
 
   it('displays translated Shared label for 共同 in SettingsView people list in EN while keeping internal key intact', async () => {

@@ -85,28 +85,27 @@ export function RouteLine({
   viewBox = '0 0 240 64',
   className = 'h-16 w-full',
   dotRadius = 3.2,
+  haloRadius,
+  strokeWidth = 2,
+  dashArray = '0 6',
+  asGroup = false,
   children,
 }) {
   const validPoints = Array.isArray(points)
     ? points.filter((p) => p && typeof p.x === 'number' && typeof p.y === 'number')
     : [];
   const d = validPoints.length >= 2 ? buildRoutePath(validPoints) : '';
+  const outerR = typeof haloRadius === 'number' ? haloRadius : dotRadius + 2.2;
 
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox={viewBox}
-      fill="none"
-      className={`pointer-events-none block select-none ${className}`.trim()}
-    >
+  const content = (
+    <>
       {d ? (
         <path
           d={d}
           fill="none"
           stroke="rgb(var(--c-route))"
-          strokeWidth={2}
-          strokeDasharray="0 6"
+          strokeWidth={strokeWidth}
+          strokeDasharray={dashArray}
           strokeLinecap="round"
           strokeLinejoin="round"
           className="jr-route-path"
@@ -117,7 +116,7 @@ export function RouteLine({
           <circle
             cx={pt.x}
             cy={pt.y}
-            r={dotRadius + 2.2}
+            r={outerR}
             fill="rgb(var(--c-route-soft))"
           />
           <circle
@@ -129,6 +128,22 @@ export function RouteLine({
         </g>
       ))}
       {children}
+    </>
+  );
+
+  if (asGroup) {
+    return <g className="jr-route-group">{content}</g>;
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox={viewBox}
+      fill="none"
+      className={`pointer-events-none block select-none ${className}`.trim()}
+    >
+      {content}
     </svg>
   );
 }
@@ -144,6 +159,15 @@ export function HatchSea({
 }) {
   const rawId = useId();
   const patternId = `jr-hatch-sea-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const vbParts = String(viewBox).trim().split(/[\s,]+/).map(Number);
+  const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
+  const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
+  const vbW = Number.isFinite(vbParts[2]) && vbParts[2] > 0 ? vbParts[2] : 240;
+  const vbH = Number.isFinite(vbParts[3]) && vbParts[3] > 0 ? vbParts[3] : 80;
+  const seaX = vbX - vbW;
+  const seaY = vbY - vbH;
+  const seaW = vbW * 3;
+  const seaH = vbH * 3;
 
   return (
     <svg
@@ -167,11 +191,12 @@ export function HatchSea({
             y2={pitch / 2}
             stroke="rgb(var(--c-rule))"
             strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
           />
         </pattern>
       </defs>
-      <rect x="0" y="0" width="100%" height="100%" fill="rgb(var(--c-wash-sky) / 0.38)" />
-      <rect x="0" y="0" width="100%" height="100%" fill={`url(#${patternId})`} />
+      <rect x={seaX} y={seaY} width={seaW} height={seaH} fill="rgb(var(--c-wash-sky) / 0.38)" />
+      <rect x={seaX} y={seaY} width={seaW} height={seaH} fill={`url(#${patternId})`} />
       {children}
     </svg>
   );
@@ -187,10 +212,12 @@ export function WashiLabel({
   children,
 }) {
   const tiltValue = typeof tilt === 'number' ? `${tilt}deg` : String(tilt);
+  const posClass = /\b(?:absolute|fixed|sticky|relative)\b/.test(className) ? '' : 'relative ';
   return (
     <span
+      data-jr-decor="washi"
       style={{ '--jr-tilt': tiltValue }}
-      className={`jr-washi relative inline-flex items-center gap-1.5 px-3 py-0.5 font-hand text-xs font-bold tracking-widest text-kraft-ink ${className}`.trim()}
+      className={`jr-washi ${posClass}inline-flex items-center gap-1.5 px-3 py-0.5 font-hand text-xs font-bold tracking-widest text-kraft-ink ${className}`.trim()}
     >
       <svg
         aria-hidden="true"
@@ -220,11 +247,13 @@ export function NavyTape({
   className = 'h-4 w-16',
 }) {
   const tiltValue = typeof tilt === 'number' ? `${tilt}deg` : String(tilt);
+  const posClass = /\b(?:absolute|fixed|sticky|relative)\b/.test(className) ? '' : 'relative ';
   return (
     <span
       aria-hidden="true"
+      data-jr-decor="tape"
       style={{ '--jr-tilt': tiltValue }}
-      className={`jr-tape-navy pointer-events-none relative inline-block select-none ${className}`.trim()}
+      className={`jr-tape-navy pointer-events-none ${posClass}inline-block select-none ${className}`.trim()}
     >
       <svg
         aria-hidden="true"
@@ -280,7 +309,7 @@ export function TodayRing({
 
   if (children != null) {
     return (
-      <span className={`relative inline-flex items-center justify-center ${className}`.trim()}>
+      <span className={`relative inline-flex shrink-0 items-center justify-center ${className}`.trim()}>
         {ringSvg}
         <span className="relative z-10 text-xs font-bold leading-none text-stamp">{children}</span>
       </span>

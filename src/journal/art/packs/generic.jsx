@@ -8,33 +8,63 @@ import { RouteLine, WashBlob } from '../decor.jsx';
  */
 
 const ZIGZAG_Y = [56, 36, 58, 34, 52];
+const DECORATIVE_EMPTY_POINTS = [
+  { id: 'decor-0', x: 44, y: 56, label: '' },
+  { id: 'decor-1', x: 120, y: 38, label: '' },
+  { id: 'decor-2', x: 196, y: 54, label: '' },
+];
+
+function extractStopLabel(item, customLabel) {
+  if (customLabel) return String(customLabel).trim();
+  if (typeof item === 'string') return item.trim();
+  if (item && typeof item === 'object') {
+    return String(item.label || item.name || item.nameZh || item.nameEn || '').trim();
+  }
+  return '';
+}
 
 function normalizeGenericStops(cities = [], labels) {
   const raw = Array.isArray(cities) ? cities.filter(Boolean) : [];
-  let items = raw.slice(0, 5);
-  if (items.length === 0) {
-    items = ['Stop 1', 'Stop 2', 'Stop 3'];
-  } else if (items.length === 1) {
-    items = [items[0], 'Stop 2'];
+  const realItems = [];
+
+  for (let idx = 0; idx < raw.length && realItems.length < 5; idx += 1) {
+    const item = raw[idx];
+    const customLabel = Array.isArray(labels) && labels[idx] ? String(labels[idx]) : '';
+    const label = extractStopLabel(item, customLabel);
+    if (!label) continue;
+    realItems.push({
+      id: (typeof item === 'object' && item?.id) || `stop-${realItems.length + 1}`,
+      label,
+    });
   }
 
-  const count = items.length;
+  if (realItems.length === 0) {
+    return [];
+  }
+
+  if (realItems.length === 1) {
+    return [
+      {
+        id: realItems[0].id,
+        x: 120,
+        y: 44,
+        label: realItems[0].label,
+      },
+    ];
+  }
+
+  const count = realItems.length;
   const padX = 36;
   const usableWidth = 240 - padX * 2;
 
-  return items.map((item, idx) => {
-    const customLabel = Array.isArray(labels) && labels[idx] ? String(labels[idx]) : null;
-    const rawLabel =
-      typeof item === 'string'
-        ? item
-        : item?.label || item?.name || item?.nameZh || item?.nameEn || `Stop ${idx + 1}`;
+  return realItems.map((item, idx) => {
     const x = Math.round((padX + (idx * usableWidth) / Math.max(1, count - 1)) * 10) / 10;
     const y = ZIGZAG_Y[idx % ZIGZAG_Y.length];
     return {
-      id: (typeof item === 'object' && item?.id) || `stop-${idx + 1}`,
+      id: item.id,
       x,
       y,
-      label: customLabel || String(rawLabel),
+      label: item.label,
     };
   });
 }
@@ -81,7 +111,8 @@ export function GenericMap({
 }) {
   const inputList = Array.isArray(cities) && cities.length > 0 ? cities : stops;
   const resolvedStops = normalizeGenericStops(inputList, labels);
-  const showLabels = labels !== false;
+  const routePoints = resolvedStops.length > 0 ? resolvedStops : DECORATIVE_EMPTY_POINTS;
+  const showLabels = labels !== false && resolvedStops.length > 0;
 
   return (
     <div
@@ -96,13 +127,14 @@ export function GenericMap({
         </ul>
       ) : null}
       <RouteLine
-        points={resolvedStops}
+        points={routePoints}
         viewBox="0 0 240 96"
         dotRadius={3.4}
         className="block h-auto w-full"
       >
         {showLabels
           ? resolvedStops.map((stop, idx) => {
+              if (!stop.label) return null;
               const labelY = idx % 2 === 0 ? stop.y + 18 : stop.y - 11;
               return (
                 <text

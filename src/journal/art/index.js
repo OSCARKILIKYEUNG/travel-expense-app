@@ -46,12 +46,10 @@ export {
   WashiLabel,
 } from './decor.jsx';
 
+import GenericPack, { GenericMap } from './packs/generic.jsx';
+
 const LazyJpMap = lazy(() =>
   import('./packs/jp.jsx').then((m) => ({ default: (m.default || m).Map })),
-);
-
-const LazyGenericMap = lazy(() =>
-  import('./packs/generic.jsx').then((m) => ({ default: (m.default || m).Map })),
 );
 
 /**
@@ -64,8 +62,7 @@ export async function loadDestinationPack(code) {
     const mod = await import('./packs/jp.jsx');
     return mod.default || mod;
   }
-  const mod = await import('./packs/generic.jsx');
-  return mod.default || mod;
+  return GenericPack;
 }
 
 /**
@@ -148,10 +145,10 @@ export function DestinationMap({
   trip,
   cities,
   labels,
+  fit,
   className = '',
 }) {
   const info = resolveDestinationArt(trip, cities);
-  const MapComp = info.packKey === 'jp' ? LazyJpMap : LazyGenericMap;
   const srItems =
     Array.isArray(labels) && labels.length > 0 ? labels.filter(Boolean) : info.stopNames;
 
@@ -171,19 +168,26 @@ export function DestinationMap({
           ),
         )
       : null,
-    createElement(
-      Suspense,
-      {
-        fallback: createElement('div', {
-          'aria-hidden': 'true',
-          className: 'min-h-[96px] w-full rounded-sm border border-ink-soft/30 bg-paper',
+    info.packKey === 'jp'
+      ? createElement(
+          Suspense,
+          {
+            fallback: createElement('div', {
+              'aria-hidden': 'true',
+              className: 'min-h-[96px] w-full rounded-sm border border-ink-soft/30 bg-paper',
+            }),
+          },
+          createElement(LazyJpMap, {
+            cities: info.cities,
+            labels,
+            ...(fit !== undefined ? { fit } : {}),
+            includeSrList: false,
+          }),
+        )
+      : createElement(GenericMap, {
+          cities: info.cities,
+          labels,
+          includeSrList: false,
         }),
-      },
-      createElement(MapComp, {
-        cities: info.cities,
-        labels,
-        includeSrList: false,
-      }),
-    ),
   );
 }

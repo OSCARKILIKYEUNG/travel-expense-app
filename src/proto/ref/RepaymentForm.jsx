@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import { formatAccountingAmount } from '../../utils/currency';
 import { buildSettlementRow } from './refRepayment';
-
-const hk = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 /**
  * Controlled repayment form for recording or editing a settlement repayment.
@@ -18,6 +17,7 @@ export default function RepaymentForm({
   oweAmount = 0,
   transfers = null,
   today = '',
+  hideTitle = false,
   onSave,
   onDelete,
   onCancel,
@@ -154,26 +154,35 @@ export default function RepaymentForm({
   };
 
   const fieldClass =
-    'h-11 min-h-11 w-full min-w-0 rounded-xl border border-line bg-white px-2.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal';
-  const labelClass = 'mb-1 block truncate whitespace-nowrap font-hand text-meta font-medium text-ink-muted';
+    'h-11 min-h-11 w-full min-w-0 rounded-sm border border-ink-soft/50 bg-paper px-2.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route';
+  const labelClass = 'mb-1 block truncate whitespace-nowrap font-hand text-meta font-bold text-ink-soft';
+  const showPreview = currency !== accCode && preview.hkdAmount > 0;
 
   return (
     <form
       data-testid="repayment-form"
       onSubmit={handleSubmit}
       noValidate
-      className="min-w-0 space-y-2.5 rounded-xl border border-line bg-cream p-3"
+      className="min-w-0 space-y-2.5 rounded-sm border border-ink-soft/45 bg-paper p-3"
     >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <h4 className="min-w-0 truncate font-hand text-sm font-bold text-ink">
-          {initial?.id ? t('notebook.settle.edit') : t('notebook.settle.recordRepayment')}
-        </h4>
-        {currency !== accCode && preview.hkdAmount > 0 && (
-          <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
-            ≈ {hk(preview.hkdAmount)}
-          </span>
-        )}
-      </div>
+      {(!hideTitle || showPreview) && (
+        <div
+          className={`flex min-w-0 items-center gap-2 ${
+            hideTitle ? 'justify-end' : 'justify-between'
+          }`}
+        >
+          {!hideTitle && (
+            <h4 className="min-w-0 truncate font-hand text-sm font-bold text-ink">
+              {initial?.id ? t('notebook.settle.edit') : t('notebook.settle.recordRepayment')}
+            </h4>
+          )}
+          {showPreview && (
+            <span className="shrink-0 whitespace-nowrap font-display text-meta font-bold tabular-nums text-route">
+              ≈ {formatAccountingAmount(preview.hkdAmount, accCode)}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* From / To selects */}
       <div className="grid min-w-0 grid-cols-2 gap-2">
@@ -247,7 +256,7 @@ export default function RepaymentForm({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
-            className={`${fieldClass} font-mono`}
+            className={`${fieldClass} font-display tabular-nums`}
           />
         </div>
 
@@ -285,7 +294,7 @@ export default function RepaymentForm({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={`${fieldClass} font-mono`}
+            className={`${fieldClass} font-display tabular-nums`}
           />
         </div>
 
@@ -311,9 +320,9 @@ export default function RepaymentForm({
         <p
           role="status"
           data-testid="repayment-overpay-warning"
-          className="min-w-0 break-words rounded-xl border border-mustard-ink/30 bg-mustard-soft px-3 py-2 text-meta font-semibold text-mustard-ink"
+          className="min-w-0 break-words rounded-sm border border-stamp/45 bg-paper-shade px-3 py-2 text-meta font-semibold text-stamp"
         >
-          {t('notebook.settle.overpayWarning', { amount: hk(effectiveOweAmount) })}
+          {t('notebook.settle.overpayWarning', { amount: formatAccountingAmount(effectiveOweAmount, accCode) })}
         </p>
       )}
 
@@ -324,7 +333,7 @@ export default function RepaymentForm({
             type="button"
             data-testid="repayment-delete"
             onClick={() => onDelete(initial)}
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-3.5 text-meta font-bold text-coral-ink transition-colors hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm border border-stamp bg-paper px-3.5 font-hand text-meta font-bold text-stamp transition-colors hover:bg-stamp hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp"
           >
             {t('notebook.settle.delete')}
           </button>
@@ -334,7 +343,7 @@ export default function RepaymentForm({
             type="button"
             data-testid="repayment-cancel"
             onClick={onCancel}
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-meta font-semibold text-ink-soft transition-colors hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.settle.cancel')}
           </button>
@@ -343,7 +352,7 @@ export default function RepaymentForm({
           type="submit"
           data-testid="repayment-save"
           disabled={!isValid}
-          className="inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-meta font-bold text-white shadow-sm transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+          className="jr-btn-navy inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center whitespace-nowrap rounded-sm px-4 font-hand text-meta font-bold text-paper transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50"
         >
           {t('notebook.settle.save')}
         </button>

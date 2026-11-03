@@ -48,7 +48,7 @@ function renderLedger(trip, initialFilters) {
 }
 
 function amountText() {
-  return screen.getByTestId('ledger-total-amount').textContent.replace(/\s/g, '');
+  return screen.getByTestId('ledger-total-amount').textContent;
 }
 
 describe('Ledger person chips', () => {
@@ -66,17 +66,17 @@ describe('Ledger person chips', () => {
     expect(allChip.getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByRole('button', { name: 'B (1)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'A (0)' })).toBeTruthy();
-    expect(amountText()).toBe('HK$450');
+    expect(amountText()).toBe('HKD $450');
 
     fireEvent.click(screen.getByRole('button', { name: 'B (1)' }));
     expect(screen.getByRole('button', { name: '全部 (3)' }).getAttribute('aria-pressed')).toBe('false');
-    expect(amountText()).toBe('HK$30');
+    expect(amountText()).toBe('HKD $30');
 
     fireEvent.click(screen.getByRole('button', { name: '全部 (3)' }));
     expect(screen.getByRole('button', { name: '全部 (5)' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'B (2)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'A (1)' })).toBeTruthy();
-    expect(amountText()).toBe('HK$750');
+    expect(amountText()).toBe('HKD $750');
   });
 
   it('shows a 共同 chip when people has no 共同 but a blank assignee still has a bucket', () => {
@@ -106,7 +106,7 @@ describe('Ledger person chips', () => {
     expect(screen.getByRole('button', { name: '全部 (3)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '共同 (3)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '1 (0)' })).toBeTruthy();
-    expect(amountText()).toBe('HK$900');
+    expect(amountText()).toBe('HKD $900');
   });
 
   it('shows a removable payer chip in zh-TW and en and clears payer on tap', async () => {
@@ -142,7 +142,7 @@ describe('Ledger person chips', () => {
     fireEvent.click(payerChip);
     expect(screen.queryByTestId('ledger-payer-chip')).toBeNull();
     expect(screen.getByRole('button', { name: '全部 (5)' }).getAttribute('aria-pressed')).toBe('true');
-    expect(amountText()).toBe('HK$750');
+    expect(amountText()).toBe('HKD $750');
     unmount();
 
     await i18n.changeLanguage('en');
@@ -569,9 +569,12 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     const dayViewEl = screen.getByTestId('day-view');
     expect(dayViewEl.textContent).toContain('← Calendar');
     expect(dayViewEl.textContent).toContain('Oct 20 Tue');
+    expect(dayViewEl.textContent).toContain('Day 3');
+    expect(dayViewEl.textContent).toContain('Oct 20');
     expect(dayViewEl.textContent).toContain('Itinerary 1');
     expect(dayViewEl.textContent).toContain('Day spending 2');
     expect(dayViewEl.textContent).toContain('Day total');
+    expect(dayViewEl.textContent).toContain('2 items');
     expect(dayViewEl.textContent).toContain('Scanned 1 · Manual 1');
     expect(dayViewEl.textContent).toContain('All (2)');
     expect(dayViewEl.textContent).toContain('Shared (1)');
@@ -699,6 +702,194 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(paneExp).toBeTruthy();
     expect(paneItin.parentElement.className).toContain('lg:grid-cols-2');
     uDay();
+  });
+
+  it('A6: LedgerTotalCard shows count beside total, remaining = budget - spent, no-budget omits budget block and ADMIT ONE, and zh Ledger has no TOTAL/Ledger/ADMIT', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const budgetTrip = {
+      name: '東京 · 大阪 秋日之旅',
+      startDate: '2026-10-18',
+      endDate: '2026-10-27',
+      settings: { people: ['共同', 'Oscar', '阿明'], budget: 15000 },
+      expenses: [
+        {
+          id: 'e1',
+          date: '2026-10-22',
+          store: '一蘭拉麵 澀谷店',
+          place: '澀谷',
+          category: '飲食',
+          assignedTo: 'Oscar',
+          payer: 'Oscar',
+          payment: 'cash',
+          scanned: true,
+          currency: 'JPY',
+          originalAmount: 103110,
+          hkdAmount: 5397,
+        },
+      ],
+    };
+
+    const { unmount: uBudget } = renderLedger(budgetTrip);
+    const ledgerEl = screen.getByTestId('ledger');
+    const totalCard = screen.getByTestId('ledger-total-card');
+    const totalAmount = screen.getByTestId('ledger-total-amount');
+    const totalSub = screen.getByTestId('ledger-total-sub');
+
+    expect(totalCard.textContent).toContain('旅費總計');
+    expect(totalAmount.textContent).toBe('HKD $5,397');
+    expect(totalCard.getAttribute('aria-label')).toContain('HKD $5,397');
+    // Count only beside total (no JPY summary line)
+    expect(totalSub.textContent).toBe('1 筆');
+    expect(totalSub.textContent).not.toContain('103,110');
+    expect(totalAmount.parentElement).toBe(totalSub.parentElement);
+
+    // Filtered state shows 篩選總計 + 已篩選 stamp
+    fireEvent.click(screen.getByRole('button', { name: 'Oscar (1)' }));
+    expect(totalCard.textContent).toContain('篩選總計');
+    expect(screen.getByTestId('ledger-total-stamp').textContent).toBe('已篩選');
+
+    // Repayment sheet shows title once (h2 only, h4 hidden inside RepaymentForm, preview kept)
+    fireEvent.click(screen.getByTestId('ledger-add-repayment'));
+    const repaySheet = screen.getByTestId('ledger-repayment-sheet');
+    expect(repaySheet.querySelectorAll('h2')).toHaveLength(1);
+    expect(repaySheet.querySelector('h4')).toBeNull();
+    fireEvent.change(screen.getByTestId('repayment-currency'), { target: { value: 'JPY' } });
+    fireEvent.change(screen.getByTestId('repayment-amount'), { target: { value: '1000' } });
+    expect(repaySheet.textContent).toContain('≈ HKD $');
+    fireEvent.click(screen.getByTestId('repayment-cancel'));
+    fireEvent.click(screen.getByRole('button', { name: '全部 (1)' }));
+
+    // Budget progress & remaining = budget - spent (15000 - 5397 = 9603)
+    const budgetBlock = screen.getByTestId('ledger-budget');
+    expect(budgetBlock.querySelector('svg line[stroke-dasharray="0 6"]')).toBeTruthy();
+    expect(screen.getByTestId('ledger-budget-pct').textContent).toBe('已用 36%');
+    expect(screen.getByTestId('ledger-budget-remaining').textContent).toBe('剩餘 HKD $9,603');
+    expect(totalCard.textContent).not.toContain('HK$5,397 / HK$15,000');
+
+    // No English words TOTAL / Ledger / ADMIT on zh Ledger page
+    expect(ledgerEl.textContent).not.toContain('TOTAL');
+    expect(ledgerEl.textContent).not.toContain('Ledger');
+    expect(ledgerEl.textContent).not.toContain('ADMIT');
+    uBudget();
+
+    // Over-budget case shows text-stamp and over amount
+    const overTrip = {
+      ...budgetTrip,
+      settings: { ...budgetTrip.settings, budget: 4000 },
+    };
+    const { unmount: uOver } = renderLedger(overTrip);
+    const overPct = screen.getByTestId('ledger-budget-pct');
+    expect(overPct.textContent).toBe('已用 135% · 超支 HKD $1,397');
+    expect(overPct.className).toContain('text-stamp');
+    expect(screen.getByTestId('ledger-budget-remaining').textContent).toBe('剩餘 HKD $0');
+    uOver();
+
+    // No-budget case shows no budget block and no ADMIT ONE
+    const noBudgetTrip = {
+      ...budgetTrip,
+      settings: { ...budgetTrip.settings, budget: null },
+    };
+    const { unmount: uNoBudget } = renderLedger(noBudgetTrip);
+    expect(screen.queryByTestId('ledger-budget')).toBeNull();
+    expect(screen.queryByTestId('ledger-budget-remaining')).toBeNull();
+    expect(screen.getByTestId('ledger-total-card').textContent).not.toContain('ADMIT ONE');
+    expect(screen.getByTestId('ledger').textContent).not.toContain('ADMIT');
+    uNoBudget();
+
+    // EN strings check
+    await i18n.changeLanguage('en');
+    const { unmount: uEn } = renderLedger(budgetTrip);
+    expect(screen.getByTestId('ledger-total-card').textContent).toContain('Total spent');
+    expect(screen.getByTestId('ledger-total-sub').textContent).toBe('1 items');
+    expect(screen.getByTestId('ledger-budget-pct').textContent).toBe('Used 36%');
+    expect(screen.getByTestId('ledger-budget-remaining').textContent).toBe('HKD $9,603 left');
+    fireEvent.click(screen.getByRole('button', { name: 'Oscar (1)' }));
+    expect(screen.getByTestId('ledger-total-card').textContent).toContain('Filtered total');
+    expect(screen.getByTestId('ledger-total-stamp').textContent).toBe('FILTERED');
+    uEn();
+    await i18n.changeLanguage('zh-TW');
+  });
+
+  it('A6 round 3: renders sticky rail before the expense list in DOM order with lg:col-start-1 on rail and lg:col-start-6 on list', () => {
+    const trip = {
+      name: '夾錢',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'A', 'B'], budget: 5000 },
+      expenses: expensesA,
+    };
+    const { unmount } = renderLedger(trip);
+    const ledgerEl = screen.getByTestId('ledger');
+    const rail = ledgerEl.querySelector('aside');
+    const firstGroup = screen.getByTestId('ledger-group-2026-10-03');
+    const listCol = firstGroup.parentElement;
+
+    expect(rail).toBeTruthy();
+    expect(listCol).toBeTruthy();
+    expect(rail.className).toContain('lg:col-span-5');
+    expect(rail.className).toContain('lg:col-start-1');
+    expect(rail.className).toContain('lg:row-start-1');
+    expect(rail.className).toContain('lg:sticky');
+    expect(rail.className).toContain('lg:top-20');
+    expect(listCol.className).toContain('lg:col-span-7');
+    expect(listCol.className).toContain('lg:col-start-6');
+    expect(listCol.className).toContain('lg:row-start-1');
+    expect(
+      Boolean(rail.compareDocumentPosition(listCol) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+    unmount();
+  });
+
+  it('A7d: ExpenseCard allows 2-line title below lg, keeps badge row flex-nowrap with shrink-0, and ChipRow scrolls horizontally on one line', () => {
+    const trip = {
+      name: '富士之旅',
+      startDate: '2026-10-20',
+      endDate: '2026-10-25',
+      settings: { people: ['共同', 'Oscar', '阿明', 'May', 'Ken'], budget: 5000 },
+      expenses: [
+        {
+          id: 'e-long',
+          date: '2026-10-22',
+          store: 'ほうとう不動 東恋路店',
+          place: '河口湖',
+          category: '飲食',
+          assignedTo: '共同',
+          payer: 'Oscar',
+          payment: 'cash',
+          scanned: true,
+          currency: 'JPY',
+          originalAmount: 4860,
+          hkdAmount: 256,
+        },
+      ],
+    };
+
+    const { unmount } = renderLedger(trip);
+    const card = screen.getByTestId('expense-e-long');
+    const titleH3 = card.querySelector('h3');
+    expect(titleH3).toBeTruthy();
+    expect(titleH3.textContent).toBe('ほうとう不動 東恋路店');
+    expect(titleH3.className).toContain('line-clamp-2');
+    expect(titleH3.className).toContain('break-words');
+    expect(titleH3.className.split(/\s+/)).not.toContain('whitespace-nowrap');
+
+    // Badge row is flex-nowrap overflow-hidden and each badge is shrink-0
+    const badgeRow = titleH3.previousElementSibling;
+    expect(badgeRow).toBeTruthy();
+    expect(badgeRow.className).toContain('flex-nowrap');
+    expect(badgeRow.className).toContain('overflow-hidden');
+    for (const badge of badgeRow.children) {
+      expect(badge.className).toContain('shrink-0');
+    }
+
+    // ChipRow is a single horizontal scroll row with shrink-0 chips
+    const chipRow = screen.getByRole('group', { name: '篩選人物' });
+    expect(chipRow.className).toContain('flex-nowrap');
+    expect(chipRow.className).toContain('overflow-x-auto');
+    for (const chip of chipRow.querySelectorAll('button')) {
+      expect(chip.className).toContain('shrink-0');
+    }
+    unmount();
   });
 });
 

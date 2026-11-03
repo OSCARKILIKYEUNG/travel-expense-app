@@ -107,7 +107,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     expect(screen.queryByTestId('settle-mark-repaid')).toBeNull();
 
     const toast = screen.getByTestId('toast');
-    expect(toast.textContent).toContain('已記錄 A 還 B HK$300');
+    expect(toast.textContent).toContain('已記錄 A 還 B HKD $300');
 
     // Undo restores the transfer row
     fireEvent.click(screen.getByTestId('toast-undo'));
@@ -142,7 +142,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     // Test overpay inline warning first
     fireEvent.change(amountInput, { target: { value: '450' } });
     const warning = within(sheet).getByTestId('repayment-overpay-warning');
-    expect(warning.textContent).toContain('超出尚欠 HK$300，方向將會反轉');
+    expect(warning.textContent).toContain('超出尚欠 HKD $300，方向將會反轉');
 
     // Change amount to half (150) and save
     fireEvent.change(amountInput, { target: { value: '150' } });
@@ -188,7 +188,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
         }),
       ),
     );
-    const totalWithout = screen.getByTestId('ledger-total-amount').textContent.replace(/\s/g, '');
+    const totalWithout = screen.getByTestId('ledger-total-amount').textContent;
     unmount();
 
     render(
@@ -203,9 +203,9 @@ describe('PR-repay-2: Settlement repayment UI', () => {
       ),
     );
 
-    const totalWith = screen.getByTestId('ledger-total-amount').textContent.replace(/\s/g, '');
+    const totalWith = screen.getByTestId('ledger-total-amount').textContent;
     expect(totalWith).toBe(totalWithout);
-    expect(totalWith).toBe('HK$600');
+    expect(totalWith).toBe('HKD $600');
 
     // Day group sum also remains HKD $600
     const dayGroup = screen.getByTestId('ledger-group-2026-10-21');
@@ -214,7 +214,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     const repayRow = screen.getByTestId('ledger-repayment-row');
     expect(repayRow.textContent).toContain('⇄');
     expect(repayRow.textContent).toContain('A 還 B');
-    expect(repayRow.textContent).toContain('HK$200');
+    expect(repayRow.textContent).toContain('HKD $200');
 
     // Tap row -> edit sheet -> delete -> undo restores with same id
     fireEvent.click(repayRow);
@@ -434,5 +434,82 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     expect(within(sheet).getByTestId('repayment-save').className).toContain('min-h-11');
     expect(within(sheet).getByTestId('repayment-save').className).toContain('min-w-11');
     expect(within(sheet).getByTestId('repayment-amount').className).toContain('min-h-11');
+  });
+
+  it('A7d: uses trip.accountingCurrency (e.g. TWD) in settlement toast, RepaymentForm preview/overpay warning, and Ledger repayment row', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const twdTrip = createTwoPersonTrip({
+      accountingCurrency: 'TWD',
+      tripCurrency: 'JPY',
+      settings: {
+        people: ['共同', 'A', 'B'],
+        rate: 0.2,
+        budget: 20000,
+      },
+      expenses: [
+        {
+          id: 'e-twd',
+          date: '2026-10-21',
+          store: '拉麵晚餐',
+          place: '新宿',
+          category: '飲食',
+          assignedTo: '共同',
+          payer: 'B',
+          payment: 'card',
+          currency: 'TWD',
+          originalAmount: 1000,
+          hkdAmount: 1000,
+          items: [],
+        },
+      ],
+      settlements: [
+        {
+          id: 'stl-twd-1',
+          tripId: 'trip-repay-test',
+          from: 'A',
+          to: 'B',
+          amount: 200,
+          currency: 'TWD',
+          hkdAmount: 200,
+          rate: 1,
+          date: '2026-10-21',
+          note: '部分還款',
+        },
+      ],
+    });
+
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(NotebookApp, {
+          trip: twdTrip,
+          today: '2026-10-22',
+          initialHash: '#ledger',
+        }),
+      ),
+    );
+
+    // 1. Ledger repayment row uses TWD $200
+    const repayRow = screen.getByTestId('ledger-repayment-row');
+    expect(repayRow.textContent).toContain('TWD $200');
+    expect(repayRow.textContent).not.toContain('HK$');
+
+    // 2. Open add repayment sheet -> test foreign currency preview (≈ TWD $...) and overpay warning (TWD $300)
+    fireEvent.click(screen.getByTestId('ledger-add-repayment'));
+    const sheet = screen.getByTestId('ledger-repayment-sheet');
+    fireEvent.change(within(sheet).getByTestId('repayment-from'), { target: { value: 'A' } });
+    fireEvent.change(within(sheet).getByTestId('repayment-to'), { target: { value: 'B' } });
+    fireEvent.change(within(sheet).getByTestId('repayment-currency'), { target: { value: 'JPY' } });
+    fireEvent.change(within(sheet).getByTestId('repayment-amount'), { target: { value: '2000' } });
+
+    expect(sheet.textContent).toContain('≈ TWD $400');
+    const warning = within(sheet).getByTestId('repayment-overpay-warning');
+    expect(warning.textContent).toContain('超出尚欠 TWD $300，方向將會反轉');
+
+    // 3. Save repayment -> toast uses TWD $400
+    fireEvent.click(within(sheet).getByTestId('repayment-save'));
+    const toast = screen.getByTestId('toast');
+    expect(toast.textContent).toContain('已記錄 A 還 B TWD $400');
   });
 });

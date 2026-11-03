@@ -99,6 +99,23 @@ export function formatCurrency(amount, options = {}) {
   return formatMoney(amount, { decimals, prefix });
 }
 
+/**
+ * Formats an accounting-currency amount rounded to the nearest integer with currency code,
+ * e.g. `formatAccountingAmount(1086, 'HKD')` -> `'HKD $1,086'`.
+ * Missing or blank `code` defaults to `'HKD'`.
+ * @param {number} n
+ * @param {string} [code='HKD']
+ */
+export function formatAccountingAmount(n, code = 'HKD') {
+  const cleanCode =
+    typeof code === 'string' && code.trim().length > 0
+      ? code.trim().toUpperCase()
+      : 'HKD';
+  const num = typeof n === 'number' ? n : Number(n);
+  const rounded = Number.isFinite(num) ? Math.round(num) : 0;
+  return formatMoney(rounded, { code: cleanCode });
+}
+
 export function getCurrencyLabel(code) {
   return CURRENCY_NAMES[code] || code;
 }

@@ -30,7 +30,18 @@ import {
 import { ledgerHash } from '../proto/ref/refCharts';
 import { applyDuplicateDecisions } from '../utils/duplicateDecisions';
 import { normalizeDate } from '../utils/duplicates';
-import { Icon, Toast, paperDots } from '../proto/ref/parts';
+import JournalPage from '../journal/JournalPage';
+import {
+  BookIcon,
+  CalendarIcon,
+  ChartIcon,
+  CompassIcon,
+  GearIcon,
+  TriangleDownIcon,
+} from '../journal/art/core';
+import { formatPageDateLine, pageDateIso, pageNumberForTab } from '../journal/pageMeta';
+import { formatAccountingAmount } from '../utils/currency';
+import { Toast } from '../proto/ref/parts';
 import Home from '../proto/ref/Home';
 import DayView from '../proto/ref/DayView';
 import Ledger from '../proto/ref/Ledger';
@@ -204,7 +215,7 @@ export default function NotebookApp({
   account,
   onSignOut,
 } = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isControlled = controlledTrip !== undefined;
   const effectiveSearch = propSearch !== undefined ? propSearch : currentWindowSearch();
   const today = useMemo(() => propToday || resolveToday(effectiveSearch), [propToday, effectiveSearch]);
@@ -375,7 +386,8 @@ export default function NotebookApp({
   }, []);
 
   const settlementActions = useMemo(() => {
-    const fmtAmount = (n) => `HK$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
+    const accountingCurrencyCode = trip?.accountingCurrency || 'HKD';
+    const fmtAmount = (n) => formatAccountingAmount(n, accountingCurrencyCode);
 
     const removeByIdSilent = (targetId) => {
       if (onRemoveSettlement) {
@@ -1282,11 +1294,27 @@ export default function NotebookApp({
   else if (route.screen === 'settings') tab = 'settings';
   else if (route.screen === 'add') tab = addOrigin.origin === 'ledger' ? 'ledger' : 'home';
 
+  const spread =
+    route.screen === 'home'
+      ? 'home'
+      : route.screen === 'ledger'
+        ? 'ledger'
+        : route.screen === 'charts' || route.screen === 'day'
+          ? 'half'
+          : null;
+  const pageNumber = pageNumberForTab(tab);
+  const dateLine = formatPageDateLine(
+    t,
+    pageDateIso({ screen: route.screen, day: route.day, today }),
+    trip,
+    i18n?.resolvedLanguage || i18n?.language || uiLanguage,
+  );
+
   const hashConflicts = scanner?.hashConflicts || [];
   const dialogExisting = Array.isArray(rawExpenses) ? rawExpenses : effectiveRawExpenses;
 
   return (
-    <div className="min-h-screen text-ink" style={paperDots}>
+    <div className="jr-desk min-h-screen text-ink">
       {scanner && (
         <input
           ref={scanner.fileInputRef}
@@ -1311,7 +1339,11 @@ export default function NotebookApp({
         onClose={() => finalizeDuplicateDialog({})}
       />
       <Header trip={trip} trips={trips} onSelectTrip={selectTrip} tab={tab} />
-      <main className="mx-auto max-w-5xl pb-24 lg:max-w-6xl lg:pb-10">{body}</main>
+      <main className="mx-auto max-w-5xl pb-24 lg:max-w-6xl lg:pb-10">
+        <JournalPage pageNumber={pageNumber} dateLine={dateLine} spread={spread}>
+          {body}
+        </JournalPage>
+      </main>
       <Toast
         toast={toast}
         aboveSaveBar={route.screen === 'add'}
@@ -1356,80 +1388,87 @@ function Header({ trip, trips, onSelectTrip, tab }) {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-cream-soft/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:flex-initial lg:justify-start lg:gap-3">
-          <button
-            type="button"
-            onClick={() => go('')}
-            className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
-              {Icon.pin('h-[18px] w-[18px]')}
+    <header className="jr-cover-band sticky top-0 z-30">
+      <span
+        aria-hidden="true"
+        className="jr-cover-stitch pointer-events-none select-none lg:hidden"
+      />
+      <div className="mx-auto flex min-h-14 max-w-6xl items-center justify-between gap-2 px-3 py-1.5 lg:min-h-16 lg:gap-4 lg:px-6 lg:py-2">
+        <button
+          type="button"
+          onClick={() => go('')}
+          className="relative flex min-h-11 min-w-0 shrink-0 items-center gap-2 rounded-control px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal lg:order-1 lg:gap-2.5 lg:px-2"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-kraft/85 bg-paper text-route lg:h-9 lg:w-9 lg:border-ink-soft/65 lg:bg-paper-shade">
+            <CompassIcon className="h-[18px] w-[18px] lg:h-5 lg:w-5" />
+          </span>
+          <span className="flex min-w-0 items-baseline gap-2 leading-tight">
+            <span className="whitespace-nowrap font-hand text-base font-bold tracking-wide text-paper lg:text-lg lg:text-ink">
+              {brand}
             </span>
-            <span className="min-w-0 leading-none">
-              {showBrandScript && (
-                <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
-                  {brandScript}
-                </span>
-              )}
-              <span className="block whitespace-nowrap font-hand text-base tracking-[-0.03em] text-ink">
-                {brand}
+            {showBrandScript && (
+              <span className="hidden whitespace-nowrap font-hand text-meta text-ink-muted lg:inline">
+                {brandScript}
               </span>
-            </span>
+            )}
+          </span>
+        </button>
+
+        <div className="relative min-w-0 shrink lg:order-3" ref={menuWrapRef}>
+          <button
+            ref={btnRef}
+            type="button"
+            data-testid="trip-switcher"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-sm border border-kraft/85 bg-paper px-2.5 py-1.5 text-sm font-bold text-ink shadow-sm transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal lg:border-ink-soft/55 lg:bg-paper-shade lg:px-3.5"
+          >
+            <span className="min-w-0 truncate font-hand">{trip.name}</span>
+            <TriangleDownIcon className="h-3.5 w-3.5 shrink-0 text-kraft-ink lg:text-ink-soft" />
           </button>
 
-          <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-line lg:block" />
-
-          <div className="relative min-w-0 shrink" ref={menuWrapRef}>
-            <button
-              ref={btnRef}
-              type="button"
-              data-testid="trip-switcher"
-              aria-haspopup="menu"
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-              className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          {open && (
+            <div
+              role="menu"
+              data-testid="trip-switcher-menu"
+              className="jr-paper absolute right-0 top-full z-40 mt-2 min-w-[230px] max-w-[calc(100vw-2rem)] rounded-sm border border-ink-soft/68 bg-paper pb-1.5 pt-2.5 text-ink shadow-xl"
             >
-              {Icon.globe('h-3.5 w-3.5 shrink-0')}
-              <span className="min-w-0 truncate font-hand">{trip.name}</span>
-              {Icon.chevDown('h-3.5 w-3.5 shrink-0')}
-            </button>
-
-            {open && (
-              <div
-                role="menu"
-                data-testid="trip-switcher-menu"
-                className="absolute right-0 top-full z-40 mt-2 min-w-[230px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-cream-soft py-1.5 text-ink shadow-xl lg:left-0 lg:right-auto"
-              >
-                {trips.map((tripOption) => {
-                  const isActive = String(tripOption.id) === String(trip.id);
-                  return (
-                    <button
-                      key={tripOption.id}
-                      type="button"
-                      role="menuitem"
-                      data-testid={`switch-trip-${tripOption.id}`}
-                      onClick={() => {
-                        setOpen(false);
-                        onSelectTrip(tripOption.id);
-                      }}
-                      className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
-                        isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
-                      }`}
-                    >
-                      <span className="min-w-0 truncate font-hand">{tripOption.name}</span>
-                      {isActive && (
-                        <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 font-hand text-meta font-bold text-teal-strong">
-                          {t('notebook.currentTrip')}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              <span
+                aria-hidden="true"
+                data-jr-decor="washi"
+                style={{ '--jr-tilt': '-2deg' }}
+                className="jr-washi pointer-events-none absolute -top-2 left-1/2 h-2.5 w-12 -translate-x-1/2 select-none"
+              />
+              {trips.map((tripOption) => {
+                const isActive = String(tripOption.id) === String(trip.id);
+                return (
+                  <button
+                    key={tripOption.id}
+                    type="button"
+                    role="menuitem"
+                    data-testid={`switch-trip-${tripOption.id}`}
+                    onClick={() => {
+                      setOpen(false);
+                      onSelectTrip(tripOption.id);
+                    }}
+                    className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-3.5 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
+                      isActive
+                        ? 'bg-route-soft font-semibold text-route'
+                        : 'text-ink hover:bg-paper-shade/85'
+                    }`}
+                  >
+                    <span className="min-w-0 truncate font-hand">{tripOption.name}</span>
+                    {isActive && (
+                      <span className="ml-2 shrink-0 rounded-sm border border-route/35 bg-paper px-2 py-0.5 font-hand text-meta font-bold text-route">
+                        {t('notebook.currentTrip')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <DesktopNav tab={tab} />
@@ -1439,10 +1478,10 @@ function Header({ trip, trips, onSelectTrip, tab }) {
 }
 
 const NAV = [
-  ['home', 'notebook.nav.home', '', Icon.home],
-  ['ledger', 'notebook.nav.ledger', 'ledger', Icon.book],
-  ['charts', 'notebook.nav.charts', 'charts', Icon.chart],
-  ['settings', 'notebook.nav.settings', 'settings', Icon.gear],
+  ['home', 'notebook.nav.home', '', CalendarIcon],
+  ['ledger', 'notebook.nav.ledger', 'ledger', BookIcon],
+  ['charts', 'notebook.nav.charts', 'charts', ChartIcon],
+  ['settings', 'notebook.nav.settings', 'settings', GearIcon],
 ];
 
 function DesktopNav({ tab }) {
@@ -1451,9 +1490,9 @@ function DesktopNav({ tab }) {
     <nav
       data-testid="desktop-nav"
       aria-label={t('notebook.navAria')}
-      className="hidden lg:flex lg:items-center lg:gap-1.5"
+      className="hidden lg:order-2 lg:flex lg:items-center lg:gap-2"
     >
-      {NAV.map(([id, labelKey, hash, icon]) => {
+      {NAV.map(([id, labelKey, hash, NavIcon]) => {
         const active = tab === id;
         return (
           <button
@@ -1462,14 +1501,26 @@ function DesktopNav({ tab }) {
             data-testid={`desktop-nav-${id}`}
             aria-current={active ? 'page' : undefined}
             onClick={() => go(hash)}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+            className={`jr-desktop-tab relative inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap border px-3.5 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
               active
-                ? 'border-teal/45 bg-teal-soft font-bold text-teal-strong shadow-sm'
-                : 'border-transparent text-ink-soft hover:bg-beige/60 hover:text-ink'
+                ? 'jr-desktop-tab-active border-ink-soft/65 bg-paper font-bold text-route'
+                : 'border-transparent font-semibold text-ink-soft hover:bg-paper-shade/85 hover:text-ink'
             }`}
           >
-            {icon('h-[18px] w-[18px] shrink-0')}
+            <NavIcon className="h-[18px] w-[18px] shrink-0" />
             <span className="font-hand">{t(labelKey)}</span>
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
+                active ? 'bg-route' : 'bg-transparent'
+              }`}
+            />
+            {active && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-route"
+              />
+            )}
           </button>
         );
       })}
@@ -1483,10 +1534,10 @@ function BottomNav({ tab }) {
     <nav
       data-testid="nav"
       aria-label={t('notebook.navAria')}
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="jr-bottom-nav fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-4">
-        {NAV.map(([id, labelKey, hash, icon]) => {
+      <div className="mx-auto grid max-w-lg grid-cols-4 gap-1.5">
+        {NAV.map(([id, labelKey, hash, NavIcon]) => {
           const active = tab === id;
           return (
             <button
@@ -1495,12 +1546,22 @@ function BottomNav({ tab }) {
               data-testid={`nav-${id}`}
               aria-current={active ? 'page' : undefined}
               onClick={() => go(hash)}
-              className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
-                active ? 'text-teal-strong' : 'text-ink-muted hover:text-ink'
+              className={`jr-index-tab flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
+                active
+                  ? 'jr-index-tab-active font-bold text-route'
+                  : 'font-medium text-ink-soft hover:bg-paper hover:text-ink'
               }`}
             >
-              {icon('h-[22px] w-[22px]')}
-              <span className="whitespace-nowrap font-hand text-sm font-medium">{t(labelKey)}</span>
+              <NavIcon className="h-5 w-5 shrink-0" />
+              <span className="whitespace-nowrap font-hand text-sm leading-none">
+                {t(labelKey)}
+              </span>
+              <span
+                aria-hidden="true"
+                className={`mt-0.5 h-0.5 rounded-full transition-all ${
+                  active ? 'w-4 bg-route' : 'w-2 bg-transparent'
+                }`}
+              />
             </button>
           );
         })}

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { getExchangeRate, toHome, resolveReceiptCurrency, formatNumber, formatMoney, formatCurrency } from './currency';
+import {
+  getExchangeRate,
+  toHome,
+  resolveReceiptCurrency,
+  formatNumber,
+  formatMoney,
+  formatCurrency,
+  formatAccountingAmount,
+} from './currency';
 
 describe('currency', () => {
   const rates = { JPY: 20, USD: 0.13, HKD: 1 };
@@ -69,5 +77,29 @@ describe('formatMoney auto decimals and sign (interrogate A2)', () => {
     const { formatMoney } = await import('./currency.js');
     expect(formatMoney(-0.2, { code: 'HKD' })).toBe('HKD $0');
     expect(formatMoney(-1234.4, { code: 'HKD' })).toBe('-HKD $1,234');
+  });
+});
+
+describe('formatAccountingAmount (A7d)', () => {
+  it('formats HKD and JPY codes with "$"', () => {
+    expect(formatAccountingAmount(1086, 'HKD')).toBe('HKD $1,086');
+    expect(formatAccountingAmount(20660, 'JPY')).toBe('JPY $20,660');
+    expect(formatAccountingAmount(500, 'twd')).toBe('TWD $500');
+  });
+
+  it('defaults missing or blank code to HKD', () => {
+    expect(formatAccountingAmount(1086)).toBe('HKD $1,086');
+    expect(formatAccountingAmount(1086, '')).toBe('HKD $1,086');
+    expect(formatAccountingAmount(1086, '   ')).toBe('HKD $1,086');
+    expect(formatAccountingAmount(1086, null)).toBe('HKD $1,086');
+    expect(formatAccountingAmount(1086, undefined)).toBe('HKD $1,086');
+  });
+
+  it('rounds fractional values and handles negative amounts cleanly', () => {
+    expect(formatAccountingAmount(1085.6, 'HKD')).toBe('HKD $1,086');
+    expect(formatAccountingAmount(1085.4, 'HKD')).toBe('HKD $1,085');
+    expect(formatAccountingAmount(-1234, 'HKD')).toBe('-HKD $1,234');
+    expect(formatAccountingAmount(-1234.6, 'JPY')).toBe('-JPY $1,235');
+    expect(formatAccountingAmount(-0.2, 'HKD')).toBe('HKD $0');
   });
 });

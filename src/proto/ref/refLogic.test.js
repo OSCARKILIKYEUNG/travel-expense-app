@@ -7,6 +7,7 @@ import {
   dayStrip,
   filterExpenses,
   fmtHKD,
+  fmtHKDShort,
   groupLedger,
   parseRoute,
   personCounts,
@@ -67,6 +68,7 @@ describe('display', () => {
     expect(dayStrip({ n: 5, title: '富士山一日遊', hkd: 1086 })).toBe('Day 5・富士山一日遊・HKD $1,086');
     expect(shortenTitle('河口湖與富士五湖環湖巴士一日遊', 8)).toBe('河口湖與富士五…');
     expect(fmtHKD(11222)).toBe('HKD $11,222');
+    expect(fmtHKDShort(1086)).toBe('$1,086');
   });
   it('splits the day total into scanned and manual', () => {
     expect(dayStats(trip.expenses, '2026-10-22')).toEqual({ count: 3, total: 1086, scanned: 2, manual: 1 });

@@ -37,8 +37,13 @@ const DEFAULT_JP_CITIES = [
   JAPAN_CITIES[4], // Osaka
 ].filter(Boolean);
 
-function resolveJpStops(cities, labels) {
-  const rawList = Array.isArray(cities) && cities.length > 0 ? cities : DEFAULT_JP_CITIES;
+function resolveJpStops(cities, labels, useDefaultWhenEmpty = true) {
+  const hasExplicitArray = Array.isArray(cities);
+  const rawList = hasExplicitArray
+    ? cities.length > 0 || !useDefaultWhenEmpty
+      ? cities
+      : DEFAULT_JP_CITIES
+    : DEFAULT_JP_CITIES;
   return rawList.map((item, idx) => {
     const customLabel = Array.isArray(labels) && labels[idx] ? String(labels[idx]) : null;
     if (typeof item === 'string') {
@@ -83,7 +88,7 @@ function resolveJpStops(cities, labels) {
           item.name ||
           item.nameZh ||
           item.nameEn ||
-          `Stop ${idx + 1}`,
+          '',
       };
     }
     const fallback = DEFAULT_JP_CITIES[idx % DEFAULT_JP_CITIES.length];
@@ -259,17 +264,287 @@ Object.defineProperties(vignettes, {
   'small-train': { value: SmallTrainVignette, enumerable: false },
 });
 
+const TARGET_STOPS_ASPECT = 2.2;
+const MIN_STOPS_VIEWBOX_W = Math.round(JAPAN_MAP_VIEWBOX.width * 0.31 * 10) / 10;
+
+function estimateTextUnits(text) {
+  const chars = Array.from(String(text || '').trim());
+  let units = 0;
+  for (const ch of chars) {
+    units += ch.charCodeAt(0) > 0x2e7f ? 1.0 : 0.58;
+  }
+  return Math.max(1.6, units);
+}
+
+function placeStopTags(stops, vh) {
+  // 1 CSS px at 375px viewport (where .jr-home-map svg max-height is 92px)
+  const u = vh / 92;
+  const dotRadius = Math.round(3.1 * u * 100) / 100;
+  const haloRadius = Math.round(5.4 * u * 100) / 100;
+  const routeStrokeWidth = Math.round(2.1 * u * 100) / 100;
+  const routeDashGap = Math.round(5.2 * u * 100) / 100;
+  const fontSize = Math.round(12.6 * u * 100) / 100;
+  const tagH = Math.round(1.52 * fontSize * 100) / 100;
+  const tagRx = Math.round(0.22 * fontSize * 100) / 100;
+  const gap = Math.round(1.8 * u * 100) / 100;
+
+  const rankedIndices = stops
+    .map((s, idx) => ({ idx, x: s.x, y: s.y }))
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+  const rankByIdx = new Map();
+  rankedIndices.forEach((item, rank) => {
+    rankByIdx.set(item.idx, rank);
+  });
+
+  const tags = stops.map((stop, idx) => {
+    const label = String(stop.label || '').trim();
+    const textUnits = estimateTextUnits(label);
+    const tagW = Math.round((textUnits + 0.85) * fontSize * 100) / 100;
+    const rank = rankByIdx.get(idx) ?? idx;
+    const lastRank = stops.length - 1;
+
+    let cx = stop.x;
+    let cy = stop.y;
+
+    if (rank === 0) {
+      const nextIdx = rankedIndices[1]?.idx;
+      const nextStop = nextIdx != null ? stops[nextIdx] : null;
+      const placeBelow = !nextStop || stop.y >= nextStop.y;
+      cx = stop.x - tagW * 0.2;
+      cy = placeBelow
+        ? stop.y + dotRadius + gap + tagH / 2
+        : stop.y - dotRadius - gap - tagH / 2;
+    } else if (rank === lastRank) {
+      cx = stop.x + dotRadius + gap + tagW / 2;
+      cy = stop.y + tagH * 0.08;
+    } else {
+      const placeAbove = rank % 2 === 1;
+      cx = stop.x - tagW * 0.08;
+      cy = placeAbove
+        ? stop.y - dotRadius - gap - tagH / 2
+        : stop.y + dotRadius + gap + tagH / 2;
+    }
+
+    return {
+      id: stop.id,
+      rank,
+      stopX: stop.x,
+      stopY: stop.y,
+      label,
+      cx,
+      cy,
+      tagW,
+      tagH,
+      tagRx,
+      fontSize,
+    };
+  });
+
+  // Nudge label offsets when stops are close so tags never overlap each other or stop dots
+  const minGapX = 1.2 * u;
+  const minGapY = 1.0 * u;
+  const dotClearR = dotRadius + 0.6 * u;
+  const orderedTags = [...tags].sort((a, b) => a.rank - b.rank);
+
+  for (let pass = 0; pass < 8; pass += 1) {
+    let moved = false;
+
+    for (const t of orderedTags) {
+      if (!t.label) continue;
+      for (const s of stops) {
+        const dx = Math.abs(t.cx - s.x);
+        const dy = Math.abs(t.cy - s.y);
+        const limX = t.tagW / 2 + dotClearR;
+        const limY = t.tagH / 2 + dotClearR;
+        if (dx < limX && dy < limY) {
+          const pushY = limY - dy + 0.4 * u;
+          t.cy += t.cy <= s.y ? -pushY : pushY;
+          moved = true;
+        }
+      }
+    }
+
+    for (let i = 0; i < orderedTags.length; i += 1) {
+      const a = orderedTags[i];
+      if (!a.label) continue;
+      for (let j = i + 1; j < orderedTags.length; j += 1) {
+        const b = orderedTags[j];
+        if (!b.label) continue;
+        const overlapX = a.tagW / 2 + b.tagW / 2 + minGapX - Math.abs(a.cx - b.cx);
+        const overlapY = a.tagH / 2 + b.tagH / 2 + minGapY - Math.abs(a.cy - b.cy);
+        if (overlapX > 0 && overlapY > 0) {
+          if (overlapY <= overlapX) {
+            const shift = overlapY / 2 + 0.2 * u;
+            if (a.cy < b.cy || (a.cy === b.cy && a.stopY <= b.stopY)) {
+              a.cy -= shift;
+              b.cy += shift;
+            } else {
+              a.cy += shift;
+              b.cy -= shift;
+            }
+          } else {
+            const shift = overlapX / 2 + 0.2 * u;
+            if (a.cx <= b.cx) {
+              a.cx -= shift;
+              b.cx += shift;
+            } else {
+              a.cx += shift;
+              b.cx -= shift;
+            }
+          }
+          moved = true;
+        }
+      }
+    }
+
+    if (!moved) break;
+  }
+
+  return {
+    u,
+    dotRadius,
+    haloRadius,
+    routeStrokeWidth,
+    routeDashGap,
+    fontSize,
+    tags: tags.map((t) => {
+      const rectX = Math.round((t.cx - t.tagW / 2) * 100) / 100;
+      const rectY = Math.round((t.cy - t.tagH / 2) * 100) / 100;
+      const textX = Math.round(t.cx * 100) / 100;
+      const textY = Math.round((t.cy + t.fontSize * 0.34) * 100) / 100;
+      return {
+        id: t.id,
+        label: t.label,
+        rectX,
+        rectY,
+        tagW: t.tagW,
+        tagH: t.tagH,
+        tagRx: t.tagRx,
+        textX,
+        textY,
+        fontSize: t.fontSize,
+      };
+    }),
+  };
+}
+
+function computeStopsFitLayout(stops) {
+  const xs = stops.map((s) => s.x);
+  const ys = stops.map((s) => s.y);
+  const minStopX = Math.min(...xs);
+  const maxStopX = Math.max(...xs);
+  const minStopY = Math.min(...ys);
+  const maxStopY = Math.max(...ys);
+
+  const centroidX = xs.reduce((sum, x) => sum + x, 0) / stops.length;
+  const centroidY = ys.reduce((sum, y) => sum + y, 0) / stops.length;
+
+  const spanX = maxStopX - minStopX;
+  const spanY = maxStopY - minStopY;
+
+  let vw = Math.min(
+    JAPAN_MAP_VIEWBOX.width * 0.85,
+    Math.max(
+      MIN_STOPS_VIEWBOX_W,
+      spanX * 1.65 + 12,
+      (spanY * 1.8 + 8) * TARGET_STOPS_ASPECT,
+    ),
+  );
+  let vh = vw / TARGET_STOPS_ASPECT;
+
+  let placed = placeStopTags(stops, vh);
+
+  const computeBounds = (p) => {
+    let boxMinX = minStopX - p.haloRadius;
+    let boxMaxX = maxStopX + p.haloRadius;
+    let boxMinY = minStopY - p.haloRadius;
+    let boxMaxY = maxStopY + p.haloRadius;
+
+    for (const t of p.tags) {
+      if (!t.label) continue;
+      boxMinX = Math.min(boxMinX, t.rectX);
+      boxMaxX = Math.max(boxMaxX, t.rectX + t.tagW);
+      boxMinY = Math.min(boxMinY, t.rectY);
+      boxMaxY = Math.max(boxMaxY, t.rectY + t.tagH);
+    }
+
+    const marginX = 3.2 * p.u;
+    const marginY = 2.6 * p.u;
+    return {
+      minX: boxMinX - marginX,
+      maxX: boxMaxX + marginX,
+      minY: boxMinY - marginY,
+      maxY: boxMaxY + marginY,
+      neededW: boxMaxX - boxMinX + marginX * 2,
+      neededH: boxMaxY - boxMinY + marginY * 2,
+    };
+  };
+
+  let bounds = computeBounds(placed);
+  if (bounds.neededW > vw || bounds.neededH * TARGET_STOPS_ASPECT > vw) {
+    vw = Math.min(
+      JAPAN_MAP_VIEWBOX.width - 4,
+      Math.max(vw, bounds.neededW, bounds.neededH * TARGET_STOPS_ASPECT),
+    );
+    vh = vw / TARGET_STOPS_ASPECT;
+    if (vh > JAPAN_MAP_VIEWBOX.height - 4) {
+      vh = JAPAN_MAP_VIEWBOX.height - 4;
+      vw = Math.min(JAPAN_MAP_VIEWBOX.width - 4, vh * TARGET_STOPS_ASPECT);
+    }
+    placed = placeStopTags(stops, vh);
+    bounds = computeBounds(placed);
+  }
+
+  let vx = centroidX - vw / 2;
+  let vy = centroidY - vh / 2;
+
+  if (vx > bounds.minX) vx = bounds.minX;
+  if (vx + vw < bounds.maxX) vx = bounds.maxX - vw;
+  if (vy > bounds.minY) vy = bounds.minY;
+  if (vy + vh < bounds.maxY) vy = bounds.maxY - vh;
+
+  vx = Math.max(0, Math.min(JAPAN_MAP_VIEWBOX.width - vw, vx));
+  vy = Math.max(0, Math.min(JAPAN_MAP_VIEWBOX.height - vh, vy));
+
+  vx = Math.round(vx * 10) / 10;
+  vy = Math.round(vy * 10) / 10;
+  vw = Math.round(vw * 10) / 10;
+  vh = Math.round(vh * 10) / 10;
+
+  const minFontSize = Math.round((vh / 92) * 12.4 * 100) / 100;
+  const finalFontSize = Math.max(placed.fontSize, minFontSize);
+
+  return {
+    vx,
+    vy,
+    vw,
+    vh,
+    viewBox: `${vx} ${vy} ${vw} ${vh}`,
+    pitch: Math.max(1.1, Math.round(3.8 * (vh / 92) * 10) / 10),
+    dotRadius: placed.dotRadius,
+    haloRadius: placed.haloRadius,
+    routeStrokeWidth: placed.routeStrokeWidth,
+    routeDashArray: `0 ${placed.routeDashGap}`,
+    tags: placed.tags.map((t) => ({ ...t, fontSize: finalFontSize })),
+  };
+}
+
 /**
  * Hand-drawn Japan coastline + ruled-hatch sea + dotted route map.
  */
 export function JapanMap({
-  cities = [],
+  cities,
   labels,
+  fit = 'full',
   includeSrList = true,
   className = '',
 }) {
-  const stops = resolveJpStops(cities, labels);
-  const viewBox = `0 0 ${JAPAN_MAP_VIEWBOX.width} ${JAPAN_MAP_VIEWBOX.height}`;
+  const stops = resolveJpStops(cities, labels, fit !== 'stops');
+  const isStopsFit = fit === 'stops' && stops.length >= 2;
+  const stopsLayout = isStopsFit ? computeStopsFitLayout(stops) : null;
+  const viewBox = stopsLayout
+    ? stopsLayout.viewBox
+    : `0 0 ${JAPAN_MAP_VIEWBOX.width} ${JAPAN_MAP_VIEWBOX.height}`;
   const showLabels = labels !== false;
   const groupedLabel = stops
     .slice(0, 3)
@@ -289,7 +564,11 @@ export function JapanMap({
           ))}
         </ul>
       ) : null}
-      <HatchSea viewBox={viewBox} className="block h-auto w-full">
+      <HatchSea
+        viewBox={viewBox}
+        pitch={stopsLayout ? stopsLayout.pitch : 4}
+        className="block h-auto w-full"
+      >
         {/* Soft coastal water-lining halo */}
         {Object.entries(ISLAND_PATHS).map(([island, d]) => (
           <path
@@ -299,6 +578,7 @@ export function JapanMap({
             stroke="rgb(var(--c-route-soft))"
             strokeWidth="2.4"
             strokeLinejoin="round"
+            vectorEffect={isStopsFit ? 'non-scaling-stroke' : undefined}
           />
         ))}
         {/* Hand-drawn island coastlines projected from JAPAN_ISLAND_LON_LAT */}
@@ -314,26 +594,60 @@ export function JapanMap({
             strokeWidth="1.15"
             strokeLinecap="round"
             strokeLinejoin="round"
+            vectorEffect={isStopsFit ? 'non-scaling-stroke' : undefined}
           />
         ))}
         {/* Dotted route line + solid city dots */}
         <RouteLine
           points={stops}
           viewBox={viewBox}
-          dotRadius={2.2}
+          dotRadius={stopsLayout ? stopsLayout.dotRadius : 2.2}
+          haloRadius={stopsLayout ? stopsLayout.haloRadius : undefined}
+          strokeWidth={stopsLayout ? stopsLayout.routeStrokeWidth : 2}
+          dashArray={stopsLayout ? stopsLayout.routeDashArray : '0 6'}
+          asGroup
           className="h-full w-full"
         >
-          {showLabels && groupedLabel ? (
-            <text
-              x="144"
-              y="98"
-              textAnchor="end"
-              fontSize="12"
-              className="fill-current font-hand font-bold text-route"
-            >
-              {groupedLabel}
-            </text>
-          ) : null}
+          {showLabels
+            ? stopsLayout
+              ? stopsLayout.tags.map((tag, idx) =>
+                  tag.label ? (
+                    <g key={`tag-${tag.id}-${idx}`} data-map-stop-tag={tag.id}>
+                      <rect
+                        x={tag.rectX}
+                        y={tag.rectY}
+                        width={tag.tagW}
+                        height={tag.tagH}
+                        rx={tag.tagRx}
+                        fill="rgb(var(--c-paper))"
+                        stroke="rgb(var(--c-ink))"
+                        strokeWidth="1"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      <text
+                        x={tag.textX}
+                        y={tag.textY}
+                        textAnchor="middle"
+                        fontSize={tag.fontSize}
+                        className="fill-current font-hand font-bold text-ink"
+                      >
+                        {tag.label}
+                      </text>
+                    </g>
+                  ) : null,
+                )
+              : groupedLabel ? (
+                  <text
+                    x="144"
+                    y="98"
+                    textAnchor="end"
+                    fontSize="12"
+                    className="fill-current font-hand font-bold text-route"
+                  >
+                    {groupedLabel}
+                  </text>
+                ) : null
+            : null}
         </RouteLine>
       </HatchSea>
     </div>

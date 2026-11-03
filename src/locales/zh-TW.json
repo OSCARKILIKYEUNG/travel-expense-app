@@ -454,7 +454,7 @@
   },
   "notebook": {
     "brand": "旅遊手帳",
-    "brandScript": "Travel notebook",
+    "brandScript": "手繪旅費日誌",
     "currentTrip": "當前",
     "navAria": "主要導覽",
     "nav": {
@@ -463,18 +463,54 @@
       "charts": "圖表",
       "settings": "設定"
     },
+    "page": {
+      "footer": "手繪旅帳 · 第 {{n}} 頁",
+      "dateLine": "{{date}} {{weekday}} · 第{{day}}天",
+      "dateLineNoDay": "{{date}} {{weekday}}",
+      "weekdays": {
+        "sun": "星期日",
+        "mon": "星期一",
+        "tue": "星期二",
+        "wed": "星期三",
+        "thu": "星期四",
+        "fri": "星期五",
+        "sat": "星期六"
+      }
+    },
     "home": {
       "counterBefore": "倒數 {{n}} 日",
       "counterDuring": "第 {{n}} 日／共 {{total}} 日",
       "counterAfter": "旅程完成，共 {{total}} 日",
       "stampBefore": "出發前",
       "stampAfter": "已完成",
+      "expenseLabel": "旅費",
+      "dateRangeLine": "{{startMonth}}月{{startDay}}日 – {{endMonth}}月{{endDay}}日 · {{total}}天",
+      "companionsLine": "旅伴 {{names}}",
+      "budgetPill": "預算 {{budget}} · 已用 {{pct}}%",
+      "budgetUsedPct": "已用 {{pct}}%",
+      "budgetRemaining": "剩餘 {{amount}}",
+      "budgetOverBy": "超支 {{amount}}",
+      "costDetail": "明細",
+      "costDetailForeign": "原幣",
       "recordsCount": "{{count}} 筆",
       "todaySpend": "今日 {{amount}}",
       "jpyOriginalTotal": "JPY 原幣合計",
       "todayJournal": "今日手札",
+      "todayRowTitle": "第 {{n}} 日 · {{title}}",
+      "todayRowDayOnly": "第 {{n}} 日",
       "scanReceipt": "掃描收據",
       "addEntry": "記一筆",
+      "itineraryLabel": "行程",
+      "tripRangeSubtitle": "{{startMonth}}月{{startDay}}日 – {{endMonth}}月{{endDay}}日 旅程期間",
+      "todayTodosLabel": "今日待辦",
+      "todayTodosSubtitle": "第{{n}}天 · {{title}}",
+      "todayTodosSubtitleDayOnly": "第{{n}}天",
+      "todayTodosLogged": "已記帳 · {{amount}}",
+      "nextDaysLabel": "接下來三日行程",
+      "nextDaysRange": "{{startMonth}}月{{startDay}}日 – {{endMonth}}月{{endDay}}日",
+      "nextDaysColHeader": "{{day}}日（{{weekday}}）",
+      "nextDaysSubtitle": "行程預覽",
+      "bonVoyage": "一路順風",
       "prevMonthAria": "上個月",
       "nextMonthAria": "下個月",
       "monthTitle": "{{year}}年{{month}}月",
@@ -646,7 +682,7 @@
     },
     "ledger": {
       "title": "帳本",
-      "titleScript": "Ledger",
+      "titleScript": "",
       "payerChip": "付款人：{{name}} ✕",
       "clearPayerAria": "清除付款人篩選",
       "payerLabel": "付款人",
@@ -669,14 +705,15 @@
       "payCard": "卡",
       "dateLabel": "日期",
       "done": "完成",
-      "totalHeader": "TOTAL · 總支出",
-      "totalHeaderFiltered": "已篩選 · 總支出",
+      "totalHeader": "旅費總計",
+      "totalHeaderFiltered": "篩選總計",
       "filteredStamp": "已篩選",
       "totalCount": "{{count}} 筆",
       "totalCardAria": "帳本總額 {{amount}}，{{count}} 筆",
       "totalCardFilteredAria": "已篩選總額 {{amount}}，{{count}} 筆",
       "budgetUsed": "已用 {{pct}}%",
       "budgetOver": "已用 {{pct}}% · 超支 {{over}}",
+      "budgetRemaining": "剩餘 {{amount}}",
       "filteredBudgetAria": "已篩選佔預算 {{pct}}%",
       "defaultTripName": "旅遊手札"
     },
@@ -735,6 +772,8 @@
     },
     "day": {
       "backToCalendar": "← 月曆",
+      "dayBadge": "第{{n}}天",
+      "stampDate": "{{month}}月{{day}}日",
       "outsideTrip": "旅程外",
       "prevDayAria": "前一日",
       "nextDayAria": "後一日",
@@ -767,6 +806,7 @@
       "addStopBtn": "＋加入",
       "timeFormatError": "請輸入 HH:MM 時間",
       "dayTotal": "當日合計",
+      "countBeside": "{{count}} 筆",
       "scannedManualSummary": "掃描 {{scanned}} · 手動 {{manual}}",
       "addDayExpenseAria": "新增這日的消費",
       "filterLabel": "篩選:",
@@ -808,11 +848,11 @@
       "destinationSummaryAria": "目的地：{{localName}}（{{cities}}）",
       "countries": {
         "JP": {
-          "name": "JAPAN",
+          "name": "日本",
           "subtitle": "日本"
         },
         "generic": {
-          "name": "TRAVEL JOURNAL",
+          "name": "旅途手札",
           "subtitle": "旅途手札"
         }
       },

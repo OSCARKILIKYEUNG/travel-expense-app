@@ -131,12 +131,13 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
     expect(html).toContain('data-testid="ledger"');
     expect(html).toContain('data-testid="ledger-total-card"');
     expect(html).toContain('data-variant="a"');
+    expect(html).toContain('HKD $5,397');
     expect(html).toContain('data-testid="ledger-undated-hint"');
     expect(html).toContain('data-testid="ledger-group-undated"');
     expect(html).toContain('松本清 澀谷店');
     expect(html).toContain('燒肉 敘敘苑');
 
-    // Absent seed keeps default mockRefTrip behavior (17 expenses, HK$11,222)
+    // Absent seed keeps default mockRefTrip behavior (17 expenses, HKD $11,222)
     const defaultHtml = renderToStaticMarkup(
       createElement(NotebookApp, {
         today: '2026-10-22',
@@ -144,8 +145,9 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
         initialHash: '#ledger',
       }),
     );
-    expect(defaultHtml).toContain('11,222');
-    expect(defaultHtml).toContain('213,352');
+    expect(defaultHtml).toContain('HKD $11,222');
+    expect(defaultHtml).toContain('17 筆');
+    expect(defaultHtml).not.toContain('213,352');
   });
 });
 

@@ -208,6 +208,42 @@ describe('journal art kit (A3)', () => {
     expect(mapHtml).toContain('<li>釜山</li>');
     expect(mapHtml).toContain('<li>濟州</li>');
 
+    // 0 real stops: decorative route dots + dotted line only, no text labels, no "Stop " placeholders
+    const emptyMapHtml = renderToStaticMarkup(
+      createElement(GenericPack.Map, {
+        cities: [],
+      }),
+    );
+    expect(emptyMapHtml).toContain('data-testid="destination-map-generic"');
+    expect(emptyMapHtml).not.toContain('jr-coastline');
+    expect(emptyMapHtml).toContain('jr-route-path');
+    expect(emptyMapHtml).toContain('data-route-dot="0"');
+    expect(emptyMapHtml).toContain('data-route-dot="1"');
+    expect(emptyMapHtml).toContain('data-route-dot="2"');
+    expect(emptyMapHtml).not.toContain('<text');
+    expect(emptyMapHtml).not.toContain('Stop ');
+
+    const emptyTripMapHtml = renderToStaticMarkup(
+      createElement(DestinationMap, {
+        trip: { name: '首爾自由行', countryCode: 'KR', tripCurrency: 'KRW', days: {}, expenses: [] },
+      }),
+    );
+    expect(emptyTripMapHtml).toContain('data-testid="destination-map-generic"');
+    expect(emptyTripMapHtml).not.toContain('Stop ');
+    expect(emptyTripMapHtml).not.toContain('<text');
+
+    // 1 real stop: that one labelled dot only, no invented second stop
+    const oneStopMapHtml = renderToStaticMarkup(
+      createElement(GenericPack.Map, {
+        cities: ['首爾'],
+      }),
+    );
+    expect(oneStopMapHtml).toContain('data-testid="destination-map-generic"');
+    expect(oneStopMapHtml).toContain('data-route-dot="0"');
+    expect(oneStopMapHtml).not.toContain('data-route-dot="1"');
+    expect(oneStopMapHtml).toContain('首爾');
+    expect(oneStopMapHtml).not.toContain('Stop ');
+
     for (const Vig of Object.values(GenericPack.vignettes)) {
       const vigHtml = renderToStaticMarkup(createElement(Vig));
       expect(vigHtml).toContain('<svg');
@@ -273,6 +309,100 @@ describe('journal art kit (A3)', () => {
     const resolvedJp = resolveDestinationArt({ name: '東京秋日之旅' });
     expect(resolvedJp.packKey).toBe('jp');
     expect(resolvedJp.hasCoastline).toBe(true);
+  });
+
+  it("supports fit='stops' on JapanMap with a cropped wide viewBox and paper stop tags while keeping default fit='full'", () => {
+    const defaultHtml = renderToStaticMarkup(
+      createElement(JapanPack.Map, {
+        cities: ['tokyo', 'fuji', 'osaka'],
+        labels: ['東京', '富士', '大阪'],
+      }),
+    );
+    const defaultVbMatch = defaultHtml.match(/viewBox="([^"]+)"/);
+    expect(defaultVbMatch?.[1]).toBe('0 0 148 106');
+    expect(defaultHtml).toContain('東京 · 富士 · 大阪');
+    expect(defaultHtml).not.toContain('data-map-stop-tag=');
+
+    const stopsHtml = renderToStaticMarkup(
+      createElement(JapanPack.Map, {
+        cities: ['tokyo', 'fuji', 'osaka'],
+        labels: ['東京', '富士', '大阪'],
+        fit: 'stops',
+      }),
+    );
+    const stopsVbMatch = stopsHtml.match(/viewBox="([^"]+)"/);
+    expect(stopsVbMatch).toBeTruthy();
+    const [vx, vy, vw, vh] = stopsVbMatch[1].split(/\s+/).map(Number);
+    expect(vw).toBeLessThan(148);
+    expect(vh).toBeLessThan(106);
+    expect(vx).toBeGreaterThanOrEqual(0);
+    expect(vy).toBeGreaterThanOrEqual(0);
+    expect(vx + vw).toBeLessThanOrEqual(148);
+    expect(vy + vh).toBeLessThanOrEqual(106);
+    expect(vw / vh).toBeGreaterThanOrEqual(2.0);
+    expect(vw / vh).toBeLessThanOrEqual(2.4);
+    expect(stopsHtml).toContain('data-map-stop-tag="tokyo"');
+    expect(stopsHtml).toContain('data-map-stop-tag="fuji"');
+    expect(stopsHtml).toContain('data-map-stop-tag="osaka"');
+    expect(stopsHtml).not.toContain('東京 · 富士 · 大阪');
+
+    // Close-together stops (Tokyo/Fuji/Narita) enforce minimum crop span (~28-32%+ of full width), >=12px labels, and non-overlapping tags
+    const kantoHtml = renderToStaticMarkup(
+      createElement(JapanPack.Map, {
+        cities: ['tokyo', 'fuji', 'narita'],
+        labels: ['東京', '富士', '成田'],
+        fit: 'stops',
+      }),
+    );
+    const kantoVbMatch = kantoHtml.match(/viewBox="([^"]+)"/);
+    expect(kantoVbMatch).toBeTruthy();
+    const [kx, ky, kw, kh] = kantoVbMatch[1].split(/\s+/).map(Number);
+    expect(kw).toBeGreaterThanOrEqual(148 * 0.28);
+    expect(kw).toBeLessThan(148);
+    expect(kh).toBeLessThan(106);
+    expect(kx).toBeGreaterThanOrEqual(0);
+    expect(ky).toBeGreaterThanOrEqual(0);
+    expect(kx + kw).toBeLessThanOrEqual(148);
+    expect(ky + kh).toBeLessThanOrEqual(106);
+    expect(kw / kh).toBeGreaterThanOrEqual(2.0);
+    expect(kw / kh).toBeLessThanOrEqual(2.4);
+
+    const tagRects = [
+      ...kantoHtml.matchAll(
+        /<g[^>]*data-map-stop-tag="([^"]+)"[^>]*><rect\s+x="([^"]+)"\s+y="([^"]+)"\s+width="([^"]+)"\s+height="([^"]+)"[^>]*>(?:<\/rect>)?<text[^>]*font-size="([^"]+)"/g,
+      ),
+    ].map((m) => ({
+      id: m[1],
+      x: Number(m[2]),
+      y: Number(m[3]),
+      w: Number(m[4]),
+      h: Number(m[5]),
+      fontSize: Number(m[6]),
+    }));
+    expect(tagRects).toHaveLength(3);
+    for (const r of tagRects) {
+      expect(r.fontSize * (92 / kh)).toBeGreaterThanOrEqual(12);
+    }
+    for (let i = 0; i < tagRects.length; i += 1) {
+      for (let j = i + 1; j < tagRects.length; j += 1) {
+        const a = tagRects[i];
+        const b = tagRects[j];
+        const overlapsX = a.x < b.x + b.w && a.x + a.w > b.x;
+        const overlapsY = a.y < b.y + b.h && a.y + a.h > b.y;
+        expect(overlapsX && overlapsY, `${a.id} and ${b.id} tags should not overlap`).toBe(false);
+      }
+    }
+
+    // Fewer than 2 stops falls back to full viewBox
+    const singleStopHtml = renderToStaticMarkup(
+      createElement(JapanPack.Map, {
+        cities: ['tokyo'],
+        labels: ['東京'],
+        fit: 'stops',
+      }),
+    );
+    const singleVbMatch = singleStopHtml.match(/viewBox="([^"]+)"/);
+    expect(singleVbMatch?.[1]).toBe('0 0 148 106');
   });
 
   it('contains no raw hex (#xxxxxx) in any file under src/journal/art', () => {

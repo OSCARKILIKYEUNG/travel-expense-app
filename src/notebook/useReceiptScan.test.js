@@ -579,10 +579,15 @@ describe('Notebook i18n scaffold — SettingsView language toggle, nav, and loca
         }),
       ),
     );
-    expect(zhHomeHtml).toContain('Travel notebook');
+    expect(zhHomeHtml).toContain('手繪旅費日誌');
+    expect(zhHomeHtml).not.toContain('Travel notebook');
     expect(zhHomeHtml).toContain('旅遊手帳');
-    expect(zhHomeHtml).toContain('第 5 日／共 10 日');
-    expect(zhHomeHtml).toContain('今日 HKD $1,086');
+    expect(zhHomeHtml).not.toContain('第 5 日／共 10 日');
+    expect(zhHomeHtml).toContain('已用 75%');
+    expect(zhHomeHtml).toContain('剩餘 HKD $3,778');
+    expect(zhHomeHtml).toContain('今日 $1,086');
+    expect(zhHomeHtml).not.toContain('今日 HKD $1,086');
+    expect(zhHomeHtml).toContain('明細');
     expect(zhHomeHtml).toContain('17 筆');
     expect(zhHomeHtml).toContain('今日手札');
     expect(zhHomeHtml).toContain('掃描收據');
@@ -609,8 +614,12 @@ describe('Notebook i18n scaffold — SettingsView language toggle, nav, and loca
     expect(enHomeHtml.match(/>Travel notebook<\/span>/g)).toHaveLength(1);
 
     // Home body chrome in EN
-    expect(enHomeHtml).toContain('Day 5 / 10 days');
-    expect(enHomeHtml).toContain('Today HKD $1,086');
+    expect(enHomeHtml).not.toContain('Day 5 / 10 days');
+    expect(enHomeHtml).toContain('75% used');
+    expect(enHomeHtml).toContain('HKD $3,778 left');
+    expect(enHomeHtml).toContain('Today $1,086');
+    expect(enHomeHtml).not.toContain('Today HKD $1,086');
+    expect(enHomeHtml).toContain('Details');
     expect(enHomeHtml).toContain('17 items');
     expect(enHomeHtml).toContain('Today&#x27;s note');
     expect(enHomeHtml).toContain('Scan receipt');
@@ -628,8 +637,12 @@ describe('Notebook i18n scaffold — SettingsView language toggle, nav, and loca
       '旅遊手帳',
       '第 5 日／共 10 日',
       '今日 HKD',
+      '今日 $',
       '17 筆',
       'JPY 原幣合計',
+      'JPY 原幣',
+      'KRW 原幣',
+      'In JPY',
       '今日手札',
       '掃描收據',
       '記一筆',
