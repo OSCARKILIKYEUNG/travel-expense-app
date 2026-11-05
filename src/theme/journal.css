@@ -415,6 +415,17 @@
   border-radius: 3px;
 }
 
+/* Light diagonal pen-hatch overlay for hand-drawn chart bars */
+.jr-hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(var(--c-ink) / 0.12) 0px,
+    rgb(var(--c-ink) / 0.12) 1.5px,
+    transparent 1.5px,
+    transparent 6px
+  );
+}
+
 /* Home destination map responsive height cap: shrinks first at <390px so 375px first screen keeps title + total */
 .jr-home-map svg {
   max-height: 118px;

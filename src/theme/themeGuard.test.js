@@ -172,7 +172,7 @@ describe('theme guard', () => {
     expect(fs.existsSync(journalCssPath)).toBe(true);
     const css = fs.readFileSync(journalCssPath, 'utf8');
     expect(HEX.test(css)).toBe(false);
-    for (const cls of ['.jr-grid', '.jr-ruled', '.jr-washi', '.jr-tape-navy', '.jr-torn', '.jr-pin', '.jr-desk', '.jr-paper']) {
+    for (const cls of ['.jr-grid', '.jr-ruled', '.jr-washi', '.jr-tape-navy', '.jr-torn', '.jr-pin', '.jr-desk', '.jr-paper', '.jr-hatch']) {
       expect(css).toContain(cls);
     }
   });

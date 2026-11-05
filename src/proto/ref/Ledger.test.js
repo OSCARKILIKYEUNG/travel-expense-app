@@ -203,14 +203,14 @@ describe('ChartsView settlement breakdown sheet', () => {
     expect(sheet.getAttribute('aria-modal')).toBe('true');
     expect(sheet.textContent).toContain('A 的分帳明細');
     expect(sheet.textContent).toContain('A 已支付');
-    expect(sheet.textContent).toContain('HK$450');
+    expect(sheet.textContent).toContain('HKD $450');
     expect(sheet.textContent).toContain('未填付款人 → 計入A');
     expect(sheet.textContent).toContain('應付');
-    expect(sheet.textContent).toContain('HK$310');
-    expect(sheet.textContent).toContain('自己 HK$100');
-    expect(sheet.textContent).toContain('共同 HK$300 ÷ 2');
+    expect(sheet.textContent).toContain('HKD $310');
+    expect(sheet.textContent).toContain('自己 HKD $100');
+    expect(sheet.textContent).toContain('共同 HKD $300 ÷ 2');
     expect(sheet.textContent).toContain('淨額');
-    expect(sheet.textContent).toContain('+HK$140');
+    expect(sheet.textContent).toContain('+HKD $140');
 
     const ledgerBtn = screen.getByTestId('settle-sheet-ledger');
     expect(ledgerBtn.textContent).toContain('查看帳本');
@@ -323,12 +323,44 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(screen.getByTestId('day-expenses-empty').textContent).toContain('這天還沒有消費記錄');
     uDay();
 
-    const { unmount: uCharts } = render(
+    const { unmount: uChartsEmpty } = render(
       createElement(
         I18nextProvider,
         { i18n },
         createElement(ChartsView, {
           trip: emptyTrip,
+          today: '2026-10-01',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    expect(screen.getByTestId('charts-empty').textContent).toContain('還未有消費記錄');
+    uChartsEmpty();
+
+    const preTripWithExpense = {
+      ...emptyTrip,
+      expenses: [
+        {
+          id: 'pre-1',
+          date: '2026-10-01',
+          store: '早鳥機票',
+          category: '交通',
+          assignedTo: '共同',
+          payer: 'Oscar',
+          payment: 'card',
+          currency: 'HKD',
+          originalAmount: 2400,
+          hkdAmount: 2400,
+        },
+      ],
+    };
+    const { unmount: uCharts } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: preTripWithExpense,
           today: '2026-10-01',
           onOpenDay: () => {},
           onOpenLedger: () => {},
@@ -890,6 +922,242 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
       expect(chip.className).toContain('shrink-0');
     }
     unmount();
+  });
+
+  it('A8: renders honest empty state (charts-empty) with zero expenses and no zeroed charts, and hides charts-empty when expenses exist', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const zeroExpenseTrip = {
+      name: '空白旅途',
+      startDate: '2026-10-18',
+      endDate: '2026-10-22',
+      settings: { people: ['共同', 'Oscar', '阿明'], budget: null },
+      expenses: [],
+    };
+
+    const { unmount: uZeroZh } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: zeroExpenseTrip,
+          today: '2026-10-20',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    const emptyEl = screen.getByTestId('charts-empty');
+    expect(emptyEl.textContent).toContain('還未有消費記錄');
+    expect(emptyEl.textContent).toContain('記一筆或掃描收據後，這裡會出現圖表');
+    expect(screen.queryByTestId('chart-pay-cash')).toBeNull();
+    expect(screen.queryByTestId('chart-pay-card')).toBeNull();
+    expect(screen.queryByRole('img', { name: '類別花費分佈圓環圖' })).toBeNull();
+    expect(screen.getByTestId('page-charts').textContent).not.toContain('已全部結清 ✓');
+    uZeroZh();
+
+    await i18n.changeLanguage('en');
+    const { unmount: uZeroEn } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: zeroExpenseTrip,
+          today: '2026-10-20',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    expect(screen.getByTestId('charts-empty').textContent).toContain('No expenses yet');
+    expect(screen.getByTestId('charts-empty').textContent).toContain('Add or scan a receipt to see charts');
+    expect(screen.queryByTestId('chart-pay-cash')).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Spending by category donut chart' })).toBeNull();
+    uZeroEn();
+
+    await i18n.changeLanguage('zh-TW');
+    const withExpensesTrip = {
+      ...zeroExpenseTrip,
+      expenses: expensesA,
+    };
+    const { unmount: uWithExp } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: withExpensesTrip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    expect(screen.queryByTestId('charts-empty')).toBeNull();
+    expect(screen.getByTestId('chart-pay-cash')).toBeTruthy();
+    expect(screen.getByRole('img', { name: '類別花費分佈圓環圖' })).toBeTruthy();
+    uWithExp();
+  });
+
+  it('A8: formats Charts page amounts using trip accountingCurrency (e.g. TWD $) with no HK$ and hides Latin Charts eyebrow in zh-TW', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const twdTrip = {
+      name: '台北小旅行',
+      accountingCurrency: 'TWD',
+      tripCurrency: 'JPY',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'Oscar', '阿明'], budget: 10000 },
+      expenses: [
+        {
+          id: 't1',
+          date: '2026-10-02',
+          store: '鼎泰豐',
+          category: '飲食',
+          assignedTo: '共同',
+          payer: 'Oscar',
+          payment: 'card',
+          currency: 'TWD',
+          originalAmount: 1200,
+          hkdAmount: 1200,
+        },
+        {
+          id: 't2',
+          date: '2026-10-02',
+          store: '夜市小吃',
+          category: '飲食',
+          assignedTo: '阿明',
+          payer: '阿明',
+          payment: 'cash',
+          currency: 'TWD',
+          originalAmount: 300,
+          hkdAmount: 300,
+        },
+      ],
+    };
+
+    const { unmount } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip: twdTrip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+
+    const chartsEl = screen.getByTestId('page-charts');
+    expect(i18n.t('notebook.charts.titleScript')).toBe('');
+    expect(chartsEl.textContent).toContain('統計圖表');
+    expect(chartsEl.textContent).toContain('今日概覽');
+    expect(chartsEl.textContent).not.toContain('Charts');
+    expect(chartsEl.textContent).not.toContain('CHARTS');
+    expect(chartsEl.textContent).toContain('TWD $1,500');
+    expect(chartsEl.textContent).toContain('TWD $1,200');
+    expect(chartsEl.textContent).toContain('TWD $300');
+    expect(chartsEl.textContent).toContain('TWD $10,000');
+    expect(chartsEl.textContent).not.toContain('HK$');
+    expect(chartsEl.textContent).not.toContain('HKD $');
+    unmount();
+  });
+
+  it('A8 round 3: renders 「今日概覽」/"Today" summary label, singular "1 item" in en for a 1-expense category, and places assignee at bottom of left column on lg', async () => {
+    const trip = {
+      name: 'Round 3 Trip',
+      accountingCurrency: 'HKD',
+      tripCurrency: 'JPY',
+      startDate: '2026-10-01',
+      endDate: '2026-10-03',
+      settings: { people: ['共同', 'Oscar', 'Ming'], budget: 5000 },
+      expenses: [
+        {
+          id: 'e-stay-1',
+          date: '2026-10-02',
+          store: 'Ryokan Inn',
+          category: '住宿',
+          assignedTo: '共同',
+          payer: 'Oscar',
+          payment: 'card',
+          currency: 'HKD',
+          originalAmount: 800,
+          hkdAmount: 800,
+        },
+        {
+          id: 'e-food-1',
+          date: '2026-10-02',
+          store: 'Ramen Shop',
+          category: '飲食',
+          assignedTo: 'Oscar',
+          payer: 'Oscar',
+          payment: 'cash',
+          currency: 'HKD',
+          originalAmount: 100,
+          hkdAmount: 100,
+        },
+        {
+          id: 'e-food-2',
+          date: '2026-10-02',
+          store: 'Matcha Cafe',
+          category: '飲食',
+          assignedTo: 'Ming',
+          payer: 'Ming',
+          payment: 'cash',
+          currency: 'HKD',
+          originalAmount: 80,
+          hkdAmount: 80,
+        },
+      ],
+    };
+
+    await i18n.changeLanguage('zh-TW');
+    const { unmount: uZh } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    const pageZh = screen.getByTestId('page-charts');
+    const todaySecZh = pageZh.querySelector('[data-section="today"]');
+    expect(todaySecZh.textContent).toContain('今日概覽');
+    expect(todaySecZh.textContent).toContain('今日已花費');
+    expect(screen.getByTestId('chart-cat-住宿').textContent).toContain('住宿 · 1 筆');
+    expect(screen.getByTestId('chart-cat-飲食').textContent).toContain('飲食 · 2 筆');
+
+    const assigneeSec = pageZh.querySelector('[data-section="assignee"]');
+    expect(assigneeSec.parentElement.className).toContain('lg:col-start-1');
+    expect(assigneeSec.className).toContain('lg:order-4');
+    uZh();
+
+    await i18n.changeLanguage('en');
+    const { unmount: uEn } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(ChartsView, {
+          trip,
+          today: '2026-10-02',
+          onOpenDay: () => {},
+          onOpenLedger: () => {},
+        }),
+      ),
+    );
+    const pageEn = screen.getByTestId('page-charts');
+    const todaySecEn = pageEn.querySelector('[data-section="today"]');
+    expect(todaySecEn.textContent).toContain('Today');
+    expect(todaySecEn.textContent).toContain('Spent today');
+    expect(screen.getByTestId('chart-cat-住宿').textContent).toContain('Stay · 1 item');
+    expect(screen.getByTestId('chart-cat-住宿').textContent).not.toContain('1 items');
+    expect(screen.getByTestId('chart-cat-飲食').textContent).toContain('Food & drink · 2 items');
+    uEn();
+
+    await i18n.changeLanguage('zh-TW');
   });
 });
 

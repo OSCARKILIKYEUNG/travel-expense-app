@@ -643,7 +643,8 @@
     },
     "charts": {
       "title": "統計圖表",
-      "titleScript": "Charts",
+      "titleScript": "",
+      "todayTitle": "今日概覽",
       "undated": "無日期",
       "spentToday": "今日已花費",
       "tripDailyAvg": "旅程日均",
@@ -665,6 +666,8 @@
       "categoryTitle": "類別花費分佈",
       "categoryDonutAria": "類別花費分佈圓環圖",
       "itemsCount": "{{count}} 筆",
+      "itemsCount_one": "{{count}} 筆",
+      "itemsCount_other": "{{count}} 筆",
       "dailyTitle": "每日花費",
       "dailyAvgAmount": "日均 {{amount}}",
       "dailyNotStarted": "旅程未開始，尚無每日花費趨勢。",
@@ -834,7 +837,9 @@
       "itineraryHint": "點選「✎ 編輯」寫下你想去的景點與小店。",
       "dayExpensesTitle": "這天還沒有消費記錄",
       "dayExpensesHint": "點選上方「＋」或掃描收據，記下今天的旅途點滴。",
-      "chartsPreTripHint": "出發後記下第一筆花費，這裡就會呈現每日花費趨勢。"
+      "chartsPreTripHint": "出發後記下第一筆花費，這裡就會呈現每日花費趨勢。",
+      "chartsEmptyTitle": "還未有消費記錄",
+      "chartsEmptyHint": "記一筆或掃描收據後，這裡會出現圖表"
     },
     "sync": {
       "saveFailed": "未能同步到雲端，變更已保存在此裝置。",

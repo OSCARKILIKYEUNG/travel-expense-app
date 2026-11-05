@@ -289,16 +289,16 @@ describe('P4: ChartsView and SettingsView on seed=legacy and controlled persiste
     expect(html).toContain('data-testid="page-charts"');
     expect(html).toContain('data-section="today"');
     // Budget 15,000, spent 5,397 (36%), remaining per day 1,920
-    expect(html).toContain('HK$15,000');
-    expect(html).toContain('HK$5,397');
+    expect(html).toContain('HKD $15,000');
+    expect(html).toContain('HKD $5,397');
     expect(html).toContain('36%');
-    expect(html).toContain('HK$1,920');
+    expect(html).toContain('HKD $1,920');
 
     // Payment split from paymentMethod -> cash 1,086 / card 4,311
     expect(html).toContain('data-testid="chart-pay-cash"');
     expect(html).toContain('data-testid="chart-pay-card"');
-    expect(html).toContain('HK$1,086');
-    expect(html).toContain('HK$4,311');
+    expect(html).toContain('HKD $1,086');
+    expect(html).toContain('HKD $4,311');
 
     // Assignee section sits strictly above Settle section
     const assigneeIdx = html.indexOf('data-section="assignee"');
@@ -311,12 +311,12 @@ describe('P4: ChartsView and SettingsView on seed=legacy and controlled persiste
     expect(html).toContain('data-testid="chart-assignee-Oscar"');
     expect(html).toContain('data-testid="chart-assignee-阿明"');
     expect(html).toContain('data-testid="chart-assignee-shares"');
-    expect(html).toContain('連共同攤分：Oscar HK$2,989 · 阿明 HK$2,408');
+    expect(html).toContain('連共同攤分：Oscar HKD $2,989 · 阿明 HKD $2,408');
 
     // Settle rows + transfer
     expect(html).toContain('data-testid="chart-person-Oscar"');
     expect(html).toContain('data-testid="chart-person-阿明"');
-    expect(html).toContain('阿明 應還 Oscar HK$990');
+    expect(html).toContain('阿明 應還 Oscar HKD $990');
   });
 
   it('renders #settings with seed=legacy showing trip-start-date, trip-end-date, trip-dates-save, budget, and language toggle in zh-TW and en', async () => {

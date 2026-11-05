@@ -644,6 +644,7 @@
     "charts": {
       "title": "Charts",
       "titleScript": "Charts",
+      "todayTitle": "Today",
       "undated": "No date",
       "spentToday": "Spent today",
       "tripDailyAvg": "Daily avg",
@@ -665,6 +666,8 @@
       "categoryTitle": "Spending by category",
       "categoryDonutAria": "Spending by category donut chart",
       "itemsCount": "{{count}} items",
+      "itemsCount_one": "{{count}} item",
+      "itemsCount_other": "{{count}} items",
       "dailyTitle": "Daily spending",
       "dailyAvgAmount": "Daily avg {{amount}}",
       "dailyNotStarted": "Trip not started — no daily spending trend yet.",
@@ -834,7 +837,9 @@
       "itineraryHint": "Tap “✎ Edit” to jot down places to visit.",
       "dayExpensesTitle": "No expenses recorded for this day",
       "dayExpensesHint": "Tap “+” or scan a receipt to log today's moments.",
-      "chartsPreTripHint": "Once your trip begins and expenses are logged, daily trends will appear here."
+      "chartsPreTripHint": "Once your trip begins and expenses are logged, daily trends will appear here.",
+      "chartsEmptyTitle": "No expenses yet",
+      "chartsEmptyHint": "Add or scan a receipt to see charts"
     },
     "sync": {
       "saveFailed": "Couldn't sync to the cloud. Your changes are saved on this device.",

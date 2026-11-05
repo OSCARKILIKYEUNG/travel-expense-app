@@ -203,21 +203,29 @@ export function HatchSea({
 }
 
 /**
- * Kraft washi tape label strip with zigzag ends.
- * Text child remains readable (`text-kraft-ink`, ≥12px) and is NOT `aria-hidden`.
+ * Kraft (or navy) washi tape label strip with zigzag ends.
+ * Text child remains readable (`text-kraft-ink` or `text-paper`, ≥12px) and is NOT `aria-hidden`.
  */
 export function WashiLabel({
   tilt = -2,
+  tone = 'kraft',
   className = '',
   children,
 }) {
   const tiltValue = typeof tilt === 'number' ? `${tilt}deg` : String(tilt);
   const posClass = /\b(?:absolute|fixed|sticky|relative)\b/.test(className) ? '' : 'relative ';
+  const isNavy = tone === 'navy';
+  const baseClass = isNavy
+    ? `jr-tape-navy ${posClass}inline-flex items-center gap-1.5 px-3 py-0.5 font-hand text-xs font-bold tracking-widest text-paper`
+    : `jr-washi ${posClass}inline-flex items-center gap-1.5 px-3 py-0.5 font-hand text-xs font-bold tracking-widest text-kraft-ink`;
+  const stitchStroke = isNavy
+    ? 'rgb(var(--c-paper) / 0.28)'
+    : 'rgb(var(--c-kraft-ink) / 0.18)';
   return (
     <span
       data-jr-decor="washi"
       style={{ '--jr-tilt': tiltValue }}
-      className={`jr-washi ${posClass}inline-flex items-center gap-1.5 px-3 py-0.5 font-hand text-xs font-bold tracking-widest text-kraft-ink ${className}`.trim()}
+      className={`${baseClass} ${className}`.trim()}
     >
       <svg
         aria-hidden="true"
@@ -229,7 +237,7 @@ export function WashiLabel({
       >
         <path
           d="M2 2 H118 M2 22 H118"
-          stroke="rgb(var(--c-kraft-ink) / 0.18)"
+          stroke={stitchStroke}
           strokeWidth="1"
           strokeDasharray="3 3"
         />

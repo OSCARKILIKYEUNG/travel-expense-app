@@ -158,6 +158,13 @@ describe('journal art kit (A3)', () => {
     // Outer WashiLabel element must not hide its text child from screen readers
     expect(washiHtml.startsWith('<span aria-hidden')).toBe(false);
 
+    const washiNavyHtml = renderToStaticMarkup(
+      createElement(WashiLabel, { tilt: -1, tone: 'navy' }, '今日已花費'),
+    );
+    expect(washiNavyHtml).toContain('jr-tape-navy');
+    expect(washiNavyHtml).toContain('text-paper');
+    expect(washiNavyHtml).toContain('今日已花費');
+
     const navyHtml = renderToStaticMarkup(createElement(NavyTape, { tilt: 2 }));
     expect(navyHtml).toContain('<svg');
     expect(navyHtml).toContain('aria-hidden="true"');

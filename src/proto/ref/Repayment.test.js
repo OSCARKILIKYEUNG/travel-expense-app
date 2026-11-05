@@ -99,7 +99,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
       ),
     );
 
-    expect(screen.getByText(/A 應還 B HK\$300/)).toBeTruthy();
+    expect(screen. getByText(/A 應還 B HKD \$300/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('settle-mark-repaid'));
 
     expect(screen.getByTestId('chart-person-A').textContent).toContain('已結清');
@@ -112,7 +112,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     // Undo restores the transfer row
     fireEvent.click(screen.getByTestId('toast-undo'));
     expect(screen.getByTestId('settle-mark-repaid')).toBeTruthy();
-    expect(screen.getByText(/A 應還 B HK\$300/)).toBeTruthy();
+    expect(screen.getByText(/A 應還 B HKD \$300/)).toBeTruthy();
   });
 
   it('Partial form in settle-sheet: changing amount to half and saving updates remaining to 尚欠 $half, and warns on overpay', async () => {
@@ -134,7 +134,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     fireEvent.click(screen.getByTestId('chart-person-A'));
     const sheet = screen.getByTestId('settle-sheet');
     const repaySection = within(sheet).getByTestId('settle-sheet-repayments');
-    expect(repaySection.textContent).toContain('尚欠 HK$300');
+    expect(repaySection.textContent).toContain('尚欠 HKD $300');
 
     const amountInput = within(sheet).getByTestId('repayment-amount');
     expect(amountInput.value).toBe('300');
@@ -149,7 +149,7 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     expect(within(sheet).queryByTestId('repayment-overpay-warning')).toBeNull();
     fireEvent.click(within(sheet).getByTestId('repayment-save'));
 
-    expect(within(sheet).getByTestId('settle-sheet-status').textContent).toBe('尚欠 HK$150');
+    expect(within(sheet).getByTestId('settle-sheet-status').textContent).toBe('尚欠 HKD $150');
     expect(within(sheet).getByTestId('settle-sheet-repayments').textContent).toContain('A 還 B');
   });
 
@@ -373,8 +373,8 @@ describe('PR-repay-2: Settlement repayment UI', () => {
     expect(chartsPage.textContent).toContain('Food & drink');
     expect(chartsPage.textContent).toContain('Shared');
     expect(chartsPage.textContent).toContain('Settle up');
-    expect(chartsPage.textContent).toContain('Oscar paid HK$0 · owes HK$300');
-    expect(chartsPage.textContent).toContain('Oscar owes Ming HK$300');
+    expect(chartsPage.textContent).toContain('Oscar paid HKD $0 · owes HKD $300');
+    expect(chartsPage.textContent).toContain('Oscar owes Ming HKD $300');
     expect(chartsPage.textContent).toContain('Mark repaid');
     expect(chartsPage.textContent).toContain('Shared costs split evenly by Oscar, Ming');
     expect(chartsPage.textContent).not.toMatch(/[\u3400-\u9fff]/);
