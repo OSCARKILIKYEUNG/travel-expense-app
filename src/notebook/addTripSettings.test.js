@@ -181,6 +181,7 @@ describe('applyNotebookCreateTrip & SettingsView rendering', () => {
     const trip = createRefTrip();
 
     await i18n.changeLanguage('zh-TW');
+    expect(i18n.t('notebook.settings.titleScript')).toBe('');
     const zhClosedHtml = renderToStaticMarkup(
       createElement(
         I18nextProvider,
@@ -194,8 +195,11 @@ describe('applyNotebookCreateTrip & SettingsView rendering', () => {
         }),
       ),
     );
+    expect(zhClosedHtml).toContain('data-testid="page-settings"');
     expect(zhClosedHtml).toContain('data-testid="add-trip-btn"');
     expect(zhClosedHtml).toContain('+ 新增旅程');
+    expect(zhClosedHtml).toContain('jr-taped-card jr-grid');
+    expect(zhClosedHtml).not.toContain('paper-panel');
     expect(zhClosedHtml).not.toContain('data-testid="add-trip-form"');
 
     const zhOpenHtml = renderToStaticMarkup(

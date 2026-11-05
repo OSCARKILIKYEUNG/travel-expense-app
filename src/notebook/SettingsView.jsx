@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
+import { WashiLabel } from '../journal/art/decor.jsx';
 import { fmtHKD, fmtJPY, personCounts } from '../proto/ref/refLogic';
 import {
   addPerson,
@@ -582,6 +583,17 @@ export default function SettingsView({
   const settingsTitleScript = t('notebook.settings.titleScript');
   const showSettingsTitleScript = Boolean(settingsTitleScript) && settingsTitleScript !== settingsTitle;
 
+  const sectionCardClass = 'jr-taped-card jr-grid space-y-2.5 border border-ink-soft/40 p-4';
+  const subPanelClass = 'rounded-sm border border-ink-soft/40 bg-paper p-3';
+  const inputFieldClass =
+    'h-11 min-h-11 rounded-sm border border-ink-soft bg-paper px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
+  const selectFieldClass =
+    'h-11 min-h-11 rounded-sm border border-ink-soft bg-paper px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
+  const primaryBtnClass =
+    'jr-btn-navy inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3.5 font-hand text-sm font-bold text-paper transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50';
+  const secondaryBtnClass =
+    'jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 text-sm font-semibold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
+
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
       <div className="relative space-y-1">
@@ -591,7 +603,7 @@ export default function SettingsView({
         <div className="flex items-baseline gap-2">
           <h1 className="whitespace-nowrap font-hand text-2xl text-ink">{settingsTitle}</h1>
           {showSettingsTitleScript && (
-            <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-teal-strong">
+            <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-route">
               {settingsTitleScript}
             </span>
           )}
@@ -600,10 +612,12 @@ export default function SettingsView({
 
       {/* Account */}
       {account?.email && (
-        <section data-testid="account-card" className="paper-panel space-y-2.5 p-4">
-          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
-            {t('notebook.settings.accountTitle')}
-          </h2>
+        <section data-testid="account-card" className={sectionCardClass}>
+          <WashiLabel tone="kraft" tilt={-1}>
+            <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+              {t('notebook.settings.accountTitle')}
+            </h2>
+          </WashiLabel>
 
           <div className="flex items-baseline justify-between gap-3">
             <span className="shrink-0 whitespace-nowrap font-hand text-meta font-medium text-ink-soft">
@@ -624,14 +638,14 @@ export default function SettingsView({
             {account.plan === 'pro' ? (
               <span
                 data-testid="account-plan"
-                className="whitespace-nowrap rounded-pill bg-teal-strong px-2.5 py-0.5 text-meta font-semibold text-white"
+                className="whitespace-nowrap rounded-sm border border-ink-soft bg-tape-navy px-2.5 py-0.5 font-hand text-meta font-bold text-paper"
               >
                 {t('settings.planPro')}
               </span>
             ) : account.plan === 'free' ? (
               <span
                 data-testid="account-plan"
-                className="whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-0.5 text-meta font-semibold text-ink-soft"
+                className="whitespace-nowrap rounded-sm border border-ink-soft/45 bg-paper px-2.5 py-0.5 font-hand text-meta font-semibold text-ink-soft"
               >
                 {t('settings.planFree')}
               </span>
@@ -666,7 +680,7 @@ export default function SettingsView({
             data-testid="account-signout"
             disabled={signingOut}
             onClick={handleSignOut}
-            className="inline-flex h-11 min-h-11 w-full items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-4 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex h-11 min-h-11 w-full items-center justify-center whitespace-nowrap rounded-sm border border-coral-ink/35 bg-coral-soft px-4 text-sm font-semibold text-coral-ink transition-colors hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink disabled:pointer-events-none disabled:opacity-50"
           >
             {signingOut ? t('notebook.settings.signingOut') : t('settings.signOut')}
           </button>
@@ -674,12 +688,14 @@ export default function SettingsView({
       )}
 
       {/* UI Language */}
-      <section className="paper-panel space-y-2.5 p-4">
+      <section className={sectionCardClass}>
         <label
           htmlFor="notebook-language-select"
           className="block whitespace-nowrap font-hand text-lg text-ink"
         >
-          {t('settings.language')}
+          <WashiLabel tone="kraft" tilt={-1}>
+            {t('settings.language')}
+          </WashiLabel>
         </label>
         <select
           id="notebook-language-select"
@@ -687,7 +703,7 @@ export default function SettingsView({
           aria-label={t('settings.language')}
           value={resolvedUiLanguage}
           onChange={handleLanguageChange}
-          className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+          className={`${selectFieldClass} w-full`}
         >
           <option value="zh-TW">{t('settings.languageZhTW')}</option>
           <option value="en">{t('settings.languageEn')}</option>
@@ -695,11 +711,15 @@ export default function SettingsView({
       </section>
 
       {/* Trip management */}
-      <section className="paper-panel relative space-y-2.5 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.tripsTitle')}</h2>
-            <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 font-hand text-meta font-bold text-teal-strong">
+      <section className={`relative ${sectionCardClass}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <WashiLabel tone="navy" tilt={-1}>
+              <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-paper">
+                {t('settings.tripsTitle')}
+              </h2>
+            </WashiLabel>
+            <span className="whitespace-nowrap rounded-sm border border-route/35 bg-route-soft px-2 py-0.5 font-hand text-meta font-bold text-route">
               {t('notebook.settings.currentTripBadge')}
             </span>
           </div>
@@ -708,7 +728,7 @@ export default function SettingsView({
             data-testid="add-trip-btn"
             aria-expanded={showAddTrip}
             onClick={handleOpenAddTrip}
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3.5 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className={primaryBtnClass}
           >
             {t('trip.addTrip')}
           </button>
@@ -719,7 +739,7 @@ export default function SettingsView({
             data-testid="add-trip-form"
             onSubmit={handleCreateTripSubmit}
             noValidate
-            className="space-y-2.5 rounded-xl border border-line bg-cream p-3"
+            className={`space-y-2.5 ${subPanelClass}`}
           >
             <div>
               <label
@@ -740,7 +760,7 @@ export default function SettingsView({
                 }}
                 placeholder={t('trip.tripNamePlaceholder')}
                 autoComplete="off"
-                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+                className={`${inputFieldClass} w-full`}
               />
             </div>
 
@@ -759,7 +779,7 @@ export default function SettingsView({
                   type="date"
                   value={newTripStart}
                   onChange={(e) => setNewTripStart(e.target.value)}
-                  className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                  className={`${inputFieldClass} w-full px-2.5 font-mono font-semibold`}
                 />
               </div>
 
@@ -776,7 +796,7 @@ export default function SettingsView({
                   aria-label={t('trip.tripCurrency')}
                   value={newTripCurrency}
                   onChange={(e) => setNewTripCurrency(e.target.value)}
-                  className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                  className={`${selectFieldClass} w-full px-2.5`}
                 >
                   {currencyOptions.map((code) => {
                     const label = CURRENCY_NAMES[code] ? t(`currency.${code}`) : code;
@@ -805,14 +825,14 @@ export default function SettingsView({
                 type="button"
                 data-testid="new-trip-cancel"
                 onClick={handleCancelAddTrip}
-                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className={secondaryBtnClass}
               >
                 {t('settings.cancel')}
               </button>
               <button
                 type="submit"
                 data-testid="new-trip-submit"
-                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                className={`${primaryBtnClass} px-4`}
               >
                 {t('trip.create')}
               </button>
@@ -830,15 +850,15 @@ export default function SettingsView({
                 type="button"
                 aria-current={active ? 'true' : undefined}
                 onClick={() => onSelectTrip(tr.id)}
-                className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                className={`block min-h-11 w-full rounded-sm border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                   active
-                    ? 'border-teal/45 bg-teal-soft/65'
-                    : 'border-line bg-cream hover:bg-beige/55'
+                    ? 'border-tape-navy bg-route-soft/65 ring-1 ring-tape-navy'
+                    : 'border-ink-soft/40 bg-paper hover:bg-paper-shade/65'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="whitespace-nowrap font-hand text-sm font-bold text-teal-strong">{tr.name}</span>
-                  <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="whitespace-nowrap font-hand text-sm font-bold text-route">{tr.name}</span>
+                  <span className="whitespace-nowrap text-meta font-semibold text-route">
                     {t('trip.records', { count: (tr.expenses || []).length })}
                   </span>
                 </div>
@@ -852,19 +872,21 @@ export default function SettingsView({
       </section>
 
       {/* Trip Dates */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
-            {t('notebook.settings.datesTitle')}
-          </h2>
-          <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
+      <section className={sectionCardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <WashiLabel tone="kraft" tilt={-1}>
+            <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+              {t('notebook.settings.datesTitle')}
+            </h2>
+          </WashiLabel>
+          <span className="whitespace-nowrap font-mono text-meta font-semibold text-route">
             {trip.startDate} – {trip.endDate}
           </span>
         </div>
         <form
           onSubmit={handleSaveDates}
           noValidate
-          className="space-y-2.5 rounded-xl border border-line bg-cream p-3"
+          className={`space-y-2.5 ${subPanelClass}`}
         >
           <div className="grid grid-cols-2 gap-2.5">
             <div>
@@ -886,7 +908,7 @@ export default function SettingsView({
                   setDatesErrorKey('');
                 }}
                 placeholder={t('notebook.settings.startDatePlaceholder')}
-                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+                className={`${inputFieldClass} w-full px-2.5 font-mono font-semibold placeholder:font-sans placeholder:font-normal`}
               />
             </div>
             <div>
@@ -908,7 +930,7 @@ export default function SettingsView({
                   setDatesErrorKey('');
                 }}
                 placeholder={t('notebook.settings.endDatePlaceholder')}
-                className="h-11 min-h-11 w-full rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+                className={`${inputFieldClass} w-full px-2.5 font-mono font-semibold placeholder:font-sans placeholder:font-normal`}
               />
             </div>
           </div>
@@ -916,7 +938,7 @@ export default function SettingsView({
             <button
               type="submit"
               data-testid="trip-dates-save"
-              className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className={`${primaryBtnClass} px-4`}
             >
               {t('notebook.settings.saveDates')}
             </button>
@@ -934,19 +956,21 @@ export default function SettingsView({
       </section>
 
       {/* Trip Budget */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-hand text-lg text-ink">
-            {t('notebook.settings.budgetTitle')}
-          </h2>
-          <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
+      <section className={sectionCardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <WashiLabel tone="kraft" tilt={-1}>
+            <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+              {t('notebook.settings.budgetTitle')}
+            </h2>
+          </WashiLabel>
+          <span className="whitespace-nowrap font-mono text-sm font-bold text-route">
             {currentBudget ? fmtHKD(currentBudget) : t('notebook.settings.budgetUnset')}
           </span>
         </div>
         <form
           onSubmit={handleSaveBudget}
           noValidate
-          className="flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2"
+          className="flex items-center gap-2 rounded-sm border border-ink-soft/40 bg-paper px-3 py-2"
         >
           <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">HKD</span>
           <input
@@ -958,12 +982,12 @@ export default function SettingsView({
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
             placeholder={t('notebook.settings.budgetPlaceholder')}
-            className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+            className={`${inputFieldClass} min-w-0 flex-1 px-2.5 font-mono font-semibold placeholder:font-sans placeholder:font-normal`}
           />
           <button
             type="submit"
             data-testid="budget-save"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className={`${primaryBtnClass} px-3`}
           >
             {t('notebook.settings.save')}
           </button>
@@ -972,7 +996,7 @@ export default function SettingsView({
               type="button"
               data-testid="budget-clear"
               onClick={handleClearBudget}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className={secondaryBtnClass}
             >
               {t('notebook.settings.clear')}
             </button>
@@ -981,8 +1005,12 @@ export default function SettingsView({
       </section>
 
       {/* People / Members */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.peopleTitle')}</h2>
+      <section className={sectionCardClass}>
+        <WashiLabel tone="kraft" tilt={-1}>
+          <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+            {t('settings.peopleTitle')}
+          </h2>
+        </WashiLabel>
         <div className="space-y-2">
           {people.map((p) => {
             const isShared = p === '共同';
@@ -992,7 +1020,7 @@ export default function SettingsView({
               <div
                 key={p}
                 data-testid={`person-row-${p}`}
-                className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-line bg-cream px-3 py-1.5 text-sm"
+                className="flex min-h-11 items-center justify-between gap-2 rounded-sm border border-ink-soft/40 bg-paper px-3 py-1.5 text-sm"
               >
                 {isEditing ? (
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -1013,13 +1041,13 @@ export default function SettingsView({
                           setPersonErrorKey('');
                         }
                       }}
-                      className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-teal-strong bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                      className={`${inputFieldClass} min-w-0 flex-1 px-2.5`}
                     />
                     <button
                       type="button"
                       data-testid={`rename-save-${p}`}
                       onClick={() => handleRenameSubmit(p)}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white"
+                      className={`${primaryBtnClass} px-3`}
                     >
                       {t('notebook.settings.save')}
                     </button>
@@ -1029,7 +1057,7 @@ export default function SettingsView({
                         setEditingPerson(null);
                         setPersonErrorKey('');
                       }}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft"
+                      className={`${secondaryBtnClass} px-2.5`}
                     >
                       {t('settings.cancel')}
                     </button>
@@ -1043,11 +1071,11 @@ export default function SettingsView({
                       </span>
                     </div>
                     {isShared ? (
-                      <span className="whitespace-nowrap rounded-pill bg-beige px-2.5 py-1 font-hand text-meta font-semibold text-ink-muted">
+                      <span className="whitespace-nowrap rounded-sm border border-ink-soft/35 bg-paper-shade px-2.5 py-1 font-hand text-meta font-semibold text-ink-muted">
                         {t('notebook.settings.defaultPersonBadge')}
                       </span>
                     ) : (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1.5">
                         <button
                           type="button"
                           data-testid={`person-edit-${p}`}
@@ -1057,7 +1085,7 @@ export default function SettingsView({
                             setEditingName(p);
                             setPersonErrorKey('');
                           }}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                          className={`${secondaryBtnClass} px-2.5`}
                         >
                           {t('notebook.settings.rename')}
                         </button>
@@ -1066,7 +1094,7 @@ export default function SettingsView({
                           data-testid={`person-remove-${p}`}
                           aria-label={t('notebook.settings.removePersonAria', { name: displayPersonName })}
                           onClick={() => handleRemovePerson(p)}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-sm font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm border border-coral-ink/35 bg-coral-soft px-2.5 text-sm font-semibold text-coral-ink transition-colors hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
                         >
                           {t('notebook.settings.remove')}
                         </button>
@@ -1089,12 +1117,12 @@ export default function SettingsView({
               setPersonErrorKey('');
             }}
             placeholder={t('notebook.settings.addPersonPlaceholder')}
-            className="h-11 min-h-11 min-w-0 flex-1 rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+            className={`${inputFieldClass} min-w-0 flex-1`}
           />
           <button
             type="submit"
             data-testid="add-person-btn"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className={`${primaryBtnClass} px-4`}
           >
             {t('notebook.settings.addPersonButton')}
           </button>
@@ -1107,18 +1135,20 @@ export default function SettingsView({
       </section>
 
       {/* Currency & Exchange Rate */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-hand text-lg text-ink">
-          {t('notebook.settings.currencyAndRatesTitle')}
-        </h2>
+      <section className={sectionCardClass}>
+        <WashiLabel tone="kraft" tilt={-1}>
+          <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+            {t('notebook.settings.currencyAndRatesTitle')}
+          </h2>
+        </WashiLabel>
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-xl border border-line bg-cream p-2.5">
+          <div className="rounded-sm border border-ink-soft/40 bg-paper p-2.5">
             <p className="whitespace-nowrap font-hand text-meta text-ink-muted">{t('trip.tripCurrency')}</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
               {t('notebook.settings.jpyLabel')}
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-cream p-2.5">
+          <div className="rounded-sm border border-ink-soft/40 bg-paper p-2.5">
             <p className="whitespace-nowrap font-hand text-meta text-ink-muted">{t('trip.accountingCurrency')}</p>
             <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-ink">
               {t('notebook.settings.hkdLabel')}
@@ -1126,7 +1156,7 @@ export default function SettingsView({
           </div>
         </div>
         <form onSubmit={handleSaveRate} noValidate className="space-y-1.5">
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2">
+          <div className="flex items-center gap-2 rounded-sm border border-ink-soft/40 bg-paper px-3 py-2">
             <label htmlFor="ref-rate-input" className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">
               1 JPY =
             </label>
@@ -1144,14 +1174,14 @@ export default function SettingsView({
                   parseRate(nextVal) === null ? 'notebook.settings.rateInvalid' : '',
                 );
               }}
-              className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+              className={`${inputFieldClass} min-w-0 flex-1 px-2.5 font-mono font-semibold`}
             />
             <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">HKD</span>
             <button
               type="submit"
               data-testid="rate-save"
               disabled={isRateInvalid}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+              className={`${primaryBtnClass} px-3`}
             >
               {t('notebook.settings.updateRate')}
             </button>
@@ -1165,14 +1195,18 @@ export default function SettingsView({
       </section>
 
       {/* Data & Export */}
-      <section className="paper-panel space-y-2.5 p-4">
-        <h2 className="whitespace-nowrap font-hand text-lg text-ink">{t('settings.dataTitle')}</h2>
+      <section className={sectionCardClass}>
+        <WashiLabel tone="kraft" tilt={-1}>
+          <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+            {t('settings.dataTitle')}
+          </h2>
+        </WashiLabel>
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             data-testid="export-json"
             onClick={handleExportTrip}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-2 py-2.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.settings.exportJson')}
           </button>
@@ -1180,7 +1214,7 @@ export default function SettingsView({
             type="button"
             data-testid="export-backup"
             onClick={handleExportBackup}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-2 py-2.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('settings.fullBackup')}
           </button>
@@ -1188,7 +1222,7 @@ export default function SettingsView({
             type="button"
             data-testid="copy-report"
             onClick={handleCopyReport}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-2 py-2.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('settings.copyReport')}
           </button>
@@ -1196,10 +1230,12 @@ export default function SettingsView({
       </section>
 
       {/* About */}
-      <section className="paper-panel relative space-y-1 p-4">
-        <h2 className="whitespace-nowrap font-hand text-base text-ink">
-          {t('notebook.settings.aboutTitle')}
-        </h2>
+      <section className={`relative ${sectionCardClass}`}>
+        <WashiLabel tone="kraft" tilt={-1}>
+          <h2 className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink">
+            {t('notebook.settings.aboutTitle')}
+          </h2>
+        </WashiLabel>
         <p className="whitespace-nowrap text-meta text-ink-soft">
           {t('notebook.settings.aboutSummary', { amount: fmtJPY(totalJPY) })}
         </p>

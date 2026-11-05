@@ -1159,6 +1159,39 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
 
     await i18n.changeLanguage('zh-TW');
   });
+
+  it('AddForm save bar stays in form flow (never fixed over fields) and preserves form-save-bar, form-cancel, and form-save', async () => {
+    await i18n.changeLanguage('zh-TW');
+    const onCancel = vi.fn();
+    const { unmount } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(AddForm, {
+          defaultDate: '2026-10-22',
+          people: ['共同', 'Oscar'],
+          onCancel,
+          onSave: () => {},
+        }),
+      ),
+    );
+
+    const form = screen.getByTestId('expense-form');
+    const saveBar = screen.getByTestId('form-save-bar');
+    const cancelBtn = screen.getByTestId('form-cancel');
+    const saveBtn = screen.getByTestId('form-save');
+
+    expect(form.contains(saveBar)).toBe(true);
+    expect(saveBar.className).not.toContain('fixed');
+    expect(saveBar.className).not.toContain('sticky');
+    expect(cancelBtn.className).toContain('jr-btn-paper');
+    expect(saveBtn.className).toContain('jr-btn-navy');
+    expect(saveBtn.disabled).toBe(true);
+
+    fireEvent.click(cancelBtn);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    unmount();
+  });
 });
 
 

@@ -1,23 +1,39 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import { JournalIcon } from '../../journal/art/core.jsx';
+import { WashBlob, WashiLabel } from '../../journal/art/decor.jsx';
 import { scanResultToFormFields } from '../../notebook/useReceiptScan';
-import { REF_CATEGORIES } from './mockRefTrip';
-import {
-  CATEGORY_DOT,
-  CategorySticker,
-  Doodle,
-  Icon,
-} from './parts';
-import { fmtHKD, formatNotebookDate } from './refLogic';
-import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
+import { formatAccountingAmount } from '../../utils/currency';
 import { normalizeDate } from '../../utils/duplicates';
+import { REF_CATEGORIES } from './mockRefTrip';
+import { Icon } from './parts';
+import { formatNotebookDate } from './refLogic';
+import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
+
+const CATEGORY_WASH_TONE = {
+  飲食: 'wheat',
+  交通: 'sky',
+  購物: 'berry',
+  住宿: 'wheat',
+  娛樂: 'leaf',
+  其他: 'leaf',
+};
+
+const CATEGORY_WASH_SHAPE = {
+  飲食: 1,
+  交通: 2,
+  購物: 3,
+  住宿: 1,
+  娛樂: 2,
+  其他: 3,
+};
 
 /**
  * Add / edit expense form:
  * - Scan banner at top
  * - 金額與細項 first (big amount + currency + 付款人 + 付款方式), then 基本資料 (店舖, 日期 + 時間, 地點, 類別貼紙 + 分配給, 進階)
- * - Sticky save bar sits fixed directly above BottomNav; form has bottom padding + scroll-padding so no field is covered.
+ * - In-flow save bar sits at the bottom of the form content above BottomNav so no field is ever covered.
  */
 export default function AddForm({
   initial,
@@ -25,6 +41,7 @@ export default function AddForm({
   startScan,
   people = ['共同'],
   rate = 0.0526,
+  accountingCurrency = 'HKD',
   payerDefault,
   paymentDefault,
   now,
@@ -169,8 +186,8 @@ export default function AddForm({
     const body = document.body;
     const prevHtml = html.style.scrollPaddingBottom;
     const prevBody = body.style.scrollPaddingBottom;
-    html.style.scrollPaddingBottom = '12rem';
-    body.style.scrollPaddingBottom = '12rem';
+    html.style.scrollPaddingBottom = '7rem';
+    body.style.scrollPaddingBottom = '7rem';
     return () => {
       html.style.scrollPaddingBottom = prevHtml;
       body.style.scrollPaddingBottom = prevBody;
@@ -181,15 +198,34 @@ export default function AddForm({
     if (!target || typeof window === 'undefined') return;
     if (saveBarRef.current && saveBarRef.current.contains(target)) return;
     const rect = target.getBoundingClientRect?.();
-    if (!rect) return;
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    const navEl =
+      typeof document !== 'undefined' ? document.querySelector('[data-testid="nav"]') : null;
+    const navRect = navEl?.getBoundingClientRect?.();
+    const navTop =
+      navRect && navRect.height > 0 && navRect.top > 0 ? navRect.top : window.innerHeight - 68;
     const barRect = saveBarRef.current?.getBoundingClientRect?.();
-    const barTop = barRect && barRect.top > 0 ? barRect.top : window.innerHeight - 160;
-    const safeBottom = barTop - 16;
+    const barPos =
+      saveBarRef.current && typeof window.getComputedStyle === 'function'
+        ? window.getComputedStyle(saveBarRef.current).position
+        : '';
+    const isFloatingBar = barPos === 'fixed' || barPos === 'sticky';
+    const bottomLimit =
+      isFloatingBar && barRect && barRect.top > 0 ? Math.min(barRect.top, navTop) : navTop;
+    const safeBottom = bottomLimit - 16;
     const safeTop = 76;
     if (rect.bottom > safeBottom) {
-      window.scrollBy({ top: rect.bottom - safeBottom, behavior: 'auto' });
+      try {
+        window.scrollBy({ top: rect.bottom - safeBottom, behavior: 'auto' });
+      } catch {
+        // Ignore unimplemented window.scrollBy in test environments
+      }
     } else if (rect.top < safeTop) {
-      window.scrollBy({ top: rect.top - safeTop, behavior: 'auto' });
+      try {
+        window.scrollBy({ top: rect.top - safeTop, behavior: 'auto' });
+      } catch {
+        // Ignore unimplemented window.scrollBy in test environments
+      }
     }
   };
 
@@ -204,8 +240,8 @@ export default function AddForm({
   const blockReason = saveBlockReason({ amount: f.amount, store: f.store, t });
   const valid = !blockReason;
   const field =
-    'min-h-11 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal';
-  const label = 'mb-1 block whitespace-nowrap font-hand text-sm font-medium text-ink-soft';
+    'min-h-11 w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
+  const label = 'mb-1 block font-hand text-sm font-bold text-ink-soft';
   const displayCategory = (cat) => t(`categories.${cat}`, { defaultValue: cat });
   const displayPerson = (name) => (name === '共同' ? t('expenseCard.shared') : name);
   const categoryOptions =
@@ -229,13 +265,16 @@ export default function AddForm({
     });
   };
 
+  const eyebrow = t('notebook.addForm.eyebrow');
+  const pageTitle = initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle');
+
   return (
     <form
       onSubmit={submit}
       onFocusCapture={handleFocusCapture}
       data-testid="expense-form"
-      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3.5 px-4 pb-52 pt-4 scroll-pb-48 lg:mx-auto lg:max-w-2xl"
-      style={{ scrollPaddingBottom: '12rem' }}
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3.5 px-4 pb-6 pt-4 scroll-pb-28 lg:mx-auto lg:max-w-2xl"
+      style={{ scrollPaddingBottom: '7rem' }}
     >
       <div className="relative flex min-w-0 items-center gap-3">
         <button
@@ -243,16 +282,18 @@ export default function AddForm({
           data-testid="back"
           aria-label={t('notebook.addForm.backAria')}
           onClick={onCancel}
-          className="btn-icon h-11 w-11 min-h-11 min-w-11 shrink-0"
+          className="jr-btn-paper inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
         >
           {Icon.back('h-5 w-5')}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
-            {t('notebook.addForm.eyebrow')}
-          </p>
-          <h1 className="truncate whitespace-nowrap font-hand text-2xl leading-tight tracking-[-0.03em] text-ink">
-            {initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle')}
+          {eyebrow && eyebrow !== pageTitle && (
+            <p className="font-hand text-xs font-bold tracking-wider text-ink-soft">
+              {eyebrow}
+            </p>
+          )}
+          <h1 className="font-hand text-2xl font-bold leading-tight tracking-wider text-ink">
+            {pageTitle}
           </h1>
         </div>
       </div>
@@ -263,19 +304,19 @@ export default function AddForm({
             type="button"
             data-testid="form-scan"
             onClick={handleScanClick}
-            className="flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-2xl border border-dashed border-teal/60 bg-teal-soft/75 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-teal-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="jr-paper flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-sm border border-dashed border-ink-soft/65 bg-paper px-3 py-2.5 text-left transition-colors hover:bg-paper-shade/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-teal/35 bg-cream-soft text-ink shadow-sm">
-              <Doodle name="camera" size="md" blob="mustard" />
-            </span>
+            <WashBlob tone="wheat" shape={1} className="h-9 w-9 shrink-0">
+              <JournalIcon name="camera" className="h-5 w-5 text-ink" />
+            </WashBlob>
             <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold text-teal-strong">
-                <span className="min-w-0 truncate">{t('notebook.addForm.scanTitle')}</span>
+              <span className="block break-words font-hand text-sm font-bold text-ink">
+                {t('notebook.addForm.scanTitle')}
               </span>
               <span
                 data-testid="form-scan-status"
-                className={`mt-0.5 block break-words line-clamp-2 text-meta leading-snug ${
-                  scanState?.status === 'error' ? 'font-semibold text-coral-ink' : 'text-ink-muted'
+                className={`mt-0.5 block break-words text-meta leading-snug ${
+                  scanState?.status === 'error' ? 'font-semibold text-stamp' : 'text-ink-muted'
                 }`}
               >
                 {scanState?.message ||
@@ -289,17 +330,17 @@ export default function AddForm({
       )}
 
       {/* Card 1: Amount & currency first */}
-      <div className="paper-panel relative space-y-2.5 p-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="whitespace-nowrap font-hand text-lg leading-snug tracking-[-0.02em] text-ink">
+      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pb-0.5">
+          <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.amountTitle')}
-          </h2>
-          <span className="whitespace-nowrap font-mono text-meta font-semibold text-teal-strong">
-            ≈ {fmtHKD(hkd)}
+          </WashiLabel>
+          <span className="whitespace-nowrap font-display text-meta font-bold tabular-nums text-route">
+            ≈ {formatAccountingAmount(hkd, accountingCurrency)}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+        <div className="grid min-w-0 grid-cols-2 gap-3">
+          <div className="min-w-0">
             <label htmlFor="ref-currency" className={label}>
               {t('notebook.addForm.currencyLabel')}
             </label>
@@ -317,7 +358,7 @@ export default function AddForm({
               )}
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label htmlFor="ref-amount" className={label}>
               {t('notebook.addForm.amountPaidLabel')}
             </label>
@@ -329,14 +370,14 @@ export default function AddForm({
               value={f.amount}
               onChange={set('amount')}
               placeholder="0"
-              className={`${field} font-semibold`}
+              className={`${field} font-display text-lg font-bold tabular-nums`}
             />
           </div>
         </div>
 
         {payers.length > 0 && (
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
+          <div className="flex min-w-0 items-center justify-between gap-2 pt-0.5">
+            <span className="shrink-0 whitespace-nowrap font-hand text-sm font-bold text-ink-soft">
               {t('notebook.addForm.payerLabel')}
             </span>
             <div
@@ -353,10 +394,10 @@ export default function AddForm({
                     data-testid={`form-payer-${name}`}
                     aria-pressed={active}
                     onClick={() => setF((s) => ({ ...s, payer: name }))}
-                    className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                    className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm border px-3.5 py-1.5 font-hand text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                       active
-                        ? 'border-teal-strong bg-teal-strong text-white shadow-sm'
-                        : 'border-teal/40 bg-teal-soft text-teal-strong hover:bg-beige'
+                        ? 'border-ink-soft bg-tape-navy text-paper'
+                        : 'border-ink-soft/45 bg-paper text-ink hover:bg-paper-shade'
                     }`}
                   >
                     {name}
@@ -367,12 +408,12 @@ export default function AddForm({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="shrink-0 whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <span className="shrink-0 whitespace-nowrap font-hand text-sm font-bold text-ink-soft">
             {t('notebook.addForm.paymentMethodLabel')}
           </span>
           <div
-            className="inline-flex items-center gap-1 rounded-pill border border-line bg-cream p-0.5"
+            className="inline-flex items-center gap-1.5"
             role="group"
             aria-label={t('notebook.addForm.paymentMethodLabel')}
           >
@@ -388,8 +429,10 @@ export default function AddForm({
                   data-testid={opt.testid}
                   aria-pressed={active}
                   onClick={() => setF((s) => ({ ...s, payment: opt.id }))}
-                  className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-pill px-4 py-1.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
-                    active ? 'bg-teal-strong text-white shadow-sm' : 'text-ink-soft hover:bg-beige'
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm border px-3.5 py-1.5 font-hand text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
+                    active
+                      ? 'border-ink-soft bg-tape-navy text-paper'
+                      : 'border-ink-soft/45 bg-paper text-ink hover:bg-paper-shade'
                   }`}
                 >
                   {opt.label}
@@ -401,11 +444,11 @@ export default function AddForm({
       </div>
 
       {/* Card 2: Basic info */}
-      <div className="paper-panel relative space-y-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="whitespace-nowrap font-hand text-lg leading-snug tracking-[-0.02em] text-ink">
+      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+        <div className="flex min-w-0 items-center justify-between gap-2 pb-0.5">
+          <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.basicTitle')}
-          </h2>
+          </WashiLabel>
         </div>
 
         <div>
@@ -422,10 +465,10 @@ export default function AddForm({
           />
         </div>
 
-        <div className="flex items-end gap-2.5">
+        <div className="flex min-w-0 items-end gap-2.5">
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex h-7 items-center justify-between">
-              <label htmlFor="ref-date" className="whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
+              <label htmlFor="ref-date" className="font-hand text-sm font-bold text-ink-soft">
                 {t('notebook.addForm.dateLabel')}
               </label>
               {f.date && (
@@ -433,14 +476,20 @@ export default function AddForm({
                   type="button"
                   data-testid="form-clear-date"
                   onClick={() => setF((s) => ({ ...s, date: '' }))}
-                  className="-my-2 inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-meta font-semibold text-teal-strong hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  className="-my-2 inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-2 font-hand text-meta font-bold text-route hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                 >
                   {t('notebook.addForm.clearDate')}
                 </button>
               )}
             </div>
             <div className={`${field} relative flex min-h-[46px] items-center justify-between`}>
-              <span className={f.date ? 'whitespace-nowrap text-ink' : 'whitespace-nowrap text-ink-muted'}>
+              <span
+                className={
+                  f.date
+                    ? 'whitespace-nowrap font-display tabular-nums text-ink'
+                    : 'whitespace-nowrap text-ink-muted'
+                }
+              >
                 {formatNotebookDate(f.date, { t, lang: activeI18n.language })}
               </span>
               <span className="text-ink-muted">{Icon.calendar('h-4 w-4')}</span>
@@ -457,12 +506,18 @@ export default function AddForm({
 
           <div className="w-28 shrink-0">
             <div className="mb-1 flex h-7 items-center">
-              <label htmlFor="ref-time" className="whitespace-nowrap font-hand text-sm font-medium text-ink-soft">
+              <label htmlFor="ref-time" className="font-hand text-sm font-bold text-ink-soft">
                 {t('notebook.addForm.timeLabel')}
               </label>
             </div>
             <div className={`${field} relative flex min-h-[46px] w-28 items-center justify-between`}>
-              <span className={f.time ? 'whitespace-nowrap font-mono text-ink' : 'whitespace-nowrap font-mono text-ink-muted'}>
+              <span
+                className={
+                  f.time
+                    ? 'whitespace-nowrap font-display tabular-nums text-ink'
+                    : 'whitespace-nowrap font-display tabular-nums text-ink-muted'
+                }
+              >
                 {f.time || '--:--'}
               </span>
               <span className="text-ink-muted">{Icon.clock('h-4 w-4')}</span>
@@ -505,7 +560,8 @@ export default function AddForm({
           >
             {categoryOptions.map((c, idx) => {
               const active = f.category === c;
-              const dotTone = CATEGORY_DOT[c] || 'bg-ink-muted';
+              const washTone = CATEGORY_WASH_TONE[c] || 'leaf';
+              const washShape = CATEGORY_WASH_SHAPE[c] || 1;
               return (
                 <button
                   key={c}
@@ -536,13 +592,15 @@ export default function AddForm({
                       setF((s) => ({ ...s, category: c }));
                     }
                   }}
-                  className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border px-3 py-1.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border px-3 py-1.5 font-hand text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                     active
-                      ? 'border-teal-strong bg-teal-soft text-teal-strong ring-1 ring-teal-strong shadow-sm'
-                      : 'border-line bg-cream text-ink-soft hover:bg-beige/70'
+                      ? 'border-tape-navy bg-route-soft/80 text-route ring-1 ring-tape-navy'
+                      : 'border-ink-soft/45 bg-paper text-ink hover:bg-paper-shade'
                   }`}
                 >
-                  <CategorySticker category={c} size="sm" dotClassName={`h-2 w-2 ${dotTone}`} />
+                  <WashBlob tone={washTone} shape={washShape} className="h-6 w-6 shrink-0">
+                    <JournalIcon name={c} className="h-3.5 w-3.5 text-ink" />
+                  </WashBlob>
                   <span>{displayCategory(c)}</span>
                 </button>
               );
@@ -563,12 +621,12 @@ export default function AddForm({
           </select>
         </div>
 
-        <div className="rounded-xl border border-line bg-cream">
+        <div className="rounded-sm border border-ink-soft/45 bg-paper">
           <button
             type="button"
             aria-expanded={advanced}
             onClick={() => setAdvanced((v) => !v)}
-            className="flex min-h-11 w-full items-center justify-between whitespace-nowrap px-3 py-2.5 text-left text-sm font-bold text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
+            className="flex min-h-11 w-full items-center justify-between px-3 py-2.5 text-left font-hand text-sm font-bold text-ink-soft transition-colors hover:bg-paper-shade/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
           >
             <span>{t('notebook.addForm.advancedToggle')}</span>
             <span className={`transition-transform ${advanced ? 'rotate-180' : ''}`}>
@@ -576,13 +634,13 @@ export default function AddForm({
             </span>
           </button>
           {advanced && (
-            <div className="space-y-2 border-t border-line px-3 pb-3 pt-2">
-              <p className="whitespace-nowrap font-hand text-meta font-bold text-ink-muted">
+            <div className="space-y-2 border-t border-dashed border-ink-soft/35 px-3 pb-3 pt-2">
+              <p className="font-hand text-meta font-bold text-ink-muted">
                 {t('notebook.addForm.taxSectionTitle')}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor="ref-subtotal" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
+                  <label htmlFor="ref-subtotal" className="mb-0.5 block font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.subtotalLabel')}
                   </label>
                   <input
@@ -590,17 +648,23 @@ export default function AddForm({
                     type="number"
                     value={f.subtotal}
                     onChange={set('subtotal')}
-                    className={field}
+                    className={`${field} font-display tabular-nums`}
                   />
                 </div>
                 <div>
-                  <label htmlFor="ref-tax" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
+                  <label htmlFor="ref-tax" className="mb-0.5 block font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.taxLabel')}
                   </label>
-                  <input id="ref-tax" type="number" value={f.tax} onChange={set('tax')} className={field} />
+                  <input
+                    id="ref-tax"
+                    type="number"
+                    value={f.tax}
+                    onChange={set('tax')}
+                    className={`${field} font-display tabular-nums`}
+                  />
                 </div>
                 <div>
-                  <label htmlFor="ref-refund" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
+                  <label htmlFor="ref-refund" className="mb-0.5 block font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.taxRefundLabel')}
                   </label>
                   <input
@@ -608,11 +672,11 @@ export default function AddForm({
                     type="number"
                     value={f.taxRefund}
                     onChange={set('taxRefund')}
-                    className={field}
+                    className={`${field} font-display tabular-nums`}
                   />
                 </div>
                 <div>
-                  <label htmlFor="ref-discount" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
+                  <label htmlFor="ref-discount" className="mb-0.5 block font-hand text-meta text-ink-muted">
                     {t('notebook.addForm.discountLabel')}
                   </label>
                   <input
@@ -620,12 +684,12 @@ export default function AddForm({
                     type="number"
                     value={f.discount}
                     onChange={set('discount')}
-                    className={field}
+                    className={`${field} font-display tabular-nums`}
                   />
                 </div>
               </div>
               <div>
-                <label htmlFor="ref-note2" className="mb-0.5 block whitespace-nowrap font-hand text-meta text-ink-muted">
+                <label htmlFor="ref-note2" className="mb-0.5 block font-hand text-meta text-ink-muted">
                   {t('notebook.addForm.noteLabel')}
                 </label>
                 <textarea
@@ -641,25 +705,26 @@ export default function AddForm({
         </div>
       </div>
 
-      {/* Sticky save bar directly above BottomNav */}
+      {/* In-flow save bar at the bottom of the form content (above BottomNav on mobile) */}
       <div
         ref={saveBarRef}
         data-testid="form-save-bar"
-        className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-line bg-cream-soft px-4 py-2 shadow-sm"
+        className="jr-taped-card relative min-w-0 bg-paper px-3.5 py-3"
       >
         {blockReason && (
           <p
             data-testid="form-save-hint"
-            className="mx-auto mb-1.5 max-w-5xl lg:max-w-2xl whitespace-nowrap text-center text-meta font-semibold text-ink-muted"
+            className="mb-2 text-center font-hand text-meta font-semibold text-ink-muted"
           >
             {blockReason}
           </p>
         )}
-        <div className="mx-auto flex max-w-5xl lg:max-w-2xl gap-3">
+        <div className="flex min-w-0 gap-3">
           <button
             type="button"
+            data-testid="form-cancel"
             onClick={onCancel}
-            className="btn-secondary h-11 min-h-11 flex-1 whitespace-nowrap !py-2.5 text-sm"
+            className="jr-btn-paper inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2.5 font-hand text-sm font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {t('notebook.addForm.cancel')}
           </button>
@@ -667,7 +732,7 @@ export default function AddForm({
             type="submit"
             data-testid="form-save"
             disabled={!valid}
-            className="btn-primary h-11 min-h-11 flex-1 gap-1.5 whitespace-nowrap !py-2.5 text-sm"
+            className="jr-btn-navy inline-flex h-11 min-h-11 min-w-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-4 py-2.5 font-hand text-sm font-bold text-paper transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50"
           >
             {Icon.check('h-4 w-4')}
             <span>{t('notebook.addForm.save')}</span>

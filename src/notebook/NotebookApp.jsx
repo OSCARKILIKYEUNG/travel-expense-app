@@ -1187,6 +1187,7 @@ export default function NotebookApp({
         startScan={route.scan}
         people={people}
         rate={effectiveRate}
+        accountingCurrency={trip.accountingCurrency || 'HKD'}
         payerDefault={defaultPayer(people)}
         paymentDefault={defaultPayment(trip)}
         onRequestScan={(opts) =>

@@ -233,7 +233,7 @@ describe('SettingsView Account card & applyNotebookSignOut', () => {
     );
     expect(enProHtml).toContain('Account');
     expect(enProHtml).toContain('Signed in as');
-    expect(enProHtml).toContain('bg-teal-strong');
+    expect(enProHtml).toContain('bg-tape-navy');
     expect(enProHtml).toContain('Pro');
     expect(enProHtml).not.toContain('data-testid="account-scans"');
     expect(enProHtml).toContain('Sign out');

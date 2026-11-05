@@ -540,7 +540,7 @@
       "dateFallbackToday_other": "{{count}} 張收據沒有日期，已記入今天（{{month}}月{{day}}日），可在編輯中修改。"
     },
     "settings": {
-      "titleScript": "Settings",
+      "titleScript": "",
       "accountTitle": "帳戶",
       "accountEmail": "登入電郵",
       "accountPlanLoading": "讀取中…",
