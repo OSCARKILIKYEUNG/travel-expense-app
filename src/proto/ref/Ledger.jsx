@@ -19,7 +19,7 @@ import {
   DoodleSticker,
   Icon,
 } from './parts';
-import ExpenseCard, { Chip, ChipRow } from './ExpenseCard';
+import ExpenseCard, { Chip, ChipRow, ExpenseSkeletonRow } from './ExpenseCard';
 import LedgerTotalCard from './LedgerTotalCard';
 import { settleUp } from './refCharts';
 import { ledgerTotalSummary } from './refLedgerTotal';
@@ -43,6 +43,24 @@ import {
 } from './refRepayment';
 import { activeFilterCount, defaultExpenseDate, resolveToday, tripDates } from './refRules';
 
+/** Honest minimal skeleton matching real expense-row geometry when a loading lifecycle is active. */
+export function LedgerSkeleton() {
+  return (
+    <section
+      className="space-y-2.5 pt-1"
+      aria-hidden="true"
+      data-testid="ledger-skeleton"
+    >
+      <div className="flex items-center justify-between border-b border-dashed border-ink-soft/25 pb-1">
+        <div className="skeleton-blob skeleton-line w-40" style={{ width: '110px', height: '18px' }} />
+        <div className="skeleton-blob skeleton-line" style={{ width: '64px', height: '14px' }} />
+      </div>
+      <ExpenseSkeletonRow wide />
+      <ExpenseSkeletonRow wide={false} />
+    </section>
+  );
+}
+
 /** 帳本: full trip ledger with hand-lettered header, grid total card, scan/add actions, search/filter, payer chips, and date groups. */
 export default function Ledger({
   trip,
@@ -52,6 +70,7 @@ export default function Ledger({
   exchangeRates,
   defaultAssignee,
   settlementActions,
+  loading = false,
   onScan,
   onAdd,
   onEdit,
@@ -191,11 +210,11 @@ export default function Ledger({
           <div className="relative flex min-w-0 items-center justify-between gap-2">
             <div className="min-w-0">
               {showLedgerTitleScript && (
-                <p className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-ink-soft">
+                <p className="meta-quiet whitespace-nowrap font-hand text-xs tracking-wider text-ink-muted">
                   {ledgerTitleScript}
                 </p>
               )}
-              <h1 className="whitespace-nowrap font-hand text-2xl font-bold tracking-wider text-ink">
+              <h1 className="story-critical whitespace-nowrap font-hand text-2xl font-bold tracking-wider text-ink">
                 {ledgerTitle}
               </h1>
             </div>
@@ -217,7 +236,7 @@ export default function Ledger({
                     },
                   })
                 }
-                className="jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 font-hand text-xs font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                className="btn-secondary-shell jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 font-hand text-xs font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
                 <RepayIcon className="h-4 w-4 shrink-0 text-route" />
                 <span>{t('notebook.settle.recordRepayment')}</span>
@@ -228,16 +247,32 @@ export default function Ledger({
           <LedgerTotalCard summary={summary} tripName={trip.name} />
 
           {hint && (
-            <div className="flex min-w-0 justify-end">
+            <div className="relative min-w-0 pt-0.5">
+              <span
+                aria-hidden="true"
+                data-jr-decor="washi"
+                style={{ '--jr-tilt': '2deg' }}
+                className="jr-washi pointer-events-none absolute -top-1.5 right-3 z-10 h-3 w-11 select-none"
+              />
               <button
                 type="button"
                 data-testid="ledger-undated-hint"
                 aria-label={t('notebook.ledger.jumpToUndatedAria', { count: hint.count })}
                 onClick={jumpToUndated}
-                className="inline-flex min-h-11 min-w-11 max-w-full items-center gap-1.5 truncate whitespace-nowrap rounded-pill border border-stamp bg-paper px-3.5 py-1.5 font-hand text-xs font-bold tabular-nums text-stamp transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                className="form-error-row jr-taped-card w-full min-w-0 text-left transition-colors hover:bg-paper-shade/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
-                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-stamp" />
-                <span className="truncate">{t('notebook.ledger.undatedHint', { count: hint.count })} ›</span>
+                <span className="form-error-meta min-w-0 flex-1">
+                  <span className="block truncate font-hand text-xs font-bold tabular-nums text-stamp">
+                    {t('notebook.ledger.undatedHint', { count: hint.count })}
+                  </span>
+                  <span className="meta-quiet mt-0.5 block truncate text-xs text-ink-muted">
+                    {t('notebook.ledger.undatedSubHint')}
+                  </span>
+                </span>
+                <span className="form-error-cta shrink-0 font-hand">
+                  <span>{t('notebook.ledger.fixDateCta')}</span>
+                  <span aria-hidden="true">›</span>
+                </span>
               </button>
             </div>
           )}
@@ -248,7 +283,7 @@ export default function Ledger({
               type="button"
               data-testid="ledger-scan"
               onClick={onScan}
-              className="jr-btn-navy inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+              className="btn-primary-shell jr-btn-navy inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
               <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
               <span className="truncate font-hand">{t('notebook.home.scanReceipt')}</span>
@@ -257,17 +292,17 @@ export default function Ledger({
               type="button"
               data-testid="ledger-add"
               onClick={onAdd}
-              className="jr-btn-paper inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+              className="btn-primary-shell jr-btn-paper inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
               <PencilIcon className="h-5 w-5 shrink-0 text-route" />
               <span className="truncate font-hand">{t('notebook.home.addEntry')}</span>
             </button>
           </div>
 
-          {/* Search input + 篩選 button + Payer chips */}
-          <div className="jr-taped-card min-w-0 space-y-2 bg-paper-shade/85 p-2.5">
+          {/* Search input + 篩選 button + Payer segmented control (quieter than primary) */}
+          <div className="filter-bar-quiet jr-taped-card min-w-0 space-y-2 bg-paper-shade/60 p-2.5">
             <div className="flex min-w-0 items-center gap-2">
-              <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-sm border border-ink-soft/55 bg-paper pl-2.5 pr-1 text-ink-muted focus-within:ring-2 focus-within:ring-route">
+              <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-sm border border-ink-soft/35 bg-paper/80 pl-2.5 pr-1 text-ink-muted focus-within:ring-2 focus-within:ring-route">
                 <SearchIcon className="h-4 w-4 shrink-0 text-ink-muted" />
                 <input
                   aria-label={t('notebook.ledger.searchAria')}
@@ -275,7 +310,7 @@ export default function Ledger({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('notebook.ledger.searchPlaceholder')}
-                  className="h-11 min-h-11 w-full min-w-0 bg-transparent px-2 text-xs text-ink outline-none placeholder:text-ink-muted lg:text-sm"
+                  className="h-11 min-h-11 w-full min-w-0 bg-transparent px-2 text-xs text-ink-soft outline-none placeholder:text-ink-muted lg:text-sm"
                 />
                 {query && (
                   <button
@@ -297,10 +332,10 @@ export default function Ledger({
                 aria-haspopup="dialog"
                 aria-expanded={sheetOpen}
                 onClick={() => setSheetOpen(true)}
-                className={`inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm border px-2.5 py-1.5 font-hand text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
+                className={`btn-secondary-shell inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm border px-2.5 py-1.5 font-hand text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                   filterCount > 0
-                    ? 'border-ink-soft bg-tape-navy text-paper'
-                    : 'border-ink-soft/55 bg-paper text-ink hover:bg-paper-shade'
+                    ? 'border-ink-soft bg-tape-navy font-bold text-paper'
+                    : 'border-ink-soft/35 bg-paper/80 font-medium text-ink-soft hover:bg-paper-shade hover:text-ink'
                 }`}
               >
                 <FilterIcon className="h-4 w-4 shrink-0" />
@@ -358,6 +393,10 @@ export default function Ledger({
 
         {/* Right column at lg: expense list (date groups + cards) */}
         <div className="min-w-0 space-y-4 lg:col-span-7 lg:col-start-6 lg:row-start-1">
+          {loading ? (
+            <LedgerSkeleton />
+          ) : (
+            <>
           {displayGroups.map((g) => (
             <section key={g.key} data-testid={`ledger-group-${g.key}`} className="min-w-0 scroll-mt-20 space-y-2.5">
               <div className="flex min-w-0 items-center gap-2.5 pt-0.5">
@@ -386,7 +425,7 @@ export default function Ledger({
                   </span>
                 )}
                 <span className="h-0 min-w-2 flex-1 border-t border-dashed border-ink-soft/40" />
-                <span className="shrink-0 whitespace-nowrap rounded-sm border border-ink-soft/30 bg-paper-shade/85 px-2 py-0.5 font-display text-xs font-bold tabular-nums text-ink">
+                <span className="font-money story-critical shrink-0 whitespace-nowrap rounded-sm border border-ink-soft/30 bg-paper-shade/85 px-2 py-0.5 font-display text-xs font-bold tabular-nums text-ink">
                   {fmtHKD(g.total)}
                 </span>
               </div>
@@ -417,7 +456,7 @@ export default function Ledger({
                           <span className="shrink-0 rounded-sm border border-route/30 bg-route-soft px-2 py-0.5 font-hand text-xs font-bold text-route">
                             {t('notebook.settle.ledgerRepaymentTag')}
                           </span>
-                          <span className="min-w-0 truncate text-sm font-bold text-ink">
+                          <span className="story-critical min-w-0 truncate text-sm font-bold text-ink">
                             {t('notebook.settle.repaidTo', {
                               from: s.from === '共同' ? t('expenseCard.shared') : s.from,
                               to: s.to === '共同' ? t('expenseCard.shared') : s.to,
@@ -433,15 +472,15 @@ export default function Ledger({
                           )}
                         </div>
                         {s.note && (
-                          <p className="min-w-0 truncate text-xs text-ink-muted">{s.note}</p>
+                          <p className="meta-quiet min-w-0 truncate text-xs text-ink-muted">{s.note}</p>
                         )}
                       </div>
-                      <div className="flex shrink-0 flex-col items-end font-display tabular-nums">
+                      <div className="font-money flex shrink-0 flex-col items-end font-display tabular-nums">
                         <span className="whitespace-nowrap text-sm font-bold text-route">
                           {formatAccountingAmount(s.hkdAmount, accountingCurrency)}
                         </span>
                         {s.currency && s.currency !== accountingCurrency && Number(s.amount) > 0 && (
-                          <span className="whitespace-nowrap text-xs text-ink-muted">
+                          <span className="meta-quiet whitespace-nowrap text-xs text-ink-muted">
                             {s.currency} {Math.round(Number(s.amount)).toLocaleString('en-US')}
                           </span>
                         )}
@@ -481,7 +520,7 @@ export default function Ledger({
                     type="button"
                     data-testid="ledger-clear-empty"
                     onClick={clearAllFilters}
-                    className="jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                    className="btn-secondary-shell jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                   >
                     {t('notebook.empty.clearFilters')}
                   </button>
@@ -500,6 +539,8 @@ export default function Ledger({
                 </>
               )}
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

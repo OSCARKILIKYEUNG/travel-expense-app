@@ -691,6 +691,8 @@
       "payerLabel": "付款人",
       "undated": "無日期",
       "undatedHint": "{{count}} 筆無日期",
+      "undatedSubHint": "請補齊收據日期後才可入帳",
+      "fixDateCta": "補日期",
       "jumpToUndatedAria": "跳至無日期（{{count}} 筆）",
       "searchAria": "搜尋",
       "searchPlaceholder": "搜尋店舖、地點、類別…",

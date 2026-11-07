@@ -1504,8 +1504,8 @@ function DesktopNav({ tab }) {
             onClick={() => go(hash)}
             className={`jr-desktop-tab relative inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap border px-3.5 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
               active
-                ? 'jr-desktop-tab-active border-ink-soft/65 bg-paper font-bold text-route'
-                : 'border-transparent font-semibold text-ink-soft hover:bg-paper-shade/85 hover:text-ink'
+                ? 'desk-tab-active jr-desktop-tab-active border-route/65 bg-route-soft/85 font-bold text-route'
+                : 'border-transparent font-medium text-ink-soft hover:bg-paper-shade/85 hover:text-ink'
             }`}
           >
             <NavIcon className="h-[18px] w-[18px] shrink-0" />
@@ -1549,20 +1549,15 @@ function BottomNav({ tab }) {
               onClick={() => go(hash)}
               className={`jr-index-tab flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
                 active
-                  ? 'jr-index-tab-active font-bold text-route'
-                  : 'font-medium text-ink-soft hover:bg-paper hover:text-ink'
+                  ? 'notebook-tab-active jr-index-tab-active font-bold text-route'
+                  : 'notebook-tab font-medium text-ink-soft hover:bg-paper hover:text-ink'
               }`}
             >
               <NavIcon className="h-5 w-5 shrink-0" />
               <span className="whitespace-nowrap font-hand text-sm leading-none">
                 {t(labelKey)}
               </span>
-              <span
-                aria-hidden="true"
-                className={`mt-0.5 h-0.5 rounded-full transition-all ${
-                  active ? 'w-4 bg-route' : 'w-2 bg-transparent'
-                }`}
-              />
+              <span aria-hidden="true" className="nav-active-mark" />
             </button>
           );
         })}

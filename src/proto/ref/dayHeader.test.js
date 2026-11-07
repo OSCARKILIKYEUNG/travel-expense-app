@@ -119,7 +119,7 @@ describe('DayView Batch A7 journal-artwork redesign', () => {
     expect(html).not.toContain('月曆小字：');
     expect(html).toContain('>富士<');
     expect(html).toContain('今日行程 · 4 站');
-    expect(html).toContain('lg:h-4 lg:w-4');
+    expect(html).toContain('lg:h-5 lg:w-5');
     expect(html).toContain('py-0.5 text-route opacity-100');
     expect(html).toContain('3 筆');
     expect(html).toContain('jr-ruled');

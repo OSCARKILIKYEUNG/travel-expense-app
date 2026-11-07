@@ -466,6 +466,8 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(ledgerContainer.querySelectorAll('[data-notched-tab="date"]').length).toBeGreaterThan(0);
     expect(ledgerContainer.querySelector('[data-notched-tab="undated"]').textContent).toBe('無日期');
     expect(screen.getByTestId('ledger-undated-hint').textContent).toContain('1 筆無日期');
+    expect(screen.getByTestId('ledger-undated-hint').textContent).toContain('補日期');
+    expect(screen.getByTestId('ledger-undated-hint').className).toContain('form-error-row');
     uLedger2();
   });
 
@@ -906,7 +908,7 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(titleH3.className.split(/\s+/)).not.toContain('whitespace-nowrap');
 
     // Badge row is flex-nowrap overflow-hidden and each badge is shrink-0
-    const badgeRow = titleH3.previousElementSibling;
+    const badgeRow = card.querySelector('.expense-tags') || titleH3.previousElementSibling;
     expect(badgeRow).toBeTruthy();
     expect(badgeRow.className).toContain('flex-nowrap');
     expect(badgeRow.className).toContain('overflow-hidden');
@@ -914,11 +916,13 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
       expect(badge.className).toContain('shrink-0');
     }
 
-    // ChipRow is a single horizontal scroll row with shrink-0 chips
+    // ChipRow is a single horizontal segmented scroll row with shrink-0 chips
     const chipRow = screen.getByRole('group', { name: '篩選人物' });
+    expect(chipRow.className).toContain('seg-control');
     expect(chipRow.className).toContain('flex-nowrap');
     expect(chipRow.className).toContain('overflow-x-auto');
     for (const chip of chipRow.querySelectorAll('button')) {
+      expect(chip.className).toContain('seg-item');
       expect(chip.className).toContain('shrink-0');
     }
     unmount();
@@ -1131,8 +1135,10 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(screen.getByTestId('chart-cat-飲食').textContent).toContain('飲食 · 2 筆');
 
     const assigneeSec = pageZh.querySelector('[data-section="assignee"]');
+    const paymentSec = pageZh.querySelector('[data-section="payment"]');
     expect(assigneeSec.parentElement.className).toContain('lg:col-start-1');
     expect(assigneeSec.className).toContain('lg:order-4');
+    expect(paymentSec.parentElement.className).toContain('lg:col-start-2');
     uZh();
 
     await i18n.changeLanguage('en');

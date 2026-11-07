@@ -165,35 +165,35 @@ export function HomeCostCard({
   const panelId = 'home-cost-detail-panel';
 
   return (
-    <section className="jr-taped-card relative min-w-0 bg-paper-shade/90 px-3.5 pb-1 pt-2.5">
+    <section className="jr-taped-card tc-card relative min-w-0 bg-paper-shade/90 px-3.5 pb-1 pt-2.5">
       <NavyTape
         tilt={2}
         className="absolute -top-2.5 right-3 z-10 h-3 w-14"
       />
 
-      <div className="mb-1.5 pr-16">
+      <div className="tc-top-row mb-1.5 pr-16">
         <WashiLabel tilt={-2}>{t('notebook.home.expenseLabel')}</WashiLabel>
       </div>
 
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <h2
           data-testid="trip-total"
-          className="whitespace-nowrap font-display text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink lg:text-hero-sm"
+          className="tc-hero-total font-money story-critical whitespace-nowrap font-display text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink lg:text-hero-sm"
         >
           {fmtHKD(resolvedTotal)}
         </h2>
-        <p className="whitespace-nowrap font-display text-xs font-medium tabular-nums text-ink-muted">
+        <p className="meta-quiet whitespace-nowrap font-display text-xs font-medium tabular-nums text-ink-muted">
           {t('notebook.home.recordsCount', { count: resolvedCount })}
         </p>
       </div>
 
       {budgetState && (
-        <div data-testid="home-budget-pill" className="mt-1.5 min-w-0">
+        <div data-testid="home-budget-pill" className="tc-bar-wrap mt-1.5 min-w-0">
           <div
             data-testid="home-budget-bar"
             data-pct={String(barPct)}
             aria-hidden="true"
-            className="relative h-2 w-full"
+            className="relative h-2.5 w-full"
           >
             <svg
               aria-hidden="true"
@@ -201,7 +201,7 @@ export function HomeCostCard({
               viewBox="0 0 308 12"
               preserveAspectRatio="none"
               fill="none"
-              className="block h-full w-full overflow-visible"
+              className="tc-bar-svg block h-full w-full overflow-visible"
             >
               <path
                 d="M2 2.4 C78 1.7, 158 2.8, 236 2.1 C268 1.9, 292 2.5, 306 2.2 L306.3 9.7 C248 10.2, 162 9.3, 84 10.1 C42 10.3, 16 9.6, 1.8 9.8 Z"
@@ -239,13 +239,13 @@ export function HomeCostCard({
             </svg>
           </div>
 
-          <div className="mt-1 flex min-w-0 items-baseline justify-between gap-2 font-display text-xs tabular-nums">
-            <span className="whitespace-nowrap font-medium text-ink-muted">
+          <div className="tc-bar-meta mt-1 flex min-w-0 items-baseline justify-between gap-2 font-display text-xs tabular-nums">
+            <span className="tc-used-text meta-quiet whitespace-nowrap font-medium text-ink-muted">
               {t('notebook.home.budgetUsedPct', { pct: budgetState.pct })}
             </span>
             <span
               data-testid="home-budget-remaining"
-              className={`whitespace-nowrap font-bold ${
+              className={`tc-remain-text font-money story-critical whitespace-nowrap font-bold ${
                 budgetState.over ? 'text-stamp' : 'text-ink'
               }`}
             >
@@ -257,10 +257,10 @@ export function HomeCostCard({
         </div>
       )}
 
-      <div className="mt-1.5 flex min-h-11 min-w-0 items-center justify-between gap-2 border-t border-dashed border-ink-soft/30 font-display tabular-nums">
+      <div className="tc-footer-row mt-1.5 flex min-h-11 min-w-0 items-center justify-between gap-2 border-t border-dashed border-ink-soft/30 font-display tabular-nums">
         <div
           data-testid="today-line"
-          className="min-w-0 truncate whitespace-nowrap font-display text-xs font-bold tabular-nums text-ink-soft"
+          className="tc-today-meta font-money min-w-0 truncate whitespace-nowrap font-display text-xs font-bold tabular-nums text-ink-soft"
         >
           {resolvedCounter.phase === 'during'
             ? t('notebook.home.todaySpend', { amount: fmtHKDShort(resolvedTodaySpend) })
@@ -274,7 +274,7 @@ export function HomeCostCard({
             aria-expanded={isOpen}
             aria-controls={panelId}
             onClick={() => setLocalOpen((prev) => !prev)}
-            className="inline-flex min-h-11 min-h-[44px] min-w-11 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm px-2 font-display text-xs font-bold tabular-nums text-route transition-colors hover:bg-paper/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+            className="tc-detail-btn inline-flex min-h-11 min-h-[44px] min-w-11 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-sm px-2 font-display text-xs font-bold tabular-nums text-route transition-colors hover:bg-paper/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             <span>{t('notebook.home.costDetail')}</span>
             <span
@@ -295,10 +295,10 @@ export function HomeCostCard({
           data-testid="home-cost-detail"
           className="mb-1 mt-0.5 flex min-w-0 items-baseline justify-between gap-2 rounded-sm border border-ink-soft/25 bg-paper/75 px-2.5 py-1.5 font-display text-xs tabular-nums"
         >
-          <span className="whitespace-nowrap text-ink-muted">
+          <span className="meta-quiet whitespace-nowrap text-ink-muted">
             {t('notebook.home.costDetailForeign')}
           </span>
-          <span className="whitespace-nowrap font-bold text-ink">
+          <span className="font-money story-critical whitespace-nowrap font-bold text-ink">
             {resolvedOrigLabel}
           </span>
         </div>
@@ -416,12 +416,12 @@ export default function Home({
               </div>
 
               {/* Hand-lettered trip title */}
-              <h1 className="mt-1 min-w-0 break-words font-hand text-2xl font-bold leading-tight tracking-wide text-ink lg:text-hero-sm">
+              <h1 className="story-critical mt-1 min-w-0 break-words font-hand text-2xl font-bold leading-tight tracking-wide text-ink lg:text-hero-sm">
                 {trip.name}
               </h1>
 
               {/* Dates + companions metadata (Huninn body font, tabular-nums) */}
-              <p className="mt-1 text-xs leading-snug tabular-nums text-ink-muted">
+              <p className="meta-quiet mt-1 text-xs leading-snug tabular-nums text-ink-muted">
                 <span className="block whitespace-nowrap">
                   {t('notebook.home.dateRangeLine', {
                     startMonth: sm,
@@ -534,7 +534,7 @@ export default function Home({
 
       {counter.phase === 'during' && (
         <div
-          className="jr-taped-card relative min-w-0 bg-paper lg:col-span-7 lg:col-start-6 lg:row-start-2"
+          className="jr-taped-card day-open-card relative mb-1.5 min-w-0 bg-paper lg:col-span-7 lg:col-start-6 lg:row-start-2 lg:mb-2"
         >
           <span
             aria-hidden="true"
@@ -556,7 +556,7 @@ export default function Home({
               >
                 {t('notebook.home.todayJournal')}
               </span>
-              <span className="min-w-0 truncate whitespace-nowrap font-hand text-sm font-bold text-ink">
+              <span className="story-critical min-w-0 truncate whitespace-nowrap font-hand text-sm font-bold text-ink">
                 {shortenedTodayTitle
                   ? t('notebook.home.todayRowTitle', {
                       n: counter.n,
@@ -575,13 +575,13 @@ export default function Home({
         </div>
       )}
 
-      {/* 3. Actions: 掃描收據 (filled navy, camera icon) + 記一筆 (outline, pencil icon), each >= 48px tall */}
-      <div className="grid min-w-0 grid-cols-2 gap-3 lg:col-span-5 lg:col-start-1 lg:row-start-2">
+      {/* 3. Actions: 掃描收據 (filled navy, camera icon) + 記一筆 (outline, pencil icon), r5.1 breathing room */}
+      <div className="primary-actions-block primary-actions-block--desk grid min-w-0 grid-cols-2 gap-3 lg:col-span-5 lg:col-start-1 lg:row-start-2">
         <button
           type="button"
           data-testid="home-scan"
           onClick={onScan}
-          className="jr-btn-navy inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="btn-primary-shell jr-btn-navy inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
         >
           <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
           <span className="font-hand">{t('notebook.home.scanReceipt')}</span>
@@ -590,7 +590,7 @@ export default function Home({
           type="button"
           data-testid="home-add"
           onClick={onAdd}
-          className="jr-btn-paper inline-flex min-h-[48px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          className="btn-primary-shell jr-btn-paper inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
         >
           <PencilIcon className="h-5 w-5 shrink-0 text-route" />
           <span className="font-hand">{t('notebook.home.addEntry')}</span>
@@ -610,7 +610,7 @@ export default function Home({
       {todayTodos.length > 0 && (
         <section
           data-testid="today-todos"
-          className="jr-grid jr-taped-card relative min-w-0 px-3.5 pb-3.5 pt-4 lg:col-span-5 lg:col-start-1 lg:row-start-3"
+          className="primary-actions-follow jr-grid jr-taped-card relative min-w-0 px-3.5 pb-3.5 pt-4 lg:col-span-5 lg:col-start-1 lg:row-start-3"
         >
           <span
             aria-hidden="true"
@@ -621,7 +621,7 @@ export default function Home({
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-ink-soft/30 pb-2">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-2">
               <WashiLabel tilt={-1}>{t('notebook.home.todayTodosLabel')}</WashiLabel>
-              <span className="truncate font-hand text-xs font-bold text-ink-muted">
+              <span className="meta-quiet truncate font-hand text-xs text-ink-muted">
                 {todayDay?.title
                   ? t('notebook.home.todayTodosSubtitle', {
                       n: counter.n || 1,
@@ -667,14 +667,14 @@ export default function Home({
                     )}
                     <span
                       className={`min-w-0 line-clamp-2 break-words text-sm font-bold leading-snug ${
-                        isChecked ? 'line-through text-ink-soft' : 'text-ink'
+                        isChecked ? 'line-through text-ink-soft' : 'story-critical text-ink'
                       }`}
                     >
                       {item.title}
                     </span>
                   </span>
                   {item.spentHkd != null && item.spentHkd > 0 && (
-                    <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-ink-muted">
+                    <span className="font-money meta-quiet shrink-0 whitespace-nowrap text-xs tabular-nums text-ink-muted">
                       {t('notebook.home.todayTodosLogged', {
                         amount: fmtHKD(item.spentHkd),
                       })}
@@ -707,7 +707,7 @@ export default function Home({
             <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 pt-0.5">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-2">
                 <WashiLabel tilt={-1}>{t('notebook.home.nextDaysLabel')}</WashiLabel>
-                <span className="text-xs tabular-nums text-ink-muted">
+                <span className="meta-quiet text-xs tabular-nums text-ink-muted">
                   {nextDaysRangeText}
                 </span>
               </div>
@@ -762,7 +762,7 @@ export default function Home({
                               <span className="sr-only">▼</span>
                             </span>
                           )}
-                          <span className="w-full truncate text-xs font-bold text-ink lg:text-sm">
+                          <span className="story-critical w-full truncate text-xs font-bold text-ink lg:text-sm">
                             {stopText}
                           </span>
                         </div>
@@ -816,7 +816,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
   return (
     <div
       data-testid="calendar"
-      className="jr-grid jr-taped-card relative min-w-0 px-1 pb-3 pt-7 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:px-4 lg:pb-4 lg:pt-8"
+      className="primary-actions-follow primary-actions-follow--desk-reset jr-grid jr-taped-card relative min-w-0 px-1 pb-3 pt-7 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:px-4 lg:pb-4 lg:pt-8"
     >
       <NavyTape
         tilt={-3}
@@ -847,7 +847,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
         </button>
         <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
           <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
-            <h3 className="whitespace-nowrap font-hand text-base font-bold tracking-wider text-ink lg:text-xl">
+            <h3 className="story-critical whitespace-nowrap font-hand text-base font-bold tracking-wider text-ink lg:text-xl">
               {monthTitle}
             </h3>
             {!hasTripInMonth && month !== tripStartMonth && (
@@ -861,7 +861,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
             )}
           </div>
           {hasValidTripDates && (
-            <p className="mt-0.5 max-w-full truncate text-xs tabular-nums text-ink-muted">
+            <p className="meta-quiet mt-0.5 max-w-full truncate text-xs tabular-nums text-ink-muted">
               {t('notebook.home.tripRangeSubtitle', {
                 startMonth: sm,
                 startDay: sd,
@@ -905,6 +905,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
               const isTripDay = inTrip(c.iso);
               const isToday = c.iso === today;
               const isSelected = Boolean(selectedDay && c.iso === selectedDay);
+              const isStamped = isToday || isSelected;
               const rawNote = day?.note ? capCellNote(day.note) : '';
               const rawNoteChars = Array.from(rawNote);
               const hasCjkNote = rawNoteChars.some((ch) => ch.charCodeAt(0) > 0x2e7f);
@@ -930,8 +931,8 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                 : c.inMonth
                   ? 'font-bold text-ink-muted opacity-80'
                   : 'font-bold text-ink-muted opacity-45';
-              const cellBoxClass = isToday
-                ? 'border-stamp/80 bg-wash-wheat/55'
+              const cellBoxClass = isStamped
+                ? 'cal-day-selected border-stamp/80 bg-wash-wheat/55'
                 : isTripDay
                   ? 'border-route/35 bg-route-soft/75'
                   : 'border-ink-soft/10 bg-paper/45';
@@ -942,6 +943,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                   type="button"
                   data-testid={`day-cell-${c.iso}`}
                   data-selected={isSelected ? 'true' : undefined}
+                  aria-current={isToday ? 'date' : undefined}
                   onClick={() => onOpenDay(c.iso)}
                   aria-label={`${cellDateLabel}${day?.title ? ` ${day.title}` : ''}`}
                   className={`relative flex min-h-[60px] min-w-[44px] flex-col items-center justify-between gap-0.5 rounded-sm border px-0.5 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route lg:min-h-[66px] lg:p-1.5 ${cellBoxClass} ${
@@ -955,7 +957,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                         : ''
                     }`}
                   >
-                    {isToday ? (
+                    {isStamped ? (
                       <TodayRing className="h-6 w-6 shrink-0">{n}</TodayRing>
                     ) : (
                       <span
@@ -968,7 +970,7 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                       <span
                         data-cell-note
                         className={`inline-block shrink-0 whitespace-nowrap rounded-sm border bg-paper px-0.5 py-0.5 font-hand text-xs font-bold leading-none lg:px-1 ${
-                          isToday
+                          isStamped
                             ? 'border-stamp/45 text-stamp'
                             : 'border-route/35 text-route'
                         }`}
@@ -985,8 +987,8 @@ function Calendar({ trip, today, month, setMonth, selectedDay = null, onOpenDay 
                   {cellSpend > 0 ? (
                     <span
                       data-cell-spend
-                      className={`block max-w-full truncate text-xs leading-none tabular-nums ${
-                        isToday ? 'font-bold text-stamp' : 'text-ink-soft'
+                      className={`font-money block max-w-full truncate text-xs leading-none tabular-nums ${
+                        isStamped ? 'font-bold text-stamp' : 'text-ink-soft'
                       }`}
                     >
                       {`$${Math.round(cellSpend).toLocaleString('en-US')}`}

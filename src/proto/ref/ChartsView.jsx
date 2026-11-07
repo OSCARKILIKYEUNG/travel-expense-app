@@ -386,7 +386,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
     <section
       key="payment"
       data-section="payment"
-      className="jr-taped-card jr-grid relative min-w-0 space-y-2.5 p-3.5 lg:order-2"
+      className="jr-taped-card jr-grid relative min-w-0 space-y-2.5 p-3.5"
     >
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
         <WashiLabel tilt={-1}>{t('notebook.charts.cashVsCard')}</WashiLabel>
@@ -485,7 +485,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
         {fmt(total)}
       </p>
 
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-3 lg:flex-row lg:items-center lg:gap-4">
         <div className="relative flex shrink-0 items-center justify-center">
           <svg
             viewBox="0 0 160 160"
@@ -851,7 +851,7 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
               </span>
               <span
                 className={`shrink-0 whitespace-nowrap font-display text-sm font-bold tabular-nums ${
-                  isPositive ? 'text-teal-strong' : isNegative ? 'text-coral-ink' : 'text-ink-muted'
+                  isPositive ? 'text-route' : isNegative ? 'text-stamp' : 'text-ink-muted'
                 }`}
               >
                 {isSettled ? t('notebook.settle.settled') : formatNet(row.net)}
@@ -1097,10 +1097,10 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
                 data-testid="settle-sheet-status"
                 className={`shrink-0 whitespace-nowrap font-display text-sm font-bold tabular-nums ${
                   personSettleRow.remaining > 0.5
-                    ? 'text-teal-strong'
+                    ? 'text-route'
                     : personSettleRow.remaining < -0.5
-                      ? 'text-coral-ink'
-                      : 'text-teal-strong'
+                      ? 'text-stamp'
+                      : 'text-route'
                 }`}
               >
                 {Math.abs(personSettleRow.remaining) < 0.5
@@ -1235,9 +1235,9 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           <span
             className={`shrink-0 whitespace-nowrap font-display text-base font-bold tabular-nums ${
               (personSettleRow?.net ?? breakdown.net) > 0.5
-                ? 'text-teal-strong'
+                ? 'text-route'
                 : (personSettleRow?.net ?? breakdown.net) < -0.5
-                  ? 'text-coral-ink'
+                  ? 'text-stamp'
                   : 'text-ink-muted'
             }`}
           >
@@ -1288,12 +1288,12 @@ export default function ChartsView({ trip, today, onOpenDay, onOpenLedger, settl
           <>
             <div className="min-w-0 space-y-3.5 lg:col-start-2 lg:row-start-2">
               {categorySection}
+              {paymentSection}
               {top5Section}
             </div>
             <div className="flex min-w-0 flex-col gap-3.5 lg:col-start-1 lg:row-start-2">
               {assigneeSection}
               {dailySection}
-              {paymentSection}
               {settleSection}
             </div>
           </>

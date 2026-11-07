@@ -597,13 +597,13 @@ export default function SettingsView({
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
       <div className="relative space-y-1">
-        <p className="whitespace-nowrap font-hand text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">
+        <p className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-ink-soft">
           {t('settings.pageEyebrow')}
         </p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-hand text-2xl text-ink">{settingsTitle}</h1>
+          <h1 className="whitespace-nowrap font-hand text-2xl font-bold tracking-wider text-ink">{settingsTitle}</h1>
           {showSettingsTitleScript && (
-            <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-route">
+            <span className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-route">
               {settingsTitleScript}
             </span>
           )}

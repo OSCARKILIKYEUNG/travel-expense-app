@@ -691,6 +691,8 @@
       "payerLabel": "Paid by",
       "undated": "No date",
       "undatedHint": "{{count}} undated",
+      "undatedSubHint": "Add a receipt date to complete entry",
+      "fixDateCta": "Add date",
       "jumpToUndatedAria": "Jump to undated ({{count}})",
       "searchAria": "Search",
       "searchPlaceholder": "Search store, place, category…",

@@ -301,15 +301,15 @@ export function TodayRing({
       fill="none"
       className={
         children != null
-          ? 'pointer-events-none absolute inset-0 h-full w-full select-none'
-          : `pointer-events-none inline-block shrink-0 select-none ${className}`.trim()
+          ? 'cal-stamp-ring pointer-events-none absolute inset-0 h-full w-full select-none'
+          : `cal-stamp-ring pointer-events-none inline-block shrink-0 select-none ${className}`.trim()
       }
     >
       <path
         d="M4 14 C3.5 5.5, 23.5 3.5, 24.5 13.5 C25.5 22.5, 7.5 25.5, 4 16 C2.5 11.5, 8 4.8, 17 5.5"
         fill="none"
         stroke="rgb(var(--c-stamp))"
-        strokeWidth="1.65"
+        strokeWidth="1.75"
         strokeLinecap="round"
       />
     </svg>
@@ -319,7 +319,7 @@ export function TodayRing({
     return (
       <span className={`relative inline-flex shrink-0 items-center justify-center ${className}`.trim()}>
         {ringSvg}
-        <span className="relative z-10 text-xs font-bold leading-none text-stamp">{children}</span>
+        <span className="story-critical relative z-10 text-xs font-bold leading-none text-stamp">{children}</span>
       </span>
     );
   }

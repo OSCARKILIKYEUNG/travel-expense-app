@@ -465,16 +465,13 @@ function Header({ trip, trips, onSelectTrip, tab }) {
           <button
             type="button"
             onClick={() => go('')}
-            className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="relative flex min-h-11 min-w-0 shrink items-center gap-3 rounded-2xl px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-teal-soft text-teal-strong">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-route-soft text-route">
               {Icon.pin('h-[18px] w-[18px]')}
             </span>
             <span className="min-w-0 leading-none">
-              <span className="block whitespace-nowrap font-serif-display text-sm font-semibold uppercase tracking-[0.08em] leading-tight text-teal-strong">
-                Travel notebook
-              </span>
-              <span className="block whitespace-nowrap font-hand text-base tracking-[-0.03em] text-ink">
+              <span className="block whitespace-nowrap font-hand text-base font-bold tracking-wide text-ink">
                 旅遊手帳
               </span>
             </span>
@@ -490,7 +487,7 @@ function Header({ trip, trips, onSelectTrip, tab }) {
               aria-haspopup="menu"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="flex h-11 min-h-11 min-w-11 max-w-[11rem] sm:max-w-xs items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2 text-meta font-semibold text-ink-soft transition-colors hover:bg-white/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
               {Icon.globe('h-3.5 w-3.5 shrink-0')}
               <span className="min-w-0 truncate font-hand">{trip.name}</span>
@@ -515,13 +512,13 @@ function Header({ trip, trips, onSelectTrip, tab }) {
                         setOpen(false);
                         onSelectTrip(t.id);
                       }}
-                      className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
-                        isActive ? 'bg-teal-soft font-semibold text-teal-strong' : 'text-ink hover:bg-beige/60'
+                      className={`flex min-h-11 w-full min-w-0 items-center justify-between whitespace-nowrap px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route ${
+                        isActive ? 'bg-route-soft font-semibold text-route' : 'text-ink hover:bg-beige/60'
                       }`}
                     >
                       <span className="min-w-0 truncate font-hand">{t.name}</span>
                       {isActive && (
-                        <span className="ml-2 shrink-0 rounded-pill bg-teal-soft px-2 py-0.5 font-hand text-meta font-bold text-teal-strong">
+                        <span className="ml-2 shrink-0 rounded-pill bg-route-soft px-2 py-0.5 font-hand text-meta font-bold text-route">
                           當前
                         </span>
                       )}
@@ -562,10 +559,10 @@ function DesktopNav({ tab }) {
             data-testid={`desktop-nav-${id}`}
             aria-current={active ? 'page' : undefined}
             onClick={() => go(hash)}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-pill border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm border px-3.5 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
               active
-                ? 'border-teal/45 bg-teal-soft font-bold text-teal-strong shadow-sm'
-                : 'border-transparent text-ink-soft hover:bg-beige/60 hover:text-ink'
+                ? 'desk-tab-active border-route/65 bg-route-soft/85 font-bold text-route shadow-sm'
+                : 'border-transparent font-medium text-ink-soft hover:bg-beige/60 hover:text-ink'
             }`}
           >
             {icon('h-[18px] w-[18px] shrink-0')}
@@ -594,12 +591,13 @@ function BottomNav({ tab }) {
               data-testid={`nav-${id}`}
               aria-current={active ? 'page' : undefined}
               onClick={() => go(hash)}
-              className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal ${
-                active ? 'text-teal-strong' : 'text-ink-muted hover:text-ink'
+              className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-0.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route ${
+                active ? 'notebook-tab-active font-bold text-route' : 'notebook-tab text-ink-muted hover:text-ink'
               }`}
             >
               {icon('h-[22px] w-[22px]')}
-              <span className="whitespace-nowrap font-hand text-sm font-medium">{label}</span>
+              <span className="whitespace-nowrap font-hand text-sm">{label}</span>
+              <span aria-hidden="true" className="nav-active-mark" />
             </button>
           );
         })}
@@ -735,10 +733,9 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
       <div className="relative space-y-1">
-        <p className="whitespace-nowrap font-hand text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-ink-soft">旅遊手帳設定</p>
+        <p className="whitespace-nowrap font-hand text-xs font-bold tracking-wider text-ink-soft">旅遊手帳設定</p>
         <div className="flex items-baseline gap-2">
-          <h1 className="whitespace-nowrap font-hand text-2xl text-ink">設定</h1>
-          <span className="whitespace-nowrap font-serif-display text-[15px] lg:text-base font-semibold uppercase tracking-[0.08em] text-teal-strong">Settings</span>
+          <h1 className="whitespace-nowrap font-hand text-2xl font-bold tracking-wider text-ink">設定</h1>
         </div>
       </div>
 
@@ -746,7 +743,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
       <section className="paper-panel relative space-y-2.5 p-4">
         <div className="flex items-center justify-between">
           <h2 className="whitespace-nowrap font-hand text-lg text-ink">旅程管理</h2>
-          <span className="whitespace-nowrap rounded-pill bg-teal-soft px-2.5 py-0.5 font-hand text-meta font-bold text-teal-strong">
+          <span className="whitespace-nowrap rounded-pill bg-route-soft px-2.5 py-0.5 font-hand text-meta font-bold text-route">
             當前旅程
           </span>
         </div>
@@ -759,15 +756,15 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                 key={t.id}
                 type="button"
                 onClick={() => onSelectTrip(t.id)}
-                className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
+                className={`block min-h-11 w-full rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                   active
-                    ? 'border-teal/45 bg-teal-soft/65'
+                    ? 'border-route/45 bg-route-soft/65'
                     : 'border-line bg-cream hover:bg-beige/55'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="whitespace-nowrap font-hand text-sm font-bold text-teal-strong">{t.name}</span>
-                  <span className="whitespace-nowrap text-meta font-semibold text-teal-strong">
+                  <span className="whitespace-nowrap font-hand text-sm font-bold text-route">{t.name}</span>
+                  <span className="whitespace-nowrap text-meta font-semibold text-route">
                     {t.expenses.length} 筆記錄
                   </span>
                 </div>
@@ -784,7 +781,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
       <section className="paper-panel space-y-2.5 p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="whitespace-nowrap font-hand text-lg text-ink">旅程預算</h2>
-          <span className="whitespace-nowrap font-mono text-sm font-bold text-teal-strong">
+          <span className="whitespace-nowrap font-mono text-sm font-bold text-route">
             {currentBudget ? fmtHKD(currentBudget) : '未設定'}
           </span>
         </div>
@@ -803,12 +800,12 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
             placeholder="輸入預算金額…"
-            className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+            className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink placeholder:font-sans placeholder:font-normal placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route"
           />
           <button
             type="submit"
             data-testid="budget-save"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-tape-navy px-3 text-sm font-bold text-paper shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             儲存
           </button>
@@ -817,7 +814,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
               type="button"
               data-testid="budget-clear"
               onClick={handleClearBudget}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-3 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
             >
               清除
             </button>
@@ -857,13 +854,13 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                           setPersonError('');
                         }
                       }}
-                      className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-teal-strong bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+                      className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-route bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-route"
                     />
                     <button
                       type="button"
                       data-testid={`rename-save-${p}`}
                       onClick={() => handleRenameSubmit(p)}
-                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white"
+                      className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-tape-navy px-3 text-sm font-bold text-paper"
                     >
                       儲存
                     </button>
@@ -901,7 +898,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                             setEditingName(p);
                             setPersonError('');
                           }}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream-soft px-2.5 text-sm font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
                         >
                           改名
                         </button>
@@ -910,7 +907,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                           data-testid={`person-remove-${p}`}
                           aria-label={`移除 ${p}`}
                           onClick={() => handleRemovePerson(p)}
-                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-coral-ink/30 bg-coral-soft px-2.5 text-sm font-semibold text-coral-ink hover:bg-coral-ink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-ink"
+                          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-stamp/30 bg-coral-soft px-2.5 text-sm font-semibold text-stamp hover:bg-stamp hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp"
                         >
                           移除
                         </button>
@@ -933,18 +930,18 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
               setPersonError('');
             }}
             placeholder="新增成員名稱…"
-            className="h-11 min-h-11 min-w-0 flex-1 rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-teal"
+            className="h-11 min-h-11 min-w-0 flex-1 rounded-2xl border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-route"
           />
           <button
             type="submit"
             data-testid="add-person-btn"
-            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-teal-strong px-4 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-tape-navy px-4 text-sm font-bold text-paper shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             ＋新增
           </button>
         </form>
         {personError && (
-          <p role="alert" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+          <p role="alert" className="whitespace-nowrap text-meta font-semibold text-stamp">
             {personError}
           </p>
         )}
@@ -980,20 +977,20 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
                 setRateInput(nextVal);
                 setRateError(parseRate(nextVal) === null ? '請輸入大於 0 的匯率' : '');
               }}
-              className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-teal"
+              className="h-11 min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 font-mono text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-route"
             />
             <span className="shrink-0 whitespace-nowrap font-mono text-meta font-semibold text-ink">HKD</span>
             <button
               type="submit"
               data-testid="rate-save"
               disabled={isRateInvalid}
-              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-teal-strong px-3 text-sm font-bold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-tape-navy px-3 text-sm font-bold text-paper shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50"
             >
               更新匯率
             </button>
           </div>
           {(isRateInvalid || rateError) && (
-            <p role="alert" data-testid="rate-error" className="whitespace-nowrap text-meta font-semibold text-coral-ink">
+            <p role="alert" data-testid="rate-error" className="whitespace-nowrap text-meta font-semibold text-stamp">
               {rateError || '請輸入大於 0 的匯率'}
             </p>
           )}
@@ -1008,7 +1005,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             type="button"
             data-testid="export-json"
             onClick={handleExportTrip}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             匯出 JSON
           </button>
@@ -1016,7 +1013,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             type="button"
             data-testid="export-backup"
             onClick={handleExportBackup}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             完整備份
           </button>
@@ -1024,7 +1021,7 @@ function SettingsView({ trip, trips, onUpdateTrip, onSelectTrip, onToast }) {
             type="button"
             data-testid="copy-report"
             onClick={handleCopyReport}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-xl border border-line bg-cream px-2 py-2.5 text-meta font-semibold text-ink-soft hover:bg-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             複製報告
           </button>

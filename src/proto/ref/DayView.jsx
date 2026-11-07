@@ -232,7 +232,7 @@ export default function DayView({
   return (
     <div
       data-testid="day-view"
-      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pt-3.5 lg:mx-auto lg:max-w-6xl"
+      className="w-full max-w-full min-w-0 overflow-x-hidden space-y-2.5 px-4 pb-10 pt-3.5 lg:mx-auto lg:max-w-6xl lg:pb-0"
     >
       {/* Top date navigator paper strip */}
       <header className="jr-taped-card relative flex min-w-0 items-center gap-1 sm:gap-1.5 bg-paper px-1.5 sm:px-2 py-1.5">
@@ -511,7 +511,7 @@ function ItineraryRead({
                   aria-hidden="true"
                   className="my-0.5 flex w-12 items-center justify-center py-0.5 text-route opacity-100"
                 >
-                  <TriangleDownIcon className="h-3.5 w-3.5 fill-current text-route opacity-100 lg:h-4 lg:w-4" />
+                  <TriangleDownIcon className="h-3.5 w-3.5 fill-current text-route opacity-100 lg:h-5 lg:w-5" />
                 </div>
               )}
               <div className="flex min-w-0 items-center gap-2">
@@ -560,7 +560,7 @@ function ItineraryRead({
             type="button"
             data-testid="day-scan"
             onClick={onScan}
-            className="jr-btn-navy inline-flex min-h-12 min-h-[48px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2 text-sm font-bold tracking-tight transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
+            className="btn-primary-shell jr-btn-navy inline-flex min-h-[50px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2.5 text-sm font-bold tracking-tight transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
           >
             <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
             <span className="font-hand">{t('notebook.day.scanReceipt')}</span>
@@ -569,7 +569,7 @@ function ItineraryRead({
             type="button"
             data-testid="itinerary-add"
             onClick={onAdd}
-            className="jr-btn-paper inline-flex min-h-12 min-h-[48px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2 text-sm font-bold tracking-tight transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
+            className="btn-primary-shell jr-btn-paper inline-flex min-h-[50px] w-full min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-2.5 text-sm font-bold tracking-tight transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:gap-2 sm:px-3 sm:tracking-wider"
           >
             <PencilIcon className="h-5 w-5 shrink-0 text-route" />
             <span className="font-hand">{t('notebook.day.addEntry')}</span>

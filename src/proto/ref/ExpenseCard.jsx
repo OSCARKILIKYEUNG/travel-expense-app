@@ -115,7 +115,7 @@ export default function ExpenseCard({
       data-sticker-pop={stickerPop ? 'true' : undefined}
     >
       <article
-        className={`jr-torn flex min-w-0 items-center gap-1.5 rounded-sm border px-2 pb-3 pt-2.5 transition-colors sm:gap-2 sm:px-2.5 ${
+        className={`jr-torn expense-row flex min-w-0 items-center gap-2 rounded-sm border px-2.5 pb-3 pt-2.5 transition-colors ${
           highlighted
             ? 'border-route bg-route-soft/65 ring-2 ring-route'
             : 'border-ink-soft/45 bg-paper'
@@ -125,39 +125,36 @@ export default function ExpenseCard({
           <CatIcon className="h-5 w-5 text-ink" />
         </WashBlob>
 
-        <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
+        <div className="expense-body min-w-0 flex-1">
+          <h3 className="expense-title story-critical line-clamp-2 break-words text-sm font-bold leading-snug text-ink lg:line-clamp-1 lg:truncate lg:text-base">
+            {expense.store}
+          </h3>
+          {expense.place && (
+            <div className="expense-loc meta-quiet mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs text-ink-muted">
+              <PinIcon className="h-3.5 w-3.5 shrink-0 text-stamp" />
+              <span className="min-w-0 truncate">{expense.place}</span>
+            </div>
+          )}
+          <div className="expense-tags mt-0.5 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
             <span
-              className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-hand text-xs font-bold leading-none ${catStyle}`}
+              className={`expense-tag inline-flex shrink-0 items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-hand text-xs font-bold leading-none ${catStyle}`}
             >
               <span className="truncate">
                 {t(`categories.${expense.category}`, { defaultValue: expense.category })}
               </span>
             </span>
-            <span className="shrink-0 truncate whitespace-nowrap rounded-sm border border-route/30 bg-route-soft px-1.5 py-0.5 font-hand text-xs font-bold leading-none text-route">
+            <span className="expense-tag shrink-0 truncate whitespace-nowrap rounded-sm border border-route/30 bg-route-soft px-1.5 py-0.5 font-hand text-xs font-bold leading-none text-route">
               {expense.assignedTo === '共同' ? t('expenseCard.shared') : expense.assignedTo}
             </span>
-            <span className="hidden shrink-0 whitespace-nowrap rounded-sm border border-ink-soft/25 bg-paper-shade px-1.5 py-0.5 font-hand text-xs leading-none text-ink-soft sm:inline-flex">
-              {expense.scanned ? t('notebook.expenseCard.scanned') : t('notebook.expenseCard.manual')}
-            </span>
           </div>
-          <h3 className="line-clamp-2 break-words text-sm font-bold leading-snug text-ink lg:line-clamp-1 lg:truncate lg:text-base">
-            {expense.store}
-          </h3>
-          {expense.place && (
-            <div className="mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs text-ink-muted">
-              <PinIcon className="h-3.5 w-3.5 shrink-0 text-stamp" />
-              <span className="min-w-0 truncate">{expense.place}</span>
-            </div>
-          )}
         </div>
 
-        <div className="max-w-[38%] shrink-0 text-right font-display tabular-nums sm:max-w-[40%]">
-          <p className="truncate whitespace-nowrap text-sm font-bold leading-snug text-ink lg:text-base">
+        <div className="expense-amt-col max-w-[38%] shrink-0 text-right font-display tabular-nums sm:max-w-[40%]">
+          <p className="expense-amount font-money story-critical truncate whitespace-nowrap text-sm font-bold leading-snug text-ink lg:text-base">
             {fmtHKD(expense.hkdAmount)}
           </p>
           {expense.currency !== 'HKD' && (
-            <p className="truncate whitespace-nowrap text-xs text-ink-muted">
+            <p className="expense-amount-sub font-money meta-quiet truncate whitespace-nowrap text-xs text-ink-muted">
               {fmtJPY(expense.originalAmount)}
             </p>
           )}
@@ -253,12 +250,12 @@ export default function ExpenseCard({
   );
 }
 
-/** Contained single-line horizontal chip row that scrolls within its parent and never widens the page. */
+/** Contained single-line horizontal segmented control row that scrolls within its parent and never widens the page. */
 export function ChipRow({ children, label }) {
   return (
     <div
       data-noswipe
-      className="jr-chip-row flex w-full max-w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto py-0.5 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="jr-chip-row seg-control flex w-full max-w-full min-w-0 flex-nowrap items-stretch gap-0 overflow-x-auto p-0 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
       aria-label={label}
     >
@@ -274,13 +271,27 @@ export function Chip({ active, onClick, children, testid }) {
       data-testid={testid}
       aria-pressed={active}
       onClick={onClick}
-      className={`inline-flex min-h-11 min-w-11 max-w-full shrink-0 snap-start items-center justify-center truncate whitespace-nowrap rounded-sm border px-2.5 py-1.5 font-hand text-xs font-bold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
+      className={`seg-item btn-secondary-shell inline-flex flex-1 min-h-11 min-w-11 max-w-full shrink-0 snap-start items-center justify-center truncate whitespace-nowrap rounded-sm border px-2.5 py-1.5 font-hand text-xs tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route ${
         active
-          ? 'border-ink-soft bg-tape-navy text-paper'
-          : 'border-ink-soft/45 bg-paper text-ink hover:bg-paper-shade'
+          ? 'is-selected border-ink-soft bg-tape-navy font-bold text-paper'
+          : 'border-ink-soft/45 bg-paper font-medium text-ink-soft hover:bg-paper-shade hover:text-ink'
       }`}
     >
       {children}
     </button>
+  );
+}
+
+/** Loading skeleton row matching ExpenseCard geometry (checklist 9). */
+export function ExpenseSkeletonRow({ wide = true }) {
+  return (
+    <div className="skeleton-row" aria-hidden="true" data-testid="expense-skeleton-row">
+      <div className="skeleton-blob skeleton-icon" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className={`skeleton-blob skeleton-line ${wide ? 'w-80' : 'w-60'}`} />
+        <div className="skeleton-blob skeleton-line w-40" />
+      </div>
+      <div className="skeleton-blob skeleton-amt" />
+    </div>
   );
 }

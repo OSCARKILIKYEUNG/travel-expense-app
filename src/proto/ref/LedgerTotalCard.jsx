@@ -127,15 +127,15 @@ function BudgetBlock({ budget, filtered, t }) {
       <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 font-display text-xs tabular-nums">
         <span
           data-testid="ledger-budget-pct"
-          className={`min-w-0 truncate whitespace-nowrap font-bold tabular-nums ${
-            rem.over ? 'text-stamp' : 'text-route'
+          className={`min-w-0 truncate whitespace-nowrap tabular-nums ${
+            rem.over ? 'font-bold text-stamp' : 'meta-quiet font-medium text-ink-muted'
           }`}
         >
           {leftText}
         </span>
         <span
           data-testid="ledger-budget-remaining"
-          className={`min-w-0 truncate whitespace-nowrap font-bold tabular-nums ${
+          className={`font-money story-critical min-w-0 truncate whitespace-nowrap font-bold tabular-nums ${
             rem.over ? 'text-stamp' : 'text-ink'
           }`}
         >
@@ -181,13 +181,13 @@ export default function LedgerTotalCard({ summary }) {
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <div
           data-testid="ledger-total-amount"
-          className="max-w-full truncate whitespace-nowrap font-display text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink lg:text-hero-sm"
+          className="font-money story-critical max-w-full truncate whitespace-nowrap font-display text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink lg:text-hero-sm"
         >
           {amountLabel}
         </div>
         <span
           data-testid="ledger-total-sub"
-          className="whitespace-nowrap font-display text-xs font-medium tabular-nums text-ink-muted"
+          className="meta-quiet whitespace-nowrap font-display text-xs font-medium tabular-nums text-ink-muted"
         >
           {countLabel}
         </span>

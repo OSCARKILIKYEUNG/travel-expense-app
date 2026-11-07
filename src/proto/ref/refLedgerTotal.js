@@ -1,12 +1,15 @@
 /**
  * Pure total-card logic for the 帳本 (Ledger) screen.
+ * Legacy field names (`hkd`, `hkdAmount`, `splitHKD`) hold trip accounting currency amounts;
+ * UI should prefer formatAccountingAmount / trip accounting currency.
  */
 import { expenseAllocation } from './refShares';
 
 /**
- * Split an HKD amount into its currency prefix and rounded en-US grouped digits.
+ * Legacy HKD helper; UI should prefer formatAccountingAmount / trip accounting currency.
+ * Splits a rounded trip accounting currency amount into its legacy prefix and en-US grouped digits.
  * @param {number} n
- * @returns {{ prefix: 'HK$', digits: string }}
+ * @returns {{ prefix: string, digits: string }}
  */
 export function splitHKD(n) {
   const rounded = Math.round(Number(n) || 0);
@@ -17,9 +20,10 @@ export function splitHKD(n) {
 }
 
 /**
- * Compute an expense's HKD and JPY contribution for the ledger total card.
+ * Compute an expense's trip accounting currency (`hkd` field, legacy helper naming) and foreign-currency (`jpy`) contribution for the ledger total card.
+ * UI should prefer formatAccountingAmount / trip accounting currency when formatting amounts.
  * When `person` is active (`!== '全部'`), the share is that person's allocation bucket.
- * JPY is the same fraction of `originalAmount` (bucket / hkdAmount).
+ * Foreign contribution is the same fraction of `originalAmount` (`bucket / hkdAmount`).
  * Blank card assignee stays in the 共同 bucket, so person totals add up to the full total.
  */
 export function ledgerExpenseShare(
