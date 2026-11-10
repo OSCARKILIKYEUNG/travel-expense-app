@@ -1,19 +1,27 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BrandRibbon, NotebookBackdrop } from '../components/ui/Doodles';
+import MagazineCoverView from '../components/auth/MagazineCoverView';
 import { useAuth } from '../context/AuthContext';
-import { formatAuthError } from '../lib/authErrors';
-import { palette } from '../theme/tokens';
+import { formatAuthError, hasConfirmedSession } from '../lib/authErrors';
+import {
+  getPrefersReducedMotion,
+  usePrefersReducedMotion,
+} from '../motion/usePrefersReducedMotion';
 
-export default function Auth() {
+export const PAGE_TURN_DURATION_MS = 420;
+export const AUTH_PENDING_TIMEOUT_MS = 12000;
+
+export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/';
+  const from = location?.state?.from?.pathname || '/';
+  const reducedMotion = usePrefersReducedMotion();
 
   const {
     supabaseConfigured,
+    session,
     user,
     loading: authLoading,
     signIn,
@@ -27,6 +35,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turningPage, setTurningPage] = useState(false);
   const [inlineError, setInlineError] = useState('');
   const [inlineSuccess, setInlineSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
@@ -36,68 +45,290 @@ export default function Auth() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [oauthGoogleLoading, setOauthGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    if (authLoading || !user) return;
-    navigate(from, { replace: true });
-  }, [authLoading, user, from, navigate]);
+  const mountedRef = useRef(true);
+  const requestSeqRef = useRef(0);
+  const activeRequestIdRef = useRef(null);
+  const subViewEpochRef = useRef(0);
+  const pendingTimerRef = useRef(null);
+  const abandonedAttemptRef = useRef(false);
+  const submitLockRef = useRef(false);
+  const interactiveTurnRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
+  const turnTimerRef = useRef(null);
+  const cooldownTimerRef = useRef(null);
+  const errorRef = useRef(null);
 
+  const clearPendingTimer = useCallback(() => {
+    if (pendingTimerRef.current) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeRequestIdRef.current = null;
+      subViewEpochRef.current += 1;
+      submitLockRef.current = false;
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (inlineError && errorRef.current && typeof errorRef.current.focus === 'function') {
+      errorRef.current.focus();
+    }
+  }, [inlineError]);
+
+  const completeTurnNavigation = useCallback(() => {
+    if (turnTimerRef.current) {
+      clearTimeout(turnTimerRef.current);
+      turnTimerRef.current = null;
+    }
+    if (!mountedRef.current || hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    navigate(from, { replace: true });
+  }, [from, navigate]);
+
+  // Existing confirmed session (or OAuth return with confirmed session) skips repeat login & animation.
+  // If a local client attempt was cancelled or timed out (abandonedAttemptRef.current === true),
+  // a late provider session arriving in AuthContext must NOT auto-navigate unexpectedly;
+  // the user remains on the cover until they take an explicit next action.
+  useEffect(() => {
+    if (
+      authLoading ||
+      submitting ||
+      oauthGoogleLoading ||
+      activeRequestIdRef.current !== null ||
+      abandonedAttemptRef.current ||
+      interactiveTurnRef.current ||
+      hasNavigatedRef.current
+    ) {
+      return;
+    }
+    if (hasConfirmedSession({ session, user })) {
+      hasNavigatedRef.current = true;
+      navigate(from, { replace: true });
+    }
+  }, [authLoading, submitting, oauthGoogleLoading, session, user, from, navigate]);
+
+  const startInteractiveSuccessTransition = useCallback(() => {
+    if (!mountedRef.current) return;
+    if (reducedMotion || getPrefersReducedMotion()) {
+      completeTurnNavigation();
+      return;
+    }
+    interactiveTurnRef.current = true;
+    setTurningPage(true);
+    turnTimerRef.current = setTimeout(() => {
+      completeTurnNavigation();
+    }, PAGE_TURN_DURATION_MS);
+  }, [reducedMotion, completeTurnNavigation]);
+
+  const handleTurnAnimationEnd = useCallback(
+    (e) => {
+      if (!interactiveTurnRef.current) return;
+      if (e && e.target !== e.currentTarget) return;
+      completeTurnNavigation();
+    },
+    [completeTurnNavigation],
+  );
+
+  const beginClientRequest = useCallback(
+    (kind = 'submit') => {
+      clearPendingTimer();
+      const requestId = requestSeqRef.current + 1;
+      requestSeqRef.current = requestId;
+      activeRequestIdRef.current = requestId;
+      submitLockRef.current = true;
+      if (kind === 'google') {
+        setOauthGoogleLoading(true);
+      } else {
+        setSubmitting(true);
+      }
+      pendingTimerRef.current = setTimeout(() => {
+        if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
+          return;
+        }
+        activeRequestIdRef.current = null;
+        submitLockRef.current = false;
+        abandonedAttemptRef.current = true;
+        pendingTimerRef.current = null;
+        setSubmitting(false);
+        setOauthGoogleLoading(false);
+        setInlineSuccess('');
+        setInlineError(t('auth.errorTimeout'));
+      }, pendingTimeoutMs);
+      return requestId;
+    },
+    [clearPendingTimer, pendingTimeoutMs, t],
+  );
+
+  const handleCancelPendingAuth = useCallback(() => {
+    if (activeRequestIdRef.current === null && !submitting && !oauthGoogleLoading) {
+      return;
+    }
+    clearPendingTimer();
+    activeRequestIdRef.current = null;
+    submitLockRef.current = false;
+    abandonedAttemptRef.current = true;
+    if (!mountedRef.current) return;
+    setSubmitting(false);
+    setOauthGoogleLoading(false);
+    setInlineError('');
+    setInlineSuccess(t('auth.cancelPendingNotice'));
+  }, [clearPendingTimer, submitting, oauthGoogleLoading, t]);
+
+  // Single guarded submit shared by form Enter, explicit submit button, and >=44px corner page-curl button
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      turningPage ||
+      oauthGoogleLoading
+    ) {
+      return;
+    }
     setInlineError('');
     setInlineSuccess('');
-    if (!email.trim() || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setInlineError(t('auth.errorEmpty'));
       return;
     }
-    setSubmitting(true);
+
+    // Deliberate reconciliation: if a prior client attempt was cancelled/timed out locally
+    // and the auth provider later established a confirmed session in AuthContext for this user,
+    // the user's explicit next submit action uses that confirmed session without claiming server abort.
+    if (
+      mode === 'signin' &&
+      abandonedAttemptRef.current &&
+      hasConfirmedSession({ session, user }) &&
+      (!session?.user?.email ||
+        session.user.email.toLowerCase() === trimmedEmail.toLowerCase())
+    ) {
+      abandonedAttemptRef.current = false;
+      submitLockRef.current = true;
+      startInteractiveSuccessTransition();
+      return;
+    }
+
+    const requestId = beginClientRequest('submit');
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(email.trim(), password);
-        if (error) {
-          setInlineError(formatAuthError(error, t));
+        const signInResult = await signIn(trimmedEmail, password);
+        if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
           return;
         }
-        navigate(from, { replace: true });
+        clearPendingTimer();
+        if (signInResult?.error) {
+          setInlineError(formatAuthError(signInResult.error, t));
+          return;
+        }
+        if (!hasConfirmedSession({ session, user, signInResult })) {
+          setInlineError(t('auth.errorNoSession'));
+          return;
+        }
+        abandonedAttemptRef.current = false;
+        startInteractiveSuccessTransition();
         return;
       }
 
-      const { data, error } = await signUp(email.trim(), password);
-      if (error) {
-        setInlineError(formatAuthError(error, t));
+      const signUpResult = await signUp(trimmedEmail, password);
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
         return;
       }
-      if (data.session) {
-        navigate(from, { replace: true });
+      clearPendingTimer();
+      if (signUpResult?.error) {
+        setInlineError(formatAuthError(signUpResult.error, t));
         return;
       }
-      setPendingEmail(email.trim());
+      if (hasConfirmedSession({ session, user, signInResult: signUpResult })) {
+        abandonedAttemptRef.current = false;
+        startInteractiveSuccessTransition();
+        return;
+      }
+      abandonedAttemptRef.current = false;
+      setPendingEmail(trimmedEmail);
       setInlineSuccess(t('auth.verifyEmailSent'));
+    } catch (err) {
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
+        return;
+      }
+      clearPendingTimer();
+      setInlineError(formatAuthError(err, t));
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current && activeRequestIdRef.current === requestId) {
+        clearPendingTimer();
+        activeRequestIdRef.current = null;
+        setSubmitting(false);
+        if (!interactiveTurnRef.current && !hasNavigatedRef.current) {
+          submitLockRef.current = false;
+        }
+      }
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      turningPage ||
+      oauthGoogleLoading
+    ) {
+      return;
+    }
     setInlineError('');
-    setOauthGoogleLoading(true);
+    setInlineSuccess('');
+    const requestId = beginClientRequest('google');
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        setInlineError(formatAuthError(error, t));
-        setOauthGoogleLoading(false);
+      const result = await signInWithGoogle();
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
+        return;
       }
-    } catch {
-      setInlineError(t('auth.errorGeneric'));
+      clearPendingTimer();
+      if (result?.error) {
+        setInlineError(formatAuthError(result.error, t));
+        setOauthGoogleLoading(false);
+        activeRequestIdRef.current = null;
+        submitLockRef.current = false;
+      }
+    } catch (err) {
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
+        return;
+      }
+      clearPendingTimer();
+      setInlineError(formatAuthError(err, t));
       setOauthGoogleLoading(false);
+      activeRequestIdRef.current = null;
+      submitLockRef.current = false;
     }
   };
 
-  const startResendCooldown = () => {
+  const startResendCooldown = (subViewEpoch = subViewEpochRef.current) => {
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+    }
     setResendCooldown(60);
-    const id = setInterval(() => {
+    cooldownTimerRef.current = setInterval(() => {
+      if (!mountedRef.current || subViewEpochRef.current !== subViewEpoch) {
+        clearInterval(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+        return;
+      }
       setResendCooldown((s) => {
         if (s <= 1) {
-          clearInterval(id);
+          clearInterval(cooldownTimerRef.current);
+          cooldownTimerRef.current = null;
           return 0;
         }
         return s - 1;
@@ -106,319 +337,174 @@ export default function Auth() {
   };
 
   const handleForgotSubmit = async (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      turningPage ||
+      oauthGoogleLoading
+    ) {
+      return;
+    }
     setInlineError('');
     setInlineSuccess('');
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       setInlineError(t('auth.errorEmptyEmail'));
       return;
     }
-    setSubmitting(true);
+    const requestId = beginClientRequest('forgot');
     try {
-      const { error } = await resetPasswordForEmail(email.trim());
-      if (error) {
-        setInlineError(formatAuthError(error, t));
+      const result = await resetPasswordForEmail(trimmedEmail);
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
         return;
       }
-      setForgotPasswordEmail(email.trim());
+      clearPendingTimer();
+      if (result?.error) {
+        setInlineError(formatAuthError(result.error, t));
+        return;
+      }
+      abandonedAttemptRef.current = false;
+      subViewEpochRef.current += 1;
+      setForgotPasswordEmail(trimmedEmail);
       setPendingPasswordReset(true);
       setShowForgotPassword(false);
+    } catch (err) {
+      if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
+        return;
+      }
+      clearPendingTimer();
+      setInlineError(formatAuthError(err, t));
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current && activeRequestIdRef.current === requestId) {
+        clearPendingTimer();
+        activeRequestIdRef.current = null;
+        setSubmitting(false);
+        submitLockRef.current = false;
+      }
     }
   };
 
   const handleResendReset = async () => {
     if (!forgotPasswordEmail || resendCooldown > 0) return;
+    const subViewEpoch = subViewEpochRef.current;
     setInlineError('');
     setInlineSuccess('');
-    const { error } = await resetPasswordForEmail(forgotPasswordEmail);
-    if (error) {
-      setInlineError(formatAuthError(error, t));
-      return;
+    try {
+      const result = await resetPasswordForEmail(forgotPasswordEmail);
+      if (!mountedRef.current || subViewEpochRef.current !== subViewEpoch) {
+        return;
+      }
+      if (result?.error) {
+        setInlineError(formatAuthError(result.error, t));
+        return;
+      }
+      setInlineSuccess(t('auth.forgotPasswordResendOk'));
+      startResendCooldown(subViewEpoch);
+    } catch (err) {
+      if (!mountedRef.current || subViewEpochRef.current !== subViewEpoch) {
+        return;
+      }
+      setInlineError(formatAuthError(err, t));
     }
-    setInlineSuccess(t('auth.forgotPasswordResendOk'));
-    startResendCooldown();
   };
 
   const handleResend = async () => {
     if (!pendingEmail || resendCooldown > 0) return;
+    const subViewEpoch = subViewEpochRef.current;
     setInlineError('');
     setInlineSuccess('');
-    const { error } = await resendSignUpEmail(pendingEmail);
-    if (error) {
-      setInlineError(formatAuthError(error, t));
-      return;
+    try {
+      const result = await resendSignUpEmail(pendingEmail);
+      if (!mountedRef.current || subViewEpochRef.current !== subViewEpoch) {
+        return;
+      }
+      if (result?.error) {
+        setInlineError(formatAuthError(result.error, t));
+        return;
+      }
+      setInlineSuccess(t('auth.resendOk'));
+      startResendCooldown(subViewEpoch);
+    } catch (err) {
+      if (!mountedRef.current || subViewEpochRef.current !== subViewEpoch) {
+        return;
+      }
+      setInlineError(formatAuthError(err, t));
     }
-    setInlineSuccess(t('auth.resendOk'));
-    startResendCooldown();
   };
 
-  if (supabaseConfigured && authLoading) {
-    return (
-      <NotebookBackdrop>
-        <p className="text-ink-muted text-sm">{t('auth.loading')}</p>
-      </NotebookBackdrop>
-    );
-  }
-
-  if (!supabaseConfigured) {
-    return (
-      <NotebookBackdrop>
-        <div className="card max-w-md w-full p-6">
-          <BrandRibbon name={t('app.brand')} />
-          <h1 className="font-display text-2xl font-normal text-ink mb-2">{t('auth.configMissingTitle')}</h1>
-          <p className="text-sm text-ink-soft mb-4">{t('auth.configMissingBody')}</p>
-          <pre className="text-xs bg-beige rounded-lg p-3 overflow-x-auto text-ink-soft">
-            VITE_SUPABASE_URL=…{'\n'}
-            VITE_SUPABASE_ANON_KEY=…
-          </pre>
-        </div>
-      </NotebookBackdrop>
-    );
-  }
-
   return (
-    <NotebookBackdrop>
-      <div className="card max-w-md w-full p-6">
-        <BrandRibbon name={t('app.brand')} />
-
-        {pendingPasswordReset ? (
-          <div className="space-y-4">
-            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.forgotPasswordCheckTitle')}</h1>
-            <p className="text-sm text-ink-soft">{t('auth.forgotPasswordSent')}</p>
-            {inlineSuccess && (
-              <p className="text-sm text-teal-strong bg-teal-soft border border-teal/30 rounded-xl px-3 py-2">
-                {inlineSuccess}
-              </p>
-            )}
-            {inlineError && (
-              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2">{inlineError}</p>
-            )}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                className="btn-primary flex-1"
-                onClick={handleResendReset}
-                disabled={resendCooldown > 0}
-              >
-                {resendCooldown > 0 ? t('auth.resendWait', { seconds: resendCooldown }) : t('auth.forgotPasswordResend')}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary flex-1"
-                onClick={() => {
-                  setPendingPasswordReset(false);
-                  setForgotPasswordEmail('');
-                  setInlineSuccess('');
-                  setInlineError('');
-                  setResendCooldown(0);
-                }}
-              >
-                {t('auth.back')}
-              </button>
-            </div>
-          </div>
-        ) : pendingEmail ? (
-          <div className="space-y-4">
-            <h1 className="font-display text-2xl font-normal text-ink">{t('auth.checkInboxTitle')}</h1>
-            <p className="text-sm text-ink-soft">{t('auth.checkInboxBody', { email: pendingEmail })}</p>
-            {inlineSuccess && (
-              <p className="text-sm text-teal-strong bg-teal-soft border border-teal/30 rounded-xl px-3 py-2">
-                {inlineSuccess}
-              </p>
-            )}
-            {inlineError && (
-              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2">{inlineError}</p>
-            )}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                className="btn-primary flex-1"
-                onClick={handleResend}
-                disabled={resendCooldown > 0}
-              >
-                {resendCooldown > 0 ? t('auth.resendWait', { seconds: resendCooldown }) : t('auth.resend')}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary flex-1"
-                onClick={() => {
-                  setPendingEmail('');
-                  setInlineSuccess('');
-                  setInlineError('');
-                }}
-              >
-                {t('auth.back')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {!showForgotPassword && (
-              <div className="space-y-3 mb-6">
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={oauthGoogleLoading || submitting}
-                  className="w-full flex items-center justify-center gap-2.5 min-h-[40px] py-2.5 px-4 rounded-xl border border-line bg-white text-ink text-sm font-semibold shadow-sm hover:bg-beige transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2"
-                >
-                  <GoogleIcon className="shrink-0" />
-                  {oauthGoogleLoading ? t('auth.submitting') : t('auth.googleSignIn')}
-                </button>
-                <div className="flex items-center gap-3 text-meta text-ink-muted tracking-[0.12em]">
-                  <span className="flex-1 h-px bg-line" />
-                  {t('auth.orDivider')}
-                  <span className="flex-1 h-px bg-line" />
-                </div>
-              </div>
-            )}
-
-            {inlineError && (
-              <p className="text-sm text-coral-ink bg-coral-soft border border-coral-ink/30 rounded-xl px-3 py-2 mb-4">
-                {inlineError}
-              </p>
-            )}
-
-            <div className="flex rounded-xl bg-beige p-1 mb-6">
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  mode === 'signin' ? 'bg-white text-teal-strong shadow-sm' : 'text-ink-soft'
-                }`}
-                onClick={() => {
-                  setMode('signin');
-                  setShowForgotPassword(false);
-                  setInlineError('');
-                }}
-              >
-                {t('auth.signIn')}
-              </button>
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  mode === 'signup' ? 'bg-white text-teal-strong shadow-sm' : 'text-ink-soft'
-                }`}
-                onClick={() => {
-                  setMode('signup');
-                  setShowForgotPassword(false);
-                  setInlineError('');
-                }}
-              >
-                {t('auth.signUp')}
-              </button>
-            </div>
-
-            {showForgotPassword ? (
-              <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <p className="text-sm text-ink-soft">{t('auth.forgotPasswordHint')}</p>
-                <p className="text-sm text-ink-muted">{t('auth.forgotPasswordGoogleHint')}</p>
-                <div>
-                  <label htmlFor="auth-forgot-email" className="block text-sm font-medium text-ink-soft mb-1">
-                    {t('auth.email')}
-                  </label>
-                  <input
-                    id="auth-forgot-email"
-                    type="email"
-                    autoComplete="email"
-                    className="input-field"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <button type="submit" className="btn-primary w-full" disabled={submitting}>
-                  {submitting ? t('auth.submitting') : t('auth.forgotPasswordSubmit')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary w-full"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setInlineError('');
-                  }}
-                >
-                  {t('auth.backToSignIn')}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="auth-email" className="block text-sm font-medium text-ink-soft mb-1">
-                    {t('auth.email')}
-                  </label>
-                  <input
-                    id="auth-email"
-                    type="email"
-                    autoComplete="email"
-                    className="input-field"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="auth-password" className="block text-sm font-medium text-ink-soft mb-1">
-                    {t('auth.password')}
-                  </label>
-                  <input
-                    id="auth-password"
-                    type="password"
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                    className="input-field"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  {mode === 'signin' && (
-                    <div className="flex justify-end mt-1.5">
-                      <button
-                        type="button"
-                        className="text-sm font-medium text-teal-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded"
-                        onClick={() => {
-                          setShowForgotPassword(true);
-                          setInlineError('');
-                        }}
-                      >
-                        {t('auth.forgotPassword')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {mode === 'signup' && (
-                  <p className="text-sm text-ink-muted">{t('auth.verifyHint')}</p>
-                )}
-
-                <button type="submit" className="btn-primary w-full" disabled={submitting}>
-                  {submitting ? t('auth.submitting') : mode === 'signin' ? t('auth.signIn') : t('auth.signUp')}
-                </button>
-              </form>
-            )}
-          </>
-        )}
-
-      </div>
-    </NotebookBackdrop>
-  );
-}
-
-function GoogleIcon({ className }) {
-  return (
-    <svg className={className} width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-      <path
-        fill={palette.mustard}
-        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-      />
-      <path
-        fill={palette.coral}
-        d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-      />
-      <path
-        fill={palette.sage}
-        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-      />
-      <path
-        fill={palette['teal-strong']}
-        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-      />
-    </svg>
+    <MagazineCoverView
+      supabaseConfigured={supabaseConfigured}
+      authLoading={authLoading}
+      mode={mode}
+      email={email}
+      password={password}
+      submitting={submitting}
+      turningPage={turningPage}
+      reducedMotion={reducedMotion}
+      inlineError={inlineError}
+      inlineSuccess={inlineSuccess}
+      pendingEmail={pendingEmail}
+      pendingPasswordReset={pendingPasswordReset}
+      showForgotPassword={showForgotPassword}
+      resendCooldown={resendCooldown}
+      oauthGoogleLoading={oauthGoogleLoading}
+      errorRef={errorRef}
+      onModeChange={(nextMode) => {
+        subViewEpochRef.current += 1;
+        setMode(nextMode);
+        setShowForgotPassword(false);
+        setInlineError('');
+        setInlineSuccess('');
+      }}
+      onEmailChange={setEmail}
+      onPasswordChange={setPassword}
+      onSubmit={handleSubmit}
+      onPageCurlSubmit={handleSubmit}
+      onCancelPending={handleCancelPendingAuth}
+      onTurnAnimationEnd={handleTurnAnimationEnd}
+      onGoogleSignIn={handleGoogleSignIn}
+      onForgotSubmit={handleForgotSubmit}
+      onShowForgotPassword={() => {
+        subViewEpochRef.current += 1;
+        setShowForgotPassword(true);
+        setInlineError('');
+        setInlineSuccess('');
+      }}
+      onBackFromForgot={() => {
+        subViewEpochRef.current += 1;
+        setShowForgotPassword(false);
+        setInlineError('');
+      }}
+      onResend={handleResend}
+      onBackFromPendingEmail={() => {
+        subViewEpochRef.current += 1;
+        if (cooldownTimerRef.current) {
+          clearInterval(cooldownTimerRef.current);
+          cooldownTimerRef.current = null;
+        }
+        setPendingEmail('');
+        setInlineSuccess('');
+        setInlineError('');
+        setResendCooldown(0);
+      }}
+      onResendReset={handleResendReset}
+      onBackFromReset={() => {
+        subViewEpochRef.current += 1;
+        if (cooldownTimerRef.current) {
+          clearInterval(cooldownTimerRef.current);
+          cooldownTimerRef.current = null;
+        }
+        setPendingPasswordReset(false);
+        setForgotPasswordEmail('');
+        setInlineSuccess('');
+        setInlineError('');
+        setResendCooldown(0);
+      }}
+    />
   );
 }
