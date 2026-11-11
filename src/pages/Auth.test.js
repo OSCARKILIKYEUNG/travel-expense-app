@@ -4,10 +4,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
+import AuthDevHarness from '../components/auth/AuthDevHarness';
 import MagazineCoverView, {
   CURL_COMMIT_THRESHOLD,
   computeCurlGeometry,
 } from '../components/auth/MagazineCoverView';
+import {
+  LOGIN_COVERS,
+  findLoginCover,
+} from '../components/auth/loginCovers';
 import {
   formatAuthError,
   hasConfirmedSession,
@@ -106,18 +111,19 @@ afterEach(() => {
 });
 
 describe('Magazine-cover Auth page (Phase 1)', () => {
-  it('renders Kamakura magazine cover, HTML typography, placeholder artwork badge in zh-TW & en, exact 4-row reading order (email/password, Google/forgot, full-width register, lower-right paper corner 翻頁登入), and single primary surface', async () => {
+  it('renders rotating oil-painting magazine cover, painted place-name typography, exact 4-row reading order (email/password, Google/forgot, full-width register, lower-right paper corner 翻頁登入), and single primary surface', async () => {
     renderAuth();
 
-    expect(screen.getByTestId('auth-cover-headline').textContent).toBe('KAMAKURA');
-    expect(screen.getByTestId('auth-cover-country').textContent).toContain('JAPAN');
-    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
-      '暫代示範插畫景色（非最終完成圖）',
+    const coverImg = screen.getByTestId('auth-cover-image');
+    const pickedId = coverImg.getAttribute('data-cover-id');
+    expect(['tokyo', 'osaka', 'kyoto', 'kamakura']).toContain(pickedId);
+    expect(screen.queryByTestId('auth-cover-headline')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-country')).toBeNull();
+    expect(screen.getByTestId('auth-cover-sr-heading').textContent).toMatch(
+      new RegExp(pickedId, 'i'),
     );
-    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
-      'not final artwork',
-    );
-    expect(screen.getByTestId('auth-kamakura-scenery')).toBeTruthy();
+    expect(screen.queryByTestId('auth-placeholder-artwork-badge')).toBeNull();
+    expect(screen.queryByTestId('auth-kamakura-scenery')).toBeNull();
 
     const emailInput = screen.getByTestId('auth-email-input');
     const passwordInput = screen.getByTestId('auth-password-input');
@@ -173,12 +179,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     await act(async () => {
       await i18n.changeLanguage('en');
     });
-    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
-      'Placeholder scenery illustration — not final artwork',
-    );
-    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
-      '非最終完成圖',
-    );
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe(pickedId);
     expect(screen.getByTestId('auth-mode-switch-btn').textContent).toContain(
       'No account? Sign up',
     );
@@ -1793,6 +1794,226 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(curlBtn.hasPointerCapture(4)).toBe(true);
     unmount();
     expect(curlBtn.releasePointerCapture).not.toHaveBeenCalled();
+  });
+
+  it('renders R11 placeholder scenery and bilingual badge when coverImage is null, and omits them when coverImage is set', async () => {
+    const { rerender } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, { coverImage: null }),
+      ),
+    );
+
+    expect(screen.queryByTestId('auth-cover-image')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-form-wash')).toBeNull();
+    expect(screen.getByTestId('auth-login-overlay').className).not.toContain(
+      'mc-login-overlay--cover-wash',
+    );
+    expect(screen.getByTestId('auth-cover-headline').textContent).toBe('KAMAKURA');
+    expect(screen.getByTestId('auth-cover-issue').textContent).toBe('第 01 期 · 海岸線特集');
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).toBe(
+      '日本 · 海岸電車與旅途手札',
+    );
+    expect(screen.getByTestId('auth-kamakura-scenery')).toBeTruthy();
+    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
+      '暫代示範插畫景色（非最終完成圖）',
+    );
+    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
+      'not final artwork',
+    );
+
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
+    expect(screen.getByTestId('auth-cover-issue').textContent).toBe(
+      'ISSUE 01 · COASTAL EDITION',
+    );
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).toBe(
+      'Japan · Shonan & Coastal Railway Notes',
+    );
+    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
+      'Placeholder scenery illustration — not final artwork',
+    );
+    expect(screen.getByTestId('auth-placeholder-artwork-badge').textContent).toContain(
+      '非最終完成圖',
+    );
+
+    const kyotoCover = findLoginCover('kyoto');
+    rerender(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: kyotoCover,
+          coverHeadline: 'html',
+        }),
+      ),
+    );
+
+    const surface = screen.getByTestId('auth-cover-surface');
+    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
+    const img = screen.getByTestId('auth-cover-image');
+    expect(img.getAttribute('data-cover-id')).toBe('kyoto');
+    expect(img.getAttribute('src')).toBe(kyotoCover.src);
+    expect(img.getAttribute('alt')).toBe(kyotoCover.alt);
+    expect(img.getAttribute('decoding')).toBe('async');
+    expect(backdropImg.getAttribute('src')).toBe(kyotoCover.src);
+    expect(backdropImg.getAttribute('alt')).toBe('');
+    expect(backdropImg.getAttribute('aria-hidden')).toBe('true');
+    expect(surface.contains(backdropImg)).toBe(true);
+    expect(surface.contains(img)).toBe(true);
+    expect(screen.queryByTestId('auth-cover-form-wash')).toBeNull();
+    expect(screen.getByTestId('auth-login-overlay').className).toContain(
+      'mc-login-overlay--cover-wash',
+    );
+    expect(screen.queryByTestId('auth-kamakura-scenery')).toBeNull();
+    expect(screen.queryByTestId('auth-placeholder-artwork-badge')).toBeNull();
+  });
+
+  it('supports html and painted coverHeadline modes, full-width top-anchored image with blurred bottom backdrop, solid top sky scrim, neutral copy, and accessible h1', async () => {
+    const osakaCover = findLoginCover('osaka');
+    const { rerender } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: osakaCover,
+          coverHeadline: 'html',
+        }),
+      ),
+    );
+
+    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
+    const img = screen.getByTestId('auth-cover-image');
+    expect(img.getAttribute('data-cover-id')).toBe('osaka');
+    expect(img.style.pointerEvents).toBe('none');
+    expect(img.className).toContain('pointer-events-none');
+    expect(backdropImg.style.pointerEvents).toBe('none');
+    expect(backdropImg.className).toContain('pointer-events-none');
+    expect(screen.getByTestId('auth-cover-headline').textContent).toBe('OSAKA');
+    expect(screen.getByTestId('auth-cover-issue').textContent).toBe('ISSUE 01');
+    expect(screen.getByTestId('auth-cover-stamp').textContent).toBe('OSAKA · 01');
+    expect(screen.getByTestId('auth-cover-stamp').textContent).not.toContain('鎌倉');
+    expect(screen.getByTestId('auth-cover-caption-left').textContent).not.toContain('鎌倉');
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).not.toContain('海岸電車');
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).not.toContain('Shonan');
+    expect(screen.getByTestId('auth-cover-sky-scrim')).toBeTruthy();
+
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
+    expect(screen.getByTestId('auth-cover-issue').textContent).toBe('ISSUE 01');
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).not.toContain('Shonan');
+    expect(screen.getByTestId('auth-cover-subtitle').textContent).not.toContain('Coastal');
+
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/theme/journal.css'),
+      'utf8',
+    );
+    const imgRuleMatch = css.match(/\.mc-cover-image\s*\{([^}]*)\}/);
+    expect(imgRuleMatch?.[1] || '').toContain('pointer-events: none');
+    expect(imgRuleMatch?.[1] || '').toContain('width: 100%');
+    expect(imgRuleMatch?.[1] || '').toContain('height: auto');
+    expect(imgRuleMatch?.[1] || '').toContain('top: 0');
+    expect(imgRuleMatch?.[1] || '').not.toContain('animation:');
+
+    const backdropRuleMatch = css.match(/\.mc-cover-image-backdrop\s*\{([^}]*)\}/);
+    expect(backdropRuleMatch?.[1] || '').toContain('pointer-events: none');
+    expect(backdropRuleMatch?.[1] || '').toContain('object-fit: cover');
+    expect(backdropRuleMatch?.[1] || '').toContain('object-position: bottom');
+    expect(backdropRuleMatch?.[1] || '').toContain('blur(16px)');
+
+    const scrimRuleMatch = css.match(/\.mc-cover-sky-scrim\s*\{([^}]*)\}/);
+    expect(scrimRuleMatch?.[1] || '').toContain('rgb(var(--c-route)) 0%');
+    expect(scrimRuleMatch?.[1] || '').toContain('rgb(var(--c-route)) 30%');
+    expect(scrimRuleMatch?.[1] || '').toContain('transparent 46%');
+
+    expect(css).not.toContain('.mc-cover-form-wash');
+    expect(css).not.toContain('mc-cover-image-fade');
+
+    const washRuleMatch = css.match(/\.mc-login-overlay--cover-wash\s*\{([^}]*)\}/);
+    const washBeforeRuleMatch = css.match(/\.mc-login-overlay--cover-wash::before\s*\{([^}]*)\}/);
+    expect(washRuleMatch?.[1] || '').toContain('rgb(var(--c-paper) / 0.88)');
+    expect(washRuleMatch?.[1] || '').not.toMatch(/\bborder\b|\bborder-radius\b|\bbox-shadow\b|\bpadding\b|\bmargin\b/);
+    expect(washBeforeRuleMatch?.[1] || '').toContain('top: -1.5rem');
+    expect(washBeforeRuleMatch?.[1] || '').toContain('pointer-events: none');
+    expect(washBeforeRuleMatch?.[1] || '').toContain('transparent 0%');
+    expect(washBeforeRuleMatch?.[1] || '').toContain('rgb(var(--c-paper) / 0.88) 1.5rem');
+    expect(washBeforeRuleMatch?.[1] || '').toContain('rgb(var(--c-paper) / 0.88) 100%');
+    expect(washBeforeRuleMatch?.[1] || '').not.toMatch(/\bborder\b|\bborder-radius\b|\bbox-shadow\b|\bpadding\b|\bmargin\b/);
+
+    // Switch to painted mode: HTML headline block hidden, accessible h1 retained
+    rerender(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: osakaCover,
+          coverHeadline: 'painted',
+        }),
+      ),
+    );
+
+    expect(screen.queryByTestId('auth-cover-headline')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-country')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-subtitle')).toBeNull();
+    expect(screen.queryByTestId('auth-cover-sky-scrim')).toBeNull();
+
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toBeTruthy();
+    expect(h1.textContent).toContain('OSAKA');
+    expect(LOGIN_COVERS).toHaveLength(4);
+  });
+
+  it('does not call onTurnAnimationEnd when animationEnd fires on the cover image and renders no false auth-success-banner on a fresh dev harness load', () => {
+    const tokyoCover = findLoginCover('tokyo');
+    const onTurnAnimationEnd = vi.fn();
+
+    const { unmount } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: tokyoCover,
+          coverHeadline: 'painted',
+          onTurnAnimationEnd,
+        }),
+      ),
+    );
+
+    const coverImg = screen.getByTestId('auth-cover-image');
+    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
+    fireEvent.animationEnd(coverImg);
+    fireEvent.animationEnd(backdropImg);
+
+    expect(onTurnAnimationEnd).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('auth-success-banner')).toBeNull();
+    unmount();
+
+    // Fresh AuthDevHarness render (simulating /?devAuth=1&cover=tokyo&headline=painted)
+    const originalUrl = window.location.href;
+    window.history.replaceState({}, '', '/?devAuth=1&cover=tokyo&headline=painted');
+    try {
+      render(
+        createElement(
+          I18nextProvider,
+          { i18n },
+          createElement(AuthDevHarness),
+        ),
+      );
+      expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+      expect(screen.queryByTestId('auth-success-banner')).toBeNull();
+
+      // Even if a stray child animationEnd bubbles up, no false success banner appears
+      fireEvent.animationEnd(screen.getByTestId('auth-cover-image'));
+      expect(screen.queryByTestId('auth-success-banner')).toBeNull();
+    } finally {
+      window.history.replaceState({}, '', originalUrl);
+    }
   });
 });
 

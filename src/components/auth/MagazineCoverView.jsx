@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { palette } from '../../theme/tokens';
+import { DEFAULT_LOGIN_COVER_HEADLINE } from './loginCovers';
 
 export const CURL_COMMIT_THRESHOLD = 0.55;
 export const CURL_REST_AMOUNT = 0.12;
@@ -86,6 +87,8 @@ export default function MagazineCoverView({
   errorRef = null,
   mockBanner = null,
   initialCurlProgress = 0,
+  coverImage = null,
+  coverHeadline = DEFAULT_LOGIN_COVER_HEADLINE,
   onModeChange,
   onEmailChange,
   onPasswordChange,
@@ -116,6 +119,19 @@ export default function MagazineCoverView({
   const bilingualPlaceholderLabel = currentLang.startsWith('zh')
     ? `${t('auth.sceneryPlaceholderBadge')} · Placeholder — not final artwork`
     : `${t('auth.sceneryPlaceholderBadge')} · 暫代示範插畫（非最終完成圖）`;
+  const hasCoverImage = Boolean(coverImage && coverImage.src);
+  const effectiveHeadlineMode =
+    hasCoverImage && coverHeadline === 'painted' ? 'painted' : 'html';
+  const activeCityHeadline =
+    hasCoverImage && coverImage.city
+      ? String(coverImage.city).toUpperCase()
+      : 'KAMAKURA';
+  const activeStampLabel = hasCoverImage
+    ? `${activeCityHeadline} · 01`
+    : '鎌倉印 · 01';
+  const activeLeftVerticalCaption = hasCoverImage
+    ? '日本・旅途手札'
+    : '鎌倉・湘南海岸線';
 
   const clampedInitialCurl = Math.max(0, Math.min(1, Number(initialCurlProgress) || 0));
   const [curlProgress, setCurlProgress] = useState(clampedInitialCurl);
@@ -1080,7 +1096,12 @@ export default function MagazineCoverView({
           data-curl-phase={effectivePhase}
           data-cut-x-pct={String(geom.cutX)}
           data-cut-y-pct={String(geom.cutY)}
-          onAnimationEnd={onTurnAnimationEnd}
+          onAnimationEnd={(e) => {
+            if (e && e.target !== e.currentTarget) return;
+            if (typeof onTurnAnimationEnd === 'function') {
+              onTurnAnimationEnd(e);
+            }
+          }}
           className={`${sheetTurnClass} w-full overflow-hidden flex flex-col justify-between`}
         >
           {/* Safe, unpersonalized inner notebook page revealed only under the curled cover corner */}
@@ -1094,7 +1115,11 @@ export default function MagazineCoverView({
               <span>ISSUE 01 · p. 01</span>
             </div>
             <div className="my-auto pr-4 text-right font-hand text-xs text-ink-soft/75 space-y-1">
-              <p>KAMAKURA · SHONAN COASTLINE</p>
+              <p>
+                {hasCoverImage
+                  ? `${activeCityHeadline} · JAPAN EDITION`
+                  : 'KAMAKURA · SHONAN COASTLINE'}
+              </p>
               <p>FIELD NOTES &amp; SKETCHBOOK</p>
             </div>
             <div className="flex items-center justify-end gap-3 border-t border-ink-soft/25 pt-2 text-xs font-serifDisplay tracking-widest text-route">
@@ -1110,86 +1135,134 @@ export default function MagazineCoverView({
             style={{ clipPath: geom.coverClipPath }}
             className={surfaceSpringClass}
           >
+            {hasCoverImage ? (
+              <>
+                <img
+                  data-testid="auth-cover-image-backdrop"
+                  src={coverImage.src}
+                  alt=""
+                  aria-hidden="true"
+                  decoding="async"
+                  draggable={false}
+                  style={{ pointerEvents: 'none' }}
+                  className="mc-cover-image-backdrop pointer-events-none select-none"
+                />
+                <img
+                  data-testid="auth-cover-image"
+                  data-cover-id={coverImage.id}
+                  src={coverImage.src}
+                  alt={coverImage.alt || ''}
+                  decoding="async"
+                  draggable={false}
+                  style={{ pointerEvents: 'none' }}
+                  className="mc-cover-image pointer-events-none select-none"
+                />
+                {effectiveHeadlineMode === 'html' ? (
+                  <div
+                    data-testid="auth-cover-sky-scrim"
+                    aria-hidden="true"
+                    className="mc-cover-sky-scrim pointer-events-none"
+                  />
+                ) : null}
+              </>
+            ) : null}
             <div aria-hidden="true" className="mc-cover-spine" />
           </div>
 
-          {/* Upper ~75% of cover: magazine masthead, KAMAKURA headline, and full-bleed coastal illustration */}
+          {/* Upper ~75% of cover: magazine masthead, headline, and scenic stage */}
           <div className="mc-upper-scenic-stage flex-1 flex flex-col justify-between min-h-0">
             <header
               data-testid="auth-cover-hero"
               className="mc-sky-stage relative w-full pt-3.5 px-3.5 sm:px-5 pb-2 flex flex-col justify-between select-none"
             >
-              {/* Top issue masthead bar */}
-              <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 border-b border-paper/35 pb-2">
-                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                  <span className="inline-block px-2 py-0.5 rounded-sm bg-paper text-route font-display text-xs font-bold tracking-wider">
-                    {t('app.brand')}
-                  </span>
-                  <span className="text-xs font-semibold tracking-wider text-paper break-words">
-                    {t('auth.magazineIssue')}
-                  </span>
-                </div>
-                <span
-                  data-testid="auth-cover-stamp"
-                  className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-sm border border-paper/80 bg-route text-paper font-hand text-xs font-bold tracking-widest"
-                >
-                  鎌倉印 · 01
-                </span>
-              </div>
-
-              {/* Cover title block: White HTML KAMAKURA + Japan subtitle + side captions */}
-              <div className="relative z-10 pt-4 pb-2 sm:pt-5 sm:pb-3 flex items-start justify-between gap-1.5 sm:gap-2">
-                <div
-                  aria-hidden="true"
-                  className="mc-vertical-caption hidden min-[360px]:block text-paper/90 font-hand pt-1 shrink-0"
-                >
-                  鎌倉・湘南海岸線
-                </div>
-
-                <div className="flex-1 min-w-0 text-center px-1">
-                  <p
-                    data-testid="auth-cover-country"
-                    className="font-serifDisplay text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase text-paper mb-1 break-words"
-                  >
-                    JAPAN · 日本
-                  </p>
-                  <h1
-                    data-testid="auth-cover-headline"
-                    className="mc-cover-headline font-serifDisplay font-semibold uppercase text-paper"
-                  >
-                    KAMAKURA
-                  </h1>
-                  <p
-                    data-testid="auth-cover-subtitle"
-                    className="mt-1.5 text-xs sm:text-sm font-medium tracking-wider text-paper break-words"
-                  >
-                    {t('auth.coverSubtitle')}
-                  </p>
-
-                  {/* Explicit placeholder artwork badge in zh-Hant + English */}
-                  <div className="mt-2.5 flex justify-center">
+              {effectiveHeadlineMode === 'painted' ? (
+                <h1 data-testid="auth-cover-sr-heading" className="sr-only">
+                  {`${activeCityHeadline} · ${t('app.brand')}`}
+                </h1>
+              ) : (
+                <>
+                  {/* Top issue masthead bar */}
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 border-b border-paper/35 pb-2">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span className="inline-block px-2 py-0.5 rounded-sm bg-paper text-route font-display text-xs font-bold tracking-wider">
+                        {t('app.brand')}
+                      </span>
+                      <span
+                        data-testid="auth-cover-issue"
+                        className="text-xs font-semibold tracking-wider text-paper break-words"
+                      >
+                        {hasCoverImage ? 'ISSUE 01' : t('auth.magazineIssue')}
+                      </span>
+                    </div>
                     <span
-                      data-testid="auth-placeholder-artwork-badge"
-                      className="inline-block max-w-full break-words rounded-sm border border-paper/75 bg-paper px-2.5 py-0.5 text-xs font-semibold text-ink shadow-sm"
+                      data-testid="auth-cover-stamp"
+                      className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-sm border border-paper/80 bg-route text-paper font-hand text-xs font-bold tracking-widest"
                     >
-                      {bilingualPlaceholderLabel}
+                      {activeStampLabel}
                     </span>
                   </div>
-                </div>
 
-                <div
-                  aria-hidden="true"
-                  className="mc-vertical-caption hidden min-[360px]:block text-paper/90 font-hand pt-1 shrink-0"
-                >
-                  旅の手帖・記録帳
-                </div>
-              </div>
+                  {/* Cover title block: White HTML city headline + Japan subtitle + side captions */}
+                  <div className="relative z-10 pt-4 pb-2 sm:pt-5 sm:pb-3 flex items-start justify-between gap-1.5 sm:gap-2">
+                    <div
+                      data-testid="auth-cover-caption-left"
+                      aria-hidden="true"
+                      className="mc-vertical-caption hidden min-[360px]:block text-paper/90 font-hand pt-1 shrink-0"
+                    >
+                      {activeLeftVerticalCaption}
+                    </div>
+
+                    <div className="flex-1 min-w-0 text-center px-1">
+                      <p
+                        data-testid="auth-cover-country"
+                        className="font-serifDisplay text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase text-paper mb-1 break-words"
+                      >
+                        JAPAN · 日本
+                      </p>
+                      <h1
+                        data-testid="auth-cover-headline"
+                        className="mc-cover-headline font-serifDisplay font-semibold uppercase text-paper"
+                      >
+                        {activeCityHeadline}
+                      </h1>
+                      <p
+                        data-testid="auth-cover-subtitle"
+                        className="mt-1.5 text-xs sm:text-sm font-medium tracking-wider text-paper break-words"
+                      >
+                        {hasCoverImage
+                          ? `${t('app.brand')} · ${t('notebook.journal.countries.generic.subtitle')}`
+                          : t('auth.coverSubtitle')}
+                      </p>
+
+                      {!hasCoverImage ? (
+                        <div className="mt-2.5 flex justify-center">
+                          <span
+                            data-testid="auth-placeholder-artwork-badge"
+                            className="inline-block max-w-full break-words rounded-sm border border-paper/75 bg-paper px-2.5 py-0.5 text-xs font-semibold text-ink shadow-sm"
+                          >
+                            {bilingualPlaceholderLabel}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div
+                      data-testid="auth-cover-caption-right"
+                      aria-hidden="true"
+                      className="mc-vertical-caption hidden min-[360px]:block text-paper/90 font-hand pt-1 shrink-0"
+                    >
+                      旅の手帖・記録帳
+                    </div>
+                  </div>
+                </>
+              )}
             </header>
 
-            {/* Full-bleed coastal illustration (train + crossing + coastal store + white mini-truck) */}
-            <div data-testid="auth-cover-scenery-stage" className="relative z-10 w-full mt-auto pt-2">
-              <KamakuraSceneryPlaceholder />
-            </div>
+            {!hasCoverImage ? (
+              <div data-testid="auth-cover-scenery-stage" className="relative z-10 w-full mt-auto pt-2">
+                <KamakuraSceneryPlaceholder />
+              </div>
+            ) : null}
           </div>
 
           {/* Continuous SVG paper-curl back-flap & cast shadow layer */}
@@ -1247,7 +1320,17 @@ export default function MagazineCoverView({
                 lastInteractiveControlRef.current = e.target;
               }
             }}
-            className="mc-login-overlay shrink-0 w-full px-3 pt-1.5 pb-1.5 sm:px-4 sm:py-2 text-ink"
+            style={
+              hasCoverImage
+                ? {
+                    '--mc-curl-fold-x': `${geom.foldBottomX}%`,
+                    '--mc-curl-cut-y': `${Number((geom.cutY * 6.56).toFixed(2))}px`,
+                  }
+                : undefined
+            }
+            className={`mc-login-overlay${
+              hasCoverImage ? ' mc-login-overlay--cover-wash' : ''
+            } shrink-0 w-full px-3 pt-1.5 pb-1.5 sm:px-4 sm:py-2 text-ink`}
           >
             {turningPage ? (
               <p

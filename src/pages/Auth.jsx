@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import MagazineCoverView from '../components/auth/MagazineCoverView';
+import {
+  DEFAULT_LOGIN_COVER_HEADLINE,
+  pickLoginCover,
+} from '../components/auth/loginCovers';
 import { useAuth } from '../context/AuthContext';
 import { formatAuthError, hasConfirmedSession } from '../lib/authErrors';
 import {
@@ -32,6 +36,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
   } = useAuth();
 
   const [mode, setMode] = useState('signin');
+  const [coverImage] = useState(() => pickLoginCover());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -438,6 +443,8 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
 
   return (
     <MagazineCoverView
+      coverImage={coverImage}
+      coverHeadline={DEFAULT_LOGIN_COVER_HEADLINE}
       supabaseConfigured={supabaseConfigured}
       authLoading={authLoading}
       mode={mode}

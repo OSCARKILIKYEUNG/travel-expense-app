@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import MagazineCoverView from './MagazineCoverView';
+import {
+  DEFAULT_LOGIN_COVER_HEADLINE,
+  LOGIN_COVER_HEADLINE_MODES,
+  findLoginCover,
+  pickLoginCover,
+} from './loginCovers';
 
 /**
  * Isolated DEV-only presentation/mock visual harness around `MagazineCoverView`.
@@ -20,6 +26,16 @@ export default function AuthDevHarness() {
   const initialCurlParam = Number(params.get('curl') || 0);
   const initialReducedMotion =
     params.get('motion') === 'reduce' || initialState === 'reduced-motion';
+  const coverParam = (params.get('cover') || 'random').trim().toLowerCase();
+  const headlineParam = (params.get('headline') || '').trim().toLowerCase();
+  const coverHeadline = LOGIN_COVER_HEADLINE_MODES.includes(headlineParam)
+    ? headlineParam
+    : DEFAULT_LOGIN_COVER_HEADLINE;
+  const [coverImage] = useState(() => {
+    if (coverParam === 'none') return null;
+    if (coverParam === 'random') return pickLoginCover();
+    return findLoginCover(coverParam) || pickLoginCover();
+  });
 
   const [mode, setMode] = useState(initialState === 'signup' ? 'signup' : 'signin');
   const [email, setEmail] = useState(
@@ -213,6 +229,8 @@ export default function AuthDevHarness() {
 
   return (
     <MagazineCoverView
+      coverImage={coverImage}
+      coverHeadline={coverHeadline}
       supabaseConfigured={initialState !== 'config-missing'}
       authLoading={initialState === 'loading'}
       mode={mode}
@@ -243,7 +261,11 @@ export default function AuthDevHarness() {
       onSubmit={handleFakeSubmit}
       onPageCurlSubmit={handleFakeSubmit}
       onCancelPending={handleCancelPending}
-      onTurnAnimationEnd={() => setMockTurnCompleted(true)}
+      onTurnAnimationEnd={(e) => {
+        if (e && e.target !== e.currentTarget) return;
+        if (!turningPage) return;
+        setMockTurnCompleted(true);
+      }}
       onGoogleSignIn={() => {
         if (submitting || turningPage || oauthGoogleLoading) return;
         clearPendingTimer();

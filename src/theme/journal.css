@@ -1060,6 +1060,53 @@
   transition: clip-path 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Decorative blurred bottom-fill backdrop behind the full-width cover painting */
+.mc-cover-image-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: bottom;
+  filter: blur(16px);
+  transform: scale(1.08);
+  transform-origin: bottom center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Pre-generated oil-painting cover image: full width anchored to top (never horizontally cropped) */
+.mc-cover-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Solid top sky scrim in HTML headline mode (0%–30% solid route navy, fading out by 46%) */
+.mc-cover-sky-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image: linear-gradient(
+    180deg,
+    rgb(var(--c-route)) 0%,
+    rgb(var(--c-route)) 30%,
+    transparent 46%
+  );
+}
+
 .mc-upper-scenic-stage {
   position: relative;
   z-index: 20;
@@ -1119,6 +1166,49 @@
   position: relative;
   z-index: 35;
   background-color: transparent;
+}
+
+/* Paper wash following the real top of the login form when a cover painting is shown */
+.mc-login-overlay--cover-wash {
+  z-index: auto;
+  background-image: linear-gradient(
+    180deg,
+    rgb(var(--c-paper) / 0.88) 0%,
+    rgb(var(--c-paper) / 0.88) 100%
+  );
+}
+
+.mc-login-overlay--cover-wash > * {
+  position: relative;
+  z-index: 35;
+}
+
+.mc-login-overlay--cover-wash::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1.5rem;
+  bottom: 0;
+  z-index: 15;
+  pointer-events: none;
+  background-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(var(--c-paper) / 0.88) 1.5rem,
+    rgb(var(--c-paper) / 0.88) 100%
+  );
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% calc(100% - var(--mc-curl-cut-y, 44.87px)),
+    var(--mc-curl-fold-x, 85.54%) 100%,
+    0% 100%
+  );
+}
+
+.mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--cover-wash::before {
+  transition: clip-path 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Coherent safe inline-end inset for auxiliary flows (forgot/verify/reset) to clear the resting paper cutout */
@@ -1578,6 +1668,8 @@
   .mc-cover-sheet,
   .mc-cover-surface,
   .mc-cover-surface--springback,
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--cover-wash::before,
+  .mc-cover-image,
   .mc-cover-sheet--turning,
   .mc-editorial-input,
   .mc-editorial-submit,
