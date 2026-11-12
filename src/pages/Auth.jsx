@@ -13,7 +13,7 @@ import {
   usePrefersReducedMotion,
 } from '../motion/usePrefersReducedMotion';
 
-export const PAGE_TURN_DURATION_MS = 420;
+export const PAGE_TURN_DURATION_MS = 720;
 export const AUTH_PENDING_TIMEOUT_MS = 12000;
 
 export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}) {
@@ -123,16 +123,12 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
 
   const startInteractiveSuccessTransition = useCallback(() => {
     if (!mountedRef.current) return;
-    if (reducedMotion || getPrefersReducedMotion()) {
-      completeTurnNavigation();
-      return;
-    }
     interactiveTurnRef.current = true;
     setTurningPage(true);
     turnTimerRef.current = setTimeout(() => {
       completeTurnNavigation();
     }, PAGE_TURN_DURATION_MS);
-  }, [reducedMotion, completeTurnNavigation]);
+  }, [completeTurnNavigation]);
 
   const handleTurnAnimationEnd = useCallback(
     (e) => {
@@ -452,7 +448,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       password={password}
       submitting={submitting}
       turningPage={turningPage}
-      reducedMotion={reducedMotion}
+      reducedMotion={Boolean(reducedMotion || getPrefersReducedMotion())}
       inlineError={inlineError}
       inlineSuccess={inlineSuccess}
       pendingEmail={pendingEmail}

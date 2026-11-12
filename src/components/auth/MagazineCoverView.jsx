@@ -23,9 +23,7 @@ export function computeCurlGeometry(
 
   if (reducedMotion) {
     visualCurl = CURL_REST_AMOUNT;
-  } else if (turningPage) {
-    visualCurl = 0.88;
-  } else if (phase === 'awaiting-auth') {
+  } else if (phase === 'awaiting-auth' && !turningPage) {
     visualCurl = Math.max(
       0.56,
       CURL_REST_AMOUNT + clampedProgress * (1 - CURL_REST_AMOUNT),
@@ -379,7 +377,6 @@ export default function MagazineCoverView({
         springTimerRef.current = null;
       }
       setCurlPhase('turning');
-      setCurlProgress(1);
     } else if (
       curlPhase === 'awaiting-auth' &&
       ((inlineError && inlineError !== prevInlineError) || (wasSubmitting && !submitting))
@@ -1059,8 +1056,11 @@ export default function MagazineCoverView({
     phase: effectivePhase,
   });
 
-  const sheetTurnClass =
-    turningPage && !reducedMotion ? 'mc-cover-sheet mc-cover-sheet--turning' : 'mc-cover-sheet';
+  const sheetTurnClass = turningPage
+    ? reducedMotion
+      ? 'mc-cover-sheet mc-cover-sheet--fade'
+      : 'mc-cover-sheet mc-cover-sheet--turning'
+    : 'mc-cover-sheet';
   const surfaceSpringClass =
     effectivePhase === 'springback' && !reducedMotion
       ? 'mc-cover-surface mc-cover-surface--springback'
@@ -1096,13 +1096,7 @@ export default function MagazineCoverView({
           data-curl-phase={effectivePhase}
           data-cut-x-pct={String(geom.cutX)}
           data-cut-y-pct={String(geom.cutY)}
-          onAnimationEnd={(e) => {
-            if (e && e.target !== e.currentTarget) return;
-            if (typeof onTurnAnimationEnd === 'function') {
-              onTurnAnimationEnd(e);
-            }
-          }}
-          className={`${sheetTurnClass} w-full overflow-hidden flex flex-col justify-between`}
+          className={`${sheetTurnClass} w-full flex flex-col justify-between`}
         >
           {/* Safe, unpersonalized inner notebook page revealed only under the curled cover corner */}
           <div
@@ -1127,14 +1121,34 @@ export default function MagazineCoverView({
             </div>
           </div>
 
-          {/* Front Full-Bleed Magazine Cover Surface (clipped continuously by corner-curl polygon) */}
           <div
-            data-testid="auth-cover-surface"
-            data-cut-x-pct={String(geom.cutX)}
-            data-cut-y-pct={String(geom.cutY)}
-            style={{ clipPath: geom.coverClipPath }}
-            className={surfaceSpringClass}
+            data-testid="auth-turn-cast-shadow"
+            aria-hidden="true"
+            className="mc-turn-cast-shadow pointer-events-none"
+          />
+
+          <div
+            data-testid="auth-cover-leaf"
+            onAnimationEnd={(e) => {
+              if (e && e.target !== e.currentTarget) return;
+              if (typeof onTurnAnimationEnd === 'function') {
+                onTurnAnimationEnd(e);
+              }
+            }}
+            className="mc-cover-leaf"
           >
+            <div
+              data-testid="auth-leaf-front"
+              className="mc-leaf-front"
+            >
+              {/* Front Full-Bleed Magazine Cover Surface (clipped continuously by corner-curl polygon) */}
+              <div
+                data-testid="auth-cover-surface"
+                data-cut-x-pct={String(geom.cutX)}
+                data-cut-y-pct={String(geom.cutY)}
+                style={{ clipPath: geom.coverClipPath }}
+                className={surfaceSpringClass}
+              >
             {hasCoverImage ? (
               <>
                 <img
@@ -1278,18 +1292,30 @@ export default function MagazineCoverView({
             preserveAspectRatio="none"
             className="pointer-events-none absolute inset-0 z-30 w-full h-full select-none"
           >
+            <defs>
+              <linearGradient id="mc-curl-shadow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgb(var(--c-ink) / 0.05)" />
+                <stop offset="55%" stopColor="rgb(var(--c-ink) / 0.14)" />
+                <stop offset="100%" stopColor="rgb(var(--c-ink) / 0.22)" />
+              </linearGradient>
+              <linearGradient id="mc-curl-flap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgb(var(--c-paper))" />
+                <stop offset="58%" stopColor="rgb(var(--c-paper-shade))" />
+                <stop offset="100%" stopColor="rgb(var(--c-kraft) / 0.55)" />
+              </linearGradient>
+            </defs>
             {/* Cast shadow beneath the lifted corner flap */}
             <polygon
               data-testid="auth-curl-shadow"
               points={geom.shadowPoints}
-              fill="rgb(var(--c-ink) / 0.24)"
+              fill="url(#mc-curl-shadow-grad)"
             />
             {/* Backside of the folded cover paper corner */}
             <polygon
               data-testid="auth-curl-backface"
               points={geom.flapPoints}
-              fill="rgb(var(--c-paper-shade))"
-              stroke="rgb(var(--c-ink-soft))"
+              fill="url(#mc-curl-flap-grad)"
+              stroke="rgb(var(--c-ink-soft) / 0.75)"
               strokeWidth="0.45"
               strokeLinejoin="round"
             />
@@ -1781,6 +1807,21 @@ export default function MagazineCoverView({
               </>
             )}
           </section>
+
+              <div
+                data-testid="auth-leaf-shade"
+                aria-hidden="true"
+                style={{ clipPath: geom.coverClipPath }}
+                className="mc-leaf-shade pointer-events-none"
+              />
+            </div>
+
+            <div
+              data-testid="auth-leaf-back"
+              aria-hidden="true"
+              className="mc-leaf-back pointer-events-none"
+            />
+          </div>
         </article>
       </div>
     </div>

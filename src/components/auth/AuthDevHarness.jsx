@@ -188,9 +188,6 @@ export default function AuthDevHarness() {
               setSubmitting(false);
               if (outcomeParam === 'late-error') {
                 setInlineError(t('auth.errorInvalidCredentials'));
-              } else if (reducedMotion) {
-                setMockTurnCompleted(true);
-                setInlineSuccess(t('auth.turningPage'));
               } else {
                 setTurningPage(true);
               }
@@ -217,11 +214,6 @@ export default function AuthDevHarness() {
     }
     if (outcomeParam === 'no-session') {
       setInlineError(t('auth.errorNoSession'));
-      return;
-    }
-    if (reducedMotion) {
-      setMockTurnCompleted(true);
-      setInlineSuccess(t('auth.turningPage'));
       return;
     }
     setTurningPage(true);

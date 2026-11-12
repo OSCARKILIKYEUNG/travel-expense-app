@@ -7,6 +7,7 @@ import i18n from '../i18n';
 import AuthDevHarness from '../components/auth/AuthDevHarness';
 import MagazineCoverView, {
   CURL_COMMIT_THRESHOLD,
+  CURL_REST_AMOUNT,
   computeCurlGeometry,
 } from '../components/auth/MagazineCoverView';
 import {
@@ -254,6 +255,9 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     expect(authState.signIn).toHaveBeenCalledTimes(1);
     expect(authState.signIn).toHaveBeenCalledWith('curl@example.com', 'pass123');
+    await act(async () => {
+      fireEvent.animationEnd(screen.getByTestId('auth-cover-leaf'));
+    });
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     unmount();
 
@@ -274,6 +278,9 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     expect(authState.signIn).toHaveBeenCalledTimes(1);
     expect(authState.signIn).toHaveBeenCalledWith('enter@example.com', 'pass456');
+    await act(async () => {
+      fireEvent.animationEnd(screen.getByTestId('auth-cover-leaf'));
+    });
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
@@ -358,7 +365,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/charts', { replace: true });
   });
 
-  it('completes navigation on animationend and does not double-navigate when fallback timer expires', async () => {
+  it('completes navigation on leaf animationend (ignoring child animationend) and does not double-navigate when fallback timer expires', async () => {
     vi.useFakeTimers();
     const session = makeConfirmedSession();
     authState.signIn.mockResolvedValue({
@@ -379,10 +386,18 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     const sheet = screen.getByTestId('auth-magazine-sheet');
+    const leaf = screen.getByTestId('auth-cover-leaf');
     expect(sheet.className).toContain('mc-cover-sheet--turning');
 
+    // Child animations (shade, back face, cover image) must NOT trigger navigation
     await act(async () => {
-      fireEvent.animationEnd(sheet);
+      fireEvent.animationEnd(screen.getByTestId('auth-leaf-shade'));
+      fireEvent.animationEnd(screen.getByTestId('auth-leaf-back'));
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.animationEnd(leaf);
     });
 
     expect(mockNavigate).toHaveBeenCalledTimes(1);
@@ -394,7 +409,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
-  it('navigates immediately without curl animation delay when prefers-reduced-motion is enabled', async () => {
+  it('uses mc-cover-sheet--fade opacity crossfade (no rotation) and turningPage timer/animationend when prefers-reduced-motion is enabled', async () => {
     vi.useFakeTimers();
     setReducedMotion(true);
     const session = makeConfirmedSession();
@@ -419,11 +434,82 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
       fireEvent.click(screen.getByTestId('auth-primary-surface'));
     });
 
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    expect(sheet.className).toContain('mc-cover-sheet--fade');
+    expect(sheet.className).not.toContain('mc-cover-sheet--turning');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
+    });
+
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/charts', { replace: true });
-    expect(screen.getByTestId('auth-magazine-sheet').className).not.toContain(
-      'mc-cover-sheet--turning',
+  });
+
+  it('holds the current rest or drag corner curl when turningPage starts (no 0.88 jump) and renders the 3D leaf structure', async () => {
+    // 1) Pure geometry helper: turningPage must NOT jump visualCurl to 0.88
+    const restIdle = computeCurlGeometry(0, { turningPage: false, phase: 'idle' });
+    const restTurning = computeCurlGeometry(0, { turningPage: true, phase: 'turning' });
+    expect(restIdle.visualCurl).toBe(CURL_REST_AMOUNT);
+    expect(restTurning.visualCurl).toBe(CURL_REST_AMOUNT);
+    expect(restTurning.cutX).toBe(restIdle.cutX);
+    expect(restTurning.cutY).toBe(restIdle.cutY);
+
+    const dragActive = computeCurlGeometry(0.68, { turningPage: false, phase: 'dragging' });
+    const dragTurning = computeCurlGeometry(0.68, { turningPage: true, phase: 'turning' });
+    expect(dragTurning.visualCurl).toBe(dragActive.visualCurl);
+    expect(dragTurning.cutX).toBe(dragActive.cutX);
+    expect(dragTurning.cutY).toBe(dragActive.cutY);
+
+    // 2) Flat click submit: corner curl remains at rest (progress 0) when turningPage activates
+    const session = makeConfirmedSession();
+    authState.signIn.mockResolvedValue({
+      data: { session, user: session.user },
+      error: null,
+    });
+
+    renderAuth();
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const preview = screen.getByTestId('auth-next-page-preview');
+    const castShadow = screen.getByTestId('auth-turn-cast-shadow');
+    const leaf = screen.getByTestId('auth-cover-leaf');
+    const leafFront = screen.getByTestId('auth-leaf-front');
+    const leafShade = screen.getByTestId('auth-leaf-shade');
+    const leafBack = screen.getByTestId('auth-leaf-back');
+
+    expect(sheet.className).not.toContain('overflow-hidden');
+    expect(Array.from(sheet.children)).toEqual([preview, castShadow, leaf]);
+    expect(Array.from(leaf.children)).toEqual([leafFront, leafBack]);
+    expect(leafFront.contains(screen.getByTestId('auth-cover-surface'))).toBe(true);
+    expect(leafFront.contains(screen.getByTestId('auth-curl-geometry-svg'))).toBe(true);
+    expect(leafFront.contains(screen.getByTestId('auth-login-overlay'))).toBe(true);
+    expect(leafFront.contains(leafShade)).toBe(true);
+    expect(screen.getByTestId('auth-curl-shadow').getAttribute('fill')).toBe(
+      'url(#mc-curl-shadow-grad)',
     );
+    expect(screen.getByTestId('auth-curl-backface').getAttribute('fill')).toBe(
+      'url(#mc-curl-flap-grad)',
+    );
+
+    const initialCutX = sheet.getAttribute('data-cut-x-pct');
+    const initialCutY = sheet.getAttribute('data-cut-y-pct');
+
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'nojump@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret123' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+    });
+
+    expect(sheet.className).toContain('mc-cover-sheet--turning');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(sheet.getAttribute('data-cut-x-pct')).toBe(initialCutX);
+    expect(sheet.getAttribute('data-cut-y-pct')).toBe(initialCutY);
   });
 
   it('handles wrong credentials, offline network errors, and rate-limits by staying on cover, focusing announced alert, retaining email, and hiding raw server messages', async () => {

@@ -958,7 +958,7 @@
 
 .mc-cover-perspective {
   position: relative;
-  perspective: 1400px;
+  perspective: 2400px;
 }
 
 .mc-cover-sheet {
@@ -973,11 +973,11 @@
   --fs-hero-lg: 2.125rem;
   position: relative;
   min-height: 656px;
+  overflow: visible;
+  perspective: 2400px;
   border-radius: 4px 10px 14px 4px;
   border: 1.5px solid rgb(var(--c-ink-soft) / 0.72);
   background-color: rgb(var(--c-paper));
-  transform-origin: 0% 50%;
-  transform-style: preserve-3d;
   box-shadow:
     -4px 0 0 rgb(var(--c-tape-navy)),
     3px 3px 0 rgb(var(--c-paper-shade)),
@@ -985,7 +985,6 @@
     7px 8px 0 rgb(var(--c-paper)),
     8px 10px 0 rgb(var(--c-ink-soft) / 0.24),
     0 18px 38px rgb(var(--c-ink) / 0.22);
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease;
 }
 
 @media (min-width: 1024px) {
@@ -1014,6 +1013,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
   border-radius: inherit;
@@ -1032,6 +1032,120 @@
       rgb(var(--c-paper)) 14%,
       rgb(var(--c-paper)) 100%
     );
+}
+
+.mc-turn-cast-shadow {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  border-radius: inherit;
+  opacity: 0;
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--c-ink) / 0.34) 0%,
+    rgb(var(--c-ink) / 0.18) 24%,
+    rgb(var(--c-ink-soft) / 0.08) 54%,
+    transparent 86%
+  );
+}
+
+.mc-cover-leaf {
+  position: relative;
+  z-index: 10;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 0;
+  border-radius: inherit;
+  transform-origin: 0% 50%;
+  transform-style: preserve-3d;
+}
+
+.mc-leaf-front {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(0deg);
+}
+
+.mc-leaf-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  user-select: none;
+  border-radius: inherit;
+  opacity: 0;
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--c-ink) / 0.44) 0%,
+    rgb(var(--c-ink) / 0.26) 32%,
+    rgb(var(--c-ink-soft) / 0.14) 68%,
+    rgb(var(--c-ink-soft) / 0.06) 100%
+  );
+}
+
+.mc-leaf-back {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  border-radius: 10px 4px 4px 14px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  border: 1.5px solid rgb(var(--c-ink-soft) / 0.56);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--c-paper) / 0.72),
+    -3px 3px 0 rgb(var(--c-paper-shade)),
+    -5px 5px 0 rgb(var(--c-ink-soft) / 0.28),
+    -12px 14px 28px rgb(var(--c-ink) / 0.16);
+  background-color: color-mix(in srgb, rgb(var(--c-paper)) 68%, rgb(var(--c-paper-shade)));
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 27px,
+      rgb(var(--c-rule) / 0.36) 27px,
+      rgb(var(--c-rule) / 0.36) 28px
+    ),
+    linear-gradient(
+      270deg,
+      rgb(var(--c-ink) / 0.2) 0%,
+      rgb(var(--c-kraft) / 0.24) 7%,
+      rgb(var(--c-paper-shade) / 0.88) 24%,
+      color-mix(in srgb, rgb(var(--c-paper)) 76%, rgb(var(--c-paper-shade))) 58%,
+      color-mix(in srgb, rgb(var(--c-paper)) 64%, rgb(var(--c-paper-shade))) 94%,
+      rgb(var(--c-paper-shade)) 100%
+    );
+}
+
+.mc-leaf-back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-image: linear-gradient(
+    270deg,
+    rgb(var(--c-ink) / 0.28) 0%,
+    rgb(var(--c-ink-soft) / 0.15) 40%,
+    rgb(var(--c-ink-soft) / 0.04) 100%
+  );
 }
 
 /* Front full-bleed magazine cover surface clipped by dynamic corner curl polygon */
@@ -1132,21 +1246,108 @@
 
 @keyframes mc-paper-curl-turn {
   0% {
-    opacity: 1;
-    transform: perspective(1400px) rotateY(0deg) rotateZ(0deg) translateX(0);
-  }
-  55% {
-    opacity: 0.96;
-    transform: perspective(1400px) rotateY(-28deg) rotateZ(-1.4deg) translateX(-12px);
+    transform: rotateY(0deg);
   }
   100% {
-    opacity: 0.12;
-    transform: perspective(1400px) rotateY(-74deg) rotateZ(-2.4deg) translateX(-32px);
+    transform: rotateY(-180deg);
   }
 }
 
-.mc-cover-sheet--turning {
-  animation: mc-paper-curl-turn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+@keyframes mc-leaf-front-shade {
+  0% {
+    opacity: 0;
+  }
+  26% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes mc-leaf-back-turn {
+  0% {
+    opacity: 0.92;
+  }
+  50% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes mc-leaf-back-shade {
+  0% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 0.72;
+  }
+  76% {
+    opacity: 0.24;
+  }
+  100% {
+    opacity: 0.03;
+  }
+}
+
+@keyframes mc-turn-cast-shadow {
+  0% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.56;
+  }
+  50% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 0.28;
+  }
+  94% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes mc-leaf-fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mc-cover-sheet--turning .mc-cover-leaf {
+  will-change: transform;
+  animation: mc-paper-curl-turn 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+}
+
+.mc-cover-sheet--turning .mc-leaf-shade {
+  animation: mc-leaf-front-shade 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+}
+
+.mc-cover-sheet--turning .mc-leaf-back {
+  animation: mc-leaf-back-turn 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+}
+
+.mc-cover-sheet--turning .mc-leaf-back::after {
+  animation: mc-leaf-back-shade 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+}
+
+.mc-cover-sheet--turning .mc-turn-cast-shadow {
+  animation: mc-turn-cast-shadow 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+}
+
+.mc-cover-sheet--fade .mc-cover-leaf {
+  animation: mc-leaf-fade-out 200ms ease-out forwards;
 }
 
 .mc-sky-stage {
@@ -1176,6 +1377,8 @@
     rgb(var(--c-paper) / 0.88) 0%,
     rgb(var(--c-paper) / 0.88) 100%
   );
+  background-size: 0 0;
+  background-repeat: no-repeat;
 }
 
 .mc-login-overlay--cover-wash > * {
@@ -1231,7 +1434,8 @@
 }
 
 .mc-login-overlay [inert],
-.mc-cover-sheet--turning .mc-credentials-form {
+.mc-cover-sheet--turning .mc-credentials-form,
+.mc-cover-sheet--fade .mc-credentials-form {
   pointer-events: none;
   user-select: none;
 }
@@ -1671,6 +1875,11 @@
   .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--cover-wash::before,
   .mc-cover-image,
   .mc-cover-sheet--turning,
+  .mc-cover-sheet--turning .mc-cover-leaf,
+  .mc-cover-sheet--turning .mc-leaf-shade,
+  .mc-cover-sheet--turning .mc-leaf-back,
+  .mc-cover-sheet--turning .mc-leaf-back::after,
+  .mc-cover-sheet--turning .mc-turn-cast-shadow,
   .mc-editorial-input,
   .mc-editorial-submit,
   .mc-editorial-google,
