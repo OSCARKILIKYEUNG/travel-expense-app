@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
 import AuthDevHarness from '../components/auth/AuthDevHarness';
 import MagazineCoverView, {
-  CURL_COMMIT_THRESHOLD,
   CURL_REST_AMOUNT,
   computeCurlGeometry,
 } from '../components/auth/MagazineCoverView';
@@ -20,7 +19,28 @@ import {
   isSessionExpired,
 } from '../lib/authErrors';
 import { REDUCED_MOTION_QUERY } from '../motion/tokens';
-import Auth, { AUTH_PENDING_TIMEOUT_MS, PAGE_TURN_DURATION_MS } from './Auth';
+import {
+  FINGER_GAIN_X,
+  FINGER_GAIN_Y,
+  FOLD_CLOSE_MS,
+  FOLD_COMMIT_CLIENT_X,
+  FOLD_COMMIT_T,
+  FOLD_DRAG_START_X,
+  FOLD_FLING_T,
+  FOLD_FLING_VX,
+  FOLD_OPEN_BUTTON_MS,
+  FOLD_OPEN_COMMIT_MS,
+  FOLD_SPRING_MS,
+  clientXForFoldProgress,
+  fingerToFold,
+  progress as foldProgress,
+  restFoldPoint,
+} from '../components/auth/foldGeometry';
+import Auth, {
+  AUTH_PENDING_TIMEOUT_MS,
+  PAGE_TURN_ABORT_DURATION_MS,
+  PAGE_TURN_DURATION_MS,
+} from './Auth';
 
 const mockNavigate = vi.fn();
 const routerState = {
@@ -507,7 +527,13 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     expect(sheet.className).toContain('mc-cover-sheet--turning');
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    // Button path opens from the rest dog-ear (F0), whose fold progress is a small t, not a jumped curl.
+    const restPose = restFoldPoint(480, 656);
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeCloseTo(
+      foldProgress(480, restPose.x),
+      2,
+    );
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(0.08);
     expect(sheet.getAttribute('data-cut-x-pct')).toBe(initialCutX);
     expect(sheet.getAttribute('data-cut-y-pct')).toBe(initialCutY);
   });
@@ -699,9 +725,11 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     const midProgress = Number(sheet.getAttribute('data-curl-progress'));
     const midCutX = Number(sheet.getAttribute('data-cut-x-pct'));
     expect(midProgress).toBeGreaterThan(0);
-    expect(midProgress).toBeLessThan(CURL_COMMIT_THRESHOLD);
+    expect(midProgress).toBeLessThan(FOLD_COMMIT_T);
     expect(midCutX).toBeGreaterThan(restCutX);
-    expect(surface.style.clipPath).toContain('polygon(');
+    const leafFront = screen.getByTestId('auth-leaf-front');
+    expect(leafFront.style.clipPath).toContain('polygon(');
+    expect(surface.style.clipPath).toBe('none');
 
     fireEvent.pointerUp(curlBtn, {
       pointerId: 1,
@@ -711,13 +739,15 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     expect(authState.signIn).not.toHaveBeenCalled();
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThan(0);
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(FOLD_COMMIT_T);
     expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
 
     act(() => {
-      vi.advanceTimersByTime(220);
+      vi.advanceTimersByTime(FOLD_SPRING_MS);
     });
     expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
 
     // 2) Pointer cancel / lost pointer capture mid-drag safely springs back to 0 without submitting
     fireEvent.pointerDown(curlBtn, {
@@ -729,16 +759,17 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerMove(curlBtn, {
       pointerId: 2,
       pointerType: 'touch',
-      clientX: 160,
+      clientX: FOLD_COMMIT_CLIENT_X,
       clientY: 500,
     });
     expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(
-      CURL_COMMIT_THRESHOLD,
+      FOLD_COMMIT_T,
     );
 
     fireEvent.pointerCancel(curlBtn, { pointerId: 2 });
     expect(authState.signIn).not.toHaveBeenCalled();
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(FOLD_COMMIT_T);
   });
 
   it('commits corner drag past threshold via shared guarded submit, suppresses trailing synthetic click, and never self-authorizes when session is unconfirmed', async () => {
@@ -769,10 +800,10 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
         touches: [{ identifier: 0, clientX: 360, clientY: 640 }],
       });
       fireEvent.touchMove(curlBtn, {
-        touches: [{ identifier: 0, clientX: 170, clientY: 490 }],
+        touches: [{ identifier: 0, clientX: FOLD_COMMIT_CLIENT_X, clientY: 490 }],
       });
       fireEvent.touchEnd(curlBtn, {
-        changedTouches: [{ identifier: 0, clientX: 170, clientY: 490 }],
+        changedTouches: [{ identifier: 0, clientX: FOLD_COMMIT_CLIENT_X, clientY: 490 }],
       });
       // Trailing browser compatibility click after touchEnd must be suppressed once
       fireEvent.click(curlBtn);
@@ -785,7 +816,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     // Unconfirmed session must NOT turn the cover or navigate; corner springs back to 0
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(sheet.className).not.toContain('mc-cover-sheet--turning');
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(FOLD_COMMIT_T);
     expect(screen.getByTestId('auth-error-alert').textContent).toContain('尚未建立有效登入狀態');
   });
 
@@ -837,10 +869,21 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(focusVisibleRule).toContain('outline: 2px solid rgb(var(--c-route))');
     expect(focusVisibleRule).toContain('outline-offset: 2px');
 
-    // Simultaneous keyboard focus-visible + pointer hover/active must preserve painted 2px solid outline
+    // Simultaneous keyboard focus-visible + pointer hover/active must preserve painted 2px solid outline,
+    // while pointer modality drops the focus outline during mouse/touch press/drag
     expect(css).toContain('.mc-primary-corner-surface:focus-visible:hover:not(:disabled)');
     expect(css).toContain('.mc-primary-corner-surface:focus-visible:active:not(:disabled)');
+    expect(css).toContain('.mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible');
     expect(css).toContain('@media (forced-colors: active)');
+
+    // Leaf stays opaque: the finger fold has no rotateY / opacity keyframes. Reduced-motion fade remains.
+    expect(css).not.toContain('mc-leaf-back-turn');
+    expect(css).not.toContain('mc-leaf-back-turn-abort');
+    expect(css).not.toContain('@keyframes mc-paper-curl-turn');
+    expect(css).not.toContain('@keyframes mc-paper-curl-turn-abort');
+    expect(css).not.toContain('rotateY(-180deg)');
+    expect(css).toContain('@keyframes mc-leaf-fade-out');
+    expect(css).toContain('@keyframes mc-leaf-fade-in');
   });
 
   it('cancels active pointer drag and releases pointer capture on keyboard Tab/Escape or blur abandonment, preventing late threshold commit and keeping focus off BODY', () => {
@@ -887,7 +930,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(curlBtn.releasePointerCapture).toHaveBeenCalledWith(1);
     expect(curlBtn.hasPointerCapture(1)).toBe(false);
     expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThan(0);
     expect(document.activeElement).toBe(emailInput);
 
     // Continuing to move and release the abandoned pointer past threshold must NOT commit or submit
@@ -906,7 +949,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.click(curlBtn);
 
     act(() => {
-      vi.advanceTimersByTime(220);
+      vi.advanceTimersByTime(FOLD_SPRING_MS);
     });
     expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
     expect(document.activeElement).toBe(emailInput);
@@ -950,7 +993,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     fireEvent.keyDown(curlBtn, { key: 'Escape' });
     expect(curlBtn.hasPointerCapture(3)).toBe(false);
-    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThan(0);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
     expect(document.activeElement).toBe(curlBtn);
     fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: 150, clientY: 480 });
     expect(authState.signIn).not.toHaveBeenCalled();
@@ -1394,12 +1438,20 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     const curlBtn = screen.getByTestId('auth-primary-surface');
     const backdrop = screen.getByTestId('auth-magazine-backdrop');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    // A grab during close/spring starts at the live pose. clientX is chosen from
+    // that pose so "below" stays under t=0.46 and "commit" still crosses it.
+    const clientXFromCurrentPose = (targetT) => {
+      const poseX = Number(sheet.getAttribute('data-fold-x'));
+      const targetFx = 480 * (1 - 2 * targetT);
+      return Math.round(FOLD_DRAG_START_X + (targetFx - poseX) / FINGER_GAIN_X);
+    };
     const capturedIds = new Set();
     curlBtn.setPointerCapture = vi.fn((id) => capturedIds.add(id));
     curlBtn.releasePointerCapture = vi.fn((id) => capturedIds.delete(id));
     curlBtn.hasPointerCapture = vi.fn((id) => capturedIds.has(id));
 
-    // 1) Pointer threshold drag 1 -> pending -> cancel via Escape -> new held pointer drag -> old Promise 1 resolves
+    // 1) Pointer threshold drag 1 -> optimistic turning -> cancel via Escape -> new held pointer drag -> old Promise 1 resolves
     fireEvent.pointerDown(curlBtn, {
       pointerId: 1,
       pointerType: 'mouse',
@@ -1410,24 +1462,30 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerMove(curlBtn, {
       pointerId: 1,
       pointerType: 'mouse',
-      clientX: 150,
+      clientX: FOLD_COMMIT_CLIENT_X,
       clientY: 510,
     });
     fireEvent.pointerUp(curlBtn, {
       pointerId: 1,
       pointerType: 'mouse',
-      clientX: 150,
+      clientX: FOLD_COMMIT_CLIENT_X,
       clientY: 510,
     });
 
     expect(authState.signIn).toHaveBeenCalledTimes(1);
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
-    expect(backdrop.getAttribute('data-curl-progress')).toBe('0');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(Number(backdrop.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(
+      FOLD_COMMIT_T,
+    );
 
-    // Start new held pointer drag (pointerId 2) to ~0.314 progress
+    // Start new held pointer drag (pointerId 2) below the fold commit line.
+    // From the still-open pose, the old rest-relative clientX 295 is already past t=0.46.
+    const belowX = clientXFromCurrentPose(0.3);
     fireEvent.pointerDown(curlBtn, {
       pointerId: 2,
       pointerType: 'mouse',
@@ -1438,14 +1496,14 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerMove(curlBtn, {
       pointerId: 2,
       pointerType: 'mouse',
-      clientX: 295,
-      clientY: 605,
+      clientX: belowX,
+      clientY: 640,
     });
 
     const heldProgress1 = Number(backdrop.getAttribute('data-curl-progress'));
     expect(backdrop.getAttribute('data-curl-phase')).toBe('dragging');
     expect(heldProgress1).toBeGreaterThan(0);
-    expect(heldProgress1).toBeLessThan(CURL_COMMIT_THRESHOLD);
+    expect(heldProgress1).toBeLessThan(FOLD_COMMIT_T);
     expect(curlBtn.hasPointerCapture(2)).toBe(true);
 
     // Old Promise 1 resolves while pointerId 2 drag is held
@@ -1466,13 +1524,14 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerUp(curlBtn, {
       pointerId: 2,
       pointerType: 'mouse',
-      clientX: 295,
-      clientY: 605,
+      clientX: belowX,
+      clientY: 640,
     });
     expect(authState.signIn).toHaveBeenCalledTimes(1);
     expect(curlBtn.hasPointerCapture(2)).toBe(false);
 
-    // 2) Pointer threshold drag 2 -> pending -> cancel via Escape -> new held pointer drag -> old Promise 2 rejects
+    // 2) Pointer threshold drag 2 -> optimistic turning -> cancel via Escape -> new held pointer drag -> old Promise 2 rejects
+    const commitFromSpringX = clientXFromCurrentPose(0.5);
     fireEvent.pointerDown(curlBtn, {
       pointerId: 3,
       pointerType: 'mouse',
@@ -1483,22 +1542,25 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerMove(curlBtn, {
       pointerId: 3,
       pointerType: 'mouse',
-      clientX: 150,
-      clientY: 510,
+      clientX: commitFromSpringX,
+      clientY: 640,
     });
     fireEvent.pointerUp(curlBtn, {
       pointerId: 3,
       pointerType: 'mouse',
-      clientX: 150,
-      clientY: 510,
+      clientX: commitFromSpringX,
+      clientY: 640,
     });
 
     expect(authState.signIn).toHaveBeenCalledTimes(2);
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
 
+    const belowX2 = clientXFromCurrentPose(0.3);
     fireEvent.pointerDown(curlBtn, {
       pointerId: 4,
       pointerType: 'mouse',
@@ -1509,8 +1571,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerMove(curlBtn, {
       pointerId: 4,
       pointerType: 'mouse',
-      clientX: 295,
-      clientY: 605,
+      clientX: belowX2,
+      clientY: 640,
     });
 
     const heldProgress2 = Number(backdrop.getAttribute('data-curl-progress'));
@@ -1531,33 +1593,38 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.pointerUp(curlBtn, {
       pointerId: 4,
       pointerType: 'mouse',
-      clientX: 295,
-      clientY: 605,
+      clientX: belowX2,
+      clientY: 640,
     });
     expect(authState.signIn).toHaveBeenCalledTimes(2);
 
     // 3) Touch threshold drag 3 -> cancel -> new held touch drag -> old Promise 3 resolves & Touch threshold drag 4 -> cancel -> new held touch drag -> old Promise 4 rejects
+    const touchCommitX = clientXFromCurrentPose(0.5);
     fireEvent.touchStart(curlBtn, {
       touches: [{ identifier: 0, clientX: 360, clientY: 640 }],
     });
     fireEvent.touchMove(curlBtn, {
-      touches: [{ identifier: 0, clientX: 160, clientY: 500 }],
+      touches: [{ identifier: 0, clientX: touchCommitX, clientY: 640 }],
     });
     fireEvent.touchEnd(curlBtn, {
-      changedTouches: [{ identifier: 0, clientX: 160, clientY: 500 }],
+      changedTouches: [{ identifier: 0, clientX: touchCommitX, clientY: 640 }],
     });
 
     expect(authState.signIn).toHaveBeenCalledTimes(3);
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
 
     fireEvent.click(screen.getByTestId('auth-pending-cancel-btn'));
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
 
+    const touchBelowX = clientXFromCurrentPose(0.3);
+    const touchCommitAgainX = clientXFromCurrentPose(0.6);
     fireEvent.touchStart(curlBtn, {
       touches: [{ identifier: 1, clientX: 360, clientY: 640 }],
     });
     fireEvent.touchMove(curlBtn, {
-      touches: [{ identifier: 1, clientX: 290, clientY: 600 }],
+      touches: [{ identifier: 1, clientX: touchBelowX, clientY: 640 }],
     });
     const touchHeldProgress = Number(backdrop.getAttribute('data-curl-progress'));
     expect(backdrop.getAttribute('data-curl-phase')).toBe('dragging');
@@ -1575,20 +1642,22 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     // Continue held touch drag past threshold and release -> commits attempt 4
     fireEvent.touchMove(curlBtn, {
-      touches: [{ identifier: 1, clientX: 160, clientY: 500 }],
+      touches: [{ identifier: 1, clientX: touchCommitAgainX, clientY: 640 }],
     });
     fireEvent.touchEnd(curlBtn, {
-      changedTouches: [{ identifier: 1, clientX: 160, clientY: 500 }],
+      changedTouches: [{ identifier: 1, clientX: touchCommitAgainX, clientY: 640 }],
     });
     expect(authState.signIn).toHaveBeenCalledTimes(4);
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
 
     fireEvent.keyDown(window, { key: 'Escape' });
+    const touchBelowFinalX = clientXFromCurrentPose(0.3);
     fireEvent.touchStart(curlBtn, {
       touches: [{ identifier: 2, clientX: 360, clientY: 640 }],
     });
     fireEvent.touchMove(curlBtn, {
-      touches: [{ identifier: 2, clientX: 290, clientY: 600 }],
+      touches: [{ identifier: 2, clientX: touchBelowFinalX, clientY: 640 }],
     });
     expect(backdrop.getAttribute('data-curl-phase')).toBe('dragging');
 
@@ -1599,12 +1668,12 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(backdrop.getAttribute('data-curl-phase')).toBe('dragging');
     expect(Number(backdrop.getAttribute('data-curl-progress'))).toBe(touchHeldProgress);
     fireEvent.touchEnd(curlBtn, {
-      changedTouches: [{ identifier: 2, clientX: 290, clientY: 600 }],
+      changedTouches: [{ identifier: 2, clientX: touchBelowFinalX, clientY: 640 }],
     });
     expect(authState.signIn).toHaveBeenCalledTimes(4);
   });
 
-  it('preserves a newer threshold awaiting-auth curl when an older canceled or timed-out Promise settles (both resolve and reject)', async () => {
+  it('preserves a newer threshold optimistic turning state when an older canceled or timed-out Promise settles (both resolve and reject)', async () => {
     vi.useFakeTimers();
     let rejectOldAttempt1;
     let resolveOldAttempt2;
@@ -1641,35 +1710,41 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     const curlBtn = screen.getByTestId('auth-primary-surface');
     const backdrop = screen.getByTestId('auth-magazine-backdrop');
 
-    // Attempt 1 via threshold drag -> cancel via Escape
+    // Attempt 1 via threshold drag -> starts optimistic turn -> cancel via Escape
     fireEvent.pointerDown(curlBtn, { pointerId: 1, clientX: 360, clientY: 640 });
-    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: 150, clientY: 510 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: 150, clientY: 510 });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
 
     // Attempt 2 via threshold drag -> let 12s timeout expire
     fireEvent.pointerDown(curlBtn, { pointerId: 2, clientX: 360, clientY: 640 });
-    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: 150, clientY: 510 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: 150, clientY: 510 });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
 
     await act(async () => {
       vi.advanceTimersByTime(AUTH_PENDING_TIMEOUT_MS);
     });
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
-    expect(backdrop.getAttribute('data-curl-progress')).toBe('0');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(Number(backdrop.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(0.99);
 
-    // Attempt 3 via threshold drag -> now actively pending in awaiting-auth
+    // Attempt 3 via threshold drag -> now actively turning + pending auth
     fireEvent.pointerDown(curlBtn, { pointerId: 3, clientX: 360, clientY: 640 });
-    fireEvent.pointerMove(curlBtn, { pointerId: 3, clientX: 140, clientY: 500 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: 140, clientY: 500 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
 
     const pendingProgress = Number(backdrop.getAttribute('data-curl-progress'));
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
-    expect(pendingProgress).toBeGreaterThanOrEqual(CURL_COMMIT_THRESHOLD);
-    expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
+    expect(pendingProgress).toBeGreaterThanOrEqual(FOLD_COMMIT_T);
+    expect(screen.getByTestId('auth-turning-status')).toBeTruthy();
+    expect(screen.getByTestId('auth-pending-cancel-btn')).toBeTruthy();
 
     // Settle both old Attempt 1 (reject) and old Attempt 2 (resolve) while Attempt 3 is pending
     await act(async () => {
@@ -1680,21 +1755,25 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
       });
     });
 
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
     expect(Number(backdrop.getAttribute('data-curl-progress'))).toBe(pendingProgress);
-    expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
+    expect(screen.getByTestId('auth-turning-status')).toBeTruthy();
     expect(screen.queryByTestId('auth-error-alert')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
 
-    // Now resolve active Attempt 3 with confirmed session -> transitions to turning
+    // Now resolve active Attempt 3 with confirmed session and finish turn -> navigates once
     const confirmed = makeConfirmedSession();
     await act(async () => {
       resolveActiveAttempt3({
         data: { session: confirmed, user: confirmed.user },
         error: null,
       });
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
     });
 
-    expect(backdrop.getAttribute('data-curl-phase')).toBe('turning');
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/charts', { replace: true });
   });
 
   it('prevents stale springback timers, click-suppression timers, and stale pointerIds from clobbering newer drags, focus, or submits', async () => {
@@ -1831,8 +1910,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     // 1) Threshold drag 1 -> awaiting-auth
     fireEvent.pointerDown(curlBtn, { pointerId: 1, clientX: 360, clientY: 640 });
-    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: 150, clientY: 510 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: 150, clientY: 510 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
     expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
 
     // 2) Start new held drag 2 -> dragging
@@ -1849,14 +1928,14 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(Number(backdrop.getAttribute('data-curl-progress'))).toBe(heldProgress);
 
     // Move drag 2 past threshold and release -> awaiting-auth (second deferred promise)
-    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: 150, clientY: 510 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: 150, clientY: 510 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 510 });
     expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
 
     // 3) Commit threshold drag 3 -> awaiting-auth (third deferred promise)
     fireEvent.pointerDown(curlBtn, { pointerId: 3, clientX: 360, clientY: 640 });
-    fireEvent.pointerMove(curlBtn, { pointerId: 3, clientX: 145, clientY: 505 });
-    fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: 145, clientY: 505 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 505 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 505 });
     const thirdProgress = Number(backdrop.getAttribute('data-curl-progress'));
     expect(backdrop.getAttribute('data-curl-phase')).toBe('awaiting-auth');
 
@@ -2100,6 +2179,869 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     } finally {
       window.history.replaceState({}, '', originalUrl);
     }
+  });
+
+  it('starts the leaf turn immediately on a threshold drag with filled fields, joins with auth settlement in either order, and navigates only once after both complete', async () => {
+    vi.useFakeTimers();
+
+    // Case A: Auth resolves first, then PAGE_TURN_DURATION_MS elapses -> navigate once
+    let resolveAuthA;
+    authState.signIn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAuthA = resolve;
+        }),
+    );
+
+    const { unmount } = renderAuth();
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'optimistic-a@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret123' },
+    });
+
+    const curlBtnA = screen.getByTestId('auth-primary-surface');
+    const backdropA = screen.getByTestId('auth-magazine-backdrop');
+    const sheetA = screen.getByTestId('auth-magazine-sheet');
+
+    fireEvent.pointerDown(curlBtnA, { pointerId: 1, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtnA, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    const dragCutX = sheetA.getAttribute('data-cut-x-pct');
+    const dragCutY = sheetA.getAttribute('data-cut-y-pct');
+    const dragProgress = sheetA.getAttribute('data-curl-progress');
+
+    fireEvent.pointerUp(curlBtnA, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+
+    // Immediate optimistic turn on release, follow-through preserves curl geometry, signIn called once, no navigation yet
+    expect(backdropA.getAttribute('data-turning-page')).toBe('true');
+    expect(backdropA.getAttribute('data-curl-phase')).toBe('turning');
+    expect(sheetA.className).toContain('mc-cover-sheet--turning');
+    expect(sheetA.getAttribute('data-curl-progress')).toBe(dragProgress);
+    expect(sheetA.getAttribute('data-cut-x-pct')).toBe(dragCutX);
+    expect(sheetA.getAttribute('data-cut-y-pct')).toBe(dragCutY);
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('optimistic-a@example.com', 'secret123');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // Additional clicks or Enter while turning+submitting are rejected
+    fireEvent.click(curlBtnA);
+    fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+
+    // Auth resolves first while turn animation is still in flight -> still no navigation until turn finishes
+    const sessionA = makeConfirmedSession();
+    await act(async () => {
+      resolveAuthA({
+        data: { session: sessionA, user: sessionA.user },
+        error: null,
+      });
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(backdropA.getAttribute('data-turning-page')).toBe('true');
+
+    // Turn timer finishes -> navigates once
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/charts', { replace: true });
+    unmount();
+
+    // Case B: Turn timer / animationend finishes first while auth is still pending, then auth resolves -> navigate once
+    mockNavigate.mockClear();
+    authState.signIn.mockClear();
+    let resolveAuthB;
+    authState.signIn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAuthB = resolve;
+        }),
+    );
+
+    renderAuth();
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'optimistic-b@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret456' },
+    });
+
+    const curlBtnB = screen.getByTestId('auth-primary-surface');
+    const backdropB = screen.getByTestId('auth-magazine-backdrop');
+    fireEvent.pointerDown(curlBtnB, { pointerId: 2, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtnB, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtnB, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+
+    expect(backdropB.getAttribute('data-turning-page')).toBe('true');
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // Leaf animationend and PAGE_TURN_DURATION_MS elapse while auth is still pending -> holds on static next page, no navigation yet
+    await act(async () => {
+      fireEvent.animationEnd(screen.getByTestId('auth-cover-leaf'));
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(backdropB.getAttribute('data-turning-page')).toBe('true');
+
+    // Now auth resolves -> navigates immediately once
+    const sessionB = makeConfirmedSession();
+    await act(async () => {
+      resolveAuthB({
+        data: { session: sessionB, user: sessionB.user },
+        error: null,
+      });
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/charts', { replace: true });
+  });
+
+  it('aborts the optimistic drag turn and springs the leaf back when auth fails, times out, is cancelled, or sign-up requires email verification', async () => {
+    vi.useFakeTimers();
+    let rejectSignIn;
+    let resolveTimedOutSignIn;
+    let resolveVerifySignUp;
+
+    authState.signIn
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectSignIn = reject;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveTimedOutSignIn = resolve;
+          }),
+      )
+      .mockImplementationOnce(() => new Promise(() => {}));
+
+    authState.signUp.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveVerifySignUp = resolve;
+        }),
+    );
+
+    renderAuth();
+    const emailInput = screen.getByTestId('auth-email-input');
+    const passwordInput = screen.getByTestId('auth-password-input');
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const backdrop = screen.getByTestId('auth-magazine-backdrop');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const leaf = screen.getByTestId('auth-cover-leaf');
+
+    fireEvent.change(emailInput, { target: { value: 'abort-cases@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'secret123' } });
+
+    // 1) Auth rejects while optimistic turn is in flight -> aborts turn, plays turn-abort springback, shows inline error, no navigation
+    fireEvent.pointerDown(curlBtn, { pointerId: 1, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    const foldXBeforeAbort = sheet.getAttribute('data-fold-x');
+    const foldYBeforeAbort = sheet.getAttribute('data-fold-y');
+    expect(foldXBeforeAbort).toBeTruthy();
+
+    await act(async () => {
+      rejectSignIn({ code: 'invalid_credentials', message: 'Invalid login credentials' });
+    });
+
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(sheet.className).toContain('mc-cover-sheet--turn-abort');
+    expect(sheet.getAttribute('data-fold-x')).toBe(foldXBeforeAbort);
+    expect(sheet.getAttribute('data-fold-y')).toBe(foldYBeforeAbort);
+    expect(leaf.style.getPropertyValue('--mc-leaf-abort-from')).toBe('');
+    expect(screen.getByTestId('auth-error-alert').textContent).toContain('電子郵件或密碼不正確');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_ABORT_DURATION_MS);
+    });
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+
+    // 2) 12 s timeout while optimistic turn is in flight -> timeout error, abort, late resolve ignored
+    fireEvent.pointerDown(curlBtn, { pointerId: 2, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+
+    await act(async () => {
+      vi.advanceTimersByTime(AUTH_PENDING_TIMEOUT_MS);
+    });
+
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(screen.getByTestId('auth-error-alert').textContent).toContain('登入等待逾時');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    const lateSession = makeConfirmedSession();
+    await act(async () => {
+      resolveTimedOutSignIn({
+        data: { session: lateSession, user: lateSession.user },
+        error: null,
+      });
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+
+    // 3) Static auth-pending-cancel-btn outside rotating leaf during optimistic turn -> cancels, aborts turn, shows cancel notice
+    fireEvent.pointerDown(curlBtn, { pointerId: 3, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 3, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+
+    const cancelBtns = screen.getAllByTestId('auth-pending-cancel-btn');
+    expect(cancelBtns).toHaveLength(1);
+    const staticCancelBtn = cancelBtns[0];
+    expect(leaf.contains(staticCancelBtn)).toBe(false);
+    expect(staticCancelBtn.disabled).toBe(false);
+    expect(staticCancelBtn.inert).toBe(false);
+
+    fireEvent.click(staticCancelBtn);
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(screen.getByTestId('auth-success-banner').textContent).toContain('已取消等待');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // 4) Sign-up via threshold drag without confirmed session (verify-email path) -> aborts turn and shows verify-email UI
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    fireEvent.pointerDown(curlBtn, { pointerId: 4, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 4, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 4, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(authState.signUp).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveVerifySignUp({
+        data: { user: { id: 'u-verify', email: 'abort-cases@example.com' }, session: null },
+        error: null,
+      });
+    });
+
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(screen.getByTestId('auth-verify-email-panel').textContent).toContain(
+      'abort-cases@example.com',
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not start an optimistic turn on threshold drag when email or password is empty, snapping back and showing errorEmpty', () => {
+    vi.useFakeTimers();
+    renderAuth();
+
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const backdrop = screen.getByTestId('auth-magazine-backdrop');
+
+    // 1) Both empty -> threshold drag snaps back without turning or calling signIn
+    fireEvent.pointerDown(curlBtn, { pointerId: 1, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('springback');
+    expect(Number(backdrop.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(
+      FOLD_COMMIT_T,
+    );
+    expect(screen.getByTestId('auth-error-alert').textContent).toBe(
+      i18n.t('auth.errorEmpty'),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(FOLD_SPRING_MS);
+    });
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+
+    // 2) Email filled, password empty -> still snaps back without turning or calling signIn
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'only-email@example.com' },
+    });
+    fireEvent.pointerDown(curlBtn, { pointerId: 2, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: FOLD_COMMIT_CLIENT_X, clientY: 500 });
+
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('springback');
+    expect(screen.getByTestId('auth-error-alert').textContent).toBe(
+      i18n.t('auth.errorEmpty'),
+    );
+  });
+
+  it('keeps button/Enter path as success -> turn -> enter without flashing an optimistic turn while pending or on wrong password', async () => {
+    vi.useFakeTimers();
+    let resolveWrongPass;
+    let resolveSuccess;
+    authState.signIn
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveWrongPass = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSuccess = resolve;
+          }),
+      );
+
+    renderAuth();
+    const emailInput = screen.getByTestId('auth-email-input');
+    const passwordInput = screen.getByTestId('auth-password-input');
+    const primarySurface = screen.getByTestId('auth-primary-surface');
+    const backdrop = screen.getByTestId('auth-magazine-backdrop');
+
+    fireEvent.change(emailInput, { target: { value: 'btn-path@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'wrong-pass' } });
+
+    // 1) Click primary surface (non-drag): stays in pending state (no optimistic turn), then shows error with no turn
+    fireEvent.click(primarySurface);
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
+
+    await act(async () => {
+      resolveWrongPass({
+        data: { session: null, user: null },
+        error: { code: 'invalid_credentials', message: 'Invalid login credentials' },
+      });
+    });
+
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+    expect(backdrop.getAttribute('data-curl-phase')).toBe('idle');
+    expect(screen.getByTestId('auth-error-alert').textContent).toContain('電子郵件或密碼不正確');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // 2) Submit via Enter with valid password: no turn while pending, starts turn only after success, then navigates after turn
+    fireEvent.change(passwordInput, { target: { value: 'correct-pass' } });
+    fireEvent.keyDown(passwordInput, { key: 'Enter' });
+    expect(backdrop.getAttribute('data-turning-page')).toBe('false');
+
+    const session = makeConfirmedSession();
+    await act(async () => {
+      resolveSuccess({
+        data: { session, user: session.user },
+        error: null,
+      });
+    });
+
+    expect(backdrop.getAttribute('data-turning-page')).toBe('true');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows plain opaque paper-back texture on the curled flap (no mirrored UI stickers/frames), clips front overlay along the crease, and tracks pointer vs keyboard focus modality', async () => {
+    vi.useFakeTimers();
+    let resolveSignIn;
+    authState.signIn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSignIn = resolve;
+        }),
+    );
+
+    renderAuth();
+    const emailInput = screen.getByTestId('auth-email-input');
+    const passwordInput = screen.getByTestId('auth-password-input');
+    const forgotBtn = screen.getByTestId('auth-forgot-password-link');
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const loginOverlay = screen.getByTestId('auth-login-overlay');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+
+    fireEvent.change(emailInput, { target: { value: 'flap-type@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'secret123' } });
+
+    // 1) At idle rest: no flap-type layer, no curl-clipping class, keyboard Tab sets keyboard focus modality
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(screen.queryByTestId('auth-flap-type')).toBeNull();
+    expect(loginOverlay.getAttribute('data-curl-clipping')).toBe('false');
+    expect(loginOverlay.className).not.toContain('mc-login-overlay--curl-clipping');
+    expect(forgotBtn.disabled).toBe(false);
+    expect(curlBtn.style.clipPath).toBe('');
+
+    fireEvent.keyDown(curlBtn, { key: 'Tab' });
+    expect(curlBtn.getAttribute('data-focus-modality')).toBe('keyboard');
+
+    // 2) Drag corner open past threshold: pointerDown sets data-focus-modality="pointer",
+    //    flap-type layer mounts as plain paper back (no mirrored button/label/frame copy),
+    //    and clips front overlay rows while keeping curlBtn unclipped
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    expect(curlBtn.getAttribute('data-focus-modality')).toBe('pointer');
+
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 500,
+    });
+
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    const flapType = screen.getByTestId('auth-flap-type');
+    expect(flapType.getAttribute('aria-hidden')).toBe('true');
+    expect(flapType.className).toContain('pointer-events-none');
+    expect(flapType.style.clipPath).toContain('polygon(');
+    expect(flapType.children).toHaveLength(0);
+    expect(flapType.textContent).toBe('');
+    expect(screen.queryByTestId('auth-flap-type-reflect')).toBeNull();
+    expect(screen.queryByTestId('auth-flap-forgot-password')).toBeNull();
+    expect(screen.queryByTestId('auth-flap-corner-cue')).toBeNull();
+    expect(loginOverlay.getAttribute('data-curl-clipping')).toBe('true');
+    expect(loginOverlay.className).toContain('mc-login-overlay--curl-clipping');
+    expect(curlBtn.style.clipPath).toBe('');
+
+    // 3) Release past threshold -> follow-through leaf turn keeps flap-type layer mounted
+    fireEvent.pointerUp(curlBtn, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 500,
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turning');
+    expect(screen.getByTestId('auth-flap-type')).toBeTruthy();
+
+    // Cancel pending turn -> returns to idle after abort -> flap-type unmounts cleanly
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turn-abort');
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_ABORT_DURATION_MS);
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(screen.queryByTestId('auth-flap-type')).toBeNull();
+    expect(loginOverlay.getAttribute('data-curl-clipping')).toBe('false');
+
+    // Blur clears focus modality attribute
+    fireEvent.blur(curlBtn);
+    expect(curlBtn.getAttribute('data-focus-modality')).toBeNull();
+
+    // Clean up pending mock promise
+    await act(async () => {
+      resolveSignIn({ data: { session: null, user: null }, error: null });
+    });
+
+    // 4) Under prefers-reduced-motion: visual curl stays at rest -> no flap-type motion during drag
+    cleanup();
+    setReducedMotion(true);
+    renderAuth();
+    const rmCurlBtn = screen.getByTestId('auth-primary-surface');
+    fireEvent.pointerDown(rmCurlBtn, { pointerId: 2, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(rmCurlBtn, { pointerId: 2, clientX: 150, clientY: 500 });
+    expect(screen.queryByTestId('auth-flap-type')).toBeNull();
+    expect(screen.getByTestId('auth-login-overlay').getAttribute('data-curl-clipping')).toBe(
+      'false',
+    );
+    fireEvent.pointerCancel(rmCurlBtn, { pointerId: 2 });
+
+    // 5) CSS contract: no 3D hinge keyframes; reduced-motion fade remains; pointer modality hides the focus ring
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/theme/journal.css'),
+      'utf8',
+    );
+    expect(css).not.toContain('mc-leaf-back-turn');
+    expect(css).not.toContain('mc-leaf-back-turn-abort');
+    expect(css).not.toContain('rotateY(-180deg)');
+    expect(css).not.toContain('cubic-bezier(0.37, 0.08, 0.32, 0.96)');
+    expect(css).not.toContain('translateX(100%) rotateY(-180deg)');
+    expect(css).toContain('@keyframes mc-leaf-fade-out');
+    expect(css).toContain('.mc-cover-sheet--fade .mc-cover-leaf');
+    expect(css).toContain('.mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible');
+    expect(css).toContain('.mc-cover-leaf--held-open');
+    expect(css).toContain('pointer-events: none');
+  });
+
+  it('springs back without submit when a finger fold is released below t=0.46', () => {
+    vi.useFakeTimers();
+    renderAuth();
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const belowX = Math.round(clientXForFoldProgress(0.3));
+    const pose = fingerToFold({
+      W: 480,
+      H: 656,
+      dx: belowX - FOLD_DRAG_START_X,
+      dy: 0,
+    });
+    expect(foldProgress(480, pose.x)).toBeLessThan(FOLD_COMMIT_T);
+
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: belowX, clientY: 640 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 1, clientX: belowX, clientY: 640 });
+
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(FOLD_COMMIT_T);
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThan(0.2);
+
+    act(() => {
+      vi.advanceTimersByTime(FOLD_SPRING_MS);
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+  });
+
+  it('does not submit while the finger drags back and forth, and commits once on release past t=0.46', () => {
+    vi.useFakeTimers();
+    let resolveSignIn;
+    authState.signIn.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSignIn = resolve;
+        }),
+    );
+    renderAuth();
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'forth@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret123' },
+    });
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const retreatX = Math.round(clientXForFoldProgress(0.25));
+
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 640,
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(FOLD_COMMIT_T);
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(curlBtn, { pointerId: 1, clientX: retreatX, clientY: 640 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(FOLD_COMMIT_T);
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(FOLD_FLING_T);
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 640,
+    });
+    fireEvent.pointerUp(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 640,
+    });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turning');
+
+    resolveSignIn({ data: { session: null, user: null }, error: null });
+  });
+
+  it('commits a leftward fling once t is at least 0.2 even when t is still below 0.46', () => {
+    vi.useFakeTimers();
+    let resolveSignIn;
+    authState.signIn.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSignIn = resolve;
+        }),
+    );
+    renderAuth();
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'fling@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret123' },
+    });
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const flingX = Math.round(clientXForFoldProgress(0.28));
+    const pose = fingerToFold({
+      W: 480,
+      H: 656,
+      dx: flingX - FOLD_DRAG_START_X,
+      dy: 0,
+    });
+    expect(foldProgress(480, pose.x)).toBeGreaterThanOrEqual(FOLD_FLING_T);
+    expect(foldProgress(480, pose.x)).toBeLessThan(FOLD_COMMIT_T);
+    const vx = (flingX - (FOLD_DRAG_START_X - 20)) / 40;
+    expect(vx).toBeLessThanOrEqual(FOLD_FLING_VX);
+
+    let now = 5000;
+    const spy = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 4,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    now = 5000;
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 4,
+      clientX: FOLD_DRAG_START_X - 20,
+      clientY: 640,
+    });
+    now = 5040;
+    fireEvent.pointerMove(curlBtn, { pointerId: 4, clientX: flingX, clientY: 640 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 4, clientX: flingX, clientY: 640 });
+    spy.mockRestore();
+
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turning');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(FOLD_COMMIT_T);
+
+    resolveSignIn({ data: { session: null, user: null }, error: null });
+  });
+
+  it('holds the opened page without navigating while auth is pending, and a later failure closes from that pose', async () => {
+    vi.useFakeTimers();
+    let rejectSignIn;
+    authState.signIn.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSignIn = reject;
+        }),
+    );
+    renderAuth();
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'held@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'secret123' },
+    });
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const leaf = screen.getByTestId('auth-cover-leaf');
+
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 640,
+    });
+    fireEvent.pointerUp(curlBtn, {
+      pointerId: 1,
+      clientX: FOLD_COMMIT_CLIENT_X,
+      clientY: 640,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(FOLD_OPEN_COMMIT_MS);
+    });
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turning');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThanOrEqual(0.99);
+    expect(leaf.className).toContain('mc-cover-leaf--held-open');
+    const cancel = screen.getByTestId('auth-pending-cancel-btn');
+    expect(cancel.className).toContain('pointer-events-auto');
+    const openX = sheet.getAttribute('data-fold-x');
+
+    fireEvent.click(cancel);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(sheet.getAttribute('data-curl-phase')).toBe('turn-abort');
+    expect(sheet.getAttribute('data-fold-x')).toBe(openX);
+
+    await act(async () => {
+      vi.advanceTimersByTime(Math.max(FOLD_CLOSE_MS, PAGE_TURN_ABORT_DURATION_MS));
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rejectSignIn({ code: 'invalid_credentials', message: 'Invalid login credentials' });
+    });
+  });
+
+  it('fires onTurnAnimationEnd once when a button-path fold reaches the open end', async () => {
+    vi.useFakeTimers();
+    const onTurnAnimationEnd = vi.fn();
+    const viewProps = {
+      email: 'once@example.com',
+      password: 'secret123',
+      onTurnAnimationEnd,
+    };
+    const { rerender } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, viewProps),
+      ),
+    );
+    rerender(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, { ...viewProps, turningPage: true }),
+      ),
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(FOLD_OPEN_BUTTON_MS + 40);
+    });
+    expect(onTurnAnimationEnd).toHaveBeenCalledTimes(1);
+    const leaf = screen.getByTestId('auth-cover-leaf');
+    expect(onTurnAnimationEnd.mock.calls[0][0].target).toBe(leaf);
+    expect(onTurnAnimationEnd.mock.calls[0][0].currentTarget).toBe(leaf);
+
+    await act(async () => {
+      vi.advanceTimersByTime(PAGE_TURN_DURATION_MS);
+    });
+    expect(onTurnAnimationEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a finite decreasing curl and the flap polygon while a below-threshold fold springs closed', async () => {
+    vi.useFakeTimers();
+    renderAuth();
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const belowX = Math.round(clientXForFoldProgress(0.32));
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 7,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, { pointerId: 7, clientX: belowX, clientY: 620 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 7, clientX: belowX, clientY: 620 });
+
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    const paint = screen.getByTestId('auth-fold-paint');
+    expect(paint.className).toContain('mc-fold-paint');
+    const clip = screen.getByTestId('auth-fold-sheet-clip');
+    expect(clip.getAttribute('x')).toBe('0');
+    expect(clip.getAttribute('y')).toBe('0');
+    expect(Number(clip.getAttribute('width'))).toBeGreaterThan(40);
+    expect(Number(clip.getAttribute('height'))).toBeGreaterThan(40);
+    const svg = screen.getByTestId('auth-curl-geometry-svg');
+    expect(paint.contains(svg)).toBe(true);
+    expect(svg.getAttribute('overflow')).toBe('hidden');
+    expect(svg.querySelector('g').getAttribute('clip-path')).toBe('url(#mc-fold-sheet-clip)');
+
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/theme/journal.css'),
+      'utf8',
+    );
+    const paintRule = css.match(/(?:^|\n)\.mc-fold-paint\s*\{([^}]*)\}/);
+    expect(paintRule).toBeTruthy();
+    expect(paintRule[1]).toContain('overflow: hidden');
+    expect(paintRule[1]).toContain('border-radius: inherit');
+    expect(paintRule[1]).toContain('clip-path: inset(0 round 4px 10px 14px 4px)');
+    expect(css).toMatch(/\.mc-fold-svg\s*\{[^}]*overflow:\s*hidden/);
+
+    const fullSheetClip = 'polygon(0.00px 0.00px, 480.00px 0.00px, 480.00px 656.00px, 0.00px 656.00px)';
+    const samples = [];
+    for (let i = 0; i < 40; i += 1) {
+      const phase = sheet.getAttribute('data-curl-phase');
+      const raw = sheet.getAttribute('data-curl-progress');
+      expect(raw).not.toBe('NaN');
+      expect(raw.includes('NaN')).toBe(false);
+      const value = Number(raw);
+      expect(Number.isFinite(value)).toBe(true);
+      samples.push({ phase, value });
+      if (phase === 'springback') {
+        const points = screen.getByTestId('auth-curl-backface').getAttribute('points');
+        expect(points.split(/[ ,]/).filter(Boolean).length).toBeGreaterThanOrEqual(6);
+        const frontClip = screen.getByTestId('auth-leaf-front').style.clipPath;
+        expect(frontClip.startsWith('polygon(')).toBe(true);
+        expect(frontClip.includes('NaN')).toBe(false);
+        expect(frontClip).not.toBe(fullSheetClip);
+        expect(paint.contains(screen.getByTestId('auth-curl-backface'))).toBe(true);
+      }
+      if (phase === 'idle') break;
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+    }
+
+    const springSamples = samples.filter((sample) => sample.phase === 'springback');
+    expect(springSamples.length).toBeGreaterThanOrEqual(3);
+    expect(samples[samples.length - 1].phase).toBe('idle');
+    expect(samples[samples.length - 1].value).toBe(0);
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i].value).toBeLessThanOrEqual(samples[i - 1].value + 1e-9);
+    }
+    expect(springSamples[springSamples.length - 1].value).toBeLessThan(springSamples[0].value);
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+  });
+
+  it('re-grabs a mid-spring pose without jumping back to the rest corner', () => {
+    vi.useFakeTimers();
+    renderAuth();
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const belowX = Math.round(clientXForFoldProgress(0.34));
+
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 8,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, { pointerId: 8, clientX: belowX, clientY: 640 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 8, clientX: belowX, clientY: 640 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    const releaseX = Number(sheet.getAttribute('data-fold-x'));
+
+    act(() => {
+      vi.advanceTimersByTime(96);
+    });
+
+    const midX = Number(sheet.getAttribute('data-fold-x'));
+    const midY = Number(sheet.getAttribute('data-fold-y'));
+    const rest = restFoldPoint(480, 656);
+    expect(Number.isFinite(midX)).toBe(true);
+    expect(Number.isFinite(midY)).toBe(true);
+    expect(midX).toBeGreaterThan(releaseX + 30);
+    expect(midX).toBeLessThan(rest.x - 20);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+
+    const grabX = 180;
+    const grabY = 640;
+    fireEvent.pointerDown(curlBtn, { pointerId: 9, clientX: grabX, clientY: grabY });
+    expect(sheet.getAttribute('data-fold-x')).toBe(midX.toFixed(2));
+    expect(sheet.getAttribute('data-fold-y')).toBe(midY.toFixed(2));
+
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 9,
+      clientX: grabX - 7,
+      clientY: grabY,
+    });
+
+    const nextX = Number(sheet.getAttribute('data-fold-x'));
+    const nextY = Number(sheet.getAttribute('data-fold-y'));
+    expect(Number.isFinite(nextX)).toBe(true);
+    expect(Number.isFinite(nextY)).toBe(true);
+    expect(nextX).toBeCloseTo(midX + FINGER_GAIN_X * -7, 1);
+    expect(nextY).toBeCloseTo(midY + FINGER_GAIN_Y * 0, 1);
+    expect(Math.abs(nextX - (rest.x + FINGER_GAIN_X * -7))).toBeGreaterThan(30);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    expect(sheet.getAttribute('data-curl-progress')).not.toBe('NaN');
+    expect(Number.isFinite(Number(sheet.getAttribute('data-curl-progress')))).toBe(true);
   });
 });
 

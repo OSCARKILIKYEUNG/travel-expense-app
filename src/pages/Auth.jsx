@@ -12,8 +12,12 @@ import {
   getPrefersReducedMotion,
   usePrefersReducedMotion,
 } from '../motion/usePrefersReducedMotion';
+import {
+  PAGE_TURN_ABORT_DURATION_MS,
+  PAGE_TURN_DURATION_MS,
+} from '../components/auth/foldGeometry';
 
-export const PAGE_TURN_DURATION_MS = 720;
+export { PAGE_TURN_ABORT_DURATION_MS, PAGE_TURN_DURATION_MS };
 export const AUTH_PENDING_TIMEOUT_MS = 12000;
 
 export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}) {
@@ -41,6 +45,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [turningPage, setTurningPage] = useState(false);
+  const [turnAborting, setTurnAborting] = useState(false);
   const [inlineError, setInlineError] = useState('');
   const [inlineSuccess, setInlineSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
@@ -58,8 +63,12 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
   const abandonedAttemptRef = useRef(false);
   const submitLockRef = useRef(false);
   const interactiveTurnRef = useRef(false);
+  const optimisticTurnRef = useRef(false);
+  const authSucceededRef = useRef(false);
+  const turnFinishedRef = useRef(false);
   const hasNavigatedRef = useRef(false);
   const turnTimerRef = useRef(null);
+  const abortTimerRef = useRef(null);
   const cooldownTimerRef = useRef(null);
   const errorRef = useRef(null);
 
@@ -67,6 +76,20 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     if (pendingTimerRef.current) {
       clearTimeout(pendingTimerRef.current);
       pendingTimerRef.current = null;
+    }
+  }, []);
+
+  const clearTurnTimer = useCallback(() => {
+    if (turnTimerRef.current) {
+      clearTimeout(turnTimerRef.current);
+      turnTimerRef.current = null;
+    }
+  }, []);
+
+  const clearAbortTimer = useCallback(() => {
+    if (abortTimerRef.current) {
+      clearTimeout(abortTimerRef.current);
+      abortTimerRef.current = null;
     }
   }, []);
 
@@ -79,6 +102,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       submitLockRef.current = false;
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      if (abortTimerRef.current) clearTimeout(abortTimerRef.current);
       if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
     };
   }, []);
@@ -90,14 +114,24 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
   }, [inlineError]);
 
   const completeTurnNavigation = useCallback(() => {
-    if (turnTimerRef.current) {
-      clearTimeout(turnTimerRef.current);
-      turnTimerRef.current = null;
-    }
+    clearTurnTimer();
     if (!mountedRef.current || hasNavigatedRef.current) return;
     hasNavigatedRef.current = true;
     navigate(from, { replace: true });
-  }, [from, navigate]);
+  }, [clearTurnTimer, from, navigate]);
+
+  const maybeNavigate = useCallback(() => {
+    if (
+      !mountedRef.current ||
+      hasNavigatedRef.current ||
+      abandonedAttemptRef.current ||
+      !authSucceededRef.current ||
+      !turnFinishedRef.current
+    ) {
+      return;
+    }
+    completeTurnNavigation();
+  }, [completeTurnNavigation]);
 
   // Existing confirmed session (or OAuth return with confirmed session) skips repeat login & animation.
   // If a local client attempt was cancelled or timed out (abandonedAttemptRef.current === true),
@@ -111,6 +145,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       activeRequestIdRef.current !== null ||
       abandonedAttemptRef.current ||
       interactiveTurnRef.current ||
+      optimisticTurnRef.current ||
       hasNavigatedRef.current
     ) {
       return;
@@ -121,22 +156,73 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     }
   }, [authLoading, submitting, oauthGoogleLoading, session, user, from, navigate]);
 
-  const startInteractiveSuccessTransition = useCallback(() => {
+  const startOptimisticTurn = useCallback(() => {
     if (!mountedRef.current) return;
+    clearTurnTimer();
+    clearAbortTimer();
+    setTurnAborting(false);
     interactiveTurnRef.current = true;
+    optimisticTurnRef.current = true;
+    authSucceededRef.current = false;
+    turnFinishedRef.current = false;
     setTurningPage(true);
     turnTimerRef.current = setTimeout(() => {
-      completeTurnNavigation();
+      turnTimerRef.current = null;
+      if (!mountedRef.current || !interactiveTurnRef.current) return;
+      turnFinishedRef.current = true;
+      maybeNavigate();
     }, PAGE_TURN_DURATION_MS);
-  }, [completeTurnNavigation]);
+  }, [clearAbortTimer, clearTurnTimer, maybeNavigate]);
+
+  const startInteractiveSuccessTransition = useCallback(() => {
+    if (!mountedRef.current) return;
+    clearTurnTimer();
+    clearAbortTimer();
+    setTurnAborting(false);
+    interactiveTurnRef.current = true;
+    optimisticTurnRef.current = false;
+    authSucceededRef.current = true;
+    turnFinishedRef.current = false;
+    setTurningPage(true);
+    turnTimerRef.current = setTimeout(() => {
+      turnTimerRef.current = null;
+      if (!mountedRef.current || !interactiveTurnRef.current) return;
+      turnFinishedRef.current = true;
+      maybeNavigate();
+    }, PAGE_TURN_DURATION_MS);
+  }, [clearAbortTimer, clearTurnTimer, maybeNavigate]);
+
+  const abortOptimisticTurn = useCallback(() => {
+    clearTurnTimer();
+    clearAbortTimer();
+    interactiveTurnRef.current = false;
+    optimisticTurnRef.current = false;
+    authSucceededRef.current = false;
+    turnFinishedRef.current = false;
+    if (!mountedRef.current) return;
+    setTurningPage(false);
+    setTurnAborting(true);
+    abortTimerRef.current = setTimeout(() => {
+      abortTimerRef.current = null;
+      if (!mountedRef.current) return;
+      setTurnAborting(false);
+    }, PAGE_TURN_ABORT_DURATION_MS);
+  }, [clearAbortTimer, clearTurnTimer]);
 
   const handleTurnAnimationEnd = useCallback(
     (e) => {
-      if (!interactiveTurnRef.current) return;
       if (e && e.target !== e.currentTarget) return;
-      completeTurnNavigation();
+      if (!interactiveTurnRef.current) {
+        if (turnAborting) {
+          clearAbortTimer();
+          setTurnAborting(false);
+        }
+        return;
+      }
+      turnFinishedRef.current = true;
+      maybeNavigate();
     },
-    [completeTurnNavigation],
+    [clearAbortTimer, maybeNavigate, turnAborting],
   );
 
   const beginClientRequest = useCallback(
@@ -159,6 +245,9 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
         submitLockRef.current = false;
         abandonedAttemptRef.current = true;
         pendingTimerRef.current = null;
+        if (optimisticTurnRef.current || interactiveTurnRef.current) {
+          abortOptimisticTurn();
+        }
         setSubmitting(false);
         setOauthGoogleLoading(false);
         setInlineSuccess('');
@@ -166,44 +255,83 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       }, pendingTimeoutMs);
       return requestId;
     },
-    [clearPendingTimer, pendingTimeoutMs, t],
+    [abortOptimisticTurn, clearPendingTimer, pendingTimeoutMs, t],
   );
 
   const handleCancelPendingAuth = useCallback(() => {
-    if (activeRequestIdRef.current === null && !submitting && !oauthGoogleLoading) {
+    if (
+      activeRequestIdRef.current === null &&
+      !submitting &&
+      !oauthGoogleLoading &&
+      !optimisticTurnRef.current
+    ) {
       return;
     }
     clearPendingTimer();
     activeRequestIdRef.current = null;
     submitLockRef.current = false;
     abandonedAttemptRef.current = true;
+    if (optimisticTurnRef.current || interactiveTurnRef.current) {
+      abortOptimisticTurn();
+    }
     if (!mountedRef.current) return;
     setSubmitting(false);
     setOauthGoogleLoading(false);
     setInlineError('');
     setInlineSuccess(t('auth.cancelPendingNotice'));
-  }, [clearPendingTimer, submitting, oauthGoogleLoading, t]);
+  }, [abortOptimisticTurn, clearPendingTimer, submitting, oauthGoogleLoading, t]);
 
-  // Single guarded submit shared by form Enter, explicit submit button, and >=44px corner page-curl button
-  const handleSubmit = async (e) => {
-    if (e && typeof e.preventDefault === 'function') {
-      e.preventDefault();
-    }
+  const handleDragThresholdCommit = () => {
     if (
       submitLockRef.current ||
       activeRequestIdRef.current !== null ||
       submitting ||
       turningPage ||
+      interactiveTurnRef.current ||
       oauthGoogleLoading
     ) {
-      return;
+      return false;
     }
     setInlineError('');
     setInlineSuccess('');
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       setInlineError(t('auth.errorEmpty'));
-      return;
+      return false;
+    }
+    startOptimisticTurn();
+    return true;
+  };
+
+  // Single guarded submit shared by form Enter, explicit submit button, and >=44px corner page-curl button
+  const handleSubmit = async (e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    const isGestureCommit = Boolean(e && e.gestureCommit);
+    const alreadyOptimistic = isGestureCommit && optimisticTurnRef.current;
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      (!alreadyOptimistic && (turningPage || interactiveTurnRef.current)) ||
+      oauthGoogleLoading
+    ) {
+      return false;
+    }
+    setInlineError('');
+    setInlineSuccess('');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      if (optimisticTurnRef.current || interactiveTurnRef.current) {
+        abortOptimisticTurn();
+      }
+      setInlineError(t('auth.errorEmpty'));
+      return false;
+    }
+
+    if (isGestureCommit && !alreadyOptimistic) {
+      startOptimisticTurn();
     }
 
     // Deliberate reconciliation: if a prior client attempt was cancelled/timed out locally
@@ -218,8 +346,13 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     ) {
       abandonedAttemptRef.current = false;
       submitLockRef.current = true;
-      startInteractiveSuccessTransition();
-      return;
+      authSucceededRef.current = true;
+      if (interactiveTurnRef.current) {
+        maybeNavigate();
+      } else {
+        startInteractiveSuccessTransition();
+      }
+      return true;
     }
 
     const requestId = beginClientRequest('submit');
@@ -227,45 +360,72 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       if (mode === 'signin') {
         const signInResult = await signIn(trimmedEmail, password);
         if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
-          return;
+          return false;
         }
         clearPendingTimer();
         if (signInResult?.error) {
+          if (optimisticTurnRef.current || interactiveTurnRef.current) {
+            abortOptimisticTurn();
+          }
           setInlineError(formatAuthError(signInResult.error, t));
-          return;
+          return false;
         }
         if (!hasConfirmedSession({ session, user, signInResult })) {
+          if (optimisticTurnRef.current || interactiveTurnRef.current) {
+            abortOptimisticTurn();
+          }
           setInlineError(t('auth.errorNoSession'));
-          return;
+          return false;
         }
         abandonedAttemptRef.current = false;
-        startInteractiveSuccessTransition();
-        return;
+        authSucceededRef.current = true;
+        if (interactiveTurnRef.current) {
+          maybeNavigate();
+        } else {
+          startInteractiveSuccessTransition();
+        }
+        return true;
       }
 
       const signUpResult = await signUp(trimmedEmail, password);
       if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
-        return;
+        return false;
       }
       clearPendingTimer();
       if (signUpResult?.error) {
+        if (optimisticTurnRef.current || interactiveTurnRef.current) {
+          abortOptimisticTurn();
+        }
         setInlineError(formatAuthError(signUpResult.error, t));
-        return;
+        return false;
       }
       if (hasConfirmedSession({ session, user, signInResult: signUpResult })) {
         abandonedAttemptRef.current = false;
-        startInteractiveSuccessTransition();
-        return;
+        authSucceededRef.current = true;
+        if (interactiveTurnRef.current) {
+          maybeNavigate();
+        } else {
+          startInteractiveSuccessTransition();
+        }
+        return true;
+      }
+      if (optimisticTurnRef.current || interactiveTurnRef.current) {
+        abortOptimisticTurn();
       }
       abandonedAttemptRef.current = false;
       setPendingEmail(trimmedEmail);
       setInlineSuccess(t('auth.verifyEmailSent'));
+      return false;
     } catch (err) {
       if (!mountedRef.current || activeRequestIdRef.current !== requestId) {
-        return;
+        return false;
       }
       clearPendingTimer();
+      if (optimisticTurnRef.current || interactiveTurnRef.current) {
+        abortOptimisticTurn();
+      }
       setInlineError(formatAuthError(err, t));
+      return false;
     } finally {
       if (mountedRef.current && activeRequestIdRef.current === requestId) {
         clearPendingTimer();
@@ -278,12 +438,14 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     }
   };
 
+  // Google OAuth: keep standard redirect flow; no optimistic drag turn applies here.
   const handleGoogleSignIn = async () => {
     if (
       submitLockRef.current ||
       activeRequestIdRef.current !== null ||
       submitting ||
       turningPage ||
+      interactiveTurnRef.current ||
       oauthGoogleLoading
     ) {
       return;
@@ -448,6 +610,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       password={password}
       submitting={submitting}
       turningPage={turningPage}
+      turnAborting={turnAborting}
       reducedMotion={Boolean(reducedMotion || getPrefersReducedMotion())}
       inlineError={inlineError}
       inlineSuccess={inlineSuccess}
@@ -468,6 +631,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       onPasswordChange={setPassword}
       onSubmit={handleSubmit}
       onPageCurlSubmit={handleSubmit}
+      onDragThresholdCommit={handleDragThresholdCommit}
       onCancelPending={handleCancelPendingAuth}
       onTurnAnimationEnd={handleTurnAnimationEnd}
       onGoogleSignIn={handleGoogleSignIn}

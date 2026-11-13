@@ -1171,7 +1171,7 @@
 }
 
 .mc-cover-surface--springback {
-  transition: clip-path 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: none;
 }
 
 /* Decorative blurred bottom-fill backdrop behind the full-width cover painting */
@@ -1244,78 +1244,6 @@
   );
 }
 
-@keyframes mc-paper-curl-turn {
-  0% {
-    transform: rotateY(0deg);
-  }
-  100% {
-    transform: rotateY(-180deg);
-  }
-}
-
-@keyframes mc-leaf-front-shade {
-  0% {
-    opacity: 0;
-  }
-  26% {
-    opacity: 0.42;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes mc-leaf-back-turn {
-  0% {
-    opacity: 0.92;
-  }
-  50% {
-    opacity: 0.96;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes mc-leaf-back-shade {
-  0% {
-    opacity: 0.82;
-  }
-  50% {
-    opacity: 0.72;
-  }
-  76% {
-    opacity: 0.24;
-  }
-  100% {
-    opacity: 0.03;
-  }
-}
-
-@keyframes mc-turn-cast-shadow {
-  0% {
-    opacity: 0;
-  }
-  24% {
-    opacity: 0.56;
-  }
-  50% {
-    opacity: 1;
-  }
-  78% {
-    opacity: 0.28;
-  }
-  94% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 @keyframes mc-leaf-fade-out {
   0% {
     opacity: 1;
@@ -1325,29 +1253,45 @@
   }
 }
 
-.mc-cover-sheet--turning .mc-cover-leaf {
-  will-change: transform;
-  animation: mc-paper-curl-turn 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+@keyframes mc-leaf-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
-.mc-cover-sheet--turning .mc-leaf-shade {
-  animation: mc-leaf-front-shade 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+.mc-cover-leaf--held-open,
+.mc-cover-leaf--held-open .mc-leaf-front,
+.mc-cover-leaf--held-open .mc-fold-svg,
+.mc-cover-leaf--held-open .mc-fold-paint {
+  pointer-events: none;
 }
 
-.mc-cover-sheet--turning .mc-leaf-back {
-  animation: mc-leaf-back-turn 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+/* Live fold paint stays inside the sheet. border-radius is inherited from
+   .mc-cover-sheet (4px 10px 14px 4px); clip-path repeats those corner radii. */
+.mc-fold-paint {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  border-radius: inherit;
+  clip-path: inset(0 round 4px 10px 14px 4px);
+  pointer-events: none;
 }
 
-.mc-cover-sheet--turning .mc-leaf-back::after {
-  animation: mc-leaf-back-shade 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
-}
-
-.mc-cover-sheet--turning .mc-turn-cast-shadow {
-  animation: mc-turn-cast-shadow 700ms cubic-bezier(0.37, 0.08, 0.32, 0.96) forwards;
+.mc-fold-svg {
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .mc-cover-sheet--fade .mc-cover-leaf {
   animation: mc-leaf-fade-out 200ms ease-out forwards;
+}
+
+.mc-cover-sheet--fade-abort .mc-cover-leaf {
+  animation: mc-leaf-fade-in 200ms ease-out forwards;
 }
 
 .mc-sky-stage {
@@ -1410,8 +1354,42 @@
   );
 }
 
-.mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--cover-wash::before {
-  transition: clip-path 220ms cubic-bezier(0.22, 1, 0.36, 1);
+/* While the finger fold is active the whole .mc-leaf-front is clipped to the
+   front polygon, so per-child percent clips are not used. The class still hides
+   the corner-handle chrome. At rest the 44px handle stays an unclipped target. */
+
+.mc-login-overlay--curl-clipping .mc-primary-corner-content,
+.mc-login-overlay--curl-clipping .mc-primary-corner-label,
+.mc-login-overlay--curl-clipping .mc-primary-corner-curl-icon {
+  opacity: 0;
+  color: transparent;
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Opaque paper-back surface on the lifted corner flap (plain paper back + crease shading, no ruled lines or UI sticker copy) */
+.mc-flap-type {
+  position: absolute;
+  inset: 0;
+  z-index: 36;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  border-radius: inherit;
+  background-color: rgb(var(--c-paper));
+  background-image: linear-gradient(
+    135deg,
+    rgb(var(--c-paper)) 0%,
+    rgb(var(--c-paper-shade)) 62%,
+    rgb(var(--c-desk)) 100%
+  );
+}
+
+.mc-cover-sheet[data-curl-phase="springback"] .mc-flap-type,
+.mc-cover-sheet[data-curl-phase="turn-abort"] .mc-flap-type {
+  transition: none;
 }
 
 /* Coherent safe inline-end inset for auxiliary flows (forgot/verify/reset) to clear the resting paper cutout */
@@ -1796,6 +1774,16 @@
   box-shadow: none;
 }
 
+.mc-primary-corner-surface[data-focus-modality="pointer"],
+.mc-primary-corner-surface[data-focus-modality="pointer"]:focus,
+.mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible,
+.mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible:hover:not(:disabled),
+.mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible:active:not(:disabled) {
+  outline: none;
+  outline-color: transparent;
+  box-shadow: none;
+}
+
 @media (forced-colors: active) {
   .mc-primary-corner-surface:focus-visible,
   .mc-primary-corner-surface:focus-visible:hover:not(:disabled),
@@ -1809,6 +1797,48 @@
     outline: 2px solid rgb(var(--c-route));
     outline-offset: 2px;
   }
+
+  .mc-primary-corner-surface[data-focus-modality="pointer"],
+  .mc-primary-corner-surface[data-focus-modality="pointer"]:focus,
+  .mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible,
+  .mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible:hover:not(:disabled),
+  .mc-primary-corner-surface[data-focus-modality="pointer"]:focus-visible:active:not(:disabled),
+  .mc-login-overlay--curl-clipping [data-testid="auth-primary-surface"],
+  .mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible,
+  .mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible:hover:not(:disabled),
+  .mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible:active:not(:disabled) {
+    outline: none;
+    outline-color: transparent;
+  }
+}
+
+/* Hide unclipped front corner button chrome & focus ring while curl is opening
+ * (the mirrored flap layer already renders the lifted button & label;
+ * hit-testing remains an unclipped >=44x44 target).
+ */
+.mc-login-overlay--curl-clipping [data-testid="auth-primary-surface"],
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface,
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:hover:not(:disabled),
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:active:not(:disabled),
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus,
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus:not(:focus-visible),
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible,
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible:hover:not(:disabled),
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:focus-visible:active:not(:disabled) {
+  opacity: 0;
+  background: transparent;
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+  outline-color: transparent;
+  color: transparent;
+}
+
+.mc-login-overlay--curl-clipping .mc-primary-corner-surface:hover:not(:disabled) .mc-primary-corner-label {
+  color: transparent;
 }
 
 .mc-primary-corner-content {
@@ -1873,13 +1903,28 @@
   .mc-cover-surface,
   .mc-cover-surface--springback,
   .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--cover-wash::before,
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-login-overlay--cover-wash::before,
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--curl-clipping > *:not([data-testid="auth-credentials-form"]),
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--curl-clipping .mc-credentials-row,
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--curl-clipping .mc-action-grid,
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-login-overlay--curl-clipping .mc-register-row,
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-login-overlay--curl-clipping > *:not([data-testid="auth-credentials-form"]),
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-login-overlay--curl-clipping .mc-credentials-row,
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-login-overlay--curl-clipping .mc-action-grid,
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-login-overlay--curl-clipping .mc-register-row,
+  .mc-cover-sheet[data-curl-phase="springback"] .mc-flap-type,
+  .mc-cover-sheet[data-curl-phase="turn-abort"] .mc-flap-type,
   .mc-cover-image,
   .mc-cover-sheet--turning,
   .mc-cover-sheet--turning .mc-cover-leaf,
   .mc-cover-sheet--turning .mc-leaf-shade,
-  .mc-cover-sheet--turning .mc-leaf-back,
   .mc-cover-sheet--turning .mc-leaf-back::after,
   .mc-cover-sheet--turning .mc-turn-cast-shadow,
+  .mc-cover-sheet--turn-abort,
+  .mc-cover-sheet--turn-abort .mc-cover-leaf,
+  .mc-cover-sheet--turn-abort .mc-leaf-shade,
+  .mc-cover-sheet--turn-abort .mc-leaf-back::after,
+  .mc-cover-sheet--turn-abort .mc-turn-cast-shadow,
   .mc-editorial-input,
   .mc-editorial-submit,
   .mc-editorial-google,

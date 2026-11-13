@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import MagazineCoverView from './MagazineCoverView';
 import {
+  PAGE_TURN_ABORT_DURATION_MS,
+  PAGE_TURN_DURATION_MS,
+} from './foldGeometry';
+import {
   DEFAULT_LOGIN_COVER_HEADLINE,
   LOGIN_COVER_HEADLINE_MODES,
   findLoginCover,
@@ -49,6 +53,7 @@ export default function AuthDevHarness() {
   const [turningPage, setTurningPage] = useState(
     initialState === 'turning' || initialState === 'success',
   );
+  const [turnAborting, setTurnAborting] = useState(false);
   const [reducedMotion] = useState(initialReducedMotion);
   const [pendingEmail, setPendingEmail] = useState(
     initialState === 'verify-email' ? 'kamakura.reader@example.com' : '',
@@ -70,7 +75,23 @@ export default function AuthDevHarness() {
   const mountedRef = useRef(true);
   const requestSeqRef = useRef(initialState === 'submitting' ? 1 : 0);
   const activeRequestIdRef = useRef(initialState === 'submitting' ? 1 : null);
+  const submitLockRef = useRef(initialState === 'submitting');
+  const interactiveTurnRef = useRef(
+    initialState === 'turning' || initialState === 'success',
+  );
+  const optimisticTurnRef = useRef(false);
+  const authSucceededRef = useRef(
+    initialState === 'turning' ||
+      initialState === 'success' ||
+      initialState === 'reduced-motion' ||
+      initialState === 'success-complete',
+  );
+  const turnFinishedRef = useRef(
+    initialState === 'reduced-motion' || initialState === 'success-complete',
+  );
   const pendingTimerRef = useRef(null);
+  const turnTimerRef = useRef(null);
+  const abortTimerRef = useRef(null);
   const lateTimersRef = useRef(new Set());
 
   useEffect(() => {
@@ -78,7 +99,10 @@ export default function AuthDevHarness() {
     return () => {
       mountedRef.current = false;
       activeRequestIdRef.current = null;
+      submitLockRef.current = false;
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      if (abortTimerRef.current) clearTimeout(abortTimerRef.current);
       lateTimersRef.current.forEach((timerId) => clearTimeout(timerId));
       lateTimersRef.current.clear();
     };
@@ -127,27 +151,132 @@ export default function AuthDevHarness() {
     }
   };
 
+  const clearTurnTimer = () => {
+    if (turnTimerRef.current) {
+      clearTimeout(turnTimerRef.current);
+      turnTimerRef.current = null;
+    }
+  };
+
+  const clearAbortTimer = () => {
+    if (abortTimerRef.current) {
+      clearTimeout(abortTimerRef.current);
+      abortTimerRef.current = null;
+    }
+  };
+
+  const maybeCompleteMockTurn = () => {
+    if (!mountedRef.current || !authSucceededRef.current || !turnFinishedRef.current) {
+      return;
+    }
+    clearTurnTimer();
+    setMockTurnCompleted(true);
+  };
+
+  const startMockTurn = ({ optimistic = false } = {}) => {
+    if (!mountedRef.current) return;
+    clearTurnTimer();
+    clearAbortTimer();
+    setTurnAborting(false);
+    interactiveTurnRef.current = true;
+    optimisticTurnRef.current = optimistic;
+    authSucceededRef.current = !optimistic;
+    turnFinishedRef.current = false;
+    setTurningPage(true);
+    turnTimerRef.current = setTimeout(() => {
+      turnTimerRef.current = null;
+      if (!mountedRef.current || !interactiveTurnRef.current) return;
+      turnFinishedRef.current = true;
+      maybeCompleteMockTurn();
+    }, PAGE_TURN_DURATION_MS);
+  };
+
+  const abortMockTurn = () => {
+    clearTurnTimer();
+    clearAbortTimer();
+    interactiveTurnRef.current = false;
+    optimisticTurnRef.current = false;
+    authSucceededRef.current = false;
+    turnFinishedRef.current = false;
+    if (!mountedRef.current) return;
+    setTurningPage(false);
+    setTurnAborting(true);
+    abortTimerRef.current = setTimeout(() => {
+      abortTimerRef.current = null;
+      if (!mountedRef.current) return;
+      setTurnAborting(false);
+    }, PAGE_TURN_ABORT_DURATION_MS);
+  };
+
   const handleCancelPending = () => {
-    if (activeRequestIdRef.current === null && !submitting && !oauthGoogleLoading) {
+    if (
+      activeRequestIdRef.current === null &&
+      !submitting &&
+      !oauthGoogleLoading &&
+      !optimisticTurnRef.current
+    ) {
       return;
     }
     clearPendingTimer();
     activeRequestIdRef.current = null;
+    submitLockRef.current = false;
+    if (optimisticTurnRef.current || interactiveTurnRef.current) {
+      abortMockTurn();
+    }
     setSubmitting(false);
     setOauthGoogleLoading(false);
     setInlineError('');
     setInlineSuccess(t('auth.cancelPendingNotice'));
   };
 
-  const handleFakeSubmit = (e) => {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    if (submitting || turningPage || oauthGoogleLoading) return;
+  const handleDragThresholdCommit = () => {
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      turningPage ||
+      interactiveTurnRef.current ||
+      oauthGoogleLoading
+    ) {
+      return false;
+    }
     setInlineError('');
     setInlineSuccess('');
     if (!email.trim() || !password) {
       setInlineError(t('auth.errorEmpty'));
-      return;
+      return false;
     }
+    startMockTurn({ optimistic: true });
+    return true;
+  };
+
+  const handleFakeSubmit = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const isGestureCommit = Boolean(e && e.gestureCommit);
+    const alreadyOptimistic = isGestureCommit && optimisticTurnRef.current;
+    if (
+      submitLockRef.current ||
+      activeRequestIdRef.current !== null ||
+      submitting ||
+      (!alreadyOptimistic && (turningPage || interactiveTurnRef.current)) ||
+      oauthGoogleLoading
+    ) {
+      return false;
+    }
+    setInlineError('');
+    setInlineSuccess('');
+    if (!email.trim() || !password) {
+      if (optimisticTurnRef.current || interactiveTurnRef.current) {
+        abortMockTurn();
+      }
+      setInlineError(t('auth.errorEmpty'));
+      return false;
+    }
+
+    if (isGestureCommit && !alreadyOptimistic) {
+      startMockTurn({ optimistic: true });
+    }
+
     if (
       outcomeParam === 'pending' ||
       outcomeParam === 'timeout' ||
@@ -158,6 +287,7 @@ export default function AuthDevHarness() {
       const requestId = requestSeqRef.current + 1;
       requestSeqRef.current = requestId;
       activeRequestIdRef.current = requestId;
+      submitLockRef.current = true;
       setSubmitting(true);
 
       const effectiveTimeoutMs =
@@ -170,7 +300,11 @@ export default function AuthDevHarness() {
         pendingTimerRef.current = setTimeout(() => {
           if (!mountedRef.current || activeRequestIdRef.current !== requestId) return;
           activeRequestIdRef.current = null;
+          submitLockRef.current = false;
           pendingTimerRef.current = null;
+          if (optimisticTurnRef.current || interactiveTurnRef.current) {
+            abortMockTurn();
+          }
           setSubmitting(false);
           setInlineSuccess('');
           setInlineError(t('auth.errorTimeout'));
@@ -187,12 +321,24 @@ export default function AuthDevHarness() {
               activeRequestIdRef.current = null;
               setSubmitting(false);
               if (outcomeParam === 'late-error') {
+                submitLockRef.current = false;
+                if (optimisticTurnRef.current || interactiveTurnRef.current) {
+                  abortMockTurn();
+                }
                 setInlineError(t('auth.errorInvalidCredentials'));
-              } else {
-                setTurningPage(true);
+                resolve(false);
+                return;
               }
+              authSucceededRef.current = true;
+              if (interactiveTurnRef.current) {
+                maybeCompleteMockTurn();
+              } else {
+                startMockTurn({ optimistic: false });
+              }
+              resolve(true);
+              return;
             }
-            resolve();
+            resolve(false);
           }, delayMs);
           lateTimersRef.current.add(timerId);
         });
@@ -200,23 +346,41 @@ export default function AuthDevHarness() {
 
       return new Promise(() => {});
     }
+
+    const abortIfOptimistic = () => {
+      if (optimisticTurnRef.current || interactiveTurnRef.current) {
+        abortMockTurn();
+      }
+    };
+
     if (outcomeParam === 'error') {
+      abortIfOptimistic();
       setInlineError(t('auth.errorInvalidCredentials'));
-      return;
+      return false;
     }
     if (outcomeParam === 'offline') {
+      abortIfOptimistic();
       setInlineError(t('auth.errorOffline'));
-      return;
+      return false;
     }
     if (outcomeParam === 'rate-limit') {
+      abortIfOptimistic();
       setInlineError(t('auth.errorRateLimit'));
-      return;
+      return false;
     }
     if (outcomeParam === 'no-session') {
+      abortIfOptimistic();
       setInlineError(t('auth.errorNoSession'));
-      return;
+      return false;
     }
-    setTurningPage(true);
+
+    authSucceededRef.current = true;
+    if (interactiveTurnRef.current) {
+      maybeCompleteMockTurn();
+    } else {
+      startMockTurn({ optimistic: false });
+    }
+    return true;
   };
 
   return (
@@ -230,6 +394,7 @@ export default function AuthDevHarness() {
       password={password}
       submitting={submitting}
       turningPage={turningPage}
+      turnAborting={turnAborting}
       reducedMotion={reducedMotion}
       inlineError={inlineError}
       inlineSuccess={
@@ -252,11 +417,19 @@ export default function AuthDevHarness() {
       onPasswordChange={setPassword}
       onSubmit={handleFakeSubmit}
       onPageCurlSubmit={handleFakeSubmit}
+      onDragThresholdCommit={handleDragThresholdCommit}
       onCancelPending={handleCancelPending}
       onTurnAnimationEnd={(e) => {
         if (e && e.target !== e.currentTarget) return;
-        if (!turningPage) return;
-        setMockTurnCompleted(true);
+        if (!interactiveTurnRef.current) {
+          if (turnAborting) {
+            clearAbortTimer();
+            setTurnAborting(false);
+          }
+          return;
+        }
+        turnFinishedRef.current = true;
+        maybeCompleteMockTurn();
       }}
       onGoogleSignIn={() => {
         if (submitting || turningPage || oauthGoogleLoading) return;

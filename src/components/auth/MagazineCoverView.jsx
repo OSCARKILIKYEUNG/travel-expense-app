@@ -2,10 +2,32 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { palette } from '../../theme/tokens';
 import { DEFAULT_LOGIN_COVER_HEADLINE } from './loginCovers';
+import {
+  FOLD_CLOSE_MS,
+  FOLD_COMMIT_T,
+  FOLD_SPRING_MS,
+  computeFoldGeometry,
+  fingerToFold,
+  finitePoint,
+  foldEndPoint,
+  openDurationFor,
+  pointsAttr,
+  polygonCss,
+  progress as foldProgress,
+  pushVelocitySample,
+  pointerVelocity,
+  restFoldPoint,
+  sampleOpenPose,
+  shouldCommitFold,
+  stepSpring,
+  toFoldVelocity,
+} from './foldGeometry';
 
 export const CURL_COMMIT_THRESHOLD = 0.55;
 export const CURL_REST_AMOUNT = 0.12;
 export const DRAG_INTENT_DEADZONE_PX = 6;
+export const DEFAULT_SHEET_WIDTH_PX = 480;
+export const DEFAULT_SHEET_HEIGHT_PX = 656;
 
 /**
  * Pure geometric helper computing the continuous bottom-right paper corner fold
@@ -16,7 +38,13 @@ export const DRAG_INTENT_DEADZONE_PX = 6;
  */
 export function computeCurlGeometry(
   progress = 0,
-  { turningPage = false, reducedMotion = false, phase = 'idle' } = {},
+  {
+    turningPage = false,
+    reducedMotion = false,
+    phase = 'idle',
+    sheetWidth = DEFAULT_SHEET_WIDTH_PX,
+    sheetHeight = DEFAULT_SHEET_HEIGHT_PX,
+  } = {},
 ) {
   const clampedProgress = Math.max(0, Math.min(1, Number(progress) || 0));
   let visualCurl = CURL_REST_AMOUNT;
@@ -41,6 +69,15 @@ export function computeCurlGeometry(
   const shadowApexX = Number(Math.max(0, apexX - 2.4 - visualCurl * 4.5).toFixed(2));
   const shadowApexY = Number(Math.max(0, apexY - 1.2 - visualCurl * 3.8).toFixed(2));
 
+  const safeW = Number(sheetWidth) > 40 ? Number(sheetWidth) : DEFAULT_SHEET_WIDTH_PX;
+  const safeH = Number(sheetHeight) > 40 ? Number(sheetHeight) : DEFAULT_SHEET_HEIGHT_PX;
+  const dxPx = (cutX / 100) * safeW;
+  const dyPx = (cutY / 100) * safeH;
+  const creaseAngleRad = Math.atan2(-dyPx, dxPx);
+  const creaseAngleDeg = Number(((creaseAngleRad * 180) / Math.PI).toFixed(2));
+  const flapClipPath = `polygon(${apexX}% ${apexY}%, 100% ${foldRightY}%, ${foldBottomX}% 100%)`;
+  const flapReflectTransform = `rotate(${creaseAngleDeg}deg) scaleY(-1) rotate(${-creaseAngleDeg}deg)`;
+
   return {
     progress: Number(clampedProgress.toFixed(3)),
     visualCurl: Number(visualCurl.toFixed(3)),
@@ -51,7 +88,10 @@ export function computeCurlGeometry(
     foldRightY,
     apexX,
     apexY,
+    creaseAngleDeg,
     coverClipPath: `polygon(0% 0%, 100% 0%, 100% ${foldRightY}%, ${foldBottomX}% 100%, 0% 100%)`,
+    flapClipPath,
+    flapReflectTransform,
     flapPoints: `${apexX},${apexY} 100,${foldRightY} ${foldBottomX},100`,
     shadowPoints: `${shadowApexX},${shadowApexY} 100,${foldRightY} 100,100 ${foldBottomX},100`,
   };
@@ -74,6 +114,7 @@ export default function MagazineCoverView({
   password = '',
   submitting = false,
   turningPage = false,
+  turnAborting = false,
   reducedMotion = false,
   inlineError = '',
   inlineSuccess = '',
@@ -92,6 +133,7 @@ export default function MagazineCoverView({
   onPasswordChange,
   onSubmit,
   onPageCurlSubmit,
+  onDragThresholdCommit,
   onCancelPending,
   onTurnAnimationEnd,
   onGoogleSignIn,
@@ -106,6 +148,8 @@ export default function MagazineCoverView({
   const { t, i18n } = useTranslation();
   const isBusy = submitting || turningPage || oauthGoogleLoading;
   const isPendingAuth = (submitting || oauthGoogleLoading) && !turningPage;
+  const isOptimisticTurnPending = submitting && turningPage;
+  const canCancelPendingAuth = isPendingAuth || isOptimisticTurnPending;
   const currentSubView = pendingPasswordReset
     ? 'reset-sent'
     : pendingEmail
@@ -137,10 +181,17 @@ export default function MagazineCoverView({
     clampedInitialCurl > 0 ? 'dragging' : 'idle',
   );
   const [lastPointerType, setLastPointerType] = useState('');
+  const [focusModality, setFocusModality] = useState('');
   const [submitCount, setSubmitCount] = useState(0);
   const [lastSubmitSource, setLastSubmitSource] = useState('');
+  const [sheetMetrics, setSheetMetrics] = useState({
+    sheetWidth: DEFAULT_SHEET_WIDTH_PX,
+    sheetHeight: DEFAULT_SHEET_HEIGHT_PX,
+    overlayHeight: 224,
+  });
 
   const sheetRef = useRef(null);
+  const leafRef = useRef(null);
   const overlayRef = useRef(null);
   const primarySurfaceRef = useRef(null);
   const turningStatusRef = useRef(null);
@@ -151,6 +202,7 @@ export default function MagazineCoverView({
   const wasBusyRef = useRef(isBusy);
   const prevSubViewRef = useRef(currentSubView);
   const wasSubmittingRef = useRef(submitting);
+  const wasTurningRef = useRef(turningPage);
   const prevInlineErrorRef = useRef(inlineError);
   const mountedRef = useRef(true);
   const interactionEpochRef = useRef(0);
@@ -161,8 +213,31 @@ export default function MagazineCoverView({
   const suppressNextClickRef = useRef(false);
   const cancelledPointerIdRef = useRef(null);
   const formEnterHandledRef = useRef(false);
-  const liveStateRef = useRef({ turningPage, submitting, oauthGoogleLoading });
-  liveStateRef.current = { turningPage, submitting, oauthGoogleLoading };
+  const liveStateRef = useRef({ turningPage, turnAborting, submitting, oauthGoogleLoading });
+  liveStateRef.current = { turningPage, turnAborting, submitting, oauthGoogleLoading };
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
+  const onTurnEndRef = useRef(onTurnAnimationEnd);
+  onTurnEndRef.current = onTurnAnimationEnd;
+  const sheetSizeRef = useRef({
+    W: DEFAULT_SHEET_WIDTH_PX,
+    H: DEFAULT_SHEET_HEIGHT_PX,
+  });
+  const poseRef = useRef(restFoldPoint(DEFAULT_SHEET_WIDTH_PX, DEFAULT_SHEET_HEIGHT_PX));
+  const engineRef = useRef({
+    gen: 0,
+    mode: 'idle',
+    raf: 0,
+    rafIsTimeout: false,
+    timer: 0,
+    emitted: false,
+    vel: { x: 0, y: 0 },
+  });
+  const cancelEngineRef = useRef(() => {});
+  const turnLatchRef = useRef(false);
+  const [livePose, setLivePose] = useState(() =>
+    restFoldPoint(DEFAULT_SHEET_WIDTH_PX, DEFAULT_SHEET_HEIGHT_PX),
+  );
 
   const advanceInteractionEpoch = () => {
     const nextEpoch = interactionEpochRef.current + 1;
@@ -189,6 +264,7 @@ export default function MagazineCoverView({
     startY: 0,
     hasDragIntent: false,
     progress: clampedInitialCurl,
+    samples: [],
   });
 
   const releaseCornerPointerCapture = (
@@ -251,6 +327,7 @@ export default function MagazineCoverView({
         clearTimeout(suppressClickTimerRef.current);
         suppressClickTimerRef.current = null;
       }
+      cancelEngineRef.current();
       suppressNextClickRef.current = false;
       formEnterHandledRef.current = false;
     };
@@ -290,7 +367,7 @@ export default function MagazineCoverView({
   };
 
   const handleCancelPending = () => {
-    if (!isPendingAuth) return;
+    if (!canCancelPendingAuth) return;
     advanceInteractionEpoch();
     if (springTimerRef.current) {
       clearTimeout(springTimerRef.current);
@@ -299,13 +376,77 @@ export default function MagazineCoverView({
     dragSessionRef.current.active = false;
     dragSessionRef.current.hasDragIntent = false;
     dragSessionRef.current.pointerId = null;
-    dragSessionRef.current.progress = 0;
-    setCurlProgress(0);
-    setCurlPhase('idle');
+    if (!turningPage && !liveStateRef.current.turningPage) {
+      setCurlPhase('idle');
+    }
     if (typeof onCancelPending === 'function') {
       onCancelPending();
     }
   };
+
+  const syncSheetMetrics = () => {
+    const sheetEl = sheetRef.current;
+    const overlayEl = overlayRef.current;
+    const nextW =
+      sheetEl && typeof sheetEl.getBoundingClientRect === 'function'
+        ? sheetEl.getBoundingClientRect().width || sheetEl.offsetWidth || DEFAULT_SHEET_WIDTH_PX
+        : DEFAULT_SHEET_WIDTH_PX;
+    const nextH =
+      sheetEl && typeof sheetEl.getBoundingClientRect === 'function'
+        ? sheetEl.getBoundingClientRect().height || sheetEl.offsetHeight || DEFAULT_SHEET_HEIGHT_PX
+        : DEFAULT_SHEET_HEIGHT_PX;
+    const nextOverlayH =
+      overlayEl && typeof overlayEl.getBoundingClientRect === 'function'
+        ? overlayEl.getBoundingClientRect().height || overlayEl.offsetHeight || 224
+        : 224;
+    const safeW = Number(nextW) > 40 ? Number(nextW.toFixed(2)) : DEFAULT_SHEET_WIDTH_PX;
+    const safeH = Number(nextH) > 40 ? Number(nextH.toFixed(2)) : DEFAULT_SHEET_HEIGHT_PX;
+    const safeOverlayH = Number(nextOverlayH) > 20 ? Number(nextOverlayH.toFixed(2)) : 224;
+    sheetSizeRef.current = { W: safeW, H: safeH };
+    if (engineRef.current.mode === 'idle' && !dragSessionRef.current.active) {
+      const rest = restFoldPoint(safeW, safeH);
+      poseRef.current = rest;
+      setLivePose((prev) =>
+        Math.hypot(prev.x - rest.x, prev.y - rest.y) < 0.05 ? prev : rest,
+      );
+    }
+    setSheetMetrics((prev) => {
+      if (
+        prev.sheetWidth === safeW &&
+        prev.sheetHeight === safeH &&
+        prev.overlayHeight === safeOverlayH
+      ) {
+        return prev;
+      }
+      return {
+        sheetWidth: safeW,
+        sheetHeight: safeH,
+        overlayHeight: safeOverlayH,
+      };
+    });
+  };
+
+  useEffect(() => {
+    syncSheetMetrics();
+    const handleResize = () => syncSheetMetrics();
+    window.addEventListener('resize', handleResize);
+    let observer = null;
+    if (typeof window.ResizeObserver === 'function') {
+      try {
+        observer = new window.ResizeObserver(() => syncSheetMetrics());
+        if (sheetRef.current) observer.observe(sheetRef.current);
+        if (overlayRef.current) observer.observe(overlayRef.current);
+      } catch {
+        // Safe ignore in synthetic environments
+      }
+    }
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (observer && typeof observer.disconnect === 'function') {
+        observer.disconnect();
+      }
+    };
+  }, [currentSubView, mode, inlineError, inlineSuccess, isBusy]);
 
   // Sync when initialCurlProgress prop changes (e.g. DEV harness inspection)
   useEffect(() => {
@@ -317,7 +458,18 @@ export default function MagazineCoverView({
     const next = Math.max(0, Math.min(1, Number(initialCurlProgress) || 0));
     dragSessionRef.current.epoch = epoch;
     dragSessionRef.current.progress = next;
-    setCurlProgress(next);
+    cancelEngineRef.current();
+    if (!reducedMotionRef.current && next > 0) {
+      const { W, H } = sheetSizeRef.current;
+      const pose = { x: W * (1 - 2 * next), y: H };
+      poseRef.current = pose;
+      setLivePose(pose);
+    } else {
+      const rest = restFoldPoint(sheetSizeRef.current.W, sheetSizeRef.current.H);
+      poseRef.current = rest;
+      setLivePose(rest);
+    }
+    setCurlProgress(reducedMotionRef.current || next <= 0 ? next : Number(foldProgress(sheetSizeRef.current.W, poseRef.current.x).toFixed(3)));
     setCurlPhase(next > 0 ? 'dragging' : 'idle');
   }, [initialCurlProgress]);
 
@@ -361,31 +513,296 @@ export default function MagazineCoverView({
       pendingCancelBtnRef.current.inert = false;
       pendingCancelBtnRef.current.removeAttribute('inert');
     }
-  }, [isBusy, isPendingAuth, mode, showForgotPassword, pendingEmail, pendingPasswordReset]);
+  }, [
+    isBusy,
+    isPendingAuth,
+    isOptimisticTurnPending,
+    mode,
+    showForgotPassword,
+    pendingEmail,
+    pendingPasswordReset,
+  ]);
 
-  // When turningPage activates or auth finishes with error/idle, sync curl phase & deliberate focus handoff
+  const nowMs = () => {
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      return performance.now();
+    }
+    return Date.now();
+  };
+
+  const publishPose = (pose, phase) => {
+    const { W, H } = sheetSizeRef.current;
+    const safe = finitePoint(pose, restFoldPoint(W, H));
+    poseRef.current = safe;
+    setLivePose(safe);
+    const t = foldProgress(W, safe.x);
+    setCurlProgress(Number.isFinite(t) ? Number(t.toFixed(3)) : 0);
+    if (phase) setCurlPhase(phase);
+  };
+
+  const cancelEngineFrame = () => {
+    const eng = engineRef.current;
+    if (!eng.raf) return;
+    if (eng.rafIsTimeout) clearTimeout(eng.raf);
+    else if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(eng.raf);
+    else clearTimeout(eng.raf);
+    eng.raf = 0;
+  };
+
+  const cancelEngine = () => {
+    const eng = engineRef.current;
+    eng.gen += 1;
+    cancelEngineFrame();
+    if (eng.timer) {
+      clearTimeout(eng.timer);
+      eng.timer = 0;
+    }
+    eng.mode = 'idle';
+  };
+  cancelEngineRef.current = cancelEngine;
+
+  const emitTurnEnd = () => {
+    const eng = engineRef.current;
+    if (eng.emitted) return;
+    eng.emitted = true;
+    const leaf = leafRef.current;
+    const evt = { target: leaf, currentTarget: leaf };
+    if (typeof onTurnEndRef.current === 'function') onTurnEndRef.current(evt);
+  };
+
+  const scheduleEngineFrame = (gen, step) => {
+    const eng = engineRef.current;
+    if (eng.gen !== gen) return;
+    if (typeof requestAnimationFrame === 'function') {
+      eng.rafIsTimeout = false;
+      eng.raf = requestAnimationFrame(step);
+    } else {
+      eng.rafIsTimeout = true;
+      eng.raf = setTimeout(() => step(nowMs()), 16);
+    }
+  };
+
+  const snapPoseToRest = () => {
+    const { W, H } = sheetSizeRef.current;
+    const rest = restFoldPoint(W, H);
+    poseRef.current = rest;
+    setLivePose(rest);
+    setCurlProgress(0);
+    engineRef.current.vel = { x: 0, y: 0 };
+    engineRef.current.mode = 'idle';
+  };
+
+  const restoreSpringFocus = () => {
+    if (
+      !liveStateRef.current.turningPage &&
+      !liveStateRef.current.submitting &&
+      !liveStateRef.current.oauthGoogleLoading &&
+      primarySurfaceRef.current &&
+      (!document.activeElement || document.activeElement === document.body)
+    ) {
+      primarySurfaceRef.current.focus({ preventScroll: true });
+    }
+  };
+
+  const beginSettle = ({ kind, duration, phase, endPhase, notify, stepFrame, endPose }) => {
+    cancelEngine();
+    const gen = engineRef.current.gen;
+    const eng = engineRef.current;
+    eng.mode = kind;
+    eng.emitted = false;
+    const t0 = nowMs();
+    let lastTs = t0;
+    const finish = () => {
+      if (engineRef.current.gen !== gen || engineRef.current.emitted && notify) {
+        if (engineRef.current.gen !== gen) return;
+      }
+      if (engineRef.current.gen !== gen) return;
+      if (engineRef.current.mode !== kind) return;
+      cancelEngineFrame();
+      if (engineRef.current.timer) {
+        clearTimeout(engineRef.current.timer);
+        engineRef.current.timer = 0;
+      }
+      const pose = typeof endPose === 'function' ? endPose() : endPose;
+      publishPose(pose, endPhase || phase);
+      if (kind !== 'opening') setCurlProgress(0);
+      engineRef.current.vel = { x: 0, y: 0 };
+      engineRef.current.mode = kind === 'opening' ? 'holding' : 'idle';
+      if (notify) emitTurnEnd();
+      else restoreSpringFocus();
+    };
+    const frame = (ts) => {
+      if (engineRef.current.gen !== gen || engineRef.current.mode !== kind) return;
+      const now = typeof ts === 'number' ? ts : nowMs();
+      const elapsed = Math.max(0, now - t0);
+      const dt = Math.max(0, now - lastTs);
+      lastTs = now;
+      if (elapsed >= duration) {
+        finish();
+        return;
+      }
+      const stepped = stepFrame(elapsed, dt);
+      if (!stepped || !stepped.pose) return;
+      const safeVel = toFoldVelocity(stepped.vel);
+      engineRef.current.vel = safeVel;
+      publishPose(stepped.pose, phase);
+      if (stepped.done) {
+        finish();
+        return;
+      }
+      scheduleEngineFrame(gen, frame);
+    };
+    eng.timer = setTimeout(finish, duration);
+    scheduleEngineFrame(gen, frame);
+  };
+
+  const beginOpen = ({ arc }) => {
+    const { W, H } = sheetSizeRef.current;
+    const from = finitePoint(poseRef.current, restFoldPoint(W, H));
+    const t = foldProgress(W, from.x);
+    const duration = openDurationFor(t, arc);
+    beginSettle({
+      kind: 'opening',
+      duration,
+      phase: 'turning',
+      endPhase: 'turning',
+      notify: true,
+      endPose: () => foldEndPoint(sheetSizeRef.current.W, sheetSizeRef.current.H),
+      stepFrame: (elapsed) => {
+        const size = sheetSizeRef.current;
+        const sampled = sampleOpenPose({
+          from,
+          W: size.W,
+          H: size.H,
+          elapsedMs: elapsed,
+          durationMs: duration,
+          arc,
+        });
+        const prev = poseRef.current;
+        const dt = Math.max(16, elapsed > 0 ? 16 : 16);
+        return {
+          pose: sampled.pose,
+          done: sampled.done,
+          vel: {
+            x: (sampled.pose.x - prev.x) / dt,
+            y: (sampled.pose.y - prev.y) / dt,
+          },
+        };
+      },
+    });
+  };
+
+  const beginSpringToRest = ({ notify, duration, phase, vel }) => {
+    const { W, H } = sheetSizeRef.current;
+    const target = restFoldPoint(W, H);
+    let pos = finitePoint(poseRef.current, target);
+    let velocity = toFoldVelocity(vel != null ? vel : engineRef.current.vel);
+    beginSettle({
+      kind: notify ? 'closing' : 'spring',
+      duration,
+      phase,
+      endPhase: notify ? phase : 'idle',
+      notify,
+      endPose: () => restFoldPoint(sheetSizeRef.current.W, sheetSizeRef.current.H),
+      stepFrame: (_elapsed, dt) => {
+        const size = sheetSizeRef.current;
+        const nextTarget = restFoldPoint(size.W, size.H);
+        const stepped = stepSpring({
+          pos,
+          vel: velocity,
+          target: nextTarget,
+          dtMs: dt > 0 ? dt : 16,
+        });
+        pos = finitePoint(stepped.pos, nextTarget);
+        velocity = {
+          x: Number.isFinite(stepped.vel?.x) ? stepped.vel.x : 0,
+          y: Number.isFinite(stepped.vel?.y) ? stepped.vel.y : 0,
+        };
+        return { pose: pos, vel: velocity, done: Boolean(stepped.settled) };
+      },
+    });
+  };
+
+  // When turningPage activates or auth finishes with error/abort/idle, sync curl phase.
+  // The fold engine owns F; prop flips do not snap the pose.
   useEffect(() => {
     const wasSubmitting = wasSubmittingRef.current;
+    const wasTurning = wasTurningRef.current;
     const prevInlineError = prevInlineErrorRef.current;
     wasSubmittingRef.current = submitting;
+    wasTurningRef.current = turningPage;
     prevInlineErrorRef.current = inlineError;
 
     if (turningPage) {
+      if (!turnLatchRef.current) {
+        turnLatchRef.current = true;
+        advanceInteractionEpoch();
+        if (springTimerRef.current) {
+          clearTimeout(springTimerRef.current);
+          springTimerRef.current = null;
+        }
+        setCurlPhase('turning');
+        engineRef.current.emitted = false;
+        if (!reducedMotion) {
+          const { W, H } = sheetSizeRef.current;
+          const rest = restFoldPoint(W, H);
+          const pose = poseRef.current;
+          const nearRest = Math.hypot(pose.x - rest.x, pose.y - rest.y) < 2;
+          beginOpen({ arc: nearRest });
+        }
+      }
+      return;
+    }
+
+    if (wasTurning && !turningPage) {
+      turnLatchRef.current = false;
       advanceInteractionEpoch();
       if (springTimerRef.current) {
         clearTimeout(springTimerRef.current);
         springTimerRef.current = null;
       }
-      setCurlPhase('turning');
-    } else if (
+      if (reducedMotion) {
+        if (!dragSessionRef.current.active) {
+          setCurlProgress(0);
+          setCurlPhase(turnAborting ? 'turn-abort' : 'idle');
+        }
+        return;
+      }
+      const mode = engineRef.current.mode;
+      if (!dragSessionRef.current.active) {
+        setCurlPhase(turnAborting ? 'turn-abort' : 'idle');
+      }
+      if (mode === 'opening' || mode === 'holding' || mode === 'dragging') {
+        beginSpringToRest({
+          notify: true,
+          duration: FOLD_CLOSE_MS,
+          phase: turnAborting ? 'turn-abort' : 'idle',
+        });
+      } else if (!turnAborting && !dragSessionRef.current.active) {
+        snapPoseToRest();
+        setCurlPhase('idle');
+      }
+      return;
+    }
+
+    if (!turnAborting && curlPhase === 'turn-abort' && !dragSessionRef.current.active) {
+      if (engineRef.current.mode !== 'closing' && engineRef.current.mode !== 'spring') {
+        setCurlPhase('idle');
+      }
+      return;
+    }
+
+    if (
       curlPhase === 'awaiting-auth' &&
+      !turnAborting &&
       ((inlineError && inlineError !== prevInlineError) || (wasSubmitting && !submitting))
     ) {
       advanceInteractionEpoch();
-      setCurlProgress(0);
+      cancelEngine();
+      snapPoseToRest();
       setCurlPhase('idle');
     }
-  }, [turningPage, submitting, inlineError, curlPhase]);
+  }, [turningPage, turnAborting, submitting, inlineError, curlPhase, reducedMotion]);
 
   useEffect(() => {
     const wasBusy = wasBusyRef.current;
@@ -483,8 +900,43 @@ export default function MagazineCoverView({
     return Math.max(0, Math.min(1, Number(combined.toFixed(3))));
   };
 
+  const notePointerSample = (clientX, clientY) => {
+    dragSessionRef.current.samples = pushVelocitySample(
+      dragSessionRef.current.samples,
+      { x: Number(clientX), y: Number(clientY) },
+      nowMs(),
+    );
+  };
+
+  const applyFingerPose = (clientX, clientY) => {
+    const { W, H } = sheetSizeRef.current;
+    const dx = Number(clientX) - dragSessionRef.current.startX;
+    const dy = Number(clientY) - dragSessionRef.current.startY;
+    const pose = finitePoint(
+      fingerToFold({
+        W,
+        H,
+        dx,
+        dy,
+        origin: dragSessionRef.current.poseAtGrab,
+      }),
+      restFoldPoint(W, H),
+    );
+    const tRaw = foldProgress(W, pose.x);
+    const t = Number.isFinite(tRaw) ? Number(tRaw.toFixed(3)) : 0;
+    poseRef.current = pose;
+    setLivePose(pose);
+    dragSessionRef.current.progress = t;
+    engineRef.current.mode = 'dragging';
+    setCurlProgress(t);
+    setCurlPhase('dragging');
+    notePointerSample(clientX, clientY);
+    engineRef.current.vel = toFoldVelocity(pointerVelocity(dragSessionRef.current.samples));
+    return t;
+  };
+
   const triggerSpringback = ({ restoreFocus = true } = {}) => {
-    const springEpoch = advanceInteractionEpoch();
+    advanceInteractionEpoch();
     if (springTimerRef.current) {
       clearTimeout(springTimerRef.current);
       springTimerRef.current = null;
@@ -496,8 +948,6 @@ export default function MagazineCoverView({
     dragSessionRef.current.active = false;
     dragSessionRef.current.hasDragIntent = false;
     dragSessionRef.current.pointerId = null;
-    dragSessionRef.current.progress = 0;
-    setCurlProgress(0);
     if (
       restoreFocus &&
       !liveStateRef.current.turningPage &&
@@ -508,37 +958,40 @@ export default function MagazineCoverView({
     ) {
       primarySurfaceRef.current.focus({ preventScroll: true });
     }
-    if (reducedMotion) {
+    if (reducedMotionRef.current) {
+      dragSessionRef.current.progress = 0;
+      setCurlProgress(0);
       setCurlPhase('idle');
       return;
     }
+    const releaseVel = pointerVelocity(dragSessionRef.current.samples);
     setCurlPhase('springback');
-    springTimerRef.current = setTimeout(() => {
-      if (!mountedRef.current || interactionEpochRef.current !== springEpoch) {
-        return;
-      }
-      springTimerRef.current = null;
-      setCurlPhase('idle');
-      if (
-        restoreFocus &&
-        !liveStateRef.current.turningPage &&
-        !liveStateRef.current.submitting &&
-        !liveStateRef.current.oauthGoogleLoading &&
-        primarySurfaceRef.current &&
-        (!document.activeElement || document.activeElement === document.body)
-      ) {
-        primarySurfaceRef.current.focus({ preventScroll: true });
-      }
-    }, 220);
+    beginSpringToRest({
+      notify: false,
+      duration: FOLD_SPRING_MS,
+      phase: 'springback',
+      vel: releaseVel,
+    });
   };
 
   const startCornerDrag = ({ source, pointerId, pointerType, clientX, clientY }) => {
     if (isBusy) return;
+    syncSheetMetrics();
     const epoch = advanceInteractionEpoch();
     if (springTimerRef.current) {
       clearTimeout(springTimerRef.current);
       springTimerRef.current = null;
     }
+    const { W, H } = sheetSizeRef.current;
+    const restPose = restFoldPoint(W, H);
+    const engineMode = engineRef.current.mode;
+    const grabbingSettle =
+      engineMode === 'spring' ||
+      engineMode === 'closing' ||
+      engineMode === 'opening' ||
+      engineMode === 'holding';
+    const poseAtGrab = grabbingSettle ? finitePoint(poseRef.current, restPose) : null;
+    cancelEngine();
     clearSuppressNextClick();
     cancelledPointerIdRef.current = null;
     lastInteractiveControlRef.current = primarySurfaceRef.current;
@@ -551,11 +1004,15 @@ export default function MagazineCoverView({
       startX: Number(clientX || 0),
       startY: Number(clientY || 0),
       hasDragIntent: false,
-      progress: 0,
+      progress: reducedMotionRef.current ? 0 : dragSessionRef.current.progress,
+      samples: [],
+      poseAtGrab,
     };
     setLastPointerType(pointerType || 'mouse');
-    setCurlProgress(0);
-    setCurlPhase('idle');
+    if (reducedMotionRef.current) {
+      setCurlProgress(0);
+      setCurlPhase('idle');
+    }
   };
 
   const moveCornerDrag = (clientX, clientY) => {
@@ -567,6 +1024,10 @@ export default function MagazineCoverView({
       return;
     }
     dragSessionRef.current.hasDragIntent = true;
+    if (!reducedMotionRef.current) {
+      applyFingerPose(clientX, clientY);
+      return;
+    }
     const nextProgress = computeProgressFromPoint(clientX, clientY);
     dragSessionRef.current.progress = nextProgress;
     setCurlPhase('dragging');
@@ -592,7 +1053,7 @@ export default function MagazineCoverView({
       dragSessionRef.current.hasDragIntent = false;
       dragSessionRef.current.pointerId = null;
       dragSessionRef.current.progress = 0;
-      setCurlProgress(0);
+      snapPoseToRest();
       setCurlPhase('idle');
       // Suppress the browser's trailing synthetic click from this same tap release
       armSuppressNextClick();
@@ -616,48 +1077,96 @@ export default function MagazineCoverView({
       return;
     }
 
-    // Genuine drag: evaluate threshold, and suppress trailing synthetic click
-    const finalProgress =
-      clientX !== undefined && clientY !== undefined
-        ? Math.max(dragSessionRef.current.progress, computeProgressFromPoint(clientX, clientY))
-        : dragSessionRef.current.progress;
+    // Genuine drag: finger fold can reverse; reduced motion keeps the legacy monotone progress.
+    let finalProgress = dragSessionRef.current.progress;
+    let releaseVx = 0;
+    if (!reducedMotionRef.current) {
+      if (clientX !== undefined && clientY !== undefined) {
+        finalProgress = applyFingerPose(clientX, clientY);
+      }
+      const releasePointer = pointerVelocity(dragSessionRef.current.samples);
+      releaseVx = Number.isFinite(releasePointer.vx) ? releasePointer.vx : 0;
+    } else if (clientX !== undefined && clientY !== undefined) {
+      finalProgress = Math.max(
+        dragSessionRef.current.progress,
+        computeProgressFromPoint(clientX, clientY),
+      );
+    }
 
     dragSessionRef.current.active = false;
     dragSessionRef.current.hasDragIntent = false;
     dragSessionRef.current.pointerId = null;
+    dragSessionRef.current.progress = finalProgress;
     armSuppressNextClick();
 
-    if (finalProgress >= CURL_COMMIT_THRESHOLD) {
+    const commit =
+      !reducedMotionRef.current
+        ? shouldCommitFold({ t: finalProgress, vx: releaseVx })
+        : finalProgress >= CURL_COMMIT_THRESHOLD;
+    if (commit) {
       const submitEpoch = advanceInteractionEpoch();
+      const payload = {
+        preventDefault() {},
+        gestureCommit: true,
+        pointerType: pType,
+        progress: finalProgress,
+        interactionEpoch: submitEpoch,
+      };
+      let turnRequested = false;
+      if (typeof onDragThresholdCommit === 'function') {
+        const canStartTurn = onDragThresholdCommit(payload);
+        if (canStartTurn === false) {
+          triggerSpringback({ restoreFocus: true });
+          return;
+        }
+        turnRequested = true;
+      }
       setCurlProgress(finalProgress);
       setCurlPhase('awaiting-auth');
-      const onSettled = () => {
+      const onSettled = (result) => {
         if (!mountedRef.current || interactionEpochRef.current !== submitEpoch) {
           return;
         }
-        // If auth did not enter turningPage and is not still submitting, spring back to cover
+        const aborted =
+          result === false &&
+          (turnRequested || liveStateRef.current.turnAborting || liveStateRef.current.turningPage);
+        if (aborted) {
+          // Auth already flipped the turn off (or is about to). Close from the
+          // pose we actually hold. Do not spring as if the turn never started,
+          // and do not sample a CSS transform.
+          if (
+            engineRef.current.mode !== 'closing' &&
+            engineRef.current.mode !== 'spring'
+          ) {
+            setCurlPhase('turn-abort');
+            beginSpringToRest({
+              notify: true,
+              duration: FOLD_CLOSE_MS,
+              phase: 'turn-abort',
+            });
+          }
+          return;
+        }
+        if (result === false) {
+          triggerSpringback({ restoreFocus: true });
+          return;
+        }
+        // If auth did not enter turningPage and is not still submitting, snap back to rest
         if (
           !liveStateRef.current.turningPage &&
           !liveStateRef.current.submitting &&
           !liveStateRef.current.oauthGoogleLoading
         ) {
           advanceInteractionEpoch();
-          setCurlProgress(0);
-          setCurlPhase('idle');
+          cancelEngine();
+          snapPoseToRest();
+          setCurlPhase(liveStateRef.current.turnAborting ? 'turn-abort' : 'idle');
         }
       };
-      Promise.resolve(
-        invokeSubmit(
-          {
-            preventDefault() {},
-            gestureCommit: true,
-            pointerType: pType,
-            progress: finalProgress,
-            interactionEpoch: submitEpoch,
-          },
-          'drag',
-        ),
-      ).then(onSettled, onSettled);
+      Promise.resolve(invokeSubmit(payload, 'drag')).then(
+        onSettled,
+        () => onSettled(undefined),
+      );
       return;
     }
 
@@ -687,6 +1196,17 @@ export default function MagazineCoverView({
   useEffect(() => {
     const handleWindowKeyDown = (e) => {
       if (e.defaultPrevented) return;
+      if (
+        e.key === 'Tab' ||
+        e.key === 'Enter' ||
+        e.key === ' ' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight'
+      ) {
+        setFocusModality('keyboard');
+      }
       if (dragSessionRef.current.active) {
         if (e.key === 'Tab') {
           e.preventDefault();
@@ -700,7 +1220,7 @@ export default function MagazineCoverView({
           return;
         }
       }
-      if (isPendingAuth && e.key === 'Escape') {
+      if (canCancelPendingAuth && e.key === 'Escape') {
         e.preventDefault();
         handleCancelPending();
         return;
@@ -730,6 +1250,10 @@ export default function MagazineCoverView({
   const handleCornerPointerDown = (e) => {
     if (isBusy) return;
     if (e.pointerType === 'mouse' && e.button !== undefined && e.button !== 0) return;
+    setFocusModality('pointer');
+    if (e.currentTarget && typeof e.currentTarget.setAttribute === 'function') {
+      e.currentTarget.setAttribute('data-focus-modality', 'pointer');
+    }
     const nextPointerId = e.pointerId ?? 1;
     if (
       dragSessionRef.current.active &&
@@ -821,6 +1345,10 @@ export default function MagazineCoverView({
   };
 
   const handleCornerBlur = (e) => {
+    setFocusModality('');
+    if (e?.currentTarget && typeof e.currentTarget.removeAttribute === 'function') {
+      e.currentTarget.removeAttribute('data-focus-modality');
+    }
     if (!dragSessionRef.current.active) return;
     const nextFocused = e?.relatedTarget;
     cancelCornerDrag(null, { restoreFocus: !nextFocused });
@@ -830,6 +1358,10 @@ export default function MagazineCoverView({
     if (isBusy || dragSessionRef.current.active) return;
     const touch = e.touches && e.touches[0];
     if (!touch) return;
+    setFocusModality('pointer');
+    if (e.currentTarget && typeof e.currentTarget.setAttribute === 'function') {
+      e.currentTarget.setAttribute('data-focus-modality', 'pointer');
+    }
     startCornerDrag({
       source: 'touch',
       pointerId: touch.identifier ?? 0,
@@ -859,7 +1391,34 @@ export default function MagazineCoverView({
 
   // Accessible non-gesture keyboard / AT equivalent (Enter / Space or synthetic AT click)
   // plus safe drag abandonment when Tab or Escape is pressed while pointer drag is held
+  const releaseSpringForSubmit = () => {
+    if (springTimerRef.current) {
+      clearTimeout(springTimerRef.current);
+      springTimerRef.current = null;
+    }
+    const mode = engineRef.current.mode;
+    if (mode === 'spring' || mode === 'closing' || mode === 'opening' || mode === 'holding') {
+      cancelEngine();
+      snapPoseToRest();
+      setCurlPhase('idle');
+    }
+  };
+
   const handleCornerKeyDown = (e) => {
+    if (
+      e.key === 'Tab' ||
+      e.key === 'Enter' ||
+      e.key === ' ' ||
+      e.key === 'ArrowUp' ||
+      e.key === 'ArrowDown' ||
+      e.key === 'ArrowLeft' ||
+      e.key === 'ArrowRight'
+    ) {
+      setFocusModality('keyboard');
+      if (e.currentTarget && typeof e.currentTarget.setAttribute === 'function') {
+        e.currentTarget.setAttribute('data-focus-modality', 'keyboard');
+      }
+    }
     if (dragSessionRef.current.active) {
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -877,11 +1436,7 @@ export default function MagazineCoverView({
         cancelCornerDrag(null, { restoreFocus: true });
         if (!isBusy) {
           advanceInteractionEpoch();
-          if (springTimerRef.current) {
-            clearTimeout(springTimerRef.current);
-            springTimerRef.current = null;
-          }
-          setCurlPhase('idle');
+          releaseSpringForSubmit();
           lastInteractiveControlRef.current = primarySurfaceRef.current;
           setLastPointerType('keyboard');
           Promise.resolve(invokeSubmit(e, 'keyboard')).then(
@@ -904,11 +1459,7 @@ export default function MagazineCoverView({
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       advanceInteractionEpoch();
-      if (springTimerRef.current) {
-        clearTimeout(springTimerRef.current);
-        springTimerRef.current = null;
-        setCurlPhase('idle');
-      }
+      releaseSpringForSubmit();
       armSuppressNextClick();
       lastInteractiveControlRef.current = primarySurfaceRef.current;
       setLastPointerType('keyboard');
@@ -926,11 +1477,7 @@ export default function MagazineCoverView({
     }
     if (isBusy) return;
     advanceInteractionEpoch();
-    if (springTimerRef.current) {
-      clearTimeout(springTimerRef.current);
-      springTimerRef.current = null;
-      setCurlPhase('idle');
-    }
+    releaseSpringForSubmit();
     // Non-pointer activation (keyboard / screen reader / assistive technology / direct click)
     lastInteractiveControlRef.current = primarySurfaceRef.current;
     setLastPointerType('keyboard');
@@ -950,11 +1497,7 @@ export default function MagazineCoverView({
       e.preventDefault();
       if (isBusy) return;
       advanceInteractionEpoch();
-      if (springTimerRef.current) {
-        clearTimeout(springTimerRef.current);
-        springTimerRef.current = null;
-        setCurlPhase('idle');
-      }
+      releaseSpringForSubmit();
       lastInteractiveControlRef.current = e.target;
       const enterToken = formEnterSeqRef.current + 1;
       formEnterSeqRef.current = enterToken;
@@ -973,7 +1516,7 @@ export default function MagazineCoverView({
   };
 
   const handleStatusKeyDown = (e) => {
-    if (isPendingAuth && e.key === 'Escape') {
+    if (canCancelPendingAuth && e.key === 'Escape') {
       e.preventDefault();
       handleCancelPending();
       return;
@@ -997,11 +1540,7 @@ export default function MagazineCoverView({
     }
     if (isBusy) return;
     advanceInteractionEpoch();
-    if (springTimerRef.current) {
-      clearTimeout(springTimerRef.current);
-      springTimerRef.current = null;
-      setCurlPhase('idle');
-    }
+    releaseSpringForSubmit();
     Promise.resolve(invokeSubmit(e, 'form')).then(
       () => {},
       () => {},
@@ -1049,20 +1588,69 @@ export default function MagazineCoverView({
     );
   }
 
-  const effectivePhase = turningPage ? 'turning' : curlPhase;
+  sheetSizeRef.current = {
+    W: sheetMetrics.sheetWidth,
+    H: sheetMetrics.sheetHeight,
+  };
+  const effectivePhase = turningPage
+    ? 'turning'
+    : curlPhase === 'dragging' || curlPhase === 'springback' || curlPhase === 'awaiting-auth'
+      ? curlPhase
+      : turnAborting
+        ? 'turn-abort'
+        : curlPhase;
   const geom = computeCurlGeometry(curlProgress, {
     turningPage,
     reducedMotion,
     phase: effectivePhase,
+    sheetWidth: sheetMetrics.sheetWidth,
+    sheetHeight: sheetMetrics.sheetHeight,
   });
+  const isCurlOpening =
+    !reducedMotion &&
+    (effectivePhase === 'dragging' ||
+      effectivePhase === 'awaiting-auth' ||
+      effectivePhase === 'springback' ||
+      effectivePhase === 'turn-abort' ||
+      effectivePhase === 'turning');
+  const fold = isCurlOpening
+    ? computeFoldGeometry({
+        W: sheetMetrics.sheetWidth,
+        H: sheetMetrics.sheetHeight,
+        Fx: livePose.x,
+        Fy: livePose.y,
+      })
+    : null;
+  const rawShown = fold ? fold.t : geom.progress;
+  const shownProgress = Number.isFinite(rawShown) ? Number(Number(rawShown).toFixed(3)) : 0;
+  const shownCutX = fold ? fold.cutX : geom.cutX;
+  const shownCutY = fold ? fold.cutY : geom.cutY;
+  const thresholdMet = fold ? fold.t >= FOLD_COMMIT_T : geom.thresholdMet;
+  const heldOpen = Boolean(fold && fold.frontPoly.length < 3);
+  const frontClip = fold ? polygonCss(fold.frontPoly) : '';
+  const overlayClipStyle = isCurlOpening
+    ? {
+        '--mc-curl-fold-x': '100%',
+        '--mc-curl-cut-y': '0px',
+      }
+    : hasCoverImage
+      ? {
+          '--mc-curl-fold-x': `${geom.foldBottomX}%`,
+          '--mc-curl-cut-y': `${Number((geom.cutY * 6.56).toFixed(2))}px`,
+        }
+      : undefined;
 
   const sheetTurnClass = turningPage
     ? reducedMotion
       ? 'mc-cover-sheet mc-cover-sheet--fade'
       : 'mc-cover-sheet mc-cover-sheet--turning'
-    : 'mc-cover-sheet';
+    : effectivePhase === 'turn-abort'
+      ? reducedMotion
+        ? 'mc-cover-sheet mc-cover-sheet--fade-abort'
+        : 'mc-cover-sheet mc-cover-sheet--turn-abort'
+      : 'mc-cover-sheet';
   const surfaceSpringClass =
-    effectivePhase === 'springback' && !reducedMotion
+    (effectivePhase === 'springback' || effectivePhase === 'turn-abort') && !reducedMotion
       ? 'mc-cover-surface mc-cover-surface--springback'
       : 'mc-cover-surface';
   const primaryCornerText =
@@ -1077,9 +1665,9 @@ export default function MagazineCoverView({
       data-testid="auth-magazine-backdrop"
       data-reduced-motion={String(Boolean(reducedMotion))}
       data-turning-page={String(Boolean(turningPage))}
-      data-curl-progress={String(geom.progress)}
+      data-curl-progress={String(shownProgress)}
       data-curl-phase={effectivePhase}
-      data-curl-threshold-met={String(geom.thresholdMet)}
+      data-curl-threshold-met={String(thresholdMet)}
       data-curl-pointer-type={lastPointerType}
       data-submit-count={String(submitCount)}
       data-last-submit-source={lastSubmitSource}
@@ -1092,16 +1680,18 @@ export default function MagazineCoverView({
           ref={sheetRef}
           data-testid="auth-magazine-sheet"
           data-cover-layout="full-bleed-single-cover"
-          data-curl-progress={String(geom.progress)}
+          data-curl-progress={String(shownProgress)}
           data-curl-phase={effectivePhase}
-          data-cut-x-pct={String(geom.cutX)}
-          data-cut-y-pct={String(geom.cutY)}
+          data-cut-x-pct={String(shownCutX)}
+          data-cut-y-pct={String(shownCutY)}
+          data-fold-x={fold && Number.isFinite(livePose.x) ? livePose.x.toFixed(2) : undefined}
+          data-fold-y={fold && Number.isFinite(livePose.y) ? livePose.y.toFixed(2) : undefined}
           className={`${sheetTurnClass} w-full flex flex-col justify-between`}
         >
           {/* Safe, unpersonalized inner notebook page revealed only under the curled cover corner */}
           <div
             data-testid="auth-next-page-preview"
-            aria-hidden="true"
+            aria-hidden={isOptimisticTurnPending ? undefined : 'true'}
             className="mc-next-page-preview flex flex-col justify-between p-5"
           >
             <div className="flex items-center justify-between border-b border-ink-soft/25 pb-2 text-xs font-hand text-ink-muted">
@@ -1116,7 +1706,21 @@ export default function MagazineCoverView({
               </p>
               <p>FIELD NOTES &amp; SKETCHBOOK</p>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-ink-soft/25 pt-2 text-xs font-serifDisplay tracking-widest text-route">
+            <div className="flex items-center justify-between gap-3 border-t border-ink-soft/25 pt-2 text-xs font-serifDisplay tracking-widest text-route">
+              {isOptimisticTurnPending ? (
+                <button
+                  ref={pendingCancelBtnRef}
+                  type="button"
+                  data-testid="auth-pending-cancel-btn"
+                  aria-label={t('auth.cancelPendingAria')}
+                  onClick={handleCancelPending}
+                  className="mc-pending-cancel-btn mc-pending-cancel-btn--static min-h-[44px] min-w-[44px] text-sm font-semibold pointer-events-auto"
+                >
+                  {t('auth.cancelPending')}
+                </button>
+              ) : (
+                <span aria-hidden="true" />
+              )}
               <span>p. 01</span>
             </div>
           </div>
@@ -1128,25 +1732,29 @@ export default function MagazineCoverView({
           />
 
           <div
+            ref={leafRef}
             data-testid="auth-cover-leaf"
             onAnimationEnd={(e) => {
               if (e && e.target !== e.currentTarget) return;
-              if (typeof onTurnAnimationEnd === 'function') {
-                onTurnAnimationEnd(e);
+              if (reducedMotion) {
+                emitTurnEnd();
+                return;
               }
+              emitTurnEnd();
             }}
-            className="mc-cover-leaf"
+            className={heldOpen ? 'mc-cover-leaf mc-cover-leaf--held-open' : 'mc-cover-leaf'}
           >
             <div
               data-testid="auth-leaf-front"
               className="mc-leaf-front"
+              style={isCurlOpening ? { clipPath: frontClip } : undefined}
             >
               {/* Front Full-Bleed Magazine Cover Surface (clipped continuously by corner-curl polygon) */}
               <div
                 data-testid="auth-cover-surface"
                 data-cut-x-pct={String(geom.cutX)}
                 data-cut-y-pct={String(geom.cutY)}
-                style={{ clipPath: geom.coverClipPath }}
+                style={{ clipPath: isCurlOpening ? 'none' : geom.coverClipPath }}
                 className={surfaceSpringClass}
               >
             {hasCoverImage ? (
@@ -1279,7 +1887,8 @@ export default function MagazineCoverView({
             ) : null}
           </div>
 
-          {/* Continuous SVG paper-curl back-flap & cast shadow layer */}
+          {/* Resting dog-ear only. The live fold is painted in a sheet-clipped layer. */}
+          {!isCurlOpening ? (
           <svg
             data-testid="auth-curl-geometry-svg"
             data-cut-x-pct={String(geom.cutX)}
@@ -1301,7 +1910,7 @@ export default function MagazineCoverView({
               <linearGradient id="mc-curl-flap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="rgb(var(--c-paper))" />
                 <stop offset="58%" stopColor="rgb(var(--c-paper-shade))" />
-                <stop offset="100%" stopColor="rgb(var(--c-kraft) / 0.55)" />
+                <stop offset="100%" stopColor="rgb(var(--c-desk))" />
               </linearGradient>
             </defs>
             {/* Cast shadow beneath the lifted corner flap */}
@@ -1330,12 +1939,14 @@ export default function MagazineCoverView({
               strokeWidth="0.55"
             />
           </svg>
+          ) : null}
 
           {/* Bottom ~25% compact editorial login overlay directly over lower coastal negative space */}
           <section
             ref={overlayRef}
             data-testid="auth-login-overlay"
             data-cover-layout="full-bleed-single-cover"
+            data-curl-clipping={isCurlOpening ? 'true' : 'false'}
             aria-label={t('auth.coverPanelEyebrow')}
             onFocusCapture={(e) => {
               if (
@@ -1346,16 +1957,11 @@ export default function MagazineCoverView({
                 lastInteractiveControlRef.current = e.target;
               }
             }}
-            style={
-              hasCoverImage
-                ? {
-                    '--mc-curl-fold-x': `${geom.foldBottomX}%`,
-                    '--mc-curl-cut-y': `${Number((geom.cutY * 6.56).toFixed(2))}px`,
-                  }
-                : undefined
-            }
+            style={overlayClipStyle}
             className={`mc-login-overlay${
               hasCoverImage ? ' mc-login-overlay--cover-wash' : ''
+            }${
+              isCurlOpening ? ' mc-login-overlay--curl-clipping' : ''
             } shrink-0 w-full px-3 pt-1.5 pb-1.5 sm:px-4 sm:py-2 text-ink`}
           >
             {turningPage ? (
@@ -1767,7 +2373,8 @@ export default function MagazineCoverView({
                       ref={primarySurfaceRef}
                       type="button"
                       data-testid="auth-primary-surface"
-                      data-curl-progress={String(geom.progress)}
+                      data-focus-modality={focusModality || undefined}
+                      data-curl-progress={String(shownProgress)}
                       data-curl-phase={effectivePhase}
                       data-submit-count={String(submitCount)}
                       data-last-submit-source={lastSubmitSource}
@@ -1811,10 +2418,118 @@ export default function MagazineCoverView({
               <div
                 data-testid="auth-leaf-shade"
                 aria-hidden="true"
-                style={{ clipPath: geom.coverClipPath }}
+                style={{ clipPath: isCurlOpening ? 'none' : geom.coverClipPath }}
                 className="mc-leaf-shade pointer-events-none"
               />
             </div>
+
+            {fold ? (
+              <div
+                data-testid="auth-fold-paint"
+                aria-hidden="true"
+                className="mc-fold-paint pointer-events-none"
+              >
+                <svg
+                  data-testid="auth-curl-geometry-svg"
+                  data-cut-x-pct={String(fold.cutX)}
+                  data-cut-y-pct={String(fold.cutY)}
+                  aria-hidden="true"
+                  focusable="false"
+                  overflow="hidden"
+                  viewBox={`0 0 ${sheetMetrics.sheetWidth} ${sheetMetrics.sheetHeight}`}
+                  preserveAspectRatio="none"
+                  className="mc-fold-svg pointer-events-none absolute inset-0 z-30 h-full w-full select-none"
+                >
+                  <defs>
+                    <clipPath id="mc-fold-sheet-clip" clipPathUnits="userSpaceOnUse">
+                      <rect
+                        data-testid="auth-fold-sheet-clip"
+                        x="0"
+                        y="0"
+                        width={sheetMetrics.sheetWidth}
+                        height={sheetMetrics.sheetHeight}
+                      />
+                    </clipPath>
+                    <linearGradient
+                      id="mc-curl-shadow-grad"
+                      gradientUnits="userSpaceOnUse"
+                      x1={((fold.creaseA?.x ?? 0) + (fold.creaseB?.x ?? 0)) / 2}
+                      y1={((fold.creaseA?.y ?? 0) + (fold.creaseB?.y ?? 0)) / 2}
+                      x2={
+                        ((fold.creaseA?.x ?? 0) + (fold.creaseB?.x ?? 0)) / 2 -
+                        fold.normal.x * 42
+                      }
+                      y2={
+                        ((fold.creaseA?.y ?? 0) + (fold.creaseB?.y ?? 0)) / 2 -
+                        fold.normal.y * 42
+                      }
+                    >
+                      <stop offset="0%" stopColor="rgb(var(--c-ink) / 0.28)" />
+                      <stop offset="70%" stopColor="rgb(var(--c-ink) / 0.08)" />
+                      <stop offset="100%" stopColor="rgb(var(--c-ink) / 0)" />
+                    </linearGradient>
+                    <linearGradient
+                      id="mc-curl-flap-grad"
+                      gradientUnits="userSpaceOnUse"
+                      x1={((fold.creaseA?.x ?? 0) + (fold.creaseB?.x ?? 0)) / 2}
+                      y1={((fold.creaseA?.y ?? 0) + (fold.creaseB?.y ?? 0)) / 2}
+                      x2={
+                        ((fold.creaseA?.x ?? 0) + (fold.creaseB?.x ?? 0)) / 2 +
+                        fold.normal.x * 56
+                      }
+                      y2={
+                        ((fold.creaseA?.y ?? 0) + (fold.creaseB?.y ?? 0)) / 2 +
+                        fold.normal.y * 56
+                      }
+                    >
+                      <stop offset="0%" stopColor="rgb(var(--c-desk))" />
+                      <stop offset="38%" stopColor="rgb(var(--c-paper-shade))" />
+                      <stop offset="100%" stopColor="rgb(var(--c-paper))" />
+                    </linearGradient>
+                  </defs>
+                  <g clipPath="url(#mc-fold-sheet-clip)">
+                    {fold.creaseA && fold.creaseB && fold.foldedPoly.length >= 3 ? (
+                      <polygon
+                        data-testid="auth-curl-shadow"
+                        points={pointsAttr(fold.foldedPoly)}
+                        fill="url(#mc-curl-shadow-grad)"
+                      />
+                    ) : null}
+                    {fold.flapPoly.length >= 3 ? (
+                      <polygon
+                        data-testid="auth-curl-backface"
+                        points={pointsAttr(fold.flapPoly)}
+                        fill="url(#mc-curl-flap-grad)"
+                      />
+                    ) : null}
+                    {fold.creaseA && fold.creaseB ? (
+                      <line
+                        data-testid="auth-curl-crease"
+                        x1={fold.creaseA.x}
+                        y1={fold.creaseA.y}
+                        x2={fold.creaseB.x}
+                        y2={fold.creaseB.y}
+                        stroke="rgb(var(--c-route))"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                      />
+                    ) : null}
+                  </g>
+                </svg>
+                {fold.flapPoly.length >= 3 ? (
+                  <div
+                    data-testid="auth-flap-type"
+                    aria-hidden="true"
+                    style={{
+                      clipPath: polygonCss(fold.flapPoly),
+                      background: 'none',
+                      backgroundImage: 'none',
+                    }}
+                    className="mc-flap-type pointer-events-none select-none"
+                  />
+                ) : null}
+              </div>
+            ) : null}
 
             <div
               data-testid="auth-leaf-back"
