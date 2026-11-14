@@ -1286,6 +1286,31 @@
   pointer-events: none;
 }
 
+/* Invisible hit layer above the fold paint. The SVG root keeps pointer-events
+   auto because none on the <svg> blocked the grab handler in Chromium; empty
+   sheet hits are ignored in JS unless the target is a [data-grab-hit] polygon
+   (flap, right-side crease, pad, rest handle). Held-open forces none. */
+.mc-fold-grab {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  border-radius: inherit;
+  clip-path: inset(0 round 4px 10px 14px 4px);
+  pointer-events: auto;
+  background: none;
+  touch-action: none;
+}
+
+.mc-fold-grab [data-grab-hit] {
+  pointer-events: fill;
+}
+
+.mc-cover-leaf--held-open .mc-fold-grab,
+.mc-cover-leaf--held-open .mc-fold-grab [data-grab-hit] {
+  pointer-events: none;
+}
+
 .mc-cover-sheet--fade .mc-cover-leaf {
   animation: mc-leaf-fade-out 200ms ease-out forwards;
 }

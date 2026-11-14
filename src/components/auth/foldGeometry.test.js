@@ -6,9 +6,12 @@ import {
   FOLD_SPRING_MS,
   FOLD_CLOSE_MS,
   clientXForFoldProgress,
+  clampToBoundSpine,
   computeFoldGeometry,
   fingerToFold,
+  foldGrabParts,
   foldEndPoint,
+  SPINE_GUTTER_PX,
   progress,
   restCrease,
   restFoldPoint,
@@ -109,8 +112,11 @@ describe('foldGeometry', () => {
     expect(clamped.x).toBeCloseTo(-1.1 * W, 5);
     expect(clamped.y).toBeCloseTo(1.05 * H, 5);
     const clampedUp = fingerToFold({ W, H, dx: 0, dy: -5000 });
-    expect(clampedUp.y).toBeCloseTo(0.15 * H, 5);
+    const upR2 = clampedUp.x * clampedUp.x + (clampedUp.y - H) * (clampedUp.y - H);
+    expect(upR2).toBeLessThanOrEqual(W * W + 1e-6);
+    expect(clampedUp.y).toBeGreaterThan(0.15 * H);
     expect(clampedUp.x).toBeLessThanOrEqual(W);
+    expect(clampedUp.x).toBeGreaterThan(0);
   });
 
   it('derives a commit clientX that reaches t>=0.46 from the jsdom fallback sheet', () => {
@@ -299,4 +305,170 @@ describe('foldGeometry', () => {
     const fromRest = fingerToFold({ W, H, dx: -7, dy: 4 });
     expect(Math.hypot(moved.x - fromRest.x, moved.y - fromRest.y)).toBeGreaterThan(30);
   });
+
+  it('settles a mid-open release and a full close before the caps with at most 3px overshoot', () => {
+    const W = 480;
+    const H = 656;
+    const target = restFoldPoint(W, H);
+    const start = fingerToFold({
+      W,
+      H,
+      dx: clientXForFoldProgress(0.32) - FOLD_DRAG_START_X,
+      dy: -20,
+    });
+    let pos = start;
+    let vel = toFoldVelocity({ vx: -0.35, vy: 0.04 });
+    let settledAt = null;
+    for (let elapsed = 16; elapsed <= FOLD_SPRING_MS; elapsed += 16) {
+      const step = stepSpring({ pos, vel, target, dtMs: 16 });
+      expect(Number.isFinite(step.pos.x)).toBe(true);
+      expect(Number.isFinite(step.pos.y)).toBe(true);
+      expect(Number.isFinite(step.vel.x)).toBe(true);
+      expect(Number.isFinite(step.vel.y)).toBe(true);
+      expect(step.pos.x).toBeLessThanOrEqual(target.x + 3.01);
+      if (start.y <= target.y) {
+        expect(step.pos.y).toBeLessThanOrEqual(target.y + 3.01);
+      } else {
+        expect(step.pos.y).toBeGreaterThanOrEqual(target.y - 3.01);
+      }
+      pos = step.pos;
+      vel = step.vel;
+      if (step.settled) {
+        settledAt = elapsed;
+        break;
+      }
+    }
+    expect(settledAt).not.toBeNull();
+    expect(settledAt).toBeLessThanOrEqual(FOLD_SPRING_MS - 48);
+    expect(Math.hypot(pos.x - target.x, pos.y - target.y)).toBeLessThan(0.8);
+
+    const closeStart = foldEndPoint(W, H);
+    pos = closeStart;
+    vel = { x: 0, y: 0 };
+    settledAt = null;
+    for (let elapsed = 16; elapsed <= FOLD_CLOSE_MS; elapsed += 16) {
+      const step = stepSpring({ pos, vel, target, dtMs: 16 });
+      expect(Number.isFinite(step.pos.x)).toBe(true);
+      expect(step.pos.x).toBeLessThanOrEqual(target.x + 3.01);
+      expect(step.pos.y).toBeGreaterThanOrEqual(Math.min(closeStart.y, target.y) - 3.01);
+      expect(step.pos.y).toBeLessThanOrEqual(Math.max(closeStart.y, target.y) + 3.01);
+      pos = step.pos;
+      vel = step.vel;
+      if (step.settled) {
+        settledAt = elapsed;
+        break;
+      }
+    }
+    expect(settledAt).not.toBeNull();
+    expect(settledAt).toBeLessThanOrEqual(FOLD_CLOSE_MS - 48);
+    expect(Math.hypot(pos.x - target.x, pos.y - target.y)).toBeLessThan(0.8);
+  });
+
+  it('covers the flap, the finger pad, and the resting handle corner in the grab hit', () => {
+    const W = 480;
+    const H = 656;
+    const pose = fingerToFold({
+      W,
+      H,
+      dx: clientXForFoldProgress(0.34) - FOLD_DRAG_START_X,
+      dy: -16,
+    });
+    const fold = computeFoldGeometry({ W, H, Fx: pose.x, Fy: pose.y });
+    const grab = foldGrabParts({ W, H, fold, Fx: pose.x, Fy: pose.y });
+    expect(grab.flap.length).toBeGreaterThanOrEqual(3);
+    expect(grab.creaseBand).toHaveLength(4);
+    expect(grab.pad).toHaveLength(4);
+    expect(pose.x).toBeGreaterThan(grab.pad[0].x);
+    expect(pose.x).toBeLessThan(grab.pad[1].x);
+    expect(pose.y).toBeGreaterThan(grab.pad[0].y);
+    expect(pose.y).toBeLessThan(grab.pad[2].y);
+    expect(grab.handle).toHaveLength(4);
+    expect(W - 8).toBeGreaterThan(grab.handle[0].x);
+    expect(H - 8).toBeGreaterThan(grab.handle[0].y);
+    expect(grab.handle[2]).toEqual({ x: W, y: H });
+    expect(foldGrabParts({ W, H, fold: null, Fx: pose.x, Fy: pose.y }).flap).toEqual([]);
+  });
+it('keeps the left spine bound and never starts a peel from the left', () => {
+    const W = 390;
+    const H = 656;
+    const pointIn = (x, y, poly) => {
+      let n = 0;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i, i += 1) {
+        const a = poly[i];
+        const b = poly[j];
+        if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / ((b.y - a.y) || 1e-12) + a.x) {
+          n += 1;
+        }
+      }
+      return n % 2 === 1;
+    };
+    const leftEdgeLifted = (fold) => {
+      const folded = fold.foldedPoly || [];
+      if (folded.length < 3) return false;
+      // The crease may touch the spine foot (0, H). That is the legal
+      // bound, not a lift. Sample the open left edge above that corner.
+      for (let i = 0; i < 20; i += 1) {
+        if (pointIn(0.25, (H * 0.98 * i) / 19, folded)) return true;
+      }
+      return false;
+    };
+
+    const rest = restFoldPoint(W, H);
+    const restR2 = rest.x * rest.x + (rest.y - H) * (rest.y - H);
+    expect(restR2).toBeLessThanOrEqual(W * W + 1e-6);
+    expect(leftEdgeLifted(computeFoldGeometry({ W, H, Fx: rest.x, Fy: rest.y }))).toBe(false);
+
+    // A raw upward / horizontal-crease pose is clamped back onto the spine circle.
+    const raw = { x: W, y: 0.15 * H };
+    const clamped = clampToBoundSpine(raw.x, raw.y, W, H);
+    expect(clamped.x * clamped.x + (clamped.y - H) * (clamped.y - H)).toBeLessThanOrEqual(W * W + 1e-6);
+    expect(leftEdgeLifted(computeFoldGeometry({ W, H, Fx: raw.x, Fy: raw.y }))).toBe(false);
+
+    const up = fingerToFold({ W, H, dx: 0, dy: -800 });
+    expect(up.x * up.x + (up.y - H) * (up.y - H)).toBeLessThanOrEqual(W * W + 1e-6);
+    expect(leftEdgeLifted(computeFoldGeometry({ W, H, Fx: up.x, Fy: up.y }))).toBe(false);
+
+    for (let fx = -1.1 * W; fx <= W; fx += W / 10) {
+      for (let fy = 0.15 * H; fy <= 1.05 * H; fy += H / 8) {
+        const fold = computeFoldGeometry({ W, H, Fx: fx, Fy: fy });
+        const lifted = leftEdgeLifted(fold);
+        if (fold.t >= 0.98 || clampToBoundSpine(fx, fy, W, H).x <= -W + 0.5) {
+          continue;
+        }
+        expect(lifted, `spine lift at F=(${fx.toFixed(1)},${fy.toFixed(1)}) t=${fold.t}`).toBe(false);
+      }
+    }
+
+    const end = foldEndPoint(W, H);
+    expect(end.x).toBeCloseTo(-1.1 * W, 5);
+    const opened = sampleOpenPose({
+      from: rest,
+      W,
+      H,
+      elapsedMs: 800,
+      durationMs: 800,
+      arc: false,
+    });
+    expect(opened.done).toBe(true);
+    expect(opened.pose.x).toBeCloseTo(-1.1 * W, 5);
+
+    const mid = fingerToFold({
+      W,
+      H,
+      dx: clientXForFoldProgress(0.34) - FOLD_DRAG_START_X,
+      dy: -16,
+    });
+    const grab = foldGrabParts({
+      W,
+      H,
+      fold: computeFoldGeometry({ W, H, Fx: mid.x, Fy: mid.y }),
+      Fx: mid.x,
+      Fy: mid.y,
+    });
+    expect(grab.flap.length).toBeGreaterThanOrEqual(3);
+    for (const p of [...grab.creaseBand, ...grab.pad]) {
+      expect(p.x).toBeGreaterThanOrEqual(SPINE_GUTTER_PX - 0.05);
+    }
+  });
 });
+

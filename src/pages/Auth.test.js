@@ -3043,6 +3043,130 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(sheet.getAttribute('data-curl-progress')).not.toBe('NaN');
     expect(Number.isFinite(Number(sheet.getAttribute('data-curl-progress')))).toBe(true);
   });
+
+  it('re-grabs a mid-spring pose from the fold grab layer and ignores the leaf at rest', () => {
+    vi.useFakeTimers();
+    renderAuth();
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const leaf = screen.getByTestId('auth-cover-leaf');
+    expect(screen.queryByTestId('auth-fold-grab')).toBeNull();
+
+    fireEvent.pointerDown(leaf, { pointerId: 1, button: 0, clientX: 28, clientY: 36 });
+    fireEvent.pointerMove(leaf, { pointerId: 1, clientX: 12, clientY: 36 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(screen.queryByTestId('auth-fold-grab')).toBeNull();
+
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const belowX = Math.round(clientXForFoldProgress(0.34));
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 2,
+      button: 0,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: belowX, clientY: 640 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: belowX, clientY: 640 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    const releaseX = Number(sheet.getAttribute('data-fold-x'));
+
+    act(() => {
+      vi.advanceTimersByTime(96);
+    });
+    const midX = Number(sheet.getAttribute('data-fold-x'));
+    const midY = Number(sheet.getAttribute('data-fold-y'));
+    const rest = restFoldPoint(480, 656);
+    expect(midX).toBeGreaterThan(releaseX + 30);
+    expect(midX).toBeLessThan(rest.x - 20);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+
+    fireEvent.pointerDown(screen.getByTestId('auth-email-input'), {
+      pointerId: 3,
+      button: 0,
+      clientX: 80,
+      clientY: 420,
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(sheet.getAttribute('data-fold-x')).toBe(midX.toFixed(2));
+
+    expect(screen.getByTestId('auth-fold-grab')).toBeTruthy();
+    const grab = screen.getByTestId('auth-fold-grab-flap');
+    expect(screen.getByTestId('auth-fold-grab-handle')).toBeTruthy();
+    const grabX = 170;
+    const grabY = 520;
+    fireEvent.pointerDown(grab, { pointerId: 4, button: 0, clientX: grabX, clientY: grabY });
+    expect(sheet.getAttribute('data-fold-x')).toBe(midX.toFixed(2));
+    expect(sheet.getAttribute('data-fold-y')).toBe(midY.toFixed(2));
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+
+    fireEvent.pointerMove(grab, {
+      pointerId: 4,
+      clientX: grabX - 7,
+      clientY: grabY,
+    });
+    const nextX = Number(sheet.getAttribute('data-fold-x'));
+    const nextY = Number(sheet.getAttribute('data-fold-y'));
+    expect(nextX).toBeCloseTo(midX + FINGER_GAIN_X * -7, 1);
+    expect(nextY).toBeCloseTo(midY + FINGER_GAIN_Y * 0, 1);
+    expect(Math.abs(nextX - (rest.x + FINGER_GAIN_X * -7))).toBeGreaterThan(30);
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+
+    fireEvent.pointerUp(grab, { pointerId: 4, clientX: grabX - 7, clientY: grabY });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+
+    act(() => {
+      vi.advanceTimersByTime(48);
+    });
+    const againX = Number(sheet.getAttribute('data-fold-x'));
+    const againY = Number(sheet.getAttribute('data-fold-y'));
+    // The bound left spine / remaining front is not a handle mid-close.
+    fireEvent.pointerDown(leaf, { pointerId: 5, button: 0, clientX: 48, clientY: 64 });
+    expect(sheet.getAttribute('data-fold-x')).toBe(againX.toFixed(2));
+    fireEvent.pointerMove(leaf, { pointerId: 5, clientX: 12, clientY: 64 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(sheet.getAttribute('data-fold-x')).toBe(againX.toFixed(2));
+    expect(sheet.getAttribute('data-fold-y')).toBe(againY.toFixed(2));
+  });
+
+  it('cannot begin a drag from the left spine at rest or mid-turn', () => {
+    vi.useFakeTimers();
+    renderAuth();
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const leaf = screen.getByTestId('auth-cover-leaf');
+    const restProgress = sheet.getAttribute('data-curl-progress');
+
+    fireEvent.pointerDown(leaf, { pointerId: 1, button: 0, clientX: 8, clientY: 320 });
+    fireEvent.pointerMove(leaf, { pointerId: 1, clientX: 80, clientY: 280 });
+    fireEvent.pointerUp(leaf, { pointerId: 1, clientX: 80, clientY: 280 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe(restProgress);
+
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const belowX = Math.round(clientXForFoldProgress(0.34));
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 2,
+      button: 0,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(curlBtn, { pointerId: 2, clientX: belowX, clientY: 640 });
+    fireEvent.pointerUp(curlBtn, { pointerId: 2, clientX: belowX, clientY: 640 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    const midX = sheet.getAttribute('data-fold-x');
+    const midY = sheet.getAttribute('data-fold-y');
+
+    fireEvent.pointerDown(leaf, { pointerId: 3, button: 0, clientX: 10, clientY: 400 });
+    fireEvent.pointerMove(leaf, { pointerId: 3, clientX: 90, clientY: 300 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(sheet.getAttribute('data-fold-x')).toBe(midX);
+    expect(sheet.getAttribute('data-fold-y')).toBe(midY);
+
+    const grab = screen.getByTestId('auth-fold-grab-flap');
+    fireEvent.pointerDown(grab, { pointerId: 4, button: 0, clientX: 180, clientY: 520 });
+    fireEvent.pointerMove(grab, { pointerId: 4, clientX: 173, clientY: 520 });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    expect(Number(sheet.getAttribute('data-fold-x'))).toBeLessThan(Number(midX) - 5);
+  });
 });
 
 describe('authErrors helpers', () => {

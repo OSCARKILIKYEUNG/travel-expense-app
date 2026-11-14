@@ -11,8 +11,8 @@ export const FOLD_COMMIT_T = 0.46;
 export const FOLD_FLING_T = 0.2;
 export const FOLD_FLING_VX = -0.9;
 export const FOLD_VELOCITY_WINDOW_MS = 80;
-export const FOLD_SPRING_MS = 440;
-export const FOLD_CLOSE_MS = 500;
+export const FOLD_SPRING_MS = 300;
+export const FOLD_CLOSE_MS = 340;
 export const FOLD_OPEN_COMMIT_MS = 600;
 export const FOLD_OPEN_BUTTON_MS = 740;
 /** Auth fallback timers stay at or above the longest settle. */
@@ -24,9 +24,18 @@ export const FOLD_DRAG_START_Y = 640;
 
 const REST_CUT_X = 0.1446;
 const REST_CUT_Y = 0.0684;
-const SPRING_K = 360;
-const SPRING_C = 32;
+// Critical and snappier than 360/32. 16ms frames are split so the tail
+// reaches the settle threshold before FOLD_SPRING_MS / FOLD_CLOSE_MS.
+const SPRING_K = 1400;
+const SPRING_C = 75;
+const SPRING_SUBSTEPS = 4;
 const SPRING_MAX_PAST_PX = 3;
+const GRAB_PAD_PX = 44;
+const GRAB_CREASE_HALF_PX = 22;
+const GRAB_HANDLE_W = 168;
+const GRAB_HANDLE_H = 52;
+/** Hit-test gutter along the bound left edge. Visual spine is 14px. */
+export const SPINE_GUTTER_PX = 24;
 
 function finiteOr(value, fallback) {
   const n = Number(value);
@@ -41,6 +50,38 @@ export function finitePoint(point, fallback = { x: 0, y: 0 }) {
     return { x: fallback.x, y: fallback.y };
   }
   return { x: 0, y: 0 };
+}
+
+/**
+ * A left-bound leaf can only peel from the right. F stays inside or on the
+ * circle centered at the spine foot (0, H) with radius W, so the crease
+ * never lifts x=0 off the binding. Once F.x <= -W the page has finished
+ * turning around that spine and may travel to the end pose (-1.1W, H).
+ */
+export function clampToBoundSpine(x, y, W, H) {
+  const w = Number(W) > 0 ? Number(W) : 0;
+  const h = Number(H) > 0 ? Number(H) : 0;
+  let fx = finiteOr(x, 0);
+  let fy = finiteOr(y, h);
+  if (!(w > 0) || fx <= -w) return { x: fx, y: fy };
+  // Circle at the spine foot (0, H), radius W: no upward crease that lifts x=0.
+  const dyFoot = fy - h;
+  const rFoot2 = fx * fx + dyFoot * dyFoot;
+  if (rFoot2 > w * w && rFoot2 > 1e-12) {
+    const s = w / Math.sqrt(rFoot2);
+    fx *= s;
+    fy = h + dyFoot * s;
+  }
+  // Circle through C centered at the top of the spine: F below the sheet
+  // cannot fold the whole leaf off the binding.
+  const rSpine = Math.hypot(w, h);
+  const rNow2 = fx * fx + fy * fy;
+  if (rNow2 > rSpine * rSpine && rNow2 > 1e-12) {
+    const s = rSpine / Math.sqrt(rNow2);
+    fx *= s;
+    fy *= s;
+  }
+  return { x: fx, y: fy };
 }
 
 export function progress(W, Fx) {
@@ -95,7 +136,7 @@ export function fingerToFold({ W, H, dx = 0, dy = 0, origin } = {}) {
   if (x > maxX) x = maxX;
   if (y < minY) y = minY;
   if (y > maxY) y = maxY;
-  return { x, y };
+  return clampToBoundSpine(x, y, w, h);
 }
 
 /**
@@ -276,7 +317,7 @@ export function computeFoldGeometry({ W, H, Fx, Fy } = {}) {
     fx = rest.x;
     fy = rest.y;
   }
-  const F = { x: fx, y: fy };
+  const F = clampToBoundSpine(fx, fy, w, h);
   const t = progress(w, F.x);
   const dist = Math.hypot(F.x - C.x, F.y - C.y);
   if (!(dist >= 1) || !Number.isFinite(dist)) return noFold(w, h, t);
@@ -341,6 +382,88 @@ export function pointsAttr(poly) {
   return poly.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
 }
 
+function squareAround(x, y, radius) {
+  return [
+    { x: x - radius, y: y - radius },
+    { x: x + radius, y: y - radius },
+    { x: x + radius, y: y + radius },
+    { x: x - radius, y: y + radius },
+  ];
+}
+
+function creaseBandPoly(a, b, half) {
+  if (
+    !a ||
+    !b ||
+    !Number.isFinite(a.x) ||
+    !Number.isFinite(a.y) ||
+    !Number.isFinite(b.x) ||
+    !Number.isFinite(b.y)
+  ) {
+    return [];
+  }
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (!(len > 0.5)) return [];
+  const nx = (-dy / len) * half;
+  const ny = (dx / len) * half;
+  return [
+    { x: a.x + nx, y: a.y + ny },
+    { x: b.x + nx, y: b.y + ny },
+    { x: b.x - nx, y: b.y - ny },
+    { x: a.x - nx, y: a.y - ny },
+  ];
+}
+
+function clipLeftGutter(poly, gutter) {
+  if (!Array.isArray(poly) || poly.length === 0) return [];
+  return clipHalfPlane(
+    poly,
+    (P) => P.x >= gutter - 1e-6,
+    (p, q) => {
+      const dx = q.x - p.x;
+      if (Math.abs(dx) < 1e-12) return { x: gutter, y: p.y };
+      const k = (gutter - p.x) / dx;
+      return { x: gutter, y: p.y + (q.y - p.y) * k };
+    },
+  );
+}
+
+/**
+ * Pointer target while a fold is springing, closing, or opening.
+ * Union of the flap, a crease band, a pad around F, and the rest-corner handle.
+ * Crease band and F-pad are clipped off the bound left spine; the flap stays
+ * hittable because it is the turning leaf, even when it visually covers the left.
+ */
+export function foldGrabParts({ W, H, fold, Fx, Fy } = {}) {
+  const w = Number(W) > 0 ? Number(W) : 0;
+  const h = Number(H) > 0 ? Number(H) : 0;
+  const flap = Array.isArray(fold?.flapPoly)
+    ? fold.flapPoly.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y))
+    : [];
+  const creaseBand = creaseBandPoly(fold?.creaseA, fold?.creaseB, GRAB_CREASE_HALF_PX);
+  const pad = squareAround(finiteOr(Fx, w), finiteOr(Fy, h), GRAB_PAD_PX);
+  const handleW = Math.min(GRAB_HANDLE_W, w);
+  const handleH = Math.min(GRAB_HANDLE_H, h);
+  const handle =
+    w > 0 && h > 0
+      ? [
+          { x: w - handleW, y: h - handleH },
+          { x: w, y: h - handleH },
+          { x: w, y: h },
+          { x: w - handleW, y: h },
+        ]
+      : [];
+  const gutter = Math.min(SPINE_GUTTER_PX, w);
+  return {
+    flap,
+    creaseBand: clipLeftGutter(creaseBand, gutter),
+    pad: clipLeftGutter(pad, gutter),
+    handle,
+  };
+}
+
 export function easeInOut(u) {
   const x = Math.max(0, Math.min(1, Number(u) || 0));
   return x < 0.5 ? 2 * x * x : 1 - ((-2 * x + 2) ** 2) / 2;
@@ -375,7 +498,8 @@ export function sampleOpenPose({ from, W, H, elapsedMs, durationMs, arc = false 
   if (x > W) x = W;
   if (y < minY) y = minY;
   if (y > maxY) y = maxY;
-  return { pose: { x, y }, done: u >= 1 };
+  const pose = clampToBoundSpine(x, y, W, H);
+  return { pose, done: u >= 1 };
 }
 
 function clampOvershoot(value, velocity, target) {
@@ -391,6 +515,8 @@ function clampOvershoot(value, velocity, target) {
 
 /**
  * Damped spring. `vel.x` / `vel.y` are F px/ms (not pointer `{vx, vy}`).
+ * Each call splits dt into a few substeps so a near-critical spring can
+ * finish inside the settle cap instead of creeping for the last quarter-second.
  * Tiny overshoot (≤3px) is allowed; the pose cannot run away past the rest
  * target. Non-finite pose falls back to the target (or 0), non-finite
  * velocity to 0, so a bad sample cannot publish NaN.
@@ -403,26 +529,29 @@ export function stepSpring({ pos, vel, target, dtMs } = {}) {
   let y = finiteOr(pos?.y, ty);
   let vxMs = finiteOr(vel?.x, 0);
   let vyMs = finiteOr(vel?.y, 0);
-  const dt = Math.min(0.034, Math.max(0, finiteOr(dtMs, 0)) / 1000);
-  if (!(dt > 0)) {
+  const total = Math.min(0.034, Math.max(0, finiteOr(dtMs, 0)) / 1000);
+  if (!(total > 0)) {
     return { pos: { x, y }, vel: { x: vxMs, y: vyMs }, settled: false };
   }
   let vx = vxMs * 1000;
   let vy = vyMs * 1000;
-  const ax = -SPRING_K * (x - tx) - SPRING_C * vx;
-  const ay = -SPRING_K * (y - ty) - SPRING_C * vy;
-  vx += ax * dt;
-  vy += ay * dt;
-  x += vx * dt;
-  y += vy * dt;
-  const cx = clampOvershoot(x, vx, tx);
-  const cy = clampOvershoot(y, vy, ty);
-  x = cx.value;
-  y = cy.value;
-  vx = cx.velocity;
-  vy = cy.velocity;
-  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(vx) || !Number.isFinite(vy)) {
-    return { pos: targetPoint, vel: { x: 0, y: 0 }, settled: true };
+  const dt = total / SPRING_SUBSTEPS;
+  for (let step = 0; step < SPRING_SUBSTEPS; step += 1) {
+    const ax = -SPRING_K * (x - tx) - SPRING_C * vx;
+    const ay = -SPRING_K * (y - ty) - SPRING_C * vy;
+    vx += ax * dt;
+    vy += ay * dt;
+    x += vx * dt;
+    y += vy * dt;
+    const cx = clampOvershoot(x, vx, tx);
+    const cy = clampOvershoot(y, vy, ty);
+    x = cx.value;
+    y = cy.value;
+    vx = cx.velocity;
+    vy = cy.velocity;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(vx) || !Number.isFinite(vy)) {
+      return { pos: targetPoint, vel: { x: 0, y: 0 }, settled: true };
+    }
   }
   const settled = Math.hypot(x - tx, y - ty) < 0.75 && Math.hypot(vx, vy) < 30;
   if (settled) {

@@ -10,6 +10,7 @@ import {
   fingerToFold,
   finitePoint,
   foldEndPoint,
+  foldGrabParts,
   openDurationFor,
   pointsAttr,
   polygonCss,
@@ -192,6 +193,8 @@ export default function MagazineCoverView({
 
   const sheetRef = useRef(null);
   const leafRef = useRef(null);
+  const grabSurfaceRef = useRef(null);
+  const heldOpenRef = useRef(false);
   const overlayRef = useRef(null);
   const primarySurfaceRef = useRef(null);
   const turningStatusRef = useRef(null);
@@ -272,10 +275,11 @@ export default function MagazineCoverView({
     source = dragSessionRef.current.source,
   ) => {
     if (source && source !== 'pointer') return;
-    const btn = primarySurfaceRef.current;
     const targetId = pointerId ?? dragSessionRef.current.pointerId;
-    if (!btn || targetId === null || targetId === undefined) return;
-    if (typeof btn.releasePointerCapture === 'function') {
+    if (targetId === null || targetId === undefined) return;
+    const nodes = [primarySurfaceRef.current, grabSurfaceRef.current, leafRef.current];
+    for (const btn of nodes) {
+      if (!btn || typeof btn.releasePointerCapture !== 'function') continue;
       try {
         if (typeof btn.hasPointerCapture !== 'function' || btn.hasPointerCapture(targetId)) {
           btn.releasePointerCapture(targetId);
@@ -974,8 +978,25 @@ export default function MagazineCoverView({
     });
   };
 
-  const startCornerDrag = ({ source, pointerId, pointerType, clientX, clientY }) => {
-    if (isBusy) return;
+  const startCornerDrag = ({
+    source,
+    pointerId,
+    pointerType,
+    clientX,
+    clientY,
+    allowBusySettle = false,
+    captureOn = 'button',
+  }) => {
+    const engineMode = engineRef.current.mode;
+    const phaseNow = curlPhase;
+    const grabbingSettleEarly =
+      engineMode === 'spring' ||
+      engineMode === 'closing' ||
+      engineMode === 'opening' ||
+      engineMode === 'holding' ||
+      phaseNow === 'springback' ||
+      phaseNow === 'turn-abort';
+    if (isBusy && !(allowBusySettle && grabbingSettleEarly && engineMode !== 'holding')) return;
     syncSheetMetrics();
     const epoch = advanceInteractionEpoch();
     if (springTimerRef.current) {
@@ -984,13 +1005,7 @@ export default function MagazineCoverView({
     }
     const { W, H } = sheetSizeRef.current;
     const restPose = restFoldPoint(W, H);
-    const engineMode = engineRef.current.mode;
-    const grabbingSettle =
-      engineMode === 'spring' ||
-      engineMode === 'closing' ||
-      engineMode === 'opening' ||
-      engineMode === 'holding';
-    const poseAtGrab = grabbingSettle ? finitePoint(poseRef.current, restPose) : null;
+    const poseAtGrab = grabbingSettleEarly ? finitePoint(poseRef.current, restPose) : null;
     cancelEngine();
     clearSuppressNextClick();
     cancelledPointerIdRef.current = null;
@@ -1007,6 +1022,7 @@ export default function MagazineCoverView({
       progress: reducedMotionRef.current ? 0 : dragSessionRef.current.progress,
       samples: [],
       poseAtGrab,
+      captureOn,
     };
     setLastPointerType(pointerType || 'mouse');
     if (reducedMotionRef.current) {
@@ -1247,12 +1263,63 @@ export default function MagazineCoverView({
     };
   });
 
+  const nodeTestId = (node) =>
+    node && typeof node.getAttribute === 'function' ? node.getAttribute('data-testid') || '' : '';
+
+  const canRegrabSettle = () => {
+    if (reducedMotionRef.current || heldOpenRef.current) return false;
+    if (curlPhase === 'awaiting-auth') return false;
+    const mode = engineRef.current.mode;
+    if (mode === 'holding') return false;
+    return (
+      mode === 'spring' ||
+      mode === 'closing' ||
+      mode === 'opening' ||
+      curlPhase === 'springback' ||
+      curlPhase === 'turn-abort'
+    );
+  };
+
+  const settleTargetBlocked = (target) => {
+    if (!target || typeof target.closest !== 'function') return false;
+    return Boolean(
+      target.closest(
+        '[data-testid="auth-primary-surface"], [data-testid="auth-fold-grab"], [data-testid="auth-pending-cancel-btn"], input, textarea, select, button, a, label, [data-testid="auth-credentials-form"], [data-testid="auth-forgot-form"], [data-testid="auth-verify-email-panel"], [data-testid="auth-reset-sent-panel"]',
+      ),
+    );
+  };
+
+  const bubbledFromCornerHandle = (e) => {
+    if (!e || e.currentTarget === e.target) return false;
+    if (nodeTestId(e.currentTarget) !== 'auth-cover-leaf') return false;
+    return settleTargetBlocked(e.target) || nodeTestId(e.target) === 'auth-fold-grab';
+  };
+
   const handleCornerPointerDown = (e) => {
-    if (isBusy) return;
+    const currentId = nodeTestId(e.currentTarget);
+
+
+    const fromLeaf = currentId === 'auth-cover-leaf';
+    const fromGrab = currentId === 'auth-fold-grab';
+    const fromButton = currentId === 'auth-primary-surface';
     if (e.pointerType === 'mouse' && e.button !== undefined && e.button !== 0) return;
+    const fromGrabPart =
+      e.target && typeof e.target.closest === 'function' && Boolean(e.target.closest('[data-grab-hit]'));
+    if (fromLeaf) {
+      // Mid-close re-grab is a flap / right-side crease / pad / handle polygon.
+      // The empty grab SVG, remaining front, and bound left spine are not a handle.
+      if (!fromGrabPart || dragSessionRef.current.active || !canRegrabSettle()) return;
+    } else if (fromGrab) {
+      if (!canRegrabSettle() || !fromGrabPart) return;
+    } else if (!fromButton) {
+      return;
+    }
+    const allowBusySettle = (fromLeaf || fromGrab) && canRegrabSettle();
+    if (isBusy && !allowBusySettle) return;
     setFocusModality('pointer');
-    if (e.currentTarget && typeof e.currentTarget.setAttribute === 'function') {
-      e.currentTarget.setAttribute('data-focus-modality', 'pointer');
+    const modalityNode = fromButton ? e.currentTarget : primarySurfaceRef.current;
+    if (modalityNode && typeof modalityNode.setAttribute === 'function') {
+      modalityNode.setAttribute('data-focus-modality', 'pointer');
     }
     const nextPointerId = e.pointerId ?? 1;
     if (
@@ -1263,16 +1330,17 @@ export default function MagazineCoverView({
     ) {
       releaseCornerPointerCapture(dragSessionRef.current.pointerId, 'pointer');
     }
-    if (e.currentTarget && typeof e.currentTarget.focus === 'function') {
+    if (fromButton && e.currentTarget && typeof e.currentTarget.focus === 'function') {
       try {
         e.currentTarget.focus({ preventScroll: true });
       } catch {
         // Safe ignore
       }
     }
-    if (e.currentTarget && typeof e.currentTarget.setPointerCapture === 'function' && e.pointerId !== undefined) {
+    const captureNode = e.currentTarget;
+    if (captureNode && typeof captureNode.setPointerCapture === 'function' && e.pointerId !== undefined) {
       try {
-        e.currentTarget.setPointerCapture(e.pointerId);
+        captureNode.setPointerCapture(e.pointerId);
       } catch {
         // Safe ignore in synthetic environments without pointer capture table
       }
@@ -1283,10 +1351,13 @@ export default function MagazineCoverView({
       pointerType: e.pointerType || 'mouse',
       clientX: e.clientX,
       clientY: e.clientY,
+      allowBusySettle,
+      captureOn: fromGrab ? 'grab' : fromLeaf ? 'leaf' : 'button',
     });
   };
 
   const handleCornerPointerMove = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') return;
     if (
       e.pointerId !== undefined &&
@@ -1299,6 +1370,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerPointerUp = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') {
       if (
         cancelledPointerIdRef.current !== null &&
@@ -1321,6 +1393,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerPointerCancel = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') return;
     if (
       e?.pointerId !== undefined &&
@@ -1332,13 +1405,25 @@ export default function MagazineCoverView({
     cancelCornerDrag(e?.pointerId ?? null, { restoreFocus: true });
   };
 
+  const pointerHeldByFoldSurface = (pointerId) => {
+    if (pointerId === undefined || pointerId === null) return false;
+    const nodes = [grabSurfaceRef.current, primarySurfaceRef.current, leafRef.current];
+    return nodes.some(
+      (node) => node && typeof node.hasPointerCapture === 'function' && node.hasPointerCapture(pointerId),
+    );
+  };
+
   const handleCornerLostPointerCapture = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') return;
     if (
       e?.pointerId !== undefined &&
       dragSessionRef.current.pointerId !== null &&
       e.pointerId !== dragSessionRef.current.pointerId
     ) {
+      return;
+    }
+    if (pointerHeldByFoldSurface(e?.pointerId ?? dragSessionRef.current.pointerId)) {
       return;
     }
     cancelCornerDrag(e?.pointerId ?? null, { restoreFocus: true });
@@ -1350,17 +1435,43 @@ export default function MagazineCoverView({
       e.currentTarget.removeAttribute('data-focus-modality');
     }
     if (!dragSessionRef.current.active) return;
+    if (
+      dragSessionRef.current.source === 'pointer' &&
+      pointerHeldByFoldSurface(dragSessionRef.current.pointerId)
+    ) {
+      return;
+    }
     const nextFocused = e?.relatedTarget;
     cancelCornerDrag(null, { restoreFocus: !nextFocused });
   };
 
   const handleCornerTouchStart = (e) => {
-    if (isBusy || dragSessionRef.current.active) return;
+    const currentId = nodeTestId(e.currentTarget);
+    const fromLeaf = currentId === 'auth-cover-leaf';
+    const fromGrab = currentId === 'auth-fold-grab';
+    const fromButton = currentId === 'auth-primary-surface';
+    if (fromLeaf) {
+      // Touch on the remaining front or left spine must not start a peel.
+      // Re-grab goes through the grab layer (bubbles already handled above).
+      const fromGrabPart =
+        e.target && typeof e.target.closest === 'function' && Boolean(e.target.closest('[data-grab-hit]'));
+      if (!fromGrabPart || !canRegrabSettle() || settleTargetBlocked(e.target) || bubbledFromCornerHandle(e)) return;
+    } else if (fromGrab) {
+      if (!canRegrabSettle()) return;
+      const fromGrabPart =
+        e.target && typeof e.target.closest === 'function' && Boolean(e.target.closest('[data-grab-hit]'));
+      if (!fromGrabPart) return;
+    } else if (!fromButton) {
+      return;
+    }
+    const allowBusySettle = (fromLeaf || fromGrab) && canRegrabSettle();
+    if ((isBusy && !allowBusySettle) || dragSessionRef.current.active) return;
     const touch = e.touches && e.touches[0];
     if (!touch) return;
     setFocusModality('pointer');
-    if (e.currentTarget && typeof e.currentTarget.setAttribute === 'function') {
-      e.currentTarget.setAttribute('data-focus-modality', 'pointer');
+    const modalityNode = fromButton ? e.currentTarget : primarySurfaceRef.current;
+    if (modalityNode && typeof modalityNode.setAttribute === 'function') {
+      modalityNode.setAttribute('data-focus-modality', 'pointer');
     }
     startCornerDrag({
       source: 'touch',
@@ -1368,10 +1479,13 @@ export default function MagazineCoverView({
       pointerType: 'touch',
       clientX: touch.clientX,
       clientY: touch.clientY,
+      allowBusySettle,
+      captureOn: fromGrab ? 'grab' : fromLeaf ? 'leaf' : 'button',
     });
   };
 
   const handleCornerTouchMove = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'touch') return;
     const touch = e.touches && e.touches[0];
     if (!touch) return;
@@ -1379,12 +1493,14 @@ export default function MagazineCoverView({
   };
 
   const handleCornerTouchEnd = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'touch') return;
     const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
     finishCornerDrag(touch?.clientX, touch?.clientY);
   };
 
-  const handleCornerTouchCancel = () => {
+  const handleCornerTouchCancel = (e) => {
+    if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'touch') return;
     cancelCornerDrag(null, { restoreFocus: true });
   };
@@ -1627,6 +1743,34 @@ export default function MagazineCoverView({
   const shownCutY = fold ? fold.cutY : geom.cutY;
   const thresholdMet = fold ? fold.t >= FOLD_COMMIT_T : geom.thresholdMet;
   const heldOpen = Boolean(fold && fold.frontPoly.length < 3);
+  heldOpenRef.current = heldOpen;
+  const engineModeNow = engineRef.current.mode;
+  const settleLive =
+    !reducedMotion &&
+    !heldOpen &&
+    effectivePhase !== 'awaiting-auth' &&
+    engineModeNow !== 'holding' &&
+    (engineModeNow === 'spring' ||
+      engineModeNow === 'closing' ||
+      engineModeNow === 'opening' ||
+      effectivePhase === 'springback' ||
+      effectivePhase === 'turn-abort');
+  const showFoldGrab =
+    settleLive ||
+    (!reducedMotion &&
+      !heldOpen &&
+      effectivePhase !== 'awaiting-auth' &&
+      dragSessionRef.current.active &&
+      dragSessionRef.current.captureOn === 'grab');
+  const grabParts = showFoldGrab
+    ? foldGrabParts({
+        W: sheetMetrics.sheetWidth,
+        H: sheetMetrics.sheetHeight,
+        fold,
+        Fx: livePose.x,
+        Fy: livePose.y,
+      })
+    : null;
   const frontClip = fold ? polygonCss(fold.frontPoly) : '';
   const overlayClipStyle = isCurlOpening
     ? {
@@ -1742,6 +1886,15 @@ export default function MagazineCoverView({
               }
               emitTurnEnd();
             }}
+            onPointerDown={handleCornerPointerDown}
+            onPointerMove={handleCornerPointerMove}
+            onPointerUp={handleCornerPointerUp}
+            onPointerCancel={handleCornerPointerCancel}
+            onLostPointerCapture={handleCornerLostPointerCapture}
+            onTouchStart={handleCornerTouchStart}
+            onTouchMove={handleCornerTouchMove}
+            onTouchEnd={handleCornerTouchEnd}
+            onTouchCancel={handleCornerTouchCancel}
             className={heldOpen ? 'mc-cover-leaf mc-cover-leaf--held-open' : 'mc-cover-leaf'}
           >
             <div
@@ -2529,6 +2682,62 @@ export default function MagazineCoverView({
                   />
                 ) : null}
               </div>
+            ) : null}
+
+            {grabParts ? (
+              <svg
+                ref={grabSurfaceRef}
+                data-testid="auth-fold-grab"
+                aria-hidden="true"
+                focusable="false"
+                viewBox={`0 0 ${sheetMetrics.sheetWidth} ${sheetMetrics.sheetHeight}`}
+                preserveAspectRatio="none"
+                onPointerDown={handleCornerPointerDown}
+                onPointerMove={handleCornerPointerMove}
+                onPointerUp={handleCornerPointerUp}
+                onPointerCancel={handleCornerPointerCancel}
+                onLostPointerCapture={handleCornerLostPointerCapture}
+                onTouchStart={handleCornerTouchStart}
+                onTouchMove={handleCornerTouchMove}
+                onTouchEnd={handleCornerTouchEnd}
+                onTouchCancel={handleCornerTouchCancel}
+                className="mc-fold-grab"
+              >
+                {grabParts.flap.length >= 3 ? (
+                  <polygon
+                    data-testid="auth-fold-grab-flap"
+                    data-grab-hit=""
+                    points={pointsAttr(grabParts.flap)}
+                    fill="transparent"
+                    pointerEvents="fill"
+                  />
+                ) : null}
+                {grabParts.creaseBand.length >= 3 ? (
+                  <polygon
+                    data-testid="auth-fold-grab-crease"
+                    data-grab-hit=""
+                    points={pointsAttr(grabParts.creaseBand)}
+                    fill="transparent"
+                    pointerEvents="fill"
+                  />
+                ) : null}
+                <polygon
+                  data-testid="auth-fold-grab-pad"
+                  data-grab-hit=""
+                  points={pointsAttr(grabParts.pad)}
+                  fill="transparent"
+                  pointerEvents="fill"
+                />
+                {grabParts.handle.length >= 3 ? (
+                  <polygon
+                    data-testid="auth-fold-grab-handle"
+                    data-grab-hit=""
+                    points={pointsAttr(grabParts.handle)}
+                    fill="transparent"
+                    pointerEvents="fill"
+                  />
+                ) : null}
+              </svg>
             ) : null}
 
             <div
