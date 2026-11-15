@@ -1951,7 +1951,7 @@ export default function MagazineCoverView({
       data-curl-pointer-type={lastPointerType}
       data-submit-count={String(submitCount)}
       data-last-submit-source={lastSubmitSource}
-      className="min-h-screen w-full overflow-x-hidden jr-desk flex flex-col items-center justify-start sm:justify-center px-2.5 py-3 sm:px-6 sm:py-8"
+      className="mc-auth-stage min-h-screen w-full overflow-x-hidden jr-desk flex flex-col items-center justify-start sm:justify-center px-2.5 py-3 sm:px-6 sm:py-8"
     >
       {mockBanner ? <DevMockBanner text={mockBanner} /> : null}
 
@@ -1959,6 +1959,9 @@ export default function MagazineCoverView({
         <article
           ref={sheetRef}
           data-testid="auth-magazine-sheet"
+          data-measured-width={sheetMetrics.sheetWidth}
+          data-measured-height={sheetMetrics.sheetHeight}
+          data-measured-overlay-height={sheetMetrics.overlayHeight}
           data-cover-layout="full-bleed-single-cover"
           data-curl-progress={String(shownProgress)}
           data-curl-phase={effectivePhase}

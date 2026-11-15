@@ -2041,3 +2041,75 @@
   }
 }
 /* /mobile-full-bleed-journal */
+
+/* mobile-login-usable-viewport
+ * Narrow portrait only (below Tailwind sm, so 320 / 390 / 430).
+ * Sheet min-height is a numeric viewport floor: 100vh, then 100dvh minus
+ * the stage padding. height:auto lets in-flow content grow past that floor,
+ * so a short viewport, landscape, or keyboard scrolls the document.
+ * Intrinsic keywords are not arguments of calc/min/max/clamp.
+ * .mc-cover-leaf and .mc-leaf-front stay in normal flow. The front's base
+ * rule clips painting for the fold; a content min-height keeps that clip
+ * from dropping the form out of the sheet's intrinsic height.
+ * Login stays at the bottom of a tall sheet. The stage selector repeats
+ * .min-h-screen so this 100dvh wins over the later Tailwind utility.
+ * At 640px and up the sheet keeps its existing height. The toolbar is not hidden.
+ */
+@media (max-width: 639px) {
+  .mc-auth-stage.min-h-screen {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .mc-auth-stage > .mc-cover-perspective {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: 440px;
+    height: auto;
+  }
+
+  .mc-auth-stage .mc-cover-sheet {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    min-height: calc(100vh - 1.5rem);
+    min-height: calc(100dvh - max(0.75rem, env(safe-area-inset-top, 0px)) - max(0.75rem, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .mc-auth-stage .mc-cover-leaf,
+  .mc-auth-stage .mc-leaf-front {
+    position: relative;
+    flex: 1 0 auto;
+    height: auto;
+    min-height: min-content;
+  }
+
+  .mc-auth-stage .mc-upper-scenic-stage {
+    flex: 1 0 auto;
+    height: auto;
+    min-height: min-content;
+  }
+
+  .mc-auth-stage .mc-login-overlay {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: min-content;
+    margin-top: auto;
+  }
+}
+/* /mobile-login-usable-viewport */
