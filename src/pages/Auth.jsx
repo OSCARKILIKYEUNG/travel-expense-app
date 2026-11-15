@@ -13,11 +13,12 @@ import {
   usePrefersReducedMotion,
 } from '../motion/usePrefersReducedMotion';
 import {
+  ACCESSIBLE_CROSSFADE_MS,
   PAGE_TURN_ABORT_DURATION_MS,
   PAGE_TURN_DURATION_MS,
 } from '../components/auth/foldGeometry';
 
-export { PAGE_TURN_ABORT_DURATION_MS, PAGE_TURN_DURATION_MS };
+export { ACCESSIBLE_CROSSFADE_MS, PAGE_TURN_ABORT_DURATION_MS, PAGE_TURN_DURATION_MS };
 export const AUTH_PENDING_TIMEOUT_MS = 12000;
 
 export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}) {
@@ -164,6 +165,21 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     interactiveTurnRef.current = true;
     optimisticTurnRef.current = true;
     authSucceededRef.current = false;
+    // The finger already holds the real end pose. Do not wait out a peel.
+    turnFinishedRef.current = true;
+    setTurningPage(true);
+  }, [clearAbortTimer, clearTurnTimer]);
+
+  const startReducedManualTurn = useCallback(() => {
+    if (!mountedRef.current) return;
+    clearTurnTimer();
+    clearAbortTimer();
+    setTurnAborting(false);
+    interactiveTurnRef.current = true;
+    optimisticTurnRef.current = true;
+    authSucceededRef.current = false;
+    // Reduced motion keeps the leaf at rest and crossfades. A fast signIn
+    // must not navigate until that 200ms finishes.
     turnFinishedRef.current = false;
     setTurningPage(true);
     turnTimerRef.current = setTimeout(() => {
@@ -171,8 +187,19 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       if (!mountedRef.current || !interactiveTurnRef.current) return;
       turnFinishedRef.current = true;
       maybeNavigate();
-    }, PAGE_TURN_DURATION_MS);
+    }, ACCESSIBLE_CROSSFADE_MS);
   }, [clearAbortTimer, clearTurnTimer, maybeNavigate]);
+
+  const beginGestureTurn = useCallback(
+    (payload) => {
+      const crossfade = Boolean(
+        (payload && payload.reducedMotion) || reducedMotion || getPrefersReducedMotion(),
+      );
+      if (crossfade) startReducedManualTurn();
+      else startOptimisticTurn();
+    },
+    [reducedMotion, startOptimisticTurn, startReducedManualTurn],
+  );
 
   const startInteractiveSuccessTransition = useCallback(() => {
     if (!mountedRef.current) return;
@@ -189,7 +216,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       if (!mountedRef.current || !interactiveTurnRef.current) return;
       turnFinishedRef.current = true;
       maybeNavigate();
-    }, PAGE_TURN_DURATION_MS);
+    }, ACCESSIBLE_CROSSFADE_MS);
   }, [clearAbortTimer, clearTurnTimer, maybeNavigate]);
 
   const abortOptimisticTurn = useCallback(() => {
@@ -281,7 +308,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     setInlineSuccess(t('auth.cancelPendingNotice'));
   }, [abortOptimisticTurn, clearPendingTimer, submitting, oauthGoogleLoading, t]);
 
-  const handleDragThresholdCommit = () => {
+  const handleDragThresholdCommit = (payload) => {
     if (
       submitLockRef.current ||
       activeRequestIdRef.current !== null ||
@@ -299,7 +326,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
       setInlineError(t('auth.errorEmpty'));
       return false;
     }
-    startOptimisticTurn();
+    beginGestureTurn(payload);
     return true;
   };
 
@@ -331,7 +358,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     }
 
     if (isGestureCommit && !alreadyOptimistic) {
-      startOptimisticTurn();
+      beginGestureTurn(e);
     }
 
     // Deliberate reconciliation: if a prior client attempt was cancelled/timed out locally

@@ -5,12 +5,17 @@ import {
   FOLD_DRAG_START_X,
   FOLD_SPRING_MS,
   FOLD_CLOSE_MS,
+  cancelReleaseVelocity,
   clientXForFoldProgress,
   clampToBoundSpine,
   computeFoldGeometry,
   fingerToFold,
   foldGrabParts,
   foldEndPoint,
+  isManualFullEnd,
+  MANUAL_VIEWPORT_INSET_PX,
+  manualReachForPointer,
+  mapManualFold,
   SPINE_GUTTER_PX,
   progress,
   restCrease,
@@ -119,7 +124,7 @@ describe('foldGeometry', () => {
     expect(clampedUp.x).toBeGreaterThan(0);
   });
 
-  it('derives a commit clientX that reaches t>=0.46 from the jsdom fallback sheet', () => {
+  it('keeps the legacy fingerToFold clientX at t>=0.46, which is not the live release rule', () => {
     const W = 480;
     const H = 656;
     const dx = FOLD_COMMIT_CLIENT_X - FOLD_DRAG_START_X;
@@ -135,12 +140,14 @@ describe('foldGeometry', () => {
     expect(clientXForFoldProgress(0.5)).toBeLessThan(FOLD_COMMIT_CLIENT_X);
   });
 
-  it('commits on t>=0.46 or a leftward fling at t>=0.2', () => {
-    expect(shouldCommitFold({ t: 0.46, vx: 0 })).toBe(true);
-    expect(shouldCommitFold({ t: 0.459, vx: 0 })).toBe(false);
-    expect(shouldCommitFold({ t: 0.2, vx: -0.9 })).toBe(true);
-    expect(shouldCommitFold({ t: 0.2, vx: -0.89 })).toBe(false);
-    expect(shouldCommitFold({ t: 0.19, vx: -2 })).toBe(false);
+  it('does not commit on the old t>=0.46 line or a leftward fling', () => {
+    expect(shouldCommitFold({ t: 0.46, vx: 0 })).toBe(false);
+    expect(shouldCommitFold({ t: 1, vx: 0 })).toBe(false);
+    expect(shouldCommitFold({ t: 0.2, vx: -0.9 })).toBe(false);
+    expect(shouldCommitFold({ t: 0.2, vx: -2 })).toBe(false);
+    expect(shouldCommitFold({ t: 0.19, vx: -4 })).toBe(false);
+    expect(cancelReleaseVelocity({ vx: -1.4, vy: 0.2 }).x).toBe(0);
+    expect(cancelReleaseVelocity({ x: 0.4, y: -0.1 }).x).toBeCloseTo(0.4, 5);
   });
 
   it('opens to F_end and lifts the button arc above the chord', () => {
@@ -469,6 +476,197 @@ it('keeps the left spine bound and never starts a peel from the left', () => {
     for (const p of [...grab.creaseBand, ...grab.pad]) {
       expect(p.x).toBeGreaterThanOrEqual(SPINE_GUTTER_PX - 0.05);
     }
+  });
+
+  it('maps a 320 and 390 on-screen span onto the real end, and keeps that path reversible', () => {
+    const cases = [
+      { vw: 320, vh: 640, W: 304, H: 600, startX: 296, startY: 584 },
+      { vw: 390, vh: 844, W: 370, H: 800, startX: 360, startY: 780 },
+    ];
+    cases.forEach(({ vw, vh, W, H, startX, startY }) => {
+      const reach = manualReachForPointer({
+        startX,
+        startY,
+        viewportWidth: vw,
+        viewportHeight: vh,
+      });
+      expect(MANUAL_VIEWPORT_INSET_PX).toBeGreaterThanOrEqual(24);
+      expect(reach.targetX).toBeGreaterThanOrEqual(MANUAL_VIEWPORT_INSET_PX);
+      expect(reach.targetX).toBeLessThan(vw);
+      expect(reach.spanX).toBeGreaterThan(40);
+      expect(startY).toBeGreaterThanOrEqual(0);
+      expect(startY).toBeLessThan(vh);
+      const endPointerX = reach.targetX;
+      const endPointerY = Math.min(vh - 1, Math.max(0, startY));
+      expect(endPointerY).toBeLessThan(vh);
+
+      const still = mapManualFold({ W, H, dx: 0, dy: 0, reach });
+      const rest = restFoldPoint(W, H);
+      closeToPoint(still, rest, 0.05);
+      expect(isManualFullEnd(still, W, H)).toBe(false);
+
+      const old = fingerToFold({ W, H, dx: endPointerX - startX, dy: 0 });
+      expect(isManualFullEnd(old, W, H)).toBe(false);
+      expect(old.x).toBeGreaterThan(foldEndPoint(W, H).x + 20);
+
+      let prev = still;
+      for (let step = 1; step <= 8; step += 1) {
+        const u = step / 8;
+        const clientX = startX + (endPointerX - startX) * u;
+        const clientY = startY + (endPointerY - startY) * u;
+        expect(clientX).toBeGreaterThanOrEqual(0);
+        expect(clientX).toBeLessThan(vw);
+        expect(clientY).toBeGreaterThanOrEqual(0);
+        expect(clientY).toBeLessThan(vh);
+        const pose = mapManualFold({
+          W,
+          H,
+          dx: clientX - startX,
+          dy: clientY - startY,
+          reach,
+        });
+        const clamped = clampToBoundSpine(pose.x, pose.y, W, H);
+        expect(clamped.x).toBeCloseTo(pose.x, 4);
+        expect(clamped.y).toBeCloseTo(pose.y, 4);
+        expect(pose.x).toBeLessThan(prev.x - 1);
+        prev = pose;
+      }
+      const endPose = mapManualFold({
+        W,
+        H,
+        dx: endPointerX - startX,
+        dy: endPointerY - startY,
+        reach,
+      });
+      closeToPoint(endPose, foldEndPoint(W, H), 0.05);
+      expect(isManualFullEnd(endPose, W, H)).toBe(true);
+      expect(shouldCommitFold({ t: 0.46, vx: -2, pose: endPose, W, H })).toBe(true);
+
+      const midDx = (endPointerX - startX) * 0.45;
+      const flat = mapManualFold({ W, H, dx: midDx, dy: 0, reach });
+      const raised = mapManualFold({ W, H, dx: midDx, dy: -48, reach });
+      expect(isManualFullEnd(raised, W, H)).toBe(false);
+      expect(Math.abs(raised.y - flat.y)).toBeGreaterThan(8);
+      expect(raised.x).toBeGreaterThanOrEqual(flat.x - 0.02);
+      const raisedEnd = mapManualFold({
+        W,
+        H,
+        dx: endPointerX - startX,
+        dy: -48,
+        reach,
+      });
+      closeToPoint(raisedEnd, foldEndPoint(W, H), 0.05);
+      const raisedClamp = clampToBoundSpine(raised.x, raised.y, W, H);
+      expect(raisedClamp.x).toBeCloseTo(raised.x, 4);
+      expect(raisedClamp.y).toBeCloseTo(raised.y, 4);
+      expect(raised.x).toBeGreaterThan(foldEndPoint(W, H).x + 20);
+
+      const backed = mapManualFold({
+        W,
+        H,
+        dx: (endPointerX - startX) * 0.72,
+        dy: 0,
+        reach,
+      });
+      expect(isManualFullEnd(backed, W, H)).toBe(false);
+      expect(backed.x).toBeGreaterThan(endPose.x + 10);
+      expect(progress(W, backed.x)).toBeGreaterThan(0.2);
+
+      const held = mapManualFold({
+        W,
+        H,
+        dx: endPointerX - startX,
+        dy: endPointerY - startY,
+        origin: endPose,
+        reach,
+      });
+      closeToPoint(held, endPose, 0.05);
+    });
+  });
+
+  it('lands on foldEndPoint after a mid-close re-grab, including vertical input', () => {
+    const W = 350;
+    const H = 600;
+    const reach = manualReachForPointer({
+      startX: 350,
+      startY: 580,
+      viewportWidth: 390,
+      viewportHeight: 700,
+    });
+    expect(reach.targetX).toBeGreaterThanOrEqual(MANUAL_VIEWPORT_INSET_PX);
+    const opened = mapManualFold({
+      W,
+      H,
+      dx: -120,
+      dy: -80,
+      reach,
+    });
+    expect(isManualFullEnd(opened, W, H)).toBe(false);
+    const vel = cancelReleaseVelocity({ vx: -1, vy: -0.8 });
+    expect(vel.x).toBe(0);
+    const sprung = stepSpring({
+      pos: opened,
+      vel,
+      target: restFoldPoint(W, H),
+      dtMs: 32,
+    });
+    expect(isManualFullEnd(sprung.pos, W, H)).toBe(false);
+    const regrab = manualReachForPointer({
+      startX: 250,
+      startY: 500,
+      viewportWidth: 390,
+      viewportHeight: 700,
+    });
+    expect(regrab.targetX).toBeGreaterThanOrEqual(24);
+    expect(regrab.spanX).toBe(250 - regrab.targetX);
+    const still = mapManualFold({
+      W,
+      H,
+      dx: 0,
+      dy: 0,
+      origin: sprung.pos,
+      reach: regrab,
+    });
+    expect(still.x).toBeCloseTo(sprung.pos.x, 5);
+    expect(still.y).toBeCloseTo(sprung.pos.y, 5);
+
+    const partial = mapManualFold({
+      W,
+      H,
+      dx: -regrab.spanX * 0.4,
+      dy: -80,
+      origin: sprung.pos,
+      reach: regrab,
+    });
+    const partialFlat = mapManualFold({
+      W,
+      H,
+      dx: -regrab.spanX * 0.4,
+      dy: 0,
+      origin: sprung.pos,
+      reach: regrab,
+    });
+    expect(isManualFullEnd(partial, W, H)).toBe(false);
+    expect(partial.x).toBeGreaterThan(foldEndPoint(W, H).x + 20);
+    expect(partial.x).toBeGreaterThanOrEqual(partialFlat.x - 0.02);
+    expect(Math.abs(partial.y - partialFlat.y)).toBeGreaterThan(1);
+    const partialClamp = clampToBoundSpine(partial.x, partial.y, W, H);
+    expect(partialClamp.x).toBeCloseTo(partial.x, 4);
+    expect(partialClamp.y).toBeCloseTo(partial.y, 4);
+
+    const endPose = mapManualFold({
+      W,
+      H,
+      dx: -regrab.spanX,
+      dy: -40,
+      origin: sprung.pos,
+      reach: regrab,
+    });
+    expect(endPose.x).toBeCloseTo(-1.1 * W, 5);
+    expect(endPose.y).toBeCloseTo(H, 5);
+    expect(isManualFullEnd(endPose, W, H)).toBe(true);
+    expect(shouldCommitFold({ t: 0.46, vx: -2, pose: endPose, W, H })).toBe(true);
+    expect(shouldCommitFold({ t: 0.46, vx: -2, pose: partial, W, H })).toBe(false);
   });
 });
 

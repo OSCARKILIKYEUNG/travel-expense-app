@@ -18,6 +18,16 @@ export const FOLD_OPEN_BUTTON_MS = 740;
 /** Auth fallback timers stay at or above the longest settle. */
 export const PAGE_TURN_DURATION_MS = 800;
 export const PAGE_TURN_ABORT_DURATION_MS = 560;
+/** Accessible button / Enter / tap success. Same length as the leaf fade. */
+export const ACCESSIBLE_CROSSFADE_MS = 200;
+/**
+ * On-screen completion target, inset from the viewport edge.
+ * The finger can sit here under pointer capture. The sheet's hit-test
+ * spine gutter stays SPINE_GUTTER_PX and is not this inset.
+ */
+export const MANUAL_VIEWPORT_INSET_PX = 24;
+/** Release counts as the real end only inside this distance of foldEndPoint. */
+export const MANUAL_END_EPS_PX = 1.5;
 
 export const FOLD_DRAG_START_X = 360;
 export const FOLD_DRAG_START_Y = 640;
@@ -159,10 +169,151 @@ export const FOLD_COMMIT_CLIENT_X = Math.floor(
   clientXForFoldProgress(FOLD_COMMIT_T) - 1,
 );
 
-export function shouldCommitFold({ t = 0, vx = 0 } = {}) {
-  const progressT = Number.isFinite(t) ? t : 0;
-  const speed = Number.isFinite(vx) ? vx : 0;
-  return progressT >= FOLD_COMMIT_T || (speed <= FOLD_FLING_VX && progressT >= FOLD_FLING_T);
+/**
+ * On-screen span for one grab. `targetX` / `targetY` are inside the viewport.
+ * `spanX` is how far the pointer can still travel left without leaving it.
+ */
+export function manualReachForPointer({
+  startX = 0,
+  startY = 0,
+  viewportWidth = 0,
+  viewportHeight = 0,
+  inset = MANUAL_VIEWPORT_INSET_PX,
+} = {}) {
+  const sx = finiteOr(startX, 0);
+  const sy = finiteOr(startY, 0);
+  const vw = finiteOr(viewportWidth, 0);
+  const vh = finiteOr(viewportHeight, 0);
+  const pad = Number.isFinite(inset) && inset >= 0 ? inset : MANUAL_VIEWPORT_INSET_PX;
+  const targetX = vw > pad * 2 ? pad : 0;
+  const targetY = vh > pad * 2 ? vh - pad : sy;
+  const spanX = sx - targetX;
+  const spanY = targetY - sy;
+  return {
+    targetX,
+    targetY,
+    spanX: spanX > 0 ? spanX : 0,
+    spanY: spanY > 0 ? spanY : 0,
+    viewportWidth: vw,
+    viewportHeight: vh,
+  };
+}
+
+/**
+ * True only at the genuine finished pose F = (-1.1W, H).
+ * Progress saturates at 1 once F.x <= -W, which is still short of that pose,
+ * so a half turn or the old 0.46 line is not an end.
+ */
+export function isManualFullEnd(pose, W, H, eps = MANUAL_END_EPS_PX) {
+  const w = Number(W);
+  const h = Number(H);
+  if (!(w > 0) || !(h > 0) || !pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.y)) {
+    return false;
+  }
+  const end = foldEndPoint(w, h);
+  const slack = Number.isFinite(eps) ? eps : MANUAL_END_EPS_PX;
+  return pose.x <= end.x + slack && Math.abs(pose.y - end.y) <= slack;
+}
+
+/**
+ * Keep the mapped x. Vertical slack may move y onto the spine circles,
+ * and must not open the leaf further than that x.
+ */
+function constrainFoldY(x, y, W, H) {
+  const w = Number(W) > 0 ? Number(W) : 0;
+  const h = Number(H) > 0 ? Number(H) : 0;
+  let fy = finiteOr(y, h);
+  if (!(w > 0)) return { x: finiteOr(x, 0), y: fy };
+  const minY = 0.15 * h;
+  const maxY = 1.05 * h;
+  if (fy < minY) fy = minY;
+  if (fy > maxY) fy = maxY;
+  const fx = finiteOr(x, 0);
+  if (fx <= -w) return { x: fx, y: fy };
+  const footRoom = w * w - fx * fx;
+  if (footRoom >= 0) {
+    const limit = Math.sqrt(footRoom);
+    const lo = h - limit;
+    const hi = h + limit;
+    if (fy < lo) fy = lo;
+    if (fy > hi) fy = hi;
+  }
+  const rSpine = Math.hypot(w, h);
+  const spineRoom = rSpine * rSpine - fx * fx;
+  if (spineRoom >= 0) {
+    const limit = Math.sqrt(spineRoom);
+    if (fy > limit) fy = limit;
+    if (fy < -limit) fy = -limit;
+  }
+  return { x: fx, y: fy };
+}
+
+/**
+ * Continuous reversible map from the live grabbed pose to foldEndPoint.
+ * u = 0 is the pose under the finger. u = 1 is the on-screen target
+ * (`dx = -reach.spanX`) and is exactly foldEndPoint, including a re-grab
+ * that left the rest-to-end line and including nonzero dy.
+ * dy still shifts y on an incomplete turn, tapered to 0 at the end, and
+ * cannot move x further open. Dragging right closes along the same line.
+ */
+export function mapManualFold({ W, H, dx = 0, dy = 0, origin, reach } = {}) {
+  const w = Number(W) > 0 ? Number(W) : 0;
+  const h = Number(H) > 0 ? Number(H) : 0;
+  const rest = restFoldPoint(w, h);
+  const base = finitePoint(origin, rest);
+  const end = foldEndPoint(w, h);
+  const spanX = Number(reach?.spanX) > 0 ? Number(reach.spanX) : 0;
+  const gdx = finiteOr(dx, 0);
+  const gdy = finiteOr(dy, 0);
+  if (!(w > 0) || !(h > 0) || !(spanX > 0) || !(Number.isFinite(end.x) && Number.isFinite(end.y))) {
+    return fingerToFold({ W: w, H: h, dx: gdx, dy: gdy, origin: base });
+  }
+  const u = -gdx / spanX;
+  if (u >= 1) return { x: end.x, y: end.y };
+  const atEnd =
+    Math.abs(base.x - end.x) <= 0.05 && Math.abs(base.y - end.y) <= 0.05;
+  if (atEnd && u >= 0) return { x: end.x, y: end.y };
+  if (u === 0 && gdy === 0) return { x: base.x, y: base.y };
+
+  let x;
+  let y;
+  if (u >= 0) {
+    x = base.x + u * (end.x - base.x);
+    y = base.y + u * (end.y - base.y);
+  } else if (atEnd) {
+    const closeU = -u;
+    x = end.x + closeU * (rest.x - end.x);
+    y = end.y + closeU * (rest.y - end.y);
+  } else {
+    x = base.x + u * (end.x - base.x);
+    y = base.y + u * (end.y - base.y);
+  }
+  if (x > w) {
+    const vx = atEnd && u < 0 ? rest.x - end.x : end.x - base.x;
+    const vy = atEnd && u < 0 ? rest.y - end.y : end.y - base.y;
+    const x0 = atEnd && u < 0 ? end.x : base.x;
+    const y0 = atEnd && u < 0 ? end.y : base.y;
+    if (Math.abs(vx) > 1e-9) y = y0 + ((w - x0) / vx) * vy;
+    x = w;
+  }
+  const taper = u > 0 ? 1 - u : 1;
+  y += FINGER_GAIN_Y * gdy * taper;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: base.x, y: base.y };
+  const mappedX = x;
+  const pose = constrainFoldY(x, y, w, h);
+  if (pose.x < mappedX - 1e-6) return constrainFoldY(mappedX, y, w, h);
+  return pose;
+}
+
+/**
+ * Old t>=0.46 and left-fling rules never submit.
+ * A pose argument commits only at the real end point.
+ */
+export function shouldCommitFold({ t = 0, vx = 0, pose, W, H } = {}) {
+  void t;
+  void vx;
+  if (pose && Number(W) > 0 && Number(H) > 0) return isManualFullEnd(pose, W, H);
+  return false;
 }
 
 export function pointerVelocity(samples) {
@@ -193,6 +344,15 @@ export function toFoldVelocity(vel) {
     };
   }
   return { x: finiteOr(vel.x, 0), y: finiteOr(vel.y, 0) };
+}
+
+/** Drop velocity that would carry the leaf further open after a cancel. */
+export function cancelReleaseVelocity(vel) {
+  const v = toFoldVelocity(vel);
+  return {
+    x: v.x > 0 ? v.x : 0,
+    y: Number.isFinite(v.y) ? v.y : 0,
+  };
 }
 
 export function pushVelocitySample(samples, point, now, windowMs = FOLD_VELOCITY_WINDOW_MS) {

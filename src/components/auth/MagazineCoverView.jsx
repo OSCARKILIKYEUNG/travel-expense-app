@@ -3,14 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { palette } from '../../theme/tokens';
 import { DEFAULT_LOGIN_COVER_HEADLINE } from './loginCovers';
 import {
+  ACCESSIBLE_CROSSFADE_MS,
   FOLD_CLOSE_MS,
-  FOLD_COMMIT_T,
   FOLD_SPRING_MS,
+  cancelReleaseVelocity,
   computeFoldGeometry,
-  fingerToFold,
   finitePoint,
   foldEndPoint,
   foldGrabParts,
+  isManualFullEnd,
+  manualReachForPointer,
+  mapManualFold,
   openDurationFor,
   pointsAttr,
   polygonCss,
@@ -19,12 +22,11 @@ import {
   pointerVelocity,
   restFoldPoint,
   sampleOpenPose,
-  shouldCommitFold,
   stepSpring,
   toFoldVelocity,
 } from './foldGeometry';
 
-export const CURL_COMMIT_THRESHOLD = 0.55;
+export const CURL_COMMIT_THRESHOLD = 1;
 export const CURL_REST_AMOUNT = 0.12;
 export const DRAG_INTENT_DEADZONE_PX = 6;
 export const DEFAULT_SHEET_WIDTH_PX = 480;
@@ -35,8 +37,8 @@ export const DEFAULT_SHEET_HEIGHT_PX = 656;
  * from gesture progress (0..1).
  * - At rest (progress = 0), the latent curl size stays CURL_REST_AMOUNT.
  *   The login view does not paint that cue; an active fold uses foldGeometry.
- * - Under prefers-reduced-motion, skips interpolated fold movement while
- *   preserving logical progress for threshold evaluation.
+ * - Under prefers-reduced-motion, skips interpolated fold movement.
+ *   Logical progress still has to reach the full end; the old 0.55 line does not submit.
  */
 export function computeCurlGeometry(
   progress = 0,
@@ -661,6 +663,24 @@ export default function MagazineCoverView({
     scheduleEngineFrame(gen, frame);
   };
 
+  const beginAccessibleFade = () => {
+    cancelEngine();
+    const gen = engineRef.current.gen;
+    const eng = engineRef.current;
+    eng.mode = 'fade';
+    eng.emitted = false;
+    eng.timer = setTimeout(() => {
+      if (!mountedRef.current || engineRef.current.gen !== gen || engineRef.current.mode !== 'fade') {
+        return;
+      }
+      engineRef.current.timer = 0;
+      engineRef.current.mode = 'idle';
+      emitTurnEnd();
+    }, ACCESSIBLE_CROSSFADE_MS);
+  };
+
+  // Sampled open curve. Gesture release and the accessible path must not call
+  // this: an opening frame is not allowed to finish a partial turn.
   const beginOpen = ({ arc }) => {
     const { W, H } = sheetSizeRef.current;
     const from = finitePoint(poseRef.current, restFoldPoint(W, H));
@@ -701,7 +721,7 @@ export default function MagazineCoverView({
     const { W, H } = sheetSizeRef.current;
     const target = restFoldPoint(W, H);
     let pos = finitePoint(poseRef.current, target);
-    let velocity = toFoldVelocity(vel != null ? vel : engineRef.current.vel);
+    let velocity = cancelReleaseVelocity(vel != null ? vel : engineRef.current.vel);
     beginSettle({
       kind: notify ? 'closing' : 'spring',
       duration,
@@ -712,17 +732,22 @@ export default function MagazineCoverView({
       stepFrame: (_elapsed, dt) => {
         const size = sheetSizeRef.current;
         const nextTarget = restFoldPoint(size.W, size.H);
+        const prevX = pos.x;
         const stepped = stepSpring({
           pos,
           vel: velocity,
           target: nextTarget,
           dtMs: dt > 0 ? dt : 16,
         });
-        pos = finitePoint(stepped.pos, nextTarget);
-        velocity = {
-          x: Number.isFinite(stepped.vel?.x) ? stepped.vel.x : 0,
-          y: Number.isFinite(stepped.vel?.y) ? stepped.vel.y : 0,
-        };
+        let next = finitePoint(stepped.pos, nextTarget);
+        let vx = Number.isFinite(stepped.vel?.x) ? stepped.vel.x : 0;
+        const vy = Number.isFinite(stepped.vel?.y) ? stepped.vel.y : 0;
+        if (next.x < prevX) {
+          next = { x: prevX, y: next.y };
+          vx = 0;
+        }
+        pos = next;
+        velocity = { x: vx > 0 ? vx : 0, y: vy };
         return { pose: pos, vel: velocity, done: Boolean(stepped.settled) };
       },
     });
@@ -748,12 +773,9 @@ export default function MagazineCoverView({
         }
         setCurlPhase('turning');
         engineRef.current.emitted = false;
-        if (!reducedMotion) {
-          const { W, H } = sheetSizeRef.current;
-          const rest = restFoldPoint(W, H);
-          const pose = poseRef.current;
-          const nearRest = Math.hypot(pose.x - rest.x, pose.y - rest.y) < 2;
-          beginOpen({ arc: nearRest });
+        const { W, H } = sheetSizeRef.current;
+        if (!isManualFullEnd(poseRef.current, W, H)) {
+          beginAccessibleFade();
         }
       }
       return;
@@ -918,12 +940,13 @@ export default function MagazineCoverView({
     const dx = Number(clientX) - dragSessionRef.current.startX;
     const dy = Number(clientY) - dragSessionRef.current.startY;
     const pose = finitePoint(
-      fingerToFold({
+      mapManualFold({
         W,
         H,
         dx,
         dy,
         origin: dragSessionRef.current.poseAtGrab,
+        reach: dragSessionRef.current.reach,
       }),
       restFoldPoint(W, H),
     );
@@ -969,7 +992,7 @@ export default function MagazineCoverView({
       setCurlPhase('idle');
       return;
     }
-    const releaseVel = pointerVelocity(dragSessionRef.current.samples);
+    const releaseVel = cancelReleaseVelocity(pointerVelocity(dragSessionRef.current.samples));
     setCurlPhase('springback');
     beginSpringToRest({
       notify: false,
@@ -1007,6 +1030,8 @@ export default function MagazineCoverView({
     const { W, H } = sheetSizeRef.current;
     const restPose = restFoldPoint(W, H);
     const poseAtGrab = grabbingSettleEarly ? finitePoint(poseRef.current, restPose) : null;
+    const startX = Number(clientX || 0);
+    const startY = Number(clientY || 0);
     cancelEngine();
     clearSuppressNextClick();
     cancelledPointerIdRef.current = null;
@@ -1017,13 +1042,19 @@ export default function MagazineCoverView({
       source,
       pointerId,
       pointerType: pointerType || 'mouse',
-      startX: Number(clientX || 0),
-      startY: Number(clientY || 0),
+      startX,
+      startY,
       hasDragIntent: false,
       progress: reducedMotionRef.current ? 0 : dragSessionRef.current.progress,
       samples: [],
       poseAtGrab,
       captureOn,
+      reach: manualReachForPointer({
+        startX,
+        startY,
+        viewportWidth: typeof window !== 'undefined' ? window.innerWidth : 0,
+        viewportHeight: typeof window !== 'undefined' ? window.innerHeight : 0,
+      }),
     };
     setLastPointerType(pointerType || 'mouse');
     if (reducedMotionRef.current) {
@@ -1094,20 +1125,19 @@ export default function MagazineCoverView({
       return;
     }
 
-    // Genuine drag: finger fold can reverse; reduced motion keeps the legacy monotone progress.
+    // Genuine drag. Release submits only at the real end pose. Reduced motion
+    // uses logical progress and the same full-end rule, so 0.55 cannot commit.
     let finalProgress = dragSessionRef.current.progress;
-    let releaseVx = 0;
+    let commit = false;
     if (!reducedMotionRef.current) {
       if (clientX !== undefined && clientY !== undefined) {
         finalProgress = applyFingerPose(clientX, clientY);
       }
-      const releasePointer = pointerVelocity(dragSessionRef.current.samples);
-      releaseVx = Number.isFinite(releasePointer.vx) ? releasePointer.vx : 0;
+      const { W, H } = sheetSizeRef.current;
+      commit = isManualFullEnd(poseRef.current, W, H);
     } else if (clientX !== undefined && clientY !== undefined) {
-      finalProgress = Math.max(
-        dragSessionRef.current.progress,
-        computeProgressFromPoint(clientX, clientY),
-      );
+      finalProgress = computeProgressFromPoint(clientX, clientY);
+      commit = finalProgress >= CURL_COMMIT_THRESHOLD - 1e-6;
     }
 
     dragSessionRef.current.active = false;
@@ -1115,11 +1145,6 @@ export default function MagazineCoverView({
     dragSessionRef.current.pointerId = null;
     dragSessionRef.current.progress = finalProgress;
     armSuppressNextClick();
-
-    const commit =
-      !reducedMotionRef.current
-        ? shouldCommitFold({ t: finalProgress, vx: releaseVx })
-        : finalProgress >= CURL_COMMIT_THRESHOLD;
     if (commit) {
       const submitEpoch = advanceInteractionEpoch();
       const payload = {
@@ -1128,6 +1153,7 @@ export default function MagazineCoverView({
         pointerType: pType,
         progress: finalProgress,
         interactionEpoch: submitEpoch,
+        reducedMotion: Boolean(reducedMotionRef.current),
       };
       let turnRequested = false;
       if (typeof onDragThresholdCommit === 'function') {
@@ -1723,8 +1749,22 @@ export default function MagazineCoverView({
     sheetWidth: sheetMetrics.sheetWidth,
     sheetHeight: sheetMetrics.sheetHeight,
   });
+  const atFullEnd = isManualFullEnd(
+    livePose,
+    sheetMetrics.sheetWidth,
+    sheetMetrics.sheetHeight,
+  );
+  const gestureHold = Boolean(
+    !reducedMotion &&
+      atFullEnd &&
+      (turningPage ||
+        effectivePhase === 'turning' ||
+        effectivePhase === 'awaiting-auth'),
+  );
+  const accessibleFade = Boolean(turningPage && !gestureHold);
   const isCurlOpening =
     !reducedMotion &&
+    !accessibleFade &&
     (effectivePhase === 'dragging' ||
       effectivePhase === 'awaiting-auth' ||
       effectivePhase === 'springback' ||
@@ -1742,8 +1782,8 @@ export default function MagazineCoverView({
   const shownProgress = Number.isFinite(rawShown) ? Number(Number(rawShown).toFixed(3)) : 0;
   const shownCutX = fold ? fold.cutX : geom.cutX;
   const shownCutY = fold ? fold.cutY : geom.cutY;
-  const thresholdMet = fold ? fold.t >= FOLD_COMMIT_T : geom.thresholdMet;
-  const heldOpen = Boolean(fold && fold.frontPoly.length < 3);
+  const thresholdMet = fold ? atFullEnd : geom.thresholdMet;
+  const heldOpen = gestureHold;
   heldOpenRef.current = heldOpen;
   const engineModeNow = engineRef.current.mode;
   const settleLive =
@@ -1775,7 +1815,7 @@ export default function MagazineCoverView({
   const frontClip = fold ? polygonCss(fold.frontPoly) : '';
 
   const sheetTurnClass = turningPage
-    ? reducedMotion
+    ? accessibleFade || reducedMotion
       ? 'mc-cover-sheet mc-cover-sheet--fade'
       : 'mc-cover-sheet mc-cover-sheet--turning'
     : effectivePhase === 'turn-abort'
@@ -1802,6 +1842,8 @@ export default function MagazineCoverView({
       data-curl-progress={String(shownProgress)}
       data-curl-phase={effectivePhase}
       data-curl-threshold-met={String(thresholdMet)}
+      data-manual-end={String(atFullEnd)}
+      data-turn-visual={turningPage ? (accessibleFade || reducedMotion ? 'fade' : 'hold') : 'none'}
       data-curl-pointer-type={lastPointerType}
       data-submit-count={String(submitCount)}
       data-last-submit-source={lastSubmitSource}
@@ -1818,6 +1860,8 @@ export default function MagazineCoverView({
           data-curl-phase={effectivePhase}
           data-cut-x-pct={String(shownCutX)}
           data-cut-y-pct={String(shownCutY)}
+          data-manual-end={String(atFullEnd)}
+          data-turn-visual={turningPage ? (accessibleFade || reducedMotion ? 'fade' : 'hold') : 'none'}
           data-fold-x={fold && Number.isFinite(livePose.x) ? livePose.x.toFixed(2) : undefined}
           data-fold-y={fold && Number.isFinite(livePose.y) ? livePose.y.toFixed(2) : undefined}
           className={`${sheetTurnClass} w-full flex flex-col justify-between`}
