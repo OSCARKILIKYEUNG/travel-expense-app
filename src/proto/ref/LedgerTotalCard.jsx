@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { WashiLabel } from '../../journal/art/decor.jsx';
 import { budgetRemaining } from './homeCost';
-import { fmtHKD } from './refLogic';
+import { fmtHKD, fmtJPY } from './refLogic';
 
 function FilteredStamp({ label }) {
   return (
@@ -149,12 +149,21 @@ function BudgetBlock({ budget, filtered, t }) {
 /**
  * Glanceable 帳本 (Ledger) grid-paper total card with WashiLabel and dotted route progress line.
  */
-export default function LedgerTotalCard({ summary }) {
+export default function LedgerTotalCard({
+  summary,
+  tripCurrency = 'JPY',
+  accountingCurrency = 'HKD',
+}) {
   const { t } = useTranslation();
   const hkd = summary?.hkd ?? 0;
   const count = summary?.count ?? 0;
   const filtered = Boolean(summary?.filtered);
   const budget = summary?.budget ?? null;
+  const tripCode = String(tripCurrency || '').trim().toUpperCase();
+  const accountingCode = String(accountingCurrency || '').trim().toUpperCase();
+  const roundedJpy = Math.round(Number(summary?.jpy) || 0);
+  const showOriginal = tripCode === 'JPY' && accountingCode !== 'JPY' && roundedJpy > 0;
+  const originalLabel = showOriginal ? fmtJPY(summary?.jpy) : '';
 
   const amountLabel = fmtHKD(hkd);
   const safeCount = Number(count) || 0;
@@ -192,6 +201,20 @@ export default function LedgerTotalCard({ summary }) {
           {countLabel}
         </span>
       </div>
+
+      {showOriginal && (
+        <p
+          data-testid="ledger-original-total"
+          className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 font-display text-xs tabular-nums"
+        >
+          <span className="meta-quiet whitespace-nowrap font-medium text-ink-muted">
+            {t('notebook.home.costDetailForeign')}
+          </span>
+          <span className="font-money story-critical whitespace-nowrap font-bold text-ink">
+            {originalLabel}
+          </span>
+        </p>
+      )}
 
       {budget ? <BudgetBlock budget={budget} filtered={filtered} t={t} /> : null}
     </section>

@@ -327,7 +327,12 @@ export default function Ledger({
             )}
           </div>
 
-          <LedgerTotalCard summary={summary} tripName={trip.name} />
+          <LedgerTotalCard
+            summary={summary}
+            tripName={trip.name}
+            tripCurrency={tripCurrency}
+            accountingCurrency={accountingCurrency}
+          />
 
           {hint && (
             <div className="relative min-w-0 pt-0.5">

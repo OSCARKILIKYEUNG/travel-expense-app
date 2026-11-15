@@ -147,7 +147,8 @@ describe('legacySeed — ?proto=notebook&seed=legacy resolver and fixture shape'
     );
     expect(defaultHtml).toContain('HKD $11,222');
     expect(defaultHtml).toContain('17 筆');
-    expect(defaultHtml).not.toContain('213,352');
+    expect(defaultHtml).toContain('data-testid="ledger-original-total"');
+    expect(defaultHtml).toContain('JPY ¥213,352');
   });
 });
 

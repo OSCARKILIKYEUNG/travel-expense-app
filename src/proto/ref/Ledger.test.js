@@ -772,10 +772,12 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(totalCard.textContent).toContain('旅費總計');
     expect(totalAmount.textContent).toBe('HKD $5,397');
     expect(totalCard.getAttribute('aria-label')).toContain('HKD $5,397');
-    // Count only beside total (no JPY summary line)
+    // Count stays beside the accounting total. The JPY amount is a separate line.
     expect(totalSub.textContent).toBe('1 筆');
     expect(totalSub.textContent).not.toContain('103,110');
     expect(totalAmount.parentElement).toBe(totalSub.parentElement);
+    expect(screen.getByTestId('ledger-original-total').textContent).toContain('原幣');
+    expect(screen.getByTestId('ledger-original-total').textContent).toContain('JPY ¥103,110');
 
     // Filtered state shows 篩選總計 + 已篩選 stamp
     fireEvent.click(screen.getByRole('button', { name: 'Oscar (1)' }));
@@ -835,6 +837,8 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     const { unmount: uEn } = renderLedger(budgetTrip);
     expect(screen.getByTestId('ledger-total-card').textContent).toContain('Total spent');
     expect(screen.getByTestId('ledger-total-sub').textContent).toBe('1 items');
+    expect(screen.getByTestId('ledger-original-total').textContent).toContain('Original currency');
+    expect(screen.getByTestId('ledger-original-total').textContent).toContain('JPY ¥103,110');
     expect(screen.getByTestId('ledger-budget-pct').textContent).toBe('Used 36%');
     expect(screen.getByTestId('ledger-budget-remaining').textContent).toBe('HKD $9,603 left');
     fireEvent.click(screen.getByRole('button', { name: 'Oscar (1)' }));
