@@ -6,6 +6,7 @@ import { useApp } from '../store/AppContext';
 import { normalizeUiLanguage } from '../utils/locale';
 import { createSyncToastLimiter } from '../utils/syncNotice';
 import { getTripCurrencyCode } from '../utils/tripMoney';
+import { applyCalendarImport } from './importCalendar';
 import NotebookApp from './NotebookApp';
 import { buildAccountView } from './accountView';
 import {
@@ -39,6 +40,8 @@ export default function NotebookShell() {
     createTrip,
     switchTrip,
     updateTrip,
+    resetAccountTrialData,
+    commitCalendarImport,
     expenses,
     setExpenses,
     addExpense,
@@ -279,6 +282,24 @@ export default function NotebookShell() {
     [currentTripId, currentTrip, updateTrip],
   );
 
+  const handleApplyCalendarImport = useCallback(
+    (payload) => {
+      if (!payload?.preview) return null;
+      // Rebuild here (mergeDayPatch) so confirm, not file pick, is what persists.
+      const applied = applyCalendarImport({
+        preview: payload.preview,
+        trip: currentTrip || null,
+        trips: Array.isArray(trips) ? trips : [],
+        now: new Date(),
+        setDates: Boolean(payload.setDates),
+        createTrip: Boolean(payload.createTrip),
+        newTripName: payload.newTrip?.name || '新旅程',
+      });
+      return commitCalendarImport(applied);
+    },
+    [currentTrip, trips, commitCalendarImport],
+  );
+
   const handleUpdateTrip = useCallback(
     (updaterOrNext) => {
       if (!currentTripId) return;
@@ -406,6 +427,9 @@ export default function NotebookShell() {
       onDeleteExpense={handleDeleteExpense}
       onUndo={handleUndo}
       onUpdateTrip={handleUpdateTrip}
+      calendarSource={{ trip: currentTrip || null, trips: Array.isArray(trips) ? trips : [] }}
+      onApplyCalendarImport={handleApplyCalendarImport}
+      onResetAccountTrialData={resetAccountTrialData}
       onSaveDates={handleSaveDates}
       onSaveBudget={handleSaveBudget}
       onAddPerson={handleAddPerson}

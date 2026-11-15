@@ -214,6 +214,9 @@ export default function NotebookApp({
   updateSettings,
   account,
   onSignOut,
+  calendarSource,
+  onApplyCalendarImport,
+  onResetAccountTrialData,
 } = {}) {
   const { t, i18n } = useTranslation();
   const isControlled = controlledTrip !== undefined;
@@ -1265,6 +1268,9 @@ export default function NotebookApp({
         updateSettings={updateSettings}
         account={account}
         onSignOut={onSignOut}
+        calendarSource={calendarSource}
+        onApplyCalendarImport={onApplyCalendarImport}
+        onResetAccountTrialData={onResetAccountTrialData}
       />
     );
   } else {

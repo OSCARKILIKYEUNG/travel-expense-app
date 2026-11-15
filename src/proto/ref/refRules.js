@@ -21,17 +21,22 @@ export function isValidISODate(str) {
 }
 
 /**
- * P0-1: Parse raw HH:MM input into zero-padded 'HH:MM' (00:00..23:59).
+ * Parse raw clock input into zero-padded 'HH:MM' (00:00..23:59).
+ * Accepts `H:mm`, `HH:mm`, and `HH:mm:ss` (seconds are checked, then dropped).
  * Rejects corrupted strings like '09:15:0030', '25:00', '12:60', '', 'abc' -> null.
  */
 export function parseHHMM(raw) {
   if (raw == null) return null;
   const s = String(raw).trim();
-  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  const m = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
   if (!m) return null;
   const hh = Number(m[1]);
   const mm = Number(m[2]);
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  if (m[3] !== undefined) {
+    const ss = Number(m[3]);
+    if (ss < 0 || ss > 59) return null;
+  }
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 

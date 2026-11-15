@@ -220,6 +220,42 @@ function applyAccountingRatesAfterChange(trip, prevCode, prevIsCustom) {
   }
 }
 
+function stampFrom(now) {
+  if (now instanceof Date && !Number.isNaN(now.getTime())) return now;
+  if (typeof now === 'number' && Number.isFinite(now)) return new Date(now);
+  if (typeof now === 'string' && now) {
+    const parsed = new Date(now);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
+/**
+ * Empty JPY trip / HKD accounting shell, matching createTrip's rate init
+ * without copying people, expenses, days, or dates from an existing trip.
+ */
+function buildJpyHkdShell({ name, now, idSuffix }) {
+  const stamp = stampFrom(now);
+  const accountingCurrency = 'HKD';
+  return {
+    id: `trip-${stamp.getTime()}${idSuffix ? `-${idSuffix}` : ''}`,
+    name: String(name || '新旅程').trim() || '新旅程',
+    tripCurrency: 'JPY',
+    tripCurrencyIsCustom: false,
+    customTripCurrencyCodes: [],
+    accountingCurrency,
+    accountingIsCustom: false,
+    customAccountingCodes: [],
+    exchangeRates: rebaseRates({ ...DEFAULT_EXCHANGE_RATES }, accountingCurrency),
+    exchangeRatesUpdatedAt: null,
+    manualRateCodes: [],
+    exchangeRateUserEditedCodes: [],
+    createdAt: stamp.toISOString(),
+    expenses: [],
+    settings: { people: ['共同'] },
+  };
+}
+
 const DataService = {
   loadTripsData() {
     const stored = readLogical(KEYS.TRIPS);
@@ -745,6 +781,54 @@ const DataService = {
       this.saveExpenses(cur.expenses);
     }
     return { droppedSettlements };
+  },
+
+  /**
+   * Replace every trip with one blank JPY/HKD trip (no dates, days, expenses,
+   * budget, or settlements) and persist people/expenses so presets cannot return.
+   * Does not touch auth or app settings. Bypasses deleteTrip's last-trip guard.
+   *
+   * @param {{ now?: Date | number | string }} [options]
+   */
+  resetAccountTrialData({ now } = {}) {
+    const trip = buildJpyHkdShell({ name: '新旅程', now, idSuffix: 'blank' });
+    const data = { trips: [trip], currentTripId: trip.id };
+    this.saveTripsData(data);
+    const stamp = stampFrom(now);
+    if (now != null) {
+      const iso = stamp.toISOString();
+      data.updatedAt = iso;
+      writeLogical(KEYS.TRIPS, data);
+      markLocalUpdated(iso);
+    }
+    this.savePeople(['共同']);
+    this.saveExpenses([]);
+    if (now != null) {
+      const iso = stamp.toISOString();
+      writeLogical(KEYS.EXPENSES_UPDATED_AT, iso);
+      markLocalUpdated(iso);
+    }
+    return this.loadTripsData();
+  },
+
+  /**
+   * Append one empty JPY/HKD trip for a calendar import when the account has no trips.
+   * People are exactly ['共同'] — demo people are not copied. Does not toast.
+   *
+   * @param {{ name?: string, startDate?: string, endDate?: string, now?: Date | number | string }} [options]
+   */
+  createEmptyAccountTrip({ name = '新旅程', startDate, endDate, now } = {}) {
+    const trip = buildJpyHkdShell({ name, now, idSuffix: 'import' });
+    if (startDate) trip.startDate = startDate;
+    if (endDate) trip.endDate = endDate;
+    const tripsData = this.loadTripsData();
+    if (!Array.isArray(tripsData.trips)) tripsData.trips = [];
+    tripsData.trips.push(trip);
+    tripsData.currentTripId = trip.id;
+    this.saveTripsData(tripsData);
+    this.savePeople(['共同']);
+    this.saveExpenses([]);
+    return trip;
   },
 
   /**

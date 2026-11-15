@@ -478,7 +478,7 @@ function AppProviderInner({ children, userId }) {
     return { ok };
   }, [currentTripId, notify]);
 
-  const updateTrip = useCallback((tripId, patch) => {
+  const updateTrip = useCallback((tripId, patch, options) => {
     const data = DataService.loadTripsData();
     const trip = data.trips.find((t) => t.id === tripId);
     if (!trip) return;
@@ -491,7 +491,7 @@ function AppProviderInner({ children, userId }) {
     const updated = nextData.trips.find((t) => t.id === tripId);
     if (updated) mergeSavedCurrencyListsFromTrip(updated);
     setTrips(DataService.loadTripsData().trips);
-    notify(i18n.t('toast.tripUpdated'));
+    if (!options?.silent) notify(i18n.t('toast.tripUpdated'));
   }, [notify, mergeSavedCurrencyListsFromTrip]);
 
   const addExpense = useCallback((expense) => {
@@ -632,6 +632,45 @@ function AppProviderInner({ children, userId }) {
     [settings.customExpenseCategories, updateSettings, notify],
   );
 
+  const resetAccountTrialData = useCallback((options) => {
+    const data = DataService.resetAccountTrialData(options || {});
+    setTrips(data.trips || []);
+    setCurrentTripId(data.currentTripId || data.trips?.[0]?.id || null);
+    setExpensesState([]);
+    setPeopleState(['共同']);
+    setFilterPerson(null);
+    return data;
+  }, []);
+
+  const commitCalendarImport = useCallback((applied) => {
+    if (!applied) return null;
+    let tripId = currentTripId;
+    if (applied.newTrip) {
+      const created = DataService.createEmptyAccountTrip({
+        name: applied.newTrip.name,
+        startDate: applied.newTrip.startDate,
+        endDate: applied.newTrip.endDate,
+      });
+      tripId = created.id;
+      setPeopleState(['共同']);
+      setExpensesState([]);
+      setFilterPerson(null);
+      setCurrentTripId(created.id);
+    }
+    const patch = {};
+    if (applied.days) patch.days = applied.days;
+    if (applied.applyDates && applied.startDate) {
+      patch.startDate = applied.startDate;
+      patch.endDate = applied.endDate;
+    }
+    if (tripId && Object.keys(patch).length > 0) {
+      updateTrip(tripId, patch, { silent: true });
+    } else if (applied.newTrip) {
+      setTrips(DataService.loadTripsData().trips || []);
+    }
+    return applied.counts;
+  }, [currentTripId, updateTrip]);
+
   const tripCurrency = getTripCurrencyCode(currentTrip);
 
   const defaultAssignee = useMemo(() => getDefaultAssignee(people), [people]);
@@ -642,6 +681,7 @@ function AppProviderInner({ children, userId }) {
     people, setPeople,
     trips, currentTripId, currentTrip,
     createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
+    resetAccountTrialData, commitCalendarImport,
     expenses, setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     addSettlement, updateSettlement, removeSettlement,
     resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,
@@ -658,6 +698,7 @@ function AppProviderInner({ children, userId }) {
     expenses, filterPerson, toast, exchangeRates, homeCurrencyCode, tripCurrency,
     defaultAssignee,
     updateSettings, refreshBilling, applyBillingSnapshot, setPeople, createTrip, switchTrip, deleteTrip, updateTrip, renamePerson, removePersonWithReassign,
+    resetAccountTrialData, commitCalendarImport,
     setExpenses, addExpense, addExpenses, updateExpense, removeExpense,
     addSettlement, updateSettlement, removeSettlement,
     resolveDuplicateConflicts, undoLastReplace, dismissExpenseDuplicate, replaceUndo,

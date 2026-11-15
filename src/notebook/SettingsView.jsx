@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { WashiLabel } from '../journal/art/decor.jsx';
@@ -22,6 +22,12 @@ import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeDate } from '../utils/duplicates';
 import { normalizeUiLanguage } from '../utils/locale';
 import { tripCurrencyOptions } from '../utils/tripMoney';
+import {
+  CALENDAR_IMPORT_ACCEPT,
+  applyCalendarImport,
+  parseCalendarFile,
+  previewCalendarImport,
+} from './importCalendar';
 import { DEFAULT_REF_RATE } from './tripRate';
 
 function downloadTextFile({ filename, text }) {
@@ -321,6 +327,9 @@ export default function SettingsView({
   onSignOut,
   initialSigningOut = false,
   initialShowAddTrip = false,
+  calendarSource = null,
+  onApplyCalendarImport,
+  onResetAccountTrialData,
 }) {
   const { t, i18n: activeI18n } = useTranslation();
   const resolvedUiLanguage = normalizeUiLanguage(propUiLanguage ?? activeI18n.language);
@@ -350,6 +359,12 @@ export default function SettingsView({
   const [startDateInput, setStartDateInput] = useState(() => trip.startDate || '');
   const [endDateInput, setEndDateInput] = useState(() => trip.endDate || '');
   const [datesErrorKey, setDatesErrorKey] = useState('');
+  const fileInputRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importErrorKey, setImportErrorKey] = useState('');
+  const [setDatesOptIn, setSetDatesOptIn] = useState(true);
+  const [createTripOptIn, setCreateTripOptIn] = useState(true);
+  const [resetArmed, setResetArmed] = useState(false);
 
   useEffect(() => {
     setRateInput(formatRateInputString(currentRate));
@@ -579,6 +594,106 @@ export default function SettingsView({
     else onToast?.(t('notebook.toast.reportCopyFailed'));
   };
 
+  const importTrip = calendarSource ? calendarSource.trip || null : trip;
+  const importTrips =
+    calendarSource && Array.isArray(calendarSource.trips) ? calendarSource.trips : trips;
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    setResetArmed(false);
+    try {
+      const parsed = await parseCalendarFile(file);
+      if (!parsed.ok) {
+        setImportPreview(null);
+        const key = parsed.error === 'format' ? 'export.importFormatError' : 'export.importFailed';
+        setImportErrorKey(key);
+        onToast?.(t(key));
+        return;
+      }
+      const preview = previewCalendarImport({
+        records: parsed.records,
+        trip: importTrip,
+        trips: importTrips,
+      });
+      setImportErrorKey('');
+      setSetDatesOptIn(true);
+      setCreateTripOptIn(true);
+      setImportPreview(preview);
+    } catch {
+      setImportPreview(null);
+      setImportErrorKey('export.importFailed');
+      onToast?.(t('export.importFailed'));
+    }
+  };
+
+  const handleImportCancel = () => {
+    setImportPreview(null);
+    setImportErrorKey('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleImportConfirm = () => {
+    if (!importPreview) return;
+    const setDates = Boolean(importPreview.offerSetDates && setDatesOptIn);
+    const wantCreate = Boolean(importPreview.offerCreateTrip && createTripOptIn);
+    if (importPreview.offerCreateTrip && !wantCreate) return;
+    const applied = applyCalendarImport({
+      preview: importPreview,
+      trip: importTrip,
+      trips: importTrips,
+      now: new Date(),
+      setDates,
+      createTrip: wantCreate,
+      newTripName: t('notebook.settings.importNewTripName'),
+    });
+    const payload = {
+      preview: importPreview,
+      setDates,
+      createTrip: wantCreate,
+      days: applied.days,
+      applyDates: applied.applyDates,
+      startDate: applied.startDate,
+      endDate: applied.endDate,
+      newTrip: applied.newTrip,
+      counts: applied.counts,
+    };
+    let counts = applied.counts;
+    if (typeof onApplyCalendarImport === 'function') {
+      const returned = onApplyCalendarImport(payload);
+      if (returned && typeof returned.added === 'number') counts = returned;
+    } else if (typeof onUpdateTrip === 'function' && (applied.days || applied.applyDates)) {
+      onUpdateTrip((current) => ({
+        ...current,
+        ...(applied.days ? { days: applied.days } : {}),
+        ...(applied.applyDates
+          ? { startDate: applied.startDate, endDate: applied.endDate }
+          : {}),
+      }));
+    }
+    onToast?.(
+      t('notebook.toast.importCalendarOk', {
+        added: counts.added,
+        skipped: counts.skipped,
+        outside: counts.outside,
+        invalid: counts.invalid,
+        duplicate: counts.duplicate,
+        days: counts.daysUpdated,
+      }),
+    );
+    setImportPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleResetConfirm = () => {
+    if (typeof onResetAccountTrialData === 'function') {
+      onResetAccountTrialData();
+    }
+    setResetArmed(false);
+    setImportPreview(null);
+    onToast?.(t('notebook.toast.resetAccountOk'));
+  };
+
   const settingsTitle = t('settings.title');
   const settingsTitleScript = t('notebook.settings.titleScript');
   const showSettingsTitleScript = Boolean(settingsTitleScript) && settingsTitleScript !== settingsTitle;
@@ -593,6 +708,8 @@ export default function SettingsView({
     'jr-btn-navy inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3.5 font-hand text-sm font-bold text-paper transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route disabled:pointer-events-none disabled:opacity-50';
   const secondaryBtnClass =
     'jr-btn-paper inline-flex h-11 min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 text-sm font-semibold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
+  const dataBtnClass =
+    'jr-btn-paper inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-sm px-2 py-2.5 font-hand text-meta font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route';
 
   return (
     <div data-testid="page-settings" className="space-y-4 px-4 pb-10 pt-4 lg:mx-auto lg:max-w-2xl">
@@ -1227,6 +1344,156 @@ export default function SettingsView({
             {t('settings.copyReport')}
           </button>
         </div>
+        <p className="text-meta leading-relaxed text-ink-soft">{t('notebook.settings.importCalendarHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="import-calendar"
+            onClick={() => fileInputRef.current?.click()}
+            className={dataBtnClass}
+          >
+            {t('notebook.settings.importCalendar')}
+          </button>
+          <button
+            type="button"
+            data-testid="reset-account"
+            onClick={() => {
+              setResetArmed(true);
+              setImportErrorKey('');
+            }}
+            className={`${dataBtnClass} text-coral-ink`}
+          >
+            {t('notebook.settings.resetAccount')}
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          data-testid="import-calendar-input"
+          type="file"
+          accept={CALENDAR_IMPORT_ACCEPT}
+          aria-label={t('notebook.settings.importFileAria')}
+          className="sr-only"
+          onChange={handleImportFile}
+        />
+        {importErrorKey ? (
+          <p role="alert" data-testid="import-calendar-error" className="text-meta font-semibold text-coral-ink">
+            {t(importErrorKey)}
+          </p>
+        ) : null}
+        {importPreview ? (
+          <div
+            data-testid="import-calendar-preview"
+            className="space-y-2 rounded-sm border border-ink-soft/40 bg-paper p-3"
+          >
+            <p className="font-hand text-meta font-bold text-ink">{t('notebook.settings.importPreviewTitle')}</p>
+            <p data-testid="import-calendar-counts" className="text-meta leading-relaxed text-ink">
+              {t('notebook.settings.importPreviewCounts', {
+                added: importPreview.counts.added,
+                skipped: importPreview.counts.skipped,
+                outside: importPreview.counts.outside,
+                invalid: importPreview.counts.invalid,
+                duplicate: importPreview.counts.duplicate,
+                days: importPreview.counts.daysUpdated,
+              })}
+            </p>
+            {importPreview.counts.added === 0 && importPreview.counts.skipped === 0 ? (
+              <p className="text-meta text-ink-soft">{t('notebook.settings.importNoRows')}</p>
+            ) : null}
+            {importPreview.skipped.slice(0, 6).map((row, index) => (
+              <p key={`${row.reason}-${row.label}-${index}`} className="text-meta text-ink-muted">
+                {t(
+                  row.reason === 'outside'
+                    ? 'notebook.settings.importSkippedOutside'
+                    : row.reason === 'duplicate'
+                      ? 'notebook.settings.importSkippedDuplicate'
+                      : 'notebook.settings.importSkippedInvalid',
+                )}
+                {row.label ? ` · ${row.label}` : ''}
+              </p>
+            ))}
+            {importPreview.offerSetDates ? (
+              <label className="flex min-h-11 items-center gap-2 text-meta text-ink">
+                <input
+                  data-testid="import-calendar-set-dates"
+                  type="checkbox"
+                  className="h-5 w-5 shrink-0"
+                  checked={setDatesOptIn}
+                  onChange={(e) => setSetDatesOptIn(e.target.checked)}
+                />
+                <span>
+                  {t('notebook.settings.importSetDates', {
+                    start: importPreview.fileStart,
+                    end: importPreview.fileEnd,
+                  })}
+                </span>
+              </label>
+            ) : null}
+            {importPreview.offerCreateTrip ? (
+              <label className="flex min-h-11 items-center gap-2 text-meta text-ink">
+                <input
+                  data-testid="import-calendar-create-trip"
+                  type="checkbox"
+                  className="h-5 w-5 shrink-0"
+                  checked={createTripOptIn}
+                  onChange={(e) => setCreateTripOptIn(e.target.checked)}
+                />
+                <span>
+                  {t('notebook.settings.importCreateTrip', {
+                    start: importPreview.fileStart,
+                    end: importPreview.fileEnd,
+                  })}
+                </span>
+              </label>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                data-testid="import-calendar-confirm"
+                onClick={handleImportConfirm}
+                disabled={importPreview.offerCreateTrip && !createTripOptIn}
+                className={dataBtnClass}
+              >
+                {t('notebook.settings.importConfirm')}
+              </button>
+              <button
+                type="button"
+                data-testid="import-calendar-cancel"
+                onClick={handleImportCancel}
+                className={dataBtnClass}
+              >
+                {t('notebook.settings.importCancel')}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {resetArmed ? (
+          <div
+            data-testid="reset-account-panel"
+            className="space-y-2 rounded-sm border border-coral-ink/40 bg-paper p-3"
+          >
+            <p data-testid="reset-account-warning" className="text-meta leading-relaxed text-ink">
+              {t('notebook.settings.resetAccountWarning')}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                data-testid="reset-account-confirm"
+                onClick={handleResetConfirm}
+                className={`${dataBtnClass} text-coral-ink`}
+              >
+                {t('notebook.settings.resetAccountConfirm')}
+              </button>
+              <button
+                type="button"
+                data-testid="reset-account-cancel"
+                onClick={() => setResetArmed(false)}
+                className={dataBtnClass}
+              >
+                {t('notebook.settings.resetAccountCancel')}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* About */}
