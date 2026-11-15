@@ -1,12 +1,66 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { CATEGORY_ICON, PinIcon, StarIcon } from '../../journal/art/core.jsx';
 import { WashBlob } from '../../journal/art/decor.jsx';
 import { runStickerPop } from '../../motion/stickerKeyframes';
+import {
+  EXPENSE_MENU_FALLBACK_HEIGHT,
+  EXPENSE_MENU_FALLBACK_WIDTH,
+  placeExpenseActionMenu,
+} from './expenseMenuGeometry';
 import { Icon } from './parts';
+import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
+import { isKnownScan, readSourceCurrency } from './receiptItemsDisplay';
 import { fmtHKD, fmtJPY } from './refLogic';
+
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+function readMenuViewport() {
+  const visual = window.visualViewport;
+  return {
+    width: visual?.width || window.innerWidth,
+    height: visual?.height || window.innerHeight,
+    offsetLeft: visual?.offsetLeft || 0,
+    offsetTop: visual?.offsetTop || 0,
+  };
+}
+
+function focusWithoutScroll(element) {
+  element?.focus({ preventScroll: true });
+}
+
+function measureExpenseMenu(button, menuEl) {
+  if (!button || !menuEl) return null;
+  const rect = button.getBoundingClientRect();
+  // Raw layout-space rect. The visible origin is readMenuViewport's offsets.
+  const width = menuEl.offsetWidth || EXPENSE_MENU_FALLBACK_WIDTH;
+  const height = Math.max(menuEl.scrollHeight || 0, menuEl.offsetHeight || 0) || EXPENSE_MENU_FALLBACK_HEIGHT;
+  return placeExpenseActionMenu({
+    trigger: {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    },
+    menu: { width, height },
+    viewport: readMenuViewport(),
+  });
+}
+
+function sameMenuBox(prev, next) {
+  if (!prev) return false;
+  return prev.top === next.top
+    && prev.left === next.left
+    && prev.width === next.width
+    && prev.maxHeight === next.maxHeight
+    && prev.placement === next.placement
+    && prev.measurable === next.measurable
+    && prev.triggerVisible === next.triggerVisible;
+}
 
 const CATEGORY_WASH_TONE = {
   飲食: 'wheat',
@@ -46,11 +100,16 @@ export default function ExpenseCard({
 }) {
   const { t } = useTranslation();
   const [menu, setMenu] = useState(false);
+  const [menuBox, setMenuBox] = useState(null);
   const [confirm, setConfirm] = useState(false);
   const cardRef = useRef(null);
   const poppedIdRef = useRef(null);
   const ref = useRef(null);
   const moreBtnRef = useRef(null);
+  const menuRef = useRef(null);
+  const editItemRef = useRef(null);
+  const deleteItemRef = useRef(null);
+  const menuId = `expense-actions-${expense.id}`;
 
   useEffect(() => {
     if (!stickerPop) {
@@ -72,22 +131,88 @@ export default function ExpenseCard({
     };
   }, [stickerPop, expense.id, onStickerPlayed]);
 
+  useClientLayoutEffect(() => {
+    if (!menu) return undefined;
+    const apply = () => {
+      const next = measureExpenseMenu(moreBtnRef.current, menuRef.current);
+      if (!next) return 'missing';
+      if (next.measurable && !next.triggerVisible) {
+        const focusInside = menuRef.current?.contains(document.activeElement);
+        setMenu(false);
+        if (focusInside) focusWithoutScroll(moreBtnRef.current);
+        return 'closed';
+      }
+      const el = menuRef.current;
+      if (next.measurable && el) {
+        el.style.top = `${next.top}px`;
+        el.style.left = `${next.left}px`;
+        el.style.width = `${next.width}px`;
+        el.style.maxHeight = `${next.maxHeight}px`;
+      }
+      setMenuBox((prev) => (sameMenuBox(prev, next) ? prev : next));
+      return 'open';
+    };
+    const status = apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('scroll', apply, true);
+    const visual = window.visualViewport;
+    visual?.addEventListener('resize', apply);
+    visual?.addEventListener('scroll', apply);
+    if (status === 'open') focusWithoutScroll(editItemRef.current);
+    return () => {
+      window.removeEventListener('resize', apply);
+      window.removeEventListener('scroll', apply, true);
+      visual?.removeEventListener('resize', apply);
+      visual?.removeEventListener('scroll', apply);
+    };
+  }, [menu]);
+
   useEffect(() => {
     if (!menu) return undefined;
-    const closePointer = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setMenu(false);
+    const closePointer = (event) => {
+      const target = event.target;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      const focusInside = menuRef.current?.contains(document.activeElement);
+      setMenu(false);
+      if (focusInside) focusWithoutScroll(moreBtnRef.current);
     };
-    const closeKey = (e) => {
-      if (e.key === 'Escape') {
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
         setMenu(false);
-        moreBtnRef.current?.focus();
+        focusWithoutScroll(moreBtnRef.current);
+        return;
+      }
+      const menuEl = menuRef.current;
+      const inMenu = Boolean(menuEl && (event.target === menuEl || menuEl.contains(event.target)));
+      if (!inMenu) return;
+      if (event.key === 'Tab') {
+        focusWithoutScroll(moreBtnRef.current);
+        setMenu(false);
+        return;
+      }
+      const items = [editItemRef.current, deleteItemRef.current].filter(Boolean);
+      if (!items.length) return;
+      const current = items.indexOf(document.activeElement);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        focusWithoutScroll(items[(current + 1) % items.length]);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        focusWithoutScroll(items[(current - 1 + items.length) % items.length]);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        focusWithoutScroll(items[0]);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        focusWithoutScroll(items[items.length - 1]);
       }
     };
     document.addEventListener('pointerdown', closePointer);
-    document.addEventListener('keydown', closeKey);
+    document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('pointerdown', closePointer);
-      document.removeEventListener('keydown', closeKey);
+      document.removeEventListener('keydown', onKey);
     };
   }, [menu]);
 
@@ -167,42 +292,75 @@ export default function ExpenseCard({
             aria-label={t('notebook.expenseCard.moreActionsAria')}
             aria-haspopup="menu"
             aria-expanded={menu}
+            aria-controls={menu ? menuId : undefined}
             onClick={() => setMenu((v) => !v)}
             className="-mr-1.5 flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-sm text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
           >
             {Icon.dots()}
           </button>
-          {menu && (
-            <div
-              role="menu"
-              className="absolute right-1 top-12 z-30 w-32 overflow-hidden rounded-sm border border-ink-soft/60 bg-paper shadow-lg"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  onEdit(expense);
-                }}
-                className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
+          {menu &&
+            createPortal(
+              // Body portal escapes the torn-card mask. z-40 paints above the z-30 cover band and bottom nav; confirm dialogs stay at z-50.
+              <div
+                ref={menuRef}
+                id={menuId}
+                role="menu"
+                aria-orientation="vertical"
+                data-expense-menu="true"
+                data-placement={menuBox?.placement || 'below'}
+                data-measured={menuBox?.measurable ? 'true' : 'false'}
+                onPointerDown={(event) => event.stopPropagation()}
+                style={
+                  menuBox?.measurable
+                    ? {
+                        top: `${menuBox.top}px`,
+                        left: `${menuBox.left}px`,
+                        width: `${menuBox.width}px`,
+                        maxHeight: `${menuBox.maxHeight}px`,
+                      }
+                    : undefined
+                }
+                className="fixed z-40 w-32 overflow-x-hidden overflow-y-auto rounded-sm border border-ink-soft/60 bg-paper shadow-lg"
               >
-                {Icon.pencil()} {t('expenseCard.edit')}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  setConfirm(true);
-                }}
-                className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap border-t border-ink-soft/25 px-3 py-2.5 text-sm text-stamp hover:bg-coral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp"
-              >
-                {Icon.trash()} {t('expenseCard.delete')}
-              </button>
-            </div>
-          )}
+                <button
+                  ref={editItemRef}
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => {
+                    setMenu(false);
+                    onEdit(expense);
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
+                >
+                  {Icon.pencil()} {t('expenseCard.edit')}
+                </button>
+                <button
+                  ref={deleteItemRef}
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => {
+                    setMenu(false);
+                    setConfirm(true);
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap border-t border-ink-soft/25 px-3 py-2.5 text-sm text-stamp hover:bg-coral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp"
+                >
+                  {Icon.trash()} {t('expenseCard.delete')}
+                </button>
+              </div>,
+              document.body,
+            )}
         </div>
       </article>
+
+      <ReceiptItemsDisclosure
+        key={expense?.id != null ? String(expense.id) : 'expense'}
+        items={expense?.items}
+        currency={readSourceCurrency(expense)}
+        scanned={isKnownScan(expense)}
+        identity={expense?.id != null ? String(expense.id) : 'expense'}
+      />
 
       {confirm &&
         createPortal(

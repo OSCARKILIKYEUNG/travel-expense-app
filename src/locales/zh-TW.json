@@ -825,6 +825,17 @@
       "cancel": "取消",
       "save": "儲存"
     },
+    "receiptItems": {
+      "toggle": "收據明細",
+      "expandAria": "展開收據明細",
+      "collapseAria": "收合收據明細",
+      "empty": "未辨識到明細",
+      "notSum": "明細不一定等於收據總額。",
+      "qty": "數量 {{qty}}",
+      "listPrice": "標價",
+      "actualPrice": "實價",
+      "priceMissing": "沒有金額"
+    },
     "expenseCard": {
       "scanned": "掃描",
       "manual": "手動",

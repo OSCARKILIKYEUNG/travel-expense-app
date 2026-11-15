@@ -9,6 +9,8 @@ import { normalizeDate } from '../../utils/duplicates';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon } from './parts';
 import { formatNotebookDate } from './refLogic';
+import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
+import { resolveReceiptItemSource } from './receiptItemsDisplay';
 import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
 
 const CATEGORY_WASH_TONE = {
@@ -267,6 +269,12 @@ export default function AddForm({
 
   const eyebrow = t('notebook.addForm.eyebrow');
   const pageTitle = initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle');
+  const itemSource = resolveReceiptItemSource({
+    initial,
+    scanDraft: activeDraft,
+    scanToken: scanState?.token,
+    demoScanned: Boolean(demoScanned),
+  });
 
   return (
     <form
@@ -328,6 +336,14 @@ export default function AddForm({
           </button>
         </div>
       )}
+
+      <ReceiptItemsDisclosure
+        key={itemSource.identity}
+        items={itemSource.items}
+        currency={itemSource.currency}
+        scanned={itemSource.scanned}
+        identity={itemSource.identity}
+      />
 
       {/* Card 1: Amount & currency first */}
       <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">

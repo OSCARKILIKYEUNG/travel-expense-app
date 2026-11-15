@@ -825,6 +825,17 @@
       "cancel": "Cancel",
       "save": "Save"
     },
+    "receiptItems": {
+      "toggle": "Receipt details",
+      "expandAria": "Show receipt details",
+      "collapseAria": "Hide receipt details",
+      "empty": "No line items recognized",
+      "notSum": "Line items may not add up to the receipt total.",
+      "qty": "Qty {{qty}}",
+      "listPrice": "List price",
+      "actualPrice": "Actual price",
+      "priceMissing": "No amount"
+    },
     "expenseCard": {
       "scanned": "Scanned",
       "manual": "Manual",
