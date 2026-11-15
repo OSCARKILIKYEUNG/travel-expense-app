@@ -2,7 +2,12 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    maximum-scale=1 and user-scalable=no ask the browser not to enlarge the page.
+    That can block low-vision text resizing and conflicts with WCAG 1.4.4.
+    Safari may ignore both. viewport-fit is omitted on purpose.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#1F3A68" />
   <meta name="description" content="AI 驅動的旅遊記帳與分帳助手" />
   <meta name="apple-mobile-web-app-capable" content="yes" />

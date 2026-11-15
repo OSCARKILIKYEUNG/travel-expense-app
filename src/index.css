@@ -211,3 +211,60 @@
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .no-print { display: none !important; }
 }
+
+/* mobile-viewport-lock
+ * Portrait phones stay on max-width 639px (320 / 390 / 430, below Tailwind sm).
+ * A coarse pointer from 640px through 1023px (phone landscape, about 844px)
+ * gets the same 16px editable font. A fine pointer at that width, and every
+ * pointer at 1024px and up, keeps the desktop type. The page stays
+ * width=device-width; this block does not set a fixed pixel canvas.
+ * Editable controls use 16px so a focus does not trip iOS autozoom from a
+ * 12–14px font. maximum-scale=1 and user-scalable=no do not close the
+ * landscape gap: Safari may ignore both, which is why the font rule is
+ * repeated here. This is not an iOS device run. Disabled controls, buttons,
+ * and non-text inputs are left alone. Date and time boxes may shrink to
+ * their cell (min-width: 0, max-width: 100%) on the narrow query only, so a
+ * native control does not force horizontal document scroll; their existing
+ * width is not replaced with a new fixed width. html clips horizontal
+ * overflow on that narrow query and keeps overflow-y visible, so the
+ * document can still scroll vertically to the keyboard. Internal
+ * overflow-x scrollers are not restyled. No touch-action change: body
+ * already uses manipulation, which removes double-tap zoom where the
+ * browser honors it. user-scalable=no can block low-vision zoom and
+ * conflicts with WCAG 1.4.4. iOS may ignore the viewport limits.
+ */
+@media (max-width: 639px) {
+  html {
+    max-width: 100%;
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  body {
+    max-width: 100%;
+  }
+
+  input:not([type='button']):not([type='submit']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='image']):not([type='color']):not(:disabled),
+  textarea:not(:disabled),
+  select:not(:disabled) {
+    font-size: 16px;
+  }
+
+  input[type='date']:not(:disabled),
+  input[type='time']:not(:disabled),
+  input[type='datetime-local']:not(:disabled),
+  input[type='month']:not(:disabled),
+  input[type='week']:not(:disabled) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) and (pointer: coarse) {
+  input:not([type='button']):not([type='submit']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='image']):not([type='color']):not(:disabled),
+  textarea:not(:disabled),
+  select:not(:disabled) {
+    font-size: 16px;
+  }
+}
+/* /mobile-viewport-lock */

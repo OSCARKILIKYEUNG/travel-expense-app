@@ -597,6 +597,44 @@ function ItineraryRead({
   );
 }
 
+function compositionAnchorFromInput(input) {
+  const value = String(input?.value ?? '');
+  const start = typeof input?.selectionStart === 'number' ? input.selectionStart : value.length;
+  const end = typeof input?.selectionEnd === 'number' ? input.selectionEnd : start;
+  const safeStart = Math.max(0, Math.min(start, value.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+  return { before: value.slice(0, safeStart), after: value.slice(safeEnd) };
+}
+
+function compositionEventData(event) {
+  if (typeof event?.data === 'string') return event.data;
+  if (typeof event?.nativeEvent?.data === 'string') return event.nativeEvent.data;
+  return '';
+}
+
+// `data` is the committed candidate. An empty data string leaves the preedit in
+// `live` on cancel; return null so the caller restores the last committed note.
+// A missing anchor must not treat `data` as the whole field: blur used to clear
+// the anchor, and the next compositionend then stored `山` in place of `富士山`.
+function resolveCompositionValue(live, data, anchor, lastPreedit) {
+  const before = anchor?.before ?? '';
+  const after = anchor?.after ?? '';
+  const surrounding = `${before}${after}`;
+  const candidate = typeof data === 'string' ? data : '';
+  if (!anchor) return live;
+  if (candidate) {
+    const assembled = `${before}${candidate}${after}`;
+    if (live === assembled) return live;
+    if (typeof lastPreedit === 'string' && live === lastPreedit && lastPreedit !== assembled) return assembled;
+    if (live === surrounding) return assembled;
+    if (live.startsWith(before) && live.endsWith(after) && live !== surrounding) return assembled;
+    return live;
+  }
+  if (live === surrounding) return live;
+  if (typeof lastPreedit === 'string' && live !== lastPreedit) return live;
+  return null;
+}
+
 function ItineraryEditor({ day, onChange, onDone }) {
   const { t } = useTranslation();
   const [time, setTime] = useState('');
@@ -607,6 +645,89 @@ function ItineraryEditor({ day, onChange, onDone }) {
   const [editingStopTime, setEditingStopTime] = useState('');
   const timeInputRef = useRef(null);
   const editStopInputRef = useRef(null);
+  const [noteDraft, setNoteDraft] = useState(day.note || '');
+  const noteComposingRef = useRef(false);
+  const noteEmittedRef = useRef(day.note || '');
+  const noteAnchorRef = useRef(null);
+  const notePreeditRef = useRef(null);
+
+  useEffect(() => {
+    if (noteComposingRef.current) return;
+    const next = day.note || '';
+    noteEmittedRef.current = next;
+    setNoteDraft(next);
+  }, [day.note]);
+
+  // Stroke preedit is a run of wide marks. Capping each change cuts the fifth
+  // mark and stores the fragment. Cap only a committed value. An imported note
+  // may already be longer than that budget; focusing, blurring, or ending a
+  // composition without an edit must leave the stored text alone.
+  const commitNote = (raw) => {
+    const incoming = String(raw ?? '');
+    noteComposingRef.current = false;
+    noteAnchorRef.current = null;
+    notePreeditRef.current = null;
+    if (incoming === noteEmittedRef.current) {
+      setNoteDraft(incoming);
+      return;
+    }
+    const next = capCellNote(incoming);
+    setNoteDraft(next);
+    if (next === noteEmittedRef.current) return;
+    noteEmittedRef.current = next;
+    onChange({ note: next });
+  };
+
+  const onNoteCompositionStart = (event) => {
+    noteComposingRef.current = true;
+    noteAnchorRef.current = compositionAnchorFromInput(event.target);
+    notePreeditRef.current = String(event.target?.value ?? '');
+  };
+
+  const onNoteCompositionEnd = (event) => {
+    noteComposingRef.current = false;
+    const live = String(event.target?.value ?? '');
+    const resolved = resolveCompositionValue(
+      live,
+      compositionEventData(event),
+      noteAnchorRef.current,
+      notePreeditRef.current,
+    );
+    noteAnchorRef.current = null;
+    notePreeditRef.current = null;
+    if (resolved == null) {
+      setNoteDraft(noteEmittedRef.current);
+      return;
+    }
+    commitNote(resolved);
+  };
+
+  const onNoteChange = (event) => {
+    const value = event.target.value;
+    if (noteComposingRef.current) {
+      notePreeditRef.current = value;
+      setNoteDraft(value);
+      return;
+    }
+    // Blur ends the composing flag but keeps the anchor until compositionend.
+    // An input that only repeats the preedit must not be stored as the note.
+    if (noteAnchorRef.current && value === notePreeditRef.current) {
+      setNoteDraft(noteEmittedRef.current);
+      return;
+    }
+    commitNote(value);
+  };
+
+  const onNoteBlur = (event) => {
+    if (noteComposingRef.current) {
+      noteComposingRef.current = false;
+      setNoteDraft(noteEmittedRef.current);
+      return;
+    }
+    const raw = String(event.target?.value ?? '');
+    if (raw === noteEmittedRef.current) return;
+    commitNote(raw);
+  };
 
   const isTimeInvalid = isTimeEntryInvalid({ value: time, badInput: badTimeInput });
 
@@ -760,8 +881,11 @@ function ItineraryEditor({ day, onChange, onDone }) {
         <input
           id="ref-note"
           className={`${field} !w-24`}
-          value={day.note}
-          onChange={(e) => onChange({ note: capCellNote(e.target.value) })}
+          value={noteDraft}
+          onCompositionStart={onNoteCompositionStart}
+          onCompositionEnd={onNoteCompositionEnd}
+          onChange={onNoteChange}
+          onBlur={onNoteBlur}
           placeholder={t('notebook.day.calendarNotePlaceholder')}
         />
       </div>
