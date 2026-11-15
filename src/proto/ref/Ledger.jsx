@@ -43,6 +43,43 @@ import {
 } from './refRepayment';
 import { activeFilterCount, defaultExpenseDate, resolveToday, tripDates } from './refRules';
 
+const MOBILE_LEDGER_TOOLS_QUERY = '(max-width: 1023px)';
+
+function matchMobileLedgerTools() {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return Boolean(window.matchMedia(MOBILE_LEDGER_TOOLS_QUERY).matches);
+  } catch {
+    return false;
+  }
+}
+
+/** Phone width only. Missing matchMedia stays expanded so desktop and jsdom keep the rail controls. */
+function useMobileLedgerTools() {
+  const [isMobile, setIsMobile] = useState(() => matchMobileLedgerTools());
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    let mql;
+    try {
+      mql = window.matchMedia(MOBILE_LEDGER_TOOLS_QUERY);
+    } catch {
+      return undefined;
+    }
+    const sync = () => setIsMobile(Boolean(mql.matches));
+    sync();
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', sync);
+      return () => mql.removeEventListener('change', sync);
+    }
+    if (typeof mql.addListener === 'function') {
+      mql.addListener(sync);
+      return () => mql.removeListener(sync);
+    }
+    return undefined;
+  }, []);
+  return isMobile;
+}
+
 /** Honest minimal skeleton matching real expense-row geometry when a loading lifecycle is active. */
 export function LedgerSkeleton() {
   return (
@@ -78,6 +115,7 @@ export default function Ledger({
   onOpenDay,
 }) {
   const { t, i18n: activeI18n } = useTranslation();
+  const isMobileTools = useMobileLedgerTools();
   const [query, setQuery] = useState('');
   const [person, setPerson] = useState(() => initialFilters?.person || '全部');
   const [category, setCategory] = useState(() => initialFilters?.category || '全部');
@@ -88,6 +126,10 @@ export default function Ledger({
   const [repaymentModal, setRepaymentModal] = useState(null);
   const filterBtnRef = useRef(null);
   const undatedLabelRef = useRef(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsBtnRef = useRef(null);
+  const toolsSearchRef = useRef(null);
+  const toolsWereOpenRef = useRef(false);
 
   const people = trip.settings?.people || ['共同'];
   const nonSharedPeople = useMemo(() => people.filter((p) => p && p !== '共同'), [people]);
@@ -138,6 +180,8 @@ export default function Ledger({
   );
   const hint = undatedHint(groups);
   const filterCount = activeFilterCount({ category, date, payment, payer });
+  const optionalToolCount =
+    (query.trim() ? 1 : 0) + (person !== '全部' ? 1 : 0) + filterCount;
   const hasAnyFilter = Boolean(query.trim()) || person !== '全部' || filterCount > 0;
   const summary = ledgerTotalSummary({
     shown,
@@ -166,6 +210,17 @@ export default function Ledger({
     setPayer('全部');
   };
 
+  const clearCollapsedTools = () => {
+    clearAllFilters();
+    setTimeout(() => toolsBtnRef.current?.focus(), 0);
+  };
+
+  const onToolsToggle = () => {
+    const next = !toolsOpen;
+    if (!next) setTimeout(() => toolsBtnRef.current?.focus(), 0);
+    setToolsOpen(next);
+  };
+
   const closeSheet = () => {
     setSheetOpen(false);
     setTimeout(() => filterBtnRef.current?.focus(), 0);
@@ -182,6 +237,34 @@ export default function Ledger({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [sheetOpen]);
+
+  useEffect(() => {
+    const toolsVisible = isMobileTools && toolsOpen;
+    if (toolsVisible && !toolsWereOpenRef.current) {
+      toolsSearchRef.current?.focus();
+    }
+    toolsWereOpenRef.current = toolsVisible;
+  }, [isMobileTools, toolsOpen]);
+
+  useEffect(() => {
+    if (!isMobileTools || toolsOpen) return;
+    const panel = document.getElementById('ledger-optional-tools');
+    const active = document.activeElement;
+    if (!panel || !active || !panel.contains(active)) return;
+    toolsBtnRef.current?.focus();
+  }, [isMobileTools, toolsOpen]);
+
+  useEffect(() => {
+    if (!isMobileTools || !toolsOpen || sheetOpen || repaymentModal) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      setToolsOpen(false);
+      setTimeout(() => toolsBtnRef.current?.focus(), 0);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isMobileTools, toolsOpen, sheetOpen, repaymentModal]);
 
   useEffect(() => {
     if (!repaymentModal || typeof document === 'undefined') return undefined;
@@ -299,12 +382,61 @@ export default function Ledger({
             </button>
           </div>
 
-          {/* Search input + 篩選 button + Payer segmented control (quieter than primary) */}
+          {/* Search input + 篩選 button + Payer segmented control (quieter than primary).
+              On phones the block starts collapsed; desktop keeps it in the sticky rail. */}
           <div className="filter-bar-quiet jr-taped-card min-w-0 space-y-2 bg-paper-shade/60 p-2.5">
+            {isMobileTools && (
+              <button
+                ref={toolsBtnRef}
+                type="button"
+                data-testid="ledger-tools-toggle"
+                aria-expanded={toolsOpen}
+                aria-controls="ledger-optional-tools"
+                onClick={onToolsToggle}
+                className="btn-secondary-shell inline-flex min-h-11 w-full min-w-11 items-center justify-between gap-2 whitespace-nowrap rounded-sm border border-ink-soft/35 bg-paper/80 px-2.5 py-1.5 text-left font-hand text-sm font-bold text-ink transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+              >
+                <span>{t('notebook.ledger.toolsToggle')}</span>
+                {optionalToolCount > 0 && (
+                  <span
+                    data-testid="ledger-tools-count"
+                    className="font-money inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-tape-navy px-1.5 text-xs font-bold leading-none text-paper"
+                  >
+                    {optionalToolCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {isMobileTools && !toolsOpen && optionalToolCount > 0 && (
+              <div
+                data-testid="ledger-tools-status"
+                className="flex min-w-0 items-center justify-between gap-2"
+              >
+                <p className="min-w-0 truncate font-hand text-xs font-bold text-ink">
+                  {t('notebook.ledger.toolsApplied', { count: optionalToolCount })}
+                </p>
+                <button
+                  type="button"
+                  data-testid="ledger-tools-clear"
+                  onClick={clearCollapsedTools}
+                  className="btn-secondary-shell inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-sm border border-ink-soft/35 bg-paper px-2.5 py-1.5 font-hand text-xs font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+                >
+                  {t('notebook.ledger.clearTools')}
+                </button>
+              </div>
+            )}
+            <div
+              id="ledger-optional-tools"
+              data-testid="ledger-optional-tools"
+              role="region"
+              aria-label={t('notebook.ledger.toolsToggle')}
+              hidden={isMobileTools && !toolsOpen}
+              className="min-w-0 space-y-2"
+            >
             <div className="flex min-w-0 items-center gap-2">
               <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-sm border border-ink-soft/35 bg-paper/80 pl-2.5 pr-1 text-ink-muted focus-within:ring-2 focus-within:ring-route">
                 <SearchIcon className="h-4 w-4 shrink-0 text-ink-muted" />
                 <input
+                  ref={toolsSearchRef}
                   aria-label={t('notebook.ledger.searchAria')}
                   data-testid="ledger-search"
                   value={query}
@@ -387,6 +519,7 @@ export default function Ledger({
                   </Chip>
                 ))}
               </ChipRow>
+            </div>
             </div>
           </div>
         </aside>

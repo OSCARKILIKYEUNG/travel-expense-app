@@ -33,7 +33,8 @@ export const DEFAULT_SHEET_HEIGHT_PX = 656;
 /**
  * Pure geometric helper computing the continuous bottom-right paper corner fold
  * from gesture progress (0..1).
- * - At rest (progress = 0), keeps a natural curled-corner cue (CURL_REST_AMOUNT).
+ * - At rest (progress = 0), the latent curl size stays CURL_REST_AMOUNT.
+ *   The login view does not paint that cue; an active fold uses foldGeometry.
  * - Under prefers-reduced-motion, skips interpolated fold movement while
  *   preserving logical progress for threshold evaluation.
  */
@@ -1772,17 +1773,6 @@ export default function MagazineCoverView({
       })
     : null;
   const frontClip = fold ? polygonCss(fold.frontPoly) : '';
-  const overlayClipStyle = isCurlOpening
-    ? {
-        '--mc-curl-fold-x': '100%',
-        '--mc-curl-cut-y': '0px',
-      }
-    : hasCoverImage
-      ? {
-          '--mc-curl-fold-x': `${geom.foldBottomX}%`,
-          '--mc-curl-cut-y': `${Number((geom.cutY * 6.56).toFixed(2))}px`,
-        }
-      : undefined;
 
   const sheetTurnClass = turningPage
     ? reducedMotion
@@ -1902,12 +1892,12 @@ export default function MagazineCoverView({
               className="mc-leaf-front"
               style={isCurlOpening ? { clipPath: frontClip } : undefined}
             >
-              {/* Front Full-Bleed Magazine Cover Surface (clipped continuously by corner-curl polygon) */}
+              {/* Front cover. Idle is a full sheet; an active finger fold clips the leaf. */}
               <div
                 data-testid="auth-cover-surface"
                 data-cut-x-pct={String(geom.cutX)}
                 data-cut-y-pct={String(geom.cutY)}
-                style={{ clipPath: isCurlOpening ? 'none' : geom.coverClipPath }}
+                style={isCurlOpening ? { clipPath: 'none' } : undefined}
                 className={surfaceSpringClass}
               >
             {hasCoverImage ? (
@@ -2040,60 +2030,6 @@ export default function MagazineCoverView({
             ) : null}
           </div>
 
-          {/* Resting dog-ear only. The live fold is painted in a sheet-clipped layer. */}
-          {!isCurlOpening ? (
-          <svg
-            data-testid="auth-curl-geometry-svg"
-            data-cut-x-pct={String(geom.cutX)}
-            data-cut-y-pct={String(geom.cutY)}
-            data-apex-x={String(geom.apexX)}
-            data-apex-y={String(geom.apexY)}
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            className="pointer-events-none absolute inset-0 z-30 w-full h-full select-none"
-          >
-            <defs>
-              <linearGradient id="mc-curl-shadow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(var(--c-ink) / 0.05)" />
-                <stop offset="55%" stopColor="rgb(var(--c-ink) / 0.14)" />
-                <stop offset="100%" stopColor="rgb(var(--c-ink) / 0.22)" />
-              </linearGradient>
-              <linearGradient id="mc-curl-flap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(var(--c-paper))" />
-                <stop offset="58%" stopColor="rgb(var(--c-paper-shade))" />
-                <stop offset="100%" stopColor="rgb(var(--c-desk))" />
-              </linearGradient>
-            </defs>
-            {/* Cast shadow beneath the lifted corner flap */}
-            <polygon
-              data-testid="auth-curl-shadow"
-              points={geom.shadowPoints}
-              fill="url(#mc-curl-shadow-grad)"
-            />
-            {/* Backside of the folded cover paper corner */}
-            <polygon
-              data-testid="auth-curl-backface"
-              points={geom.flapPoints}
-              fill="url(#mc-curl-flap-grad)"
-              stroke="rgb(var(--c-ink-soft) / 0.75)"
-              strokeWidth="0.45"
-              strokeLinejoin="round"
-            />
-            {/* Fold crease highlight along the diagonal hinge */}
-            <line
-              data-testid="auth-curl-crease"
-              x1={geom.foldBottomX}
-              y1="100"
-              x2="100"
-              y2={geom.foldRightY}
-              stroke="rgb(var(--c-route))"
-              strokeWidth="0.55"
-            />
-          </svg>
-          ) : null}
-
           {/* Bottom ~25% compact editorial login overlay directly over lower coastal negative space */}
           <section
             ref={overlayRef}
@@ -2110,7 +2046,6 @@ export default function MagazineCoverView({
                 lastInteractiveControlRef.current = e.target;
               }
             }}
-            style={overlayClipStyle}
             className={`mc-login-overlay${
               hasCoverImage ? ' mc-login-overlay--cover-wash' : ''
             }${
@@ -2557,9 +2492,6 @@ export default function MagazineCoverView({
                         >
                           {primaryCornerText}
                         </span>
-                        <span aria-hidden="true" className="mc-primary-corner-curl-icon">
-                          ↗
-                        </span>
                       </span>
                     </button>
                   </div>
@@ -2571,7 +2503,7 @@ export default function MagazineCoverView({
               <div
                 data-testid="auth-leaf-shade"
                 aria-hidden="true"
-                style={{ clipPath: isCurlOpening ? 'none' : geom.coverClipPath }}
+                style={isCurlOpening ? { clipPath: 'none' } : undefined}
                 className="mc-leaf-shade pointer-events-none"
               />
             </div>

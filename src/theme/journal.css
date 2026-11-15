@@ -1338,7 +1338,8 @@
   background-color: transparent;
 }
 
-/* Paper wash following the real top of the login form when a cover painting is shown */
+/* Paper wash following the real top of the login form when a cover painting is shown.
+   Idle rest has no dog-ear notch; an active fold clips .mc-leaf-front instead. */
 .mc-login-overlay--cover-wash {
   z-index: auto;
   background-image: linear-gradient(
@@ -1369,13 +1370,6 @@
     transparent 0%,
     rgb(var(--c-paper) / 0.88) 1.5rem,
     rgb(var(--c-paper) / 0.88) 100%
-  );
-  clip-path: polygon(
-    0% 0%,
-    100% 0%,
-    100% calc(100% - var(--mc-curl-cut-y, 44.87px)),
-    var(--mc-curl-fold-x, 85.54%) 100%,
-    0% 100%
   );
 }
 
@@ -1959,5 +1953,11 @@
   .mc-primary-corner-surface {
     transition: none;
     animation: none;
+  }
+}
+/* mobile-home-ledger-ux: append-only */
+@media (max-width: 1023px) {
+  .jr-home-map svg {
+    max-height: 72px;
   }
 }

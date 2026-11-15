@@ -383,7 +383,7 @@ export default function Home({
         className="min-w-0 space-y-3.5 lg:col-span-5 lg:col-start-1 lg:row-start-1"
       >
         {/* 1. Taped cover card */}
-        <section className="jr-taped-card relative min-w-0 bg-paper px-3 pb-3 pt-4 lg:px-4 lg:pb-4 lg:pt-5">
+        <section className="jr-taped-card relative min-w-0 bg-paper px-3 pb-2 pt-3 lg:px-4 lg:pb-4 lg:pt-5">
           {/* Corner washi tapes (navy top-left, kraft top-right, tilted ±3°) */}
           <NavyTape
             tilt={-3}
@@ -488,7 +488,7 @@ export default function Home({
           {/* Destination map (JP coastline + route dots; others route dots only) + city paper tags */}
           <div
             data-testid={!dest.isFallback ? 'japan-mini-map' : undefined}
-            className="jr-home-map mt-2.5 min-w-0 overflow-hidden rounded-sm"
+            className="jr-home-map mt-1.5 min-w-0 overflow-hidden rounded-sm lg:mt-2.5"
           >
             <DestinationMap
               trip={trip}
@@ -575,42 +575,11 @@ export default function Home({
         </div>
       )}
 
-      {/* 3. Actions: 掃描收據 (filled navy, camera icon) + 記一筆 (outline, pencil icon), r5.1 breathing room */}
-      <div className="primary-actions-block primary-actions-block--desk grid min-w-0 grid-cols-2 gap-3 lg:col-span-5 lg:col-start-1 lg:row-start-2">
-        <button
-          type="button"
-          data-testid="home-scan"
-          onClick={onScan}
-          className="btn-primary-shell jr-btn-navy inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
-        >
-          <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
-          <span className="font-hand">{t('notebook.home.scanReceipt')}</span>
-        </button>
-        <button
-          type="button"
-          data-testid="home-add"
-          onClick={onAdd}
-          className="btn-primary-shell jr-btn-paper inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
-        >
-          <PencilIcon className="h-5 w-5 shrink-0 text-route" />
-          <span className="font-hand">{t('notebook.home.addEntry')}</span>
-        </button>
-      </div>
-
-      <Calendar
-        trip={trip}
-        today={today}
-        month={month}
-        setMonth={setMonth}
-        selectedDay={selectedDay}
-        onOpenDay={onOpenDay}
-      />
-
-      {/* 5. 今日待辦 checklist card (mobile after calendar; lg in left page under actions) */}
+      {/* 今日待辦 sits before scan/add and the calendar on mobile; desktop grid stays row 3 on the left page */}
       {todayTodos.length > 0 && (
         <section
           data-testid="today-todos"
-          className="primary-actions-follow jr-grid jr-taped-card relative min-w-0 px-3.5 pb-3.5 pt-4 lg:col-span-5 lg:col-start-1 lg:row-start-3"
+          className="jr-grid jr-taped-card relative min-w-0 px-3.5 pb-3.5 pt-4 lg:col-span-5 lg:col-start-1 lg:row-start-3"
         >
           <span
             aria-hidden="true"
@@ -686,6 +655,37 @@ export default function Home({
           </div>
         </section>
       )}
+
+      {/* 3. Actions: 掃描收據 (filled navy, camera icon) + 記一筆 (outline, pencil icon), r5.1 breathing room */}
+      <div className="primary-actions-block primary-actions-block--desk grid min-w-0 grid-cols-2 gap-3 lg:col-span-5 lg:col-start-1 lg:row-start-2">
+        <button
+          type="button"
+          data-testid="home-scan"
+          onClick={onScan}
+          className="btn-primary-shell jr-btn-navy inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+        >
+          <CameraIcon className="h-5 w-5 shrink-0 text-paper" />
+          <span className="font-hand">{t('notebook.home.scanReceipt')}</span>
+        </button>
+        <button
+          type="button"
+          data-testid="home-add"
+          onClick={onAdd}
+          className="btn-primary-shell jr-btn-paper inline-flex min-h-[50px] min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-2.5 text-sm font-bold tracking-wider transition-colors hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+        >
+          <PencilIcon className="h-5 w-5 shrink-0 text-route" />
+          <span className="font-hand">{t('notebook.home.addEntry')}</span>
+        </button>
+      </div>
+
+      <Calendar
+        trip={trip}
+        today={today}
+        month={month}
+        setMonth={setMonth}
+        selectedDay={selectedDay}
+        onOpenDay={onOpenDay}
+      />
 
       {/* 6. Next-3-days card + 「一路順風」 navy tape at the end of the right page */}
       <div

@@ -502,15 +502,15 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(Array.from(sheet.children)).toEqual([preview, castShadow, leaf]);
     expect(Array.from(leaf.children)).toEqual([leafFront, leafBack]);
     expect(leafFront.contains(screen.getByTestId('auth-cover-surface'))).toBe(true);
-    expect(leafFront.contains(screen.getByTestId('auth-curl-geometry-svg'))).toBe(true);
+    // Idle rest paints no dog-ear. The finger fold mounts these nodes only after the turn starts.
+    expect(screen.queryByTestId('auth-curl-geometry-svg')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-shadow')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-backface')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-crease')).toBeNull();
+    expect(screen.getByTestId('auth-cover-surface').style.clipPath).toBe('');
+    expect(leafShade.style.clipPath).toBe('');
     expect(leafFront.contains(screen.getByTestId('auth-login-overlay'))).toBe(true);
     expect(leafFront.contains(leafShade)).toBe(true);
-    expect(screen.getByTestId('auth-curl-shadow').getAttribute('fill')).toBe(
-      'url(#mc-curl-shadow-grad)',
-    );
-    expect(screen.getByTestId('auth-curl-backface').getAttribute('fill')).toBe(
-      'url(#mc-curl-flap-grad)',
-    );
 
     const initialCutX = sheet.getAttribute('data-cut-x-pct');
     const initialCutY = sheet.getAttribute('data-cut-y-pct');
@@ -527,6 +527,15 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     expect(sheet.className).toContain('mc-cover-sheet--turning');
+    const liveSvg = screen.getByTestId('auth-curl-geometry-svg');
+    expect(screen.getByTestId('auth-fold-paint').contains(liveSvg)).toBe(true);
+    expect(screen.getByTestId('auth-curl-shadow').getAttribute('fill')).toBe(
+      'url(#mc-curl-shadow-grad)',
+    );
+    expect(screen.getByTestId('auth-curl-backface').getAttribute('fill')).toBe(
+      'url(#mc-curl-flap-grad)',
+    );
+    expect(screen.getByTestId('auth-curl-crease')).toBeTruthy();
     // Button path opens from the rest dog-ear (F0), whose fold progress is a small t, not a jumped curl.
     const restPose = restFoldPoint(480, 656);
     expect(Number(sheet.getAttribute('data-curl-progress'))).toBeCloseTo(
@@ -536,6 +545,137 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(0.08);
     expect(sheet.getAttribute('data-cut-x-pct')).toBe(initialCutX);
     expect(sheet.getAttribute('data-cut-y-pct')).toBe(initialCutY);
+  });
+
+  it('paints no resting dog-ear, keeps the 翻頁登入 target, and still shows the finger fold while dragging', async () => {
+    vi.useFakeTimers();
+    renderAuth();
+
+    const sheet = screen.getByTestId('auth-magazine-sheet');
+    const surface = screen.getByTestId('auth-cover-surface');
+    const shade = screen.getByTestId('auth-leaf-shade');
+    const overlay = screen.getByTestId('auth-login-overlay');
+    const curlBtn = screen.getByTestId('auth-primary-surface');
+    const label = screen.getByTestId('auth-primary-corner-label');
+
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(screen.queryByTestId('auth-curl-geometry-svg')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-shadow')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-backface')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-crease')).toBeNull();
+    expect(screen.queryByTestId('auth-flap-type')).toBeNull();
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+    expect(surface.style.clipPath).toBe('');
+    expect(shade.style.clipPath).toBe('');
+    expect(screen.getByTestId('auth-leaf-front').style.clipPath).toBe('');
+    expect(overlay.style.getPropertyValue('--mc-curl-fold-x')).toBe('');
+    expect(overlay.style.getPropertyValue('--mc-curl-cut-y')).toBe('');
+    expect(overlay.className).toContain('mc-login-overlay--cover-wash');
+    expect(label.textContent).toBe('翻頁登入');
+    expect(curlBtn.textContent).not.toContain('↗');
+    expect(curlBtn.getAttribute('aria-label')).toBe('翻頁登入');
+    expect(curlBtn.className).toContain('mc-primary-corner-surface');
+    expect(curlBtn.querySelector('.mc-primary-corner-curl-icon')).toBeNull();
+
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/theme/journal.css'), 'utf8');
+    const viewSrc = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/auth/MagazineCoverView.jsx'),
+      'utf8',
+    );
+    const surfaceRule = css.match(/\.mc-primary-corner-surface\s*\{([^}]*)\}/);
+    expect(surfaceRule?.[1] || '').toContain('min-height: 44px');
+    expect(surfaceRule?.[1] || '').toContain('min-width: 96px');
+    const washBefore = css.match(/\.mc-login-overlay--cover-wash::before\s*\{([^}]*)\}/);
+    expect(washBefore?.[1] || '').not.toContain('clip-path');
+    expect(washBefore?.[1] || '').not.toContain('--mc-curl-cut-y');
+    expect(washBefore?.[1] || '').not.toContain('--mc-curl-fold-x');
+    expect(css).not.toContain('44.87px');
+    expect(css).not.toContain('85.54%');
+    expect(viewSrc).not.toContain('geom.coverClipPath');
+    expect(viewSrc).not.toContain('geom.flapPoints');
+    expect(viewSrc).not.toContain('geom.shadowPoints');
+
+    const belowX = Math.round(clientXForFoldProgress(0.32));
+    fireEvent.pointerDown(curlBtn, {
+      pointerId: 11,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: FOLD_DRAG_START_X,
+      clientY: 640,
+    });
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+    fireEvent.pointerMove(curlBtn, {
+      pointerId: 11,
+      pointerType: 'mouse',
+      clientX: belowX,
+      clientY: 620,
+    });
+
+    expect(sheet.getAttribute('data-curl-phase')).toBe('dragging');
+    const paint = screen.getByTestId('auth-fold-paint');
+    expect(paint.contains(screen.getByTestId('auth-curl-shadow'))).toBe(true);
+    expect(paint.contains(screen.getByTestId('auth-curl-backface'))).toBe(true);
+    expect(paint.contains(screen.getByTestId('auth-curl-crease'))).toBe(true);
+    expect(screen.getByTestId('auth-leaf-front').style.clipPath).toContain('polygon(');
+    expect(surface.style.clipPath).toBe('none');
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeGreaterThan(0);
+    expect(Number(sheet.getAttribute('data-curl-progress'))).toBeLessThan(FOLD_COMMIT_T);
+
+    fireEvent.pointerUp(curlBtn, {
+      pointerId: 11,
+      pointerType: 'mouse',
+      clientX: belowX,
+      clientY: 620,
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('springback');
+    expect(screen.getByTestId('auth-fold-paint')).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(FOLD_SPRING_MS);
+    });
+    expect(sheet.getAttribute('data-curl-phase')).toBe('idle');
+    expect(sheet.getAttribute('data-curl-progress')).toBe('0');
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-geometry-svg')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-shadow')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-backface')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-crease')).toBeNull();
+    expect(surface.style.clipPath).toBe('');
+    expect(shade.style.clipPath).toBe('');
+
+    cleanup();
+    setReducedMotion(true);
+    renderAuth();
+    const rmBtn = screen.getByTestId('auth-primary-surface');
+    fireEvent.pointerDown(rmBtn, { pointerId: 12, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(rmBtn, { pointerId: 12, clientX: 150, clientY: 500 });
+    expect(screen.queryByTestId('auth-curl-geometry-svg')).toBeNull();
+    expect(screen.queryByTestId('auth-fold-paint')).toBeNull();
+    expect(screen.queryByTestId('auth-flap-type')).toBeNull();
+    expect(screen.getByTestId('auth-cover-surface').style.clipPath).toBe('');
+    expect(screen.getByTestId('auth-primary-corner-label').textContent).toBe('翻頁登入');
+
+    cleanup();
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, { coverImage: null }),
+      ),
+    );
+    expect(screen.queryByTestId('auth-curl-geometry-svg')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-shadow')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-backface')).toBeNull();
+    expect(screen.queryByTestId('auth-curl-crease')).toBeNull();
+    expect(screen.getByTestId('auth-cover-surface').style.clipPath).toBe('');
+    expect(screen.getByTestId('auth-leaf-shade').style.clipPath).toBe('');
+    expect(screen.getByTestId('auth-login-overlay').className).not.toContain(
+      'mc-login-overlay--cover-wash',
+    );
+    expect(screen.getByTestId('auth-primary-corner-label').textContent).toBe('翻頁登入');
   });
 
   it('handles wrong credentials, offline network errors, and rate-limits by staying on cover, focusing announced alert, retaining email, and hiding raw server messages', async () => {
