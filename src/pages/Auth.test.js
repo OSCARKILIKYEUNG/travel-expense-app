@@ -142,6 +142,13 @@ function renderAuth() {
   );
 }
 
+function activateFocusedCue(key = 'Enter') {
+  const surface = screen.getByTestId('auth-primary-surface');
+  surface.focus();
+  fireEvent.keyDown(surface, { key });
+  return surface;
+}
+
 beforeEach(async () => {
   await i18n.changeLanguage('zh-TW');
   mockNavigate.mockReset();
@@ -232,7 +239,10 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(modeSwitchBtn.getAttribute('data-target-mode')).toBe('signup');
     expect(primarySurface.textContent).toContain('翻頁登入');
     expect(primarySurface.getAttribute('type')).toBe('button');
-    expect(primarySurface.getAttribute('aria-label')).toBe('翻頁登入');
+    expect(primarySurface.getAttribute('aria-label')).toBe(i18n.t('auth.pageCurlSignInAria'));
+    expect(primarySurface.getAttribute('aria-label')).toContain('Enter');
+    expect(primarySurface.getAttribute('aria-keyshortcuts')).toBe('Enter Space');
+    expect(screen.getByTestId('auth-cue-instruction').textContent).toContain('不會登入');
 
     await act(async () => {
       await i18n.changeLanguage('en');
@@ -245,7 +255,10 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
       'Turn page to sign in',
     );
     expect(screen.getByTestId('auth-primary-surface').getAttribute('aria-label')).toBe(
-      'Turn page to sign in',
+      i18n.t('auth.pageCurlSignInAria'),
+    );
+    expect(screen.getByTestId('auth-primary-surface').getAttribute('aria-label')).toContain(
+      'Enter or Space',
     );
   });
 
@@ -268,8 +281,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     const primarySurface = screen.getByTestId('auth-primary-surface');
-    // Trigger via corner primary surface, then immediately re-click, press Space, & submit form (Enter) while in-flight
-    fireEvent.click(primarySurface);
+    // Focused cue Enter starts the only sign-in. A trailing click, Space, and form submit cannot repeat it.
+    activateFocusedCue('Enter');
     fireEvent.click(primarySurface);
     fireEvent.keyDown(primarySurface, { key: ' ' });
     fireEvent.submit(screen.getByTestId('auth-credentials-form'));
@@ -307,7 +320,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(authState.signIn).toHaveBeenCalledTimes(1);
@@ -318,7 +331,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     unmount();
 
-    // Now test Enter key form submission
+    // Independent focused-cue Space activation, not a field or form submit
     authState.signIn.mockClear();
     mockNavigate.mockClear();
     renderAuth();
@@ -330,7 +343,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+      activateFocusedCue(' ');
     });
 
     expect(authState.signIn).toHaveBeenCalledTimes(1);
@@ -356,7 +369,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -377,7 +390,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -401,7 +414,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     // Accessible success crossfades. It does not peel the leaf open.
@@ -444,7 +457,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     const sheet = screen.getByTestId('auth-magazine-sheet');
@@ -495,7 +508,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     const sheet = screen.getByTestId('auth-magazine-sheet');
@@ -571,7 +584,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(sheet.className).toContain('mc-cover-sheet--fade');
@@ -612,7 +625,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(overlay.className).toContain('mc-login-overlay--cover-wash');
     expect(label.textContent).toBe('翻頁登入');
     expect(curlBtn.textContent).not.toContain('↗');
-    expect(curlBtn.getAttribute('aria-label')).toBe('翻頁登入');
+    expect(curlBtn.getAttribute('aria-label')).toBe(i18n.t('auth.pageCurlSignInAria'));
+    expect(curlBtn.getAttribute('aria-label')).toContain('翻頁登入');
     expect(curlBtn.className).toContain('mc-primary-corner-surface');
     expect(curlBtn.querySelector('.mc-primary-corner-curl-icon')).toBeNull();
 
@@ -731,7 +745,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     const alert1 = screen.getByTestId('auth-error-alert');
@@ -749,7 +763,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(screen.getByTestId('auth-error-alert').textContent).toBe(
@@ -765,7 +779,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     expect(screen.getByTestId('auth-error-alert').textContent).toBe(
@@ -1218,7 +1232,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     // 1) Trigger submit -> enters pending auth state
-    fireEvent.click(screen.getByTestId('auth-primary-surface'));
+    activateFocusedCue();
 
     const submittingStatus = screen.getByTestId('auth-submitting-status');
     expect(document.activeElement).toBe(submittingStatus);
@@ -1286,7 +1300,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+      activateFocusedCue();
     });
 
     const turningStatus = screen.getByTestId('auth-turning-status');
@@ -1321,8 +1335,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.change(emailInput, { target: { value: 'cancel.me@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'secret123' } });
 
-    // 1) Submit via corner surface -> enters pending state
-    fireEvent.click(primarySurface);
+    // 1) Focused cue Enter -> enters pending state
+    activateFocusedCue();
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
     const cancelBtn = screen.getByTestId('auth-pending-cancel-btn');
     expect(form.contains(cancelBtn)).toBe(false);
@@ -1340,8 +1354,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(document.activeElement).toBe(primarySurface);
     expect(mockNavigate).not.toHaveBeenCalled();
 
-    // 2) Submit via Enter from email input -> enters pending state -> press Escape to cancel
-    fireEvent.keyDown(emailInput, { key: 'Enter' });
+    // 2) Focused cue Space -> enters pending state -> press Escape to cancel
+    activateFocusedCue(' ');
     const submittingStatus2 = screen.getByTestId('auth-submitting-status');
     expect(document.activeElement).toBe(submittingStatus2);
     expect(form.inert).toBe(true);
@@ -1352,7 +1366,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(screen.queryByTestId('auth-pending-cancel-btn')).toBeNull();
     expect(form.inert).toBe(false);
     expect(emailInput.value).toBe('cancel.me@example.com');
-    expect(document.activeElement).toBe(emailInput);
+    expect(document.activeElement).toBe(primarySurface);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -1385,7 +1399,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.change(passwordInput, { target: { value: 'secret123' } });
 
     // 1) Start attempt 1 and advance timer to AUTH_PENDING_TIMEOUT_MS
-    fireEvent.click(primarySurface);
+    activateFocusedCue();
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
 
     await act(async () => {
@@ -1415,7 +1429,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     );
 
     // 2) Start attempt 2, cancel via Escape, then reject stale promise 2 -> late failure is ignored
-    fireEvent.click(primarySurface);
+    activateFocusedCue();
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByTestId('auth-error-alert')).toBeNull();
@@ -1455,7 +1469,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.change(passwordInput, { target: { value: 'secret123' } });
 
     // Start Attempt 1
-    fireEvent.click(primarySurface);
+    activateFocusedCue();
     expect(authState.signIn).toHaveBeenCalledTimes(1);
 
     // Cancel Attempt 1 while promise 1 is still unresolved
@@ -1463,7 +1477,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(form.inert).toBe(false);
 
     // Immediately start Attempt 2 while Attempt 1 is still in flight
-    fireEvent.click(primarySurface);
+    activateFocusedCue();
     expect(authState.signIn).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
     expect(form.inert).toBe(true);
@@ -1515,7 +1529,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.change(passwordInput, { target: { value: 'secret123' } });
 
     // 1) Start sign-in and cancel locally
-    fireEvent.click(primarySurface);
+    activateFocusedCue();
     fireEvent.click(screen.getByTestId('auth-pending-cancel-btn'));
     expect(mockNavigate).not.toHaveBeenCalled();
 
@@ -1535,7 +1549,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
 
     // 3) Deliberate next user action on the cover uses the confirmed session and starts page turn
     await act(async () => {
-      fireEvent.click(primarySurface);
+      activateFocusedCue();
     });
     expect(screen.getByTestId('auth-magazine-sheet').className).toContain(
       'mc-cover-sheet--fade',
@@ -1564,7 +1578,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
       target: { value: 'secret123' },
     });
 
-    fireEvent.click(screen.getByTestId('auth-primary-surface'));
+    activateFocusedCue();
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
 
     unmount();
@@ -2023,11 +2037,11 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(Number(backdrop.getAttribute('data-curl-progress'))).toBe(activeProgress);
     expect(curlBtn.hasPointerCapture(20)).toBe(true);
 
-    // Cancel drag 20 -> enters springback -> immediately submit via Enter on email input before 220ms elapses
+    // Cancel drag 20 -> enters springback -> focused cue Enter submits before 220ms elapses
     fireEvent.keyDown(curlBtn, { key: 'Escape' });
     expect(backdrop.getAttribute('data-curl-phase')).toBe('springback');
 
-    fireEvent.keyDown(screen.getByTestId('auth-email-input'), { key: 'Enter' });
+    activateFocusedCue();
     expect(authState.signIn).toHaveBeenCalledTimes(1);
     const submittingStatus = screen.getByTestId('auth-submitting-status');
     expect(document.activeElement).toBe(submittingStatus);
@@ -2684,8 +2698,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     fireEvent.change(emailInput, { target: { value: 'btn-path@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'wrong-pass' } });
 
-    // 1) Click primary surface (non-drag): stays in pending state (no optimistic turn), then shows error with no turn
-    fireEvent.click(primarySurface);
+    // 1) Focused cue Enter (not a pointer tap): stays pending, then shows error with no turn
+    activateFocusedCue();
     expect(backdrop.getAttribute('data-turning-page')).toBe('false');
     expect(screen.getByTestId('auth-submitting-status')).toBeTruthy();
 
@@ -2701,9 +2715,9 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(screen.getByTestId('auth-error-alert').textContent).toContain('電子郵件或密碼不正確');
     expect(mockNavigate).not.toHaveBeenCalled();
 
-    // 2) Submit via Enter with valid password: no turn while pending, starts turn only after success, then navigates after turn
+    // 2) Focused cue Space with a valid password: no turn while pending, turn only after success
     fireEvent.change(passwordInput, { target: { value: 'correct-pass' } });
-    fireEvent.keyDown(passwordInput, { key: 'Enter' });
+    activateFocusedCue(' ');
     expect(backdrop.getAttribute('data-turning-page')).toBe('false');
 
     const session = makeConfirmedSession();
@@ -3984,5 +3998,532 @@ describe('authErrors helpers', () => {
     expect(
       formatAuthError({ code: 'unexpected_db_failure', message: 'SELECT * FROM auth.users failed' }, t),
     ).toBe('Something went wrong. Try again.');
+  });
+});
+
+describe('credential sign-in authorization (autofill must not log in)', () => {
+  function fillAutofill(email = 'autofill@example.com', password = 'dummy-pass-1') {
+    const emailInput = screen.getByTestId('auth-email-input');
+    const passwordInput = screen.getByTestId('auth-password-input');
+    fireEvent.input(emailInput, { target: { value: email } });
+    fireEvent.change(emailInput, { target: { value: email } });
+    fireEvent.input(passwordInput, { target: { value: password } });
+    fireEvent.change(passwordInput, { target: { value: password } });
+    return { emailInput, passwordInput };
+  }
+
+  function expectStillOnCover() {
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(screen.getByTestId('auth-magazine-backdrop').getAttribute('data-turning-page')).toBe(
+      'false',
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+  }
+
+  beforeEach(() => {
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+  });
+
+  it('keeps autocomplete enabled and does not sign in on autofill input or change alone', () => {
+    renderAuth();
+    const { emailInput, passwordInput } = fillAutofill();
+    expect(emailInput.getAttribute('autocomplete')).toBe('email');
+    expect(passwordInput.getAttribute('autocomplete')).toBe('current-password');
+    expectStillOnCover();
+  });
+
+  it('does not sign in when autofill input is followed by a form submit', () => {
+    renderAuth();
+    fillAutofill();
+    fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+    expectStillOnCover();
+  });
+
+  it('does not sign in when autofill input is followed by implicit Enter in a field', () => {
+    renderAuth();
+    const { emailInput, passwordInput } = fillAutofill();
+    fireEvent.keyDown(emailInput, { key: 'Enter' });
+    fireEvent.keyDown(passwordInput, { key: 'Enter' });
+    expectStillOnCover();
+  });
+
+  it('does not sign in when autofill input is followed by requestSubmit or a synthetic default submitter', () => {
+    renderAuth();
+    fillAutofill();
+    const form = screen.getByTestId('auth-credentials-form');
+    const submitter = document.createElement('button');
+    submitter.type = 'submit';
+    submitter.setAttribute('data-testid', 'auth-synthetic-default-submit');
+    form.appendChild(submitter);
+    fireEvent.click(submitter);
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit(submitter);
+    }
+    fireEvent.submit(form);
+    submitter.remove();
+    expectStillOnCover();
+  });
+
+  it('does not sign in on a pointer tap of the flip cue without a completed manual turn', () => {
+    renderAuth();
+    fillAutofill();
+    const cue = screen.getByTestId('auth-primary-surface');
+    fireEvent.pointerDown(cue, {
+      pointerId: 7,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    fireEvent.pointerUp(cue, {
+      pointerId: 7,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 362,
+      clientY: 638,
+    });
+    fireEvent.click(cue);
+    expectStillOnCover();
+  });
+
+  it('does not sign in from an unfocused cue click, an unfocused key, or Enter while a drag is open', () => {
+    renderAuth();
+    fillAutofill();
+    const cue = screen.getByTestId('auth-primary-surface');
+    fireEvent.click(cue);
+    fireEvent.keyDown(cue, { key: 'Enter' });
+    fireEvent.keyDown(cue, { key: ' ' });
+    fireEvent.pointerDown(cue, {
+      pointerId: 8,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    fireEvent.pointerMove(cue, {
+      pointerId: 8,
+      pointerType: 'mouse',
+      clientX: 300,
+      clientY: 600,
+    });
+    cue.focus();
+    fireEvent.keyDown(cue, { key: 'Enter' });
+    expectStillOnCover();
+  });
+
+  it('signs in once from a focused cue Enter, Space, or AT click, and ignores the synthetic click', async () => {
+    const session = makeConfirmedSession({
+      user: { id: 'user-cue', email: 'autofill@example.com' },
+    });
+    authState.signIn.mockResolvedValue({ data: { session, user: session.user }, error: null });
+
+    renderAuth();
+    fillAutofill();
+    await act(async () => {
+      activateFocusedCue('Enter');
+      fireEvent.click(screen.getByTestId('auth-primary-surface'));
+    });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('autofill@example.com', 'dummy-pass-1');
+    expect(screen.getByTestId('auth-primary-surface').getAttribute('data-last-submit-source')).toBe(
+      'cue-keyboard',
+    );
+
+    cleanup();
+    authState.signIn.mockClear();
+    renderAuth();
+    fillAutofill('space-cue@example.com', 'dummy-pass-1');
+    await act(async () => {
+      activateFocusedCue(' ');
+    });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    authState.signIn.mockClear();
+    renderAuth();
+    fillAutofill('at-cue@example.com', 'dummy-pass-1');
+    const atCue = screen.getByTestId('auth-primary-surface');
+    atCue.focus();
+    await act(async () => {
+      fireEvent.click(atCue);
+      fireEvent.click(atCue);
+    });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(atCue.getAttribute('data-last-submit-source')).toBe('cue-at');
+  });
+
+  it('does not repeat sign-in after a failed, cancelled, or timed-out cue, including stale success', async () => {
+    vi.useFakeTimers();
+    let resolveFail;
+    let resolveTimeout;
+    authState.signIn
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFail = resolve;
+          }),
+      )
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveTimeout = resolve;
+          }),
+      );
+
+    renderAuth();
+    const { emailInput, passwordInput } = fillAutofill();
+    const form = screen.getByTestId('auth-credentials-form');
+
+    activateFocusedCue();
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveFail({
+        data: { session: null, user: null },
+        error: { code: 'invalid_credentials', message: 'Invalid login credentials' },
+      });
+    });
+    fireEvent.input(passwordInput, { target: { value: 'dummy-pass-1' } });
+    fireEvent.submit(form);
+    fireEvent.keyDown(emailInput, { key: 'Enter' });
+    fireEvent.click(screen.getByTestId('auth-primary-surface'));
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+
+    activateFocusedCue(' ');
+    expect(authState.signIn).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByTestId('auth-pending-cancel-btn'));
+    fireEvent.submit(form);
+    fireEvent.keyDown(passwordInput, { key: 'Enter' });
+    expect(authState.signIn).toHaveBeenCalledTimes(2);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    activateFocusedCue();
+    expect(authState.signIn).toHaveBeenCalledTimes(3);
+    await act(async () => {
+      vi.advanceTimersByTime(AUTH_PENDING_TIMEOUT_MS);
+    });
+    await act(async () => {
+      resolveTimeout({
+        data: { session: makeConfirmedSession(), user: { id: 'user-123', email: 'autofill@example.com' } },
+        error: null,
+      });
+    });
+    fireEvent.submit(form);
+    fireEvent.keyDown(emailInput, { key: 'Enter' });
+    expect(authState.signIn).toHaveBeenCalledTimes(3);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('signs in once from a completed manual release and ignores trailing input, submit, and click', async () => {
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    const { passwordInput } = fillAutofill('manual@example.com', 'dummy-pass-1');
+    const cue = screen.getByTestId('auth-primary-surface');
+    const form = screen.getByTestId('auth-credentials-form');
+    fireEvent.pointerDown(cue, { pointerId: 4, pointerType: 'mouse', button: 0, clientX: 360, clientY: 640 });
+    fireEvent.pointerMove(cue, {
+      pointerId: 4,
+      pointerType: 'mouse',
+      clientX: manualEndClientX(),
+      clientY: 500,
+    });
+    fireEvent.pointerUp(cue, {
+      pointerId: 4,
+      pointerType: 'mouse',
+      clientX: manualEndClientX(),
+      clientY: 500,
+    });
+    fireEvent.input(passwordInput, { target: { value: 'dummy-pass-1' } });
+    fireEvent.change(passwordInput, { target: { value: 'dummy-pass-1' } });
+    fireEvent.submit(form);
+    fireEvent.keyDown(passwordInput, { key: 'Enter' });
+    fireEvent.click(cue);
+    if (typeof form.requestSubmit === 'function') {
+      try {
+        form.requestSubmit();
+      } catch {
+        fireEvent.submit(form);
+      }
+    }
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('manual@example.com', 'dummy-pass-1');
+    expect(screen.getByTestId('auth-magazine-backdrop').getAttribute('data-turning-page')).toBe('true');
+    expect(cue.getAttribute('data-last-submit-source')).toBe('drag');
+  });
+
+  it('waits 200ms after a fast reduced-motion cue sign-in before navigating', async () => {
+    vi.useFakeTimers();
+    setReducedMotion(true);
+    const session = makeConfirmedSession({
+      user: { id: 'user-rm', email: 'reduced-cue@example.com' },
+    });
+    authState.signIn.mockResolvedValue({ data: { session, user: session.user }, error: null });
+    renderAuth();
+    fillAutofill('reduced-cue@example.com', 'dummy-pass-1');
+    await act(async () => {
+      activateFocusedCue();
+    });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('auth-magazine-sheet').className).toContain('mc-cover-sheet--fade');
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(ACCESSIBLE_CROSSFADE_MS - 1);
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an empty-field error for a focused cue and does not keep that action for a later submit', () => {
+    renderAuth();
+    activateFocusedCue();
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(screen.getByTestId('auth-error-alert').textContent).toBe(i18n.t('auth.errorEmpty'));
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'later@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'dummy-pass-1' },
+    });
+    fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+    fireEvent.keyDown(screen.getByTestId('auth-password-input'), { key: 'Enter' });
+    expect(authState.signIn).not.toHaveBeenCalled();
+  });
+
+  it('keeps signup form submit and field Enter, and a mode change does not let a sign-in form submit through', async () => {
+    authState.signUp.mockResolvedValue({
+      data: { user: { id: 'new-user', email: 'new@example.com' }, session: null },
+      error: null,
+    });
+    renderAuth();
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'dummy-pass-1' },
+    });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+    });
+    expect(authState.signUp).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    cleanup();
+    authState.signUp.mockClear();
+    authState.signUp.mockResolvedValue({
+      data: { user: { id: 'new-user-2', email: 'enter-up@example.com' }, session: null },
+      error: null,
+    });
+    renderAuth();
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    fireEvent.change(screen.getByTestId('auth-email-input'), {
+      target: { value: 'enter-up@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('auth-password-input'), {
+      target: { value: 'dummy-pass-1' },
+    });
+    await act(async () => {
+      fireEvent.keyDown(screen.getByTestId('auth-password-input'), { key: 'Enter' });
+    });
+    expect(authState.signUp).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    cleanup();
+    authState.signUp.mockClear();
+    authState.signIn.mockClear();
+    renderAuth();
+    fillAutofill();
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    fireEvent.submit(screen.getByTestId('auth-credentials-form'));
+    fireEvent.keyDown(screen.getByTestId('auth-email-input'), { key: 'Enter' });
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(authState.signUp).not.toHaveBeenCalled();
+  });
+});
+
+describe('explicit cue activation regressions', () => {
+  function fillReviewFields(email = 'review@example.com', password = 'dummy-pass-2') {
+    fireEvent.change(screen.getByTestId('auth-email-input'), { target: { value: email } });
+    fireEvent.change(screen.getByTestId('auth-password-input'), { target: { value: password } });
+  }
+
+  function switchToSignup() {
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+  }
+
+  it('preserves one signup pointer tap and one touch tap, and ignores the trailing click', () => {
+    authState.signUp.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    switchToSignup();
+    fillReviewFields();
+    const cue = screen.getByTestId('auth-primary-surface');
+    fireEvent.pointerDown(cue, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    fireEvent.pointerUp(cue, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    fireEvent.click(cue, { detail: 1 });
+    expect(authState.signUp).toHaveBeenCalledTimes(1);
+    expect(authState.signUp).toHaveBeenCalledWith('review@example.com', 'dummy-pass-2');
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(cue.getAttribute('data-last-submit-source')).toBe('tap');
+    expect(cue.getAttribute('data-submit-count')).toBe('1');
+
+    cleanup();
+    authState.signUp.mockClear();
+    authState.signIn.mockClear();
+    authState.signUp.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    switchToSignup();
+    fillReviewFields('touch-review@example.com', 'dummy-pass-2');
+    const touchCue = screen.getByTestId('auth-primary-surface');
+    fireEvent.touchStart(touchCue, {
+      touches: [{ identifier: 4, clientX: 360, clientY: 640 }],
+    });
+    fireEvent.touchEnd(touchCue, {
+      changedTouches: [{ identifier: 4, clientX: 360, clientY: 640 }],
+    });
+    fireEvent.click(touchCue, { detail: 1 });
+    expect(authState.signUp).toHaveBeenCalledTimes(1);
+    expect(authState.signUp).toHaveBeenCalledWith('touch-review@example.com', 'dummy-pass-2');
+    expect(authState.signIn).not.toHaveBeenCalled();
+    expect(touchCue.getAttribute('data-last-submit-source')).toBe('tap');
+    expect(touchCue.getAttribute('data-submit-count')).toBe('1');
+  });
+
+  it('does not treat a held-key repeat or a composing key as a fresh cue completion', async () => {
+    let resolveFail;
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+    authState.signIn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFail = resolve;
+        }),
+    );
+    renderAuth();
+    fillReviewFields();
+    const cue = screen.getByTestId('auth-primary-surface');
+    cue.focus();
+    fireEvent.keyDown(cue, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(cue, { key: ' ', repeat: true });
+    fireEvent.keyDown(cue, { key: 'Enter', isComposing: true });
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(cue, { key: 'Enter', repeat: false });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('review@example.com', 'dummy-pass-2');
+
+    await act(async () => {
+      resolveFail({
+        data: { session: null, user: null },
+        error: { code: 'invalid_credentials', message: 'Invalid login credentials' },
+      });
+    });
+    cue.focus();
+    fireEvent.keyDown(cue, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(cue, { key: ' ', repeat: true, isComposing: true });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(cue, { key: ' ', repeat: false });
+    expect(authState.signIn).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a focused pointer click when no pointer marker precedes it', () => {
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    fillReviewFields();
+    const cue = screen.getByTestId('auth-primary-surface');
+    cue.focus();
+    fireEvent.click(cue, { detail: 1 });
+    cue.dispatchEvent(
+      new PointerEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        detail: 0,
+        button: 0,
+        pointerId: 3,
+        pointerType: 'mouse',
+      }),
+    );
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    fireEvent.click(cue, { detail: 0 });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('review@example.com', 'dummy-pass-2');
+    expect(cue.getAttribute('data-last-submit-source')).toBe('cue-at');
+  });
+
+  it('allows a later deliberate AT action after a cancelled pointer loses capture', () => {
+    vi.useFakeTimers();
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    fillReviewFields();
+    const cue = screen.getByTestId('auth-primary-surface');
+    cue.focus();
+    fireEvent.pointerDown(cue, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 360,
+      clientY: 640,
+    });
+    fireEvent.lostPointerCapture(cue, { pointerId: 1, pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    cue.focus();
+    fireEvent.click(cue, { detail: 0 });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('review@example.com', 'dummy-pass-2');
+    expect(cue.getAttribute('data-last-submit-source')).toBe('cue-at');
+  });
+
+  function dispatchCueClick(node, { detail = 0, pointerId, pointerType } = {}) {
+    const activation = new MouseEvent('click', { bubbles: true, cancelable: true, detail });
+    if (pointerId !== undefined) {
+      Object.defineProperty(activation, 'pointerId', { value: pointerId });
+    }
+    if (pointerType !== undefined) {
+      Object.defineProperty(activation, 'pointerType', { value: pointerType });
+    }
+    fireEvent(node, activation);
+  }
+
+  it('allows a focused detail-zero pointerId -1 non-pointer click and rejects physical ids, pointer types, and detail', () => {
+    authState.signIn.mockImplementation(() => new Promise(() => {}));
+    renderAuth();
+    fillReviewFields('sentinel@example.com', 'dummy-pass-3');
+    const cue = screen.getByTestId('auth-primary-surface');
+
+    dispatchCueClick(cue, { detail: 0, pointerId: -1, pointerType: '' });
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    cue.focus();
+    dispatchCueClick(cue, { detail: 0, pointerId: 0, pointerType: '' });
+    dispatchCueClick(cue, { detail: 0, pointerId: 7, pointerType: '' });
+    dispatchCueClick(cue, { detail: 0, pointerId: -1, pointerType: 'mouse' });
+    dispatchCueClick(cue, { detail: 0, pointerId: -1, pointerType: 'pen' });
+    dispatchCueClick(cue, { detail: 0, pointerId: -1, pointerType: 'touch' });
+    dispatchCueClick(cue, { detail: 1, pointerId: -1, pointerType: '' });
+    expect(authState.signIn).not.toHaveBeenCalled();
+
+    cue.focus();
+    dispatchCueClick(cue, { detail: 0, pointerId: -1, pointerType: '' });
+    expect(authState.signIn).toHaveBeenCalledTimes(1);
+    expect(authState.signIn).toHaveBeenCalledWith('sentinel@example.com', 'dummy-pass-3');
+    expect(cue.getAttribute('data-last-submit-source')).toBe('cue-at');
   });
 });

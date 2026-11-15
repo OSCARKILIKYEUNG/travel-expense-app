@@ -32,6 +32,30 @@ export const DRAG_INTENT_DEADZONE_PX = 6;
 export const DEFAULT_SHEET_WIDTH_PX = 480;
 export const DEFAULT_SHEET_HEIGHT_PX = 656;
 
+const POINTER_CLICK_TYPES = new Set(['mouse', 'pen', 'touch']);
+
+// Physical clicks carry a click count, a mouse/pen/touch type, or a pointer id
+// of 0 or greater. Pointer Events reserves pointerId -1, with an empty type,
+// for activation that did not come from a pointing device. isTrusted is not used.
+function isPointerLikeCueClick(event) {
+  if (!event || typeof event !== 'object') return false;
+  const detail = Number(event.detail);
+  if (Number.isFinite(detail) && detail > 0) return true;
+  const native =
+    event.nativeEvent && typeof event.nativeEvent === 'object' ? event.nativeEvent : null;
+  const pointerType = String(event.pointerType || native?.pointerType || '');
+  if (POINTER_CLICK_TYPES.has(pointerType)) return true;
+  const pointerIds = [event.pointerId];
+  if (native && native !== event) pointerIds.push(native.pointerId);
+  // -1 is the non-pointing sentinel. Every other numeric id is a physical pointer.
+  if (pointerIds.some((id) => typeof id === 'number' && id !== -1)) return true;
+  return false;
+}
+
+function cueActivationIsStale(event) {
+  return Boolean(event?.repeat || event?.isComposing || event?.nativeEvent?.isComposing);
+}
+
 /**
  * Pure geometric helper computing the continuous bottom-right paper corner fold
  * from gesture progress (0..1).
@@ -219,6 +243,9 @@ export default function MagazineCoverView({
   const suppressNextClickRef = useRef(false);
   const cancelledPointerIdRef = useRef(null);
   const formEnterHandledRef = useRef(false);
+  const pointerCueRef = useRef(false);
+  const pointerCueSeqRef = useRef(0);
+  const pointerCueTimerRef = useRef(null);
   const liveStateRef = useRef({ turningPage, turnAborting, submitting, oauthGoogleLoading });
   liveStateRef.current = { turningPage, turnAborting, submitting, oauthGoogleLoading };
   const reducedMotionRef = useRef(reducedMotion);
@@ -323,6 +350,12 @@ export default function MagazineCoverView({
       interactionEpochRef.current += 1;
       suppressClickSeqRef.current += 1;
       formEnterSeqRef.current += 1;
+      pointerCueSeqRef.current += 1;
+      pointerCueRef.current = false;
+      if (pointerCueTimerRef.current) {
+        clearTimeout(pointerCueTimerRef.current);
+        pointerCueTimerRef.current = null;
+      }
       dragSessionRef.current.active = false;
       dragSessionRef.current.hasDragIntent = false;
       dragSessionRef.current.pointerId = null;
@@ -364,6 +397,33 @@ export default function MagazineCoverView({
       suppressClickTimerRef.current = null;
     }, windowMs);
   };
+
+  const armPointerCue = () => {
+    pointerCueRef.current = true;
+  };
+
+  // Hold the pointer mark through the trailing-click window. A synchronous
+  // click and a delayed synthetic click both still see it. Keyboard activation
+  // does not consult this mark.
+  const schedulePointerCueRelease = () => {
+    const seq = pointerCueSeqRef.current + 1;
+    pointerCueSeqRef.current = seq;
+    if (pointerCueTimerRef.current) clearTimeout(pointerCueTimerRef.current);
+    pointerCueTimerRef.current = setTimeout(() => {
+      pointerCueTimerRef.current = null;
+      if (!mountedRef.current || pointerCueSeqRef.current !== seq) return;
+      pointerCueRef.current = false;
+    }, 400);
+  };
+
+  const cueCommitPayload = (cueKind) => ({
+    preventDefault() {},
+    explicitCueCommit: true,
+    cueKind,
+  });
+
+  const cueIsExplicitlyFocused = (node) =>
+    Boolean(node && typeof document !== 'undefined' && document.activeElement === node);
 
   const invokeSubmit = (payloadOrEvent, sourceLabel = 'tap') => {
     const submitFn = onPageCurlSubmit || onSubmit;
@@ -1084,6 +1144,7 @@ export default function MagazineCoverView({
 
   const finishCornerDrag = (clientX, clientY) => {
     if (!dragSessionRef.current.active) return;
+    schedulePointerCueRelease();
     const sessionEpoch = dragSessionRef.current.epoch;
     if (interactionEpochRef.current !== sessionEpoch) return;
     const dist = computeDistanceFromStart(clientX, clientY);
@@ -1094,7 +1155,9 @@ export default function MagazineCoverView({
     const activeSource = dragSessionRef.current.source;
     releaseCornerPointerCapture(activePointerId, activeSource);
 
-    // Ordinary physical tap / click on the integrated surface (no meaningful drag intent)
+    // A tap is not a completed turn. Credential sign-in stays closed.
+    // Signup keeps the previous one-shot corner tap. The trailing click is suppressed
+    // for both, so pointerup/touchend plus click cannot submit twice.
     if (!hasDragIntent) {
       const tapEpoch = advanceInteractionEpoch();
       dragSessionRef.current.active = false;
@@ -1103,9 +1166,8 @@ export default function MagazineCoverView({
       dragSessionRef.current.progress = 0;
       snapPoseToRest();
       setCurlPhase('idle');
-      // Suppress the browser's trailing synthetic click from this same tap release
       armSuppressNextClick();
-      if (!isBusy) {
+      if (mode !== 'signin' && !isBusy) {
         Promise.resolve(
           invokeSubmit(
             {
@@ -1218,6 +1280,7 @@ export default function MagazineCoverView({
 
   const cancelCornerDrag = (pointerId = null, { restoreFocus = true } = {}) => {
     if (!dragSessionRef.current.active) return;
+    schedulePointerCueRelease();
     if (
       pointerId !== null &&
       pointerId !== undefined &&
@@ -1330,6 +1393,7 @@ export default function MagazineCoverView({
     const fromGrab = currentId === 'auth-fold-grab';
     const fromButton = currentId === 'auth-primary-surface';
     if (e.pointerType === 'mouse' && e.button !== undefined && e.button !== 0) return;
+    if (fromButton) armPointerCue();
     const fromGrabPart =
       e.target && typeof e.target.closest === 'function' && Boolean(e.target.closest('[data-grab-hit]'));
     if (fromLeaf) {
@@ -1397,6 +1461,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerPointerUp = (e) => {
+    if (nodeTestId(e.currentTarget) === 'auth-primary-surface') schedulePointerCueRelease();
     if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') {
       if (
@@ -1420,6 +1485,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerPointerCancel = (e) => {
+    if (nodeTestId(e.currentTarget) === 'auth-primary-surface') schedulePointerCueRelease();
     if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'pointer') return;
     if (
@@ -1491,6 +1557,7 @@ export default function MagazineCoverView({
     } else if (!fromButton) {
       return;
     }
+    if (fromButton) armPointerCue();
     const allowBusySettle = (fromLeaf || fromGrab) && canRegrabSettle();
     if ((isBusy && !allowBusySettle) || dragSessionRef.current.active) return;
     const touch = e.touches && e.touches[0];
@@ -1520,6 +1587,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerTouchEnd = (e) => {
+    if (nodeTestId(e.currentTarget) === 'auth-primary-surface') schedulePointerCueRelease();
     if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'touch') return;
     const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
@@ -1527,6 +1595,7 @@ export default function MagazineCoverView({
   };
 
   const handleCornerTouchCancel = (e) => {
+    if (nodeTestId(e.currentTarget) === 'auth-primary-surface') schedulePointerCueRelease();
     if (bubbledFromCornerHandle(e)) return;
     if (!dragSessionRef.current.active || dragSessionRef.current.source !== 'touch') return;
     cancelCornerDrag(null, { restoreFocus: true });
@@ -1576,8 +1645,12 @@ export default function MagazineCoverView({
       }
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
+        // Held-key repeats and IME composition are not a fresh completion.
+        if (cueActivationIsStale(e)) return;
         cancelCornerDrag(null, { restoreFocus: true });
-        if (!isBusy) {
+        // An in-progress drag is not the focused-cue action. Sign-in stays closed.
+        // Signup keeps its previous surface activation.
+        if (mode !== 'signin' && !isBusy) {
           advanceInteractionEpoch();
           releaseSpringForSubmit();
           lastInteractiveControlRef.current = primarySurfaceRef.current;
@@ -1601,12 +1674,18 @@ export default function MagazineCoverView({
     }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      if (cueActivationIsStale(e)) return;
+      if (mode === 'signin' && !cueIsExplicitlyFocused(e.currentTarget)) return;
       advanceInteractionEpoch();
       releaseSpringForSubmit();
       armSuppressNextClick();
       lastInteractiveControlRef.current = primarySurfaceRef.current;
       setLastPointerType('keyboard');
-      Promise.resolve(invokeSubmit(e, 'keyboard')).then(
+      const payload =
+        mode === 'signin' ? cueCommitPayload(e.key === ' ' ? 'space' : 'enter') : e;
+      Promise.resolve(
+        invokeSubmit(payload, mode === 'signin' ? 'cue-keyboard' : 'keyboard'),
+      ).then(
         () => {},
         () => {},
       );
@@ -1614,17 +1693,30 @@ export default function MagazineCoverView({
   };
 
   const handleCornerClick = (e) => {
+    const fromPointer = pointerCueRef.current;
     if (suppressNextClickRef.current) {
       clearSuppressNextClick();
       return;
     }
     if (isBusy) return;
+    // Sign-in accepts a focused assistive click only. A click count, a
+    // mouse/pen/touch type, or a physical pointer id is not that action when
+    // the pointer-down marker is absent. pointerId -1 with an empty type is
+    // the non-pointing sentinel. Signup clicks stay on this handler.
+    if (
+      mode === 'signin' &&
+      (fromPointer ||
+        !cueIsExplicitlyFocused(e.currentTarget) ||
+        isPointerLikeCueClick(e))
+    ) {
+      return;
+    }
     advanceInteractionEpoch();
     releaseSpringForSubmit();
-    // Non-pointer activation (keyboard / screen reader / assistive technology / direct click)
     lastInteractiveControlRef.current = primarySurfaceRef.current;
     setLastPointerType('keyboard');
-    Promise.resolve(invokeSubmit(e, 'click')).then(
+    const payload = mode === 'signin' ? cueCommitPayload('at') : e;
+    Promise.resolve(invokeSubmit(payload, mode === 'signin' ? 'cue-at' : 'click')).then(
       () => {},
       () => {},
     );
@@ -1638,6 +1730,8 @@ export default function MagazineCoverView({
       !e.nativeEvent?.isComposing
     ) {
       e.preventDefault();
+      // Field Enter never authorizes credential sign-in, including autofill.
+      if (mode === 'signin') return;
       if (isBusy) return;
       advanceInteractionEpoch();
       releaseSpringForSubmit();
@@ -1676,6 +1770,9 @@ export default function MagazineCoverView({
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
+    // Autofill, requestSubmit, implicit submission, and a default submitter
+    // cannot authorize credential sign-in. Signup still submits this form.
+    if (mode === 'signin') return;
     if (formEnterHandledRef.current) {
       formEnterSeqRef.current += 1;
       formEnterHandledRef.current = false;
@@ -1831,8 +1928,15 @@ export default function MagazineCoverView({
     submitting || turningPage
       ? t('auth.submitting')
       : mode === 'signin'
+        ? t('auth.pageCurlLabel')
+        : t('auth.pageCurlSignUpAria');
+  const primaryCornerAria =
+    submitting || turningPage
+      ? t('auth.submitting')
+      : mode === 'signin'
         ? t('auth.pageCurlSignInAria')
         : t('auth.pageCurlSignUpAria');
+  const showCueInstruction = mode === 'signin' && !submitting && !turningPage;
 
   return (
     <div
@@ -2510,7 +2614,9 @@ export default function MagazineCoverView({
                       data-curl-phase={effectivePhase}
                       data-submit-count={String(submitCount)}
                       data-last-submit-source={lastSubmitSource}
-                      aria-label={primaryCornerText}
+                      aria-label={primaryCornerAria}
+                      aria-describedby={showCueInstruction ? 'auth-cue-instruction' : undefined}
+                      aria-keyshortcuts={showCueInstruction ? 'Enter Space' : undefined}
                       disabled={isBusy}
                       inert={isBusy ? '' : undefined}
                       aria-hidden={turningPage ? 'true' : undefined}
@@ -2536,6 +2642,11 @@ export default function MagazineCoverView({
                         >
                           {primaryCornerText}
                         </span>
+                        {showCueInstruction ? (
+                          <span id="auth-cue-instruction" data-testid="auth-cue-instruction" className="sr-only">
+                            {t('auth.pageCurlSignInHint')}
+                          </span>
+                        ) : null}
                       </span>
                     </button>
                   </div>

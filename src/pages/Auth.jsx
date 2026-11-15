@@ -330,12 +330,30 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
     return true;
   };
 
-  // Single guarded submit shared by form Enter, explicit submit button, and >=44px corner page-curl button
+  // Credential sign-in is not a form submission. Callers must pass a fresh
+  // gestureCommit (full-end release) or explicitCueCommit (focused flip-cue
+  // keyboard or AT activation). Both flags are cleared synchronously on this
+  // object so a later generic submit cannot reuse them. Signup still uses
+  // this function. Forgot-password and Google OAuth do not.
   const handleSubmit = async (e) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
-    const isGestureCommit = Boolean(e && e.gestureCommit);
+    let isGestureCommit = false;
+    let isExplicitCue = false;
+    if (e && typeof e === 'object') {
+      if (e.gestureCommit) {
+        isGestureCommit = true;
+        e.gestureCommit = false;
+      }
+      if (e.explicitCueCommit) {
+        isExplicitCue = true;
+        e.explicitCueCommit = false;
+      }
+    }
+    if (mode === 'signin' && !isGestureCommit && !isExplicitCue) {
+      return false;
+    }
     const alreadyOptimistic = isGestureCommit && optimisticTurnRef.current;
     if (
       submitLockRef.current ||
