@@ -14,6 +14,10 @@ import {
   findLoginCover,
 } from '../components/auth/loginCovers';
 import {
+  DEVICE_LOGIN_COVER_KEY,
+  writeDeviceLoginCoverId,
+} from '../utils/loginCoverPreference';
+import {
   formatAuthError,
   hasConfirmedSession,
   isSessionExpired,
@@ -150,6 +154,7 @@ function activateFocusedCue(key = 'Enter') {
 }
 
 beforeEach(async () => {
+  localStorage.removeItem(DEVICE_LOGIN_COVER_KEY);
   await i18n.changeLanguage('zh-TW');
   mockNavigate.mockReset();
   routerState.location = { pathname: '/login', state: { from: { pathname: '/charts' } } };
@@ -176,12 +181,14 @@ afterEach(() => {
 });
 
 describe('Magazine-cover Auth page (Phase 1)', () => {
-  it('renders rotating oil-painting magazine cover, painted place-name typography, exact 4-row reading order (email/password, Google/forgot, full-width register, lower-right paper corner 翻頁登入), and single primary surface', async () => {
+  it('renders the deterministic scenic login cover, painted place-name typography, exact 4-row reading order (email/password, Google/forgot, full-width register, lower-right paper corner 翻頁登入), and single primary surface', async () => {
     renderAuth();
 
     const coverImg = screen.getByTestId('auth-cover-image');
     const pickedId = coverImg.getAttribute('data-cover-id');
-    expect(['tokyo', 'osaka', 'kyoto', 'kamakura']).toContain(pickedId);
+    expect(pickedId).toBe('tokyo');
+    expect(coverImg.getAttribute('data-cover-variant')).toBe('scenic-ink');
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
     expect(screen.queryByTestId('auth-cover-headline')).toBeNull();
     expect(screen.queryByTestId('auth-cover-country')).toBeNull();
     expect(screen.getByTestId('auth-cover-sr-heading').textContent).toMatch(
@@ -2219,16 +2226,14 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     );
 
     const surface = screen.getByTestId('auth-cover-surface');
-    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
     const img = screen.getByTestId('auth-cover-image');
     expect(img.getAttribute('data-cover-id')).toBe('kyoto');
+    expect(img.getAttribute('data-cover-variant')).toBe('scenic-ink');
     expect(img.getAttribute('src')).toBe(kyotoCover.src);
     expect(img.getAttribute('alt')).toBe(kyotoCover.alt);
     expect(img.getAttribute('decoding')).toBe('async');
-    expect(backdropImg.getAttribute('src')).toBe(kyotoCover.src);
-    expect(backdropImg.getAttribute('alt')).toBe('');
-    expect(backdropImg.getAttribute('aria-hidden')).toBe('true');
-    expect(surface.contains(backdropImg)).toBe(true);
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
+    expect(surface.className).toContain('mc-cover-surface--scenic');
     expect(surface.contains(img)).toBe(true);
     expect(screen.queryByTestId('auth-cover-form-wash')).toBeNull();
     expect(screen.getByTestId('auth-login-overlay').className).toContain(
@@ -2238,7 +2243,7 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(screen.queryByTestId('auth-placeholder-artwork-badge')).toBeNull();
   });
 
-  it('supports html and painted coverHeadline modes, full-width top-anchored image with blurred bottom backdrop, solid top sky scrim, neutral copy, and accessible h1', async () => {
+  it('supports html and painted coverHeadline modes, full-width top-anchored scenic image on ivory, solid top sky scrim, neutral copy, and accessible h1', async () => {
     const osakaCover = findLoginCover('osaka');
     const { rerender } = render(
       createElement(
@@ -2251,13 +2256,14 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
       ),
     );
 
-    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
     const img = screen.getByTestId('auth-cover-image');
     expect(img.getAttribute('data-cover-id')).toBe('osaka');
+    expect(img.getAttribute('data-cover-variant')).toBe('scenic-ink');
     expect(img.style.pointerEvents).toBe('none');
     expect(img.className).toContain('pointer-events-none');
-    expect(backdropImg.style.pointerEvents).toBe('none');
-    expect(backdropImg.className).toContain('pointer-events-none');
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
+    expect(screen.getByTestId('auth-cover-surface').className).toContain('mc-cover-surface--scenic');
+    expect(screen.getByTestId('auth-login-overlay').className).toContain('mc-login-overlay--scenic-wash');
     expect(screen.getByTestId('auth-cover-headline').textContent).toBe('OSAKA');
     expect(screen.getByTestId('auth-cover-issue').textContent).toBe('ISSUE 01');
     expect(screen.getByTestId('auth-cover-stamp').textContent).toBe('OSAKA · 01');
@@ -2312,6 +2318,17 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     expect(washBeforeRuleMatch?.[1] || '').toContain('rgb(var(--c-paper) / 0.88) 100%');
     expect(washBeforeRuleMatch?.[1] || '').not.toMatch(/\bborder\b|\bborder-radius\b|\bbox-shadow\b|\bpadding\b|\bmargin\b/);
 
+    const scenicSurface = css.match(/\.mc-cover-surface\.mc-cover-surface--scenic\s*\{([^}]*)\}/);
+    expect(scenicSurface?.[1] || '').toContain('background-color: rgb(var(--c-paper))');
+    expect(scenicSurface?.[1] || '').toContain('background-image: none');
+    expect(scenicSurface?.[1] || '').not.toContain('blur(');
+    const scenicWash = css.match(/\.mc-login-overlay--scenic-wash::before\s*\{([^}]*)\}/);
+    expect(scenicWash?.[1] || '').toContain('transparent 0%');
+    expect(scenicWash?.[1] || '').toContain('rgb(var(--c-paper)) 1.5rem');
+    expect(scenicWash?.[1] || '').toContain('rgb(var(--c-paper)) 100%');
+    expect(scenicWash?.[1] || '').not.toContain('0.88');
+    expect(scenicWash?.[1] || '').not.toContain('blur(');
+
     // Switch to painted mode: HTML headline block hidden, accessible h1 retained
     rerender(
       createElement(
@@ -2352,9 +2369,8 @@ describe('Magazine-cover Auth page (Phase 1)', () => {
     );
 
     const coverImg = screen.getByTestId('auth-cover-image');
-    const backdropImg = screen.getByTestId('auth-cover-image-backdrop');
     fireEvent.animationEnd(coverImg);
-    fireEvent.animationEnd(backdropImg);
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
 
     expect(onTurnAnimationEnd).not.toHaveBeenCalled();
     expect(screen.queryByTestId('auth-success-banner')).toBeNull();
@@ -4525,5 +4541,116 @@ describe('explicit cue activation regressions', () => {
     expect(authState.signIn).toHaveBeenCalledTimes(1);
     expect(authState.signIn).toHaveBeenCalledWith('sentinel@example.com', 'dummy-pass-3');
     expect(cue.getAttribute('data-last-submit-source')).toBe('cue-at');
+  });
+});
+
+describe('Auth scenic cover stability', () => {
+  it('uses the public device enum once per mount and does not reroll on mode switch, rerender, or a fold pose', async () => {
+    writeDeviceLoginCoverId('kyoto');
+    const view = renderAuth();
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('auth-mode-switch-btn'));
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
+
+    const surface = screen.getByTestId('auth-primary-surface');
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 300,
+      clientY: 620,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      clientX: 220,
+      clientY: 540,
+    });
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
+
+    localStorage.setItem(DEVICE_LOGIN_COVER_KEY, 'osaka');
+    view.rerender(createElement(I18nextProvider, { i18n }, createElement(Auth)));
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
+
+    cleanup();
+    renderAuth();
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('osaka');
+  });
+
+  it('falls back to TOKYO for a missing, unknown, or denied device value and does not store a url', () => {
+    renderAuth();
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+    cleanup();
+
+    localStorage.setItem(DEVICE_LOGIN_COVER_KEY, 'kamakura');
+    renderAuth();
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+    expect(localStorage.getItem(DEVICE_LOGIN_COVER_KEY)).toBe('kamakura');
+    cleanup();
+
+    localStorage.setItem(DEVICE_LOGIN_COVER_KEY, 'https://evil.example/cover.webp');
+    renderAuth();
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+    cleanup();
+
+    const original = Storage.prototype.getItem;
+    Storage.prototype.getItem = function getItem(key) {
+      if (key === DEVICE_LOGIN_COVER_KEY) throw new Error('denied');
+      return original.call(this, key);
+    };
+    try {
+      renderAuth();
+      expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+    } finally {
+      Storage.prototype.getItem = original;
+    }
+  });
+
+  it('shows TOKYO after an image error without deleting the stored choice or swapping again on rerender', () => {
+    writeDeviceLoginCoverId('kyushu');
+    const view = renderAuth();
+    const image = screen.getByTestId('auth-cover-image');
+    expect(image.getAttribute('data-cover-id')).toBe('kyushu');
+    fireEvent.error(image);
+    const fallback = screen.getByTestId('auth-cover-image');
+    expect(fallback.getAttribute('data-cover-id')).toBe('tokyo');
+    expect(fallback.getAttribute('data-preferred-cover-id')).toBe('kyushu');
+    expect(localStorage.getItem(DEVICE_LOGIN_COVER_KEY)).toBe('kyushu');
+    localStorage.setItem(DEVICE_LOGIN_COVER_KEY, 'osaka');
+    view.rerender(createElement(I18nextProvider, { i18n }, createElement(Auth)));
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('tokyo');
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-preferred-cover-id')).toBe('kyushu');
+  });
+
+  it('keeps the same scenic id while a finger fold is already open', () => {
+    const kyoto = findLoginCover('kyoto');
+    const { rerender } = render(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: kyoto,
+          coverHeadline: 'painted',
+          initialCurlProgress: 0.45,
+        }),
+      ),
+    );
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
+    expect(screen.getByTestId('auth-cover-surface').className).toContain('mc-cover-surface--scenic');
+    expect(screen.queryByTestId('auth-cover-image-backdrop')).toBeNull();
+    rerender(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(MagazineCoverView, {
+          coverImage: kyoto,
+          coverHeadline: 'painted',
+          initialCurlProgress: 0.8,
+        }),
+      ),
+    );
+    expect(screen.getByTestId('auth-cover-image').getAttribute('data-cover-id')).toBe('kyoto');
   });
 });

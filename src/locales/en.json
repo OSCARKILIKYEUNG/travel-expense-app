@@ -71,6 +71,12 @@
     "errorPasswordTooShort": "Use at least 6 characters.",
     "magazineIssue": "ISSUE 01 · COASTAL EDITION",
     "coverSubtitle": "Japan · Shonan & Coastal Railway Notes",
+    "coverAlt": {
+      "tokyo": "Scenic ink login cover of Tokyo Tower and the connected low-rise streets around it",
+      "osaka": "Scenic ink login cover of Osaka Castle main keep and cherry blossoms",
+      "kyoto": "Scenic ink login cover of the sloping Yasaka-dori street and Yasaka Pagoda",
+      "kyushu": "Scenic ink login cover of Aso grassland and volcanic hills in the Kyushu region"
+    },
     "sceneryPlaceholderBadge": "Placeholder scenery illustration — not final artwork",
     "coverPanelEyebrow": "READER SIGN-IN · FREE COVER",
     "coverPanelHint": "Sign in with your email and password to open your travel notebook.",
@@ -201,6 +207,17 @@
     "language": "Language",
     "languageZhTW": "Traditional Chinese",
     "languageEn": "English",
+    "loginCoverTitle": "Login cover",
+    "loginCoverHelp": "These four default covers are free.",
+    "loginCoverSelected": "Selected",
+    "loginCoverSaved": "Login cover saved",
+    "loginCoverCredits": "Artwork credits",
+    "loginCoverDestination": {
+      "tokyo": "Tokyo",
+      "osaka": "Osaka",
+      "kyoto": "Kyoto",
+      "kyushu": "Kyushu"
+    },
     "currencyTitle": "Base currency",
     "currencyCode": "Currency code",
     "otherCurrency": "Other",

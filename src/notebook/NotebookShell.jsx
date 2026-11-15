@@ -442,6 +442,7 @@ export default function NotebookShell() {
       uiLanguage={uiLanguage}
       onChangeUiLanguage={handleChangeUiLanguage}
       updateSettings={updateSettings}
+      loginCoverId={settings?.loginCoverId}
       account={account}
       onSignOut={signOut}
     />

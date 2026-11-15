@@ -1206,6 +1206,12 @@
   -webkit-user-drag: none;
 }
 
+/* Scenic ink sits on plain ivory. No second blurred copy of the artwork. */
+.mc-cover-surface.mc-cover-surface--scenic {
+  background-color: rgb(var(--c-paper));
+  background-image: none;
+}
+
 /* Solid top sky scrim in HTML headline mode (0%–30% solid route navy, fading out by 46%) */
 .mc-cover-sky-scrim {
   position: absolute;
@@ -1369,6 +1375,21 @@
     transparent 0%,
     rgb(var(--c-paper) / 0.88) 1.5rem,
     rgb(var(--c-paper) / 0.88) 100%
+  );
+}
+
+/* Scenic form wash: opaque ivory over the measured controls, fade only above them. */
+.mc-login-overlay--cover-wash.mc-login-overlay--scenic-wash {
+  background-color: rgb(var(--c-paper));
+  background-image: none;
+}
+
+.mc-login-overlay--cover-wash.mc-login-overlay--scenic-wash::before {
+  background-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(var(--c-paper)) 1.5rem,
+    rgb(var(--c-paper)) 100%
   );
 }
 

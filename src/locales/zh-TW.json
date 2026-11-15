@@ -71,6 +71,12 @@
     "errorPasswordTooShort": "密碼至少 6 個字元。",
     "magazineIssue": "第 01 期 · 海岸線特集",
     "coverSubtitle": "日本 · 海岸電車與旅途手札",
+    "coverAlt": {
+      "tokyo": "手繪墨線風景登入封面，東京鐵塔與相連的低層街景",
+      "osaka": "手繪墨線風景登入封面，大阪城天守與櫻花",
+      "kyoto": "手繪墨線風景登入封面，八坂通坡道與法觀寺八坂塔",
+      "kyushu": "手繪墨線風景登入封面，九州阿蘇草千里之濱的草原與火山丘陵"
+    },
     "sceneryPlaceholderBadge": "暫代示範插畫景色（非最終完成圖）",
     "coverPanelEyebrow": "旅人登入 · 免費手札號",
     "coverPanelHint": "輸入電子郵件與密碼，開啟你的旅遊手帳。",
@@ -201,6 +207,17 @@
     "language": "介面語言",
     "languageZhTW": "繁體中文",
     "languageEn": "English",
+    "loginCoverTitle": "登入封面",
+    "loginCoverHelp": "這四張預設封面都是免費的。",
+    "loginCoverSelected": "已選",
+    "loginCoverSaved": "已套用登入封面",
+    "loginCoverCredits": "作品來源與授權",
+    "loginCoverDestination": {
+      "tokyo": "東京",
+      "osaka": "大阪",
+      "kyoto": "京都",
+      "kyushu": "九州"
+    },
     "currencyTitle": "記帳貨幣",
     "currencyCode": "貨幣代碼",
     "otherCurrency": "其他貨幣",

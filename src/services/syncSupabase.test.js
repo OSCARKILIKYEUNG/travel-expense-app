@@ -383,3 +383,60 @@ describe('settlements survive sync upsert / remote-applied / local-kept', () => 
     expect(cloudIds).toEqual(['stl-cloud', 'stl-from-a']);
   });
 });
+
+describe('loginCoverId sync roundtrip', () => {
+  it('uploads the allowlisted id inside app_settings and a later device hydrates it', async () => {
+    seedRow();
+    const a = await makeDevice();
+    await a.boot();
+    await a.run(({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      const current = ds.loadSettings();
+      ds.saveSettings({ ...current, loginCoverId: 'kyoto' });
+      expect(ds.loadSettings().loginCoverId).toBe('kyoto');
+      expect(ds.loadExpenses().map((expense) => expense.id)).toEqual(['base']);
+    });
+    const saved = await a.save();
+    expect(saved.status).toBe('saved');
+    const sent = db.upserts.at(-1);
+    expect(sent.app_settings.loginCoverId).toBe('kyoto');
+    expect(JSON.stringify(sent.app_settings)).not.toMatch(/webp|data:image|https?:\/\//i);
+    expect(sent.trips_data.trips[0].expenses.map((expense) => expense.id)).toEqual(['base']);
+
+    const b = await makeDevice();
+    await b.boot();
+    const hydrated = await b.run(({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      return ds.loadSettings();
+    });
+    expect(hydrated.loginCoverId).toBe('kyoto');
+    expect(hydrated.uiLanguage).toBe(sent.app_settings.uiLanguage);
+    expect(hydrated.savedAccountingCodes).toEqual(sent.app_settings.savedAccountingCodes);
+  });
+
+  it('has no separate settings clock, so a newer trip upload can replace loginCoverId', async () => {
+    seedRow();
+    const a = await makeDevice();
+    const b = await makeDevice();
+    await a.boot();
+    await b.boot();
+
+    await a.run(({ DataService: ds }) => {
+      ds.setStorageScope(USER);
+      const current = ds.loadSettings();
+      ds.saveSettings({ ...current, loginCoverId: 'osaka' });
+    });
+    expect((await a.save()).status).toBe('saved');
+    expect(db.rows.get(USER).app_settings.loginCoverId).toBe('osaka');
+
+    vi.setSystemTime(new Date('2026-10-28T10:05:00.000Z'));
+    await b.addExpense({ id: 'from-b', amount: 500 });
+    const bSave = await b.save();
+    expect(['saved', 'local-kept']).toContain(bSave.status);
+    expect(db.rows.get(USER).trips_data.trips[0].expenses.map((expense) => expense.id)).toEqual([
+      'base',
+      'from-b',
+    ]);
+    expect(db.rows.get(USER).app_settings.loginCoverId).toBe('tokyo');
+  });
+});

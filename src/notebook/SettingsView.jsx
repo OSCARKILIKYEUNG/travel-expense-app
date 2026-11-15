@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
+import { LOGIN_COVERS, LOGIN_COVER_CREDITS_HREF } from '../components/auth/loginCovers';
 import { WashiLabel } from '../journal/art/decor.jsx';
 import { fmtHKD, fmtJPY, personCounts } from '../proto/ref/refLogic';
 import {
@@ -21,6 +22,12 @@ import {
 import { CURRENCY_NAMES } from '../utils/constants';
 import { normalizeDate } from '../utils/duplicates';
 import { normalizeUiLanguage } from '../utils/locale';
+import {
+  DEFAULT_LOGIN_COVER_ID,
+  normalizeLoginCoverId,
+  readDeviceLoginCoverId,
+  writeDeviceLoginCoverId,
+} from '../utils/loginCoverPreference';
 import { tripCurrencyOptions } from '../utils/tripMoney';
 import {
   CALENDAR_IMPORT_ACCEPT,
@@ -323,6 +330,7 @@ export default function SettingsView({
   uiLanguage: propUiLanguage,
   onChangeUiLanguage,
   updateSettings,
+  loginCoverId: propLoginCoverId,
   account = null,
   onSignOut,
   initialSigningOut = false,
@@ -365,6 +373,18 @@ export default function SettingsView({
   const [setDatesOptIn, setSetDatesOptIn] = useState(true);
   const [createTripOptIn, setCreateTripOptIn] = useState(true);
   const [resetArmed, setResetArmed] = useState(false);
+  const [coverOverride, setCoverOverride] = useState(null);
+  const [coverSaved, setCoverSaved] = useState(false);
+  const [brokenCoverThumbs, setBrokenCoverThumbs] = useState({});
+  const normalizedCoverProp = propLoginCoverId == null
+    ? null
+    : normalizeLoginCoverId(propLoginCoverId);
+
+  useEffect(() => {
+    setCoverOverride(null);
+  }, [normalizedCoverProp]);
+
+  const selectedCoverId = coverOverride ?? normalizedCoverProp ?? readDeviceLoginCoverId();
 
   useEffect(() => {
     setRateInput(formatRateInputString(currentRate));
@@ -387,6 +407,18 @@ export default function SettingsView({
       updateSettings,
       i18nInstance: activeI18n,
     });
+  };
+
+  const handleLoginCoverChange = (rawId) => {
+    const id = normalizeLoginCoverId(rawId);
+    setCoverOverride(id);
+    setCoverSaved(true);
+    if (typeof updateSettings === 'function') {
+      updateSettings({ loginCoverId: id });
+    } else {
+      writeDeviceLoginCoverId(id);
+    }
+    if (typeof onToast === 'function') onToast(t('settings.loginCoverSaved'));
   };
 
   const handleSignOut = async () => {
@@ -825,6 +857,101 @@ export default function SettingsView({
           <option value="zh-TW">{t('settings.languageZhTW')}</option>
           <option value="en">{t('settings.languageEn')}</option>
         </select>
+      </section>
+
+      <section data-testid="login-cover-section" className={sectionCardClass}>
+        <WashiLabel tone="kraft" tilt={-1}>
+          <h2
+            id="login-cover-heading"
+            className="whitespace-nowrap font-hand text-xs font-bold tracking-widest text-kraft-ink"
+          >
+            {t('settings.loginCoverTitle')}
+          </h2>
+        </WashiLabel>
+        <p id="login-cover-help" className="font-display text-sm leading-relaxed text-ink-soft">
+          {t('settings.loginCoverHelp')}
+        </p>
+        <div
+          role="radiogroup"
+          aria-labelledby="login-cover-heading"
+          aria-describedby="login-cover-help"
+          data-testid="login-cover-gallery"
+          className="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1"
+        >
+          {LOGIN_COVERS.map((cover) => {
+            const selected = selectedCoverId === cover.id;
+            const thumb = brokenCoverThumbs[cover.id] && cover.id !== DEFAULT_LOGIN_COVER_ID
+              ? LOGIN_COVERS[0]
+              : cover;
+            return (
+              <label
+                key={cover.id}
+                data-testid={`login-cover-choice-${cover.id}`}
+                className={`flex min-h-11 cursor-pointer flex-col gap-2 rounded-sm bg-paper p-2 ${
+                  selected ? 'border-2 border-route' : 'border-2 border-ink-soft/40'
+                }`}
+              >
+                <span className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="radio"
+                    name="loginCoverId"
+                    value={cover.id}
+                    checked={selected}
+                    onChange={() => handleLoginCoverChange(cover.id)}
+                    data-testid={`login-cover-option-${cover.id}`}
+                    className="h-5 w-5 shrink-0 accent-route"
+                  />
+                  <span className="min-w-0 font-hand text-sm font-bold tracking-wide text-ink">
+                    {cover.city}
+                    <span className="ml-1 font-display text-xs font-normal text-ink-soft">
+                      {t(`settings.loginCoverDestination.${cover.id}`)}
+                    </span>
+                  </span>
+                </span>
+                <img
+                  src={thumb.src}
+                  alt={t(`auth.coverAlt.${thumb.id}`)}
+                  data-testid={`login-cover-thumb-${cover.id}`}
+                  data-thumb-id={thumb.id}
+                  width={thumb.width}
+                  height={thumb.height}
+                  decoding="async"
+                  draggable={false}
+                  className="pointer-events-none h-auto w-full select-none"
+                  onError={() => {
+                    if (cover.id === DEFAULT_LOGIN_COVER_ID) return;
+                    setBrokenCoverThumbs((prev) => (
+                      prev[cover.id] ? prev : { ...prev, [cover.id]: true }
+                    ));
+                  }}
+                />
+                {selected ? (
+                  <span
+                    data-testid={`login-cover-selected-${cover.id}`}
+                    className="font-hand text-xs font-bold text-route"
+                  >
+                    <span aria-hidden="true">✓ </span>
+                    {t('settings.loginCoverSelected')}
+                  </span>
+                ) : null}
+              </label>
+            );
+          })}
+        </div>
+        {coverSaved ? (
+          <p role="status" data-testid="login-cover-status" className="font-display text-sm text-ink">
+            {t('settings.loginCoverSaved')}
+          </p>
+        ) : null}
+        <a
+          data-testid="login-cover-credits-link"
+          href={LOGIN_COVER_CREDITS_HREF}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="jr-btn-paper mt-1 inline-flex min-h-11 min-w-11 items-center font-hand text-sm font-bold underline"
+        >
+          {t('settings.loginCoverCredits')}
+        </a>
       </section>
 
       {/* Trip management */}

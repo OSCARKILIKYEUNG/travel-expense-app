@@ -212,6 +212,7 @@ export default function NotebookApp({
   uiLanguage,
   onChangeUiLanguage,
   updateSettings,
+  loginCoverId,
   account,
   onSignOut,
   calendarSource,
@@ -1266,6 +1267,7 @@ export default function NotebookApp({
         uiLanguage={uiLanguage}
         onChangeUiLanguage={onChangeUiLanguage}
         updateSettings={updateSettings}
+        loginCoverId={loginCoverId}
         account={account}
         onSignOut={onSignOut}
         calendarSource={calendarSource}

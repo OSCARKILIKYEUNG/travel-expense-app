@@ -8,8 +8,8 @@ import {
 import {
   DEFAULT_LOGIN_COVER_HEADLINE,
   LOGIN_COVER_HEADLINE_MODES,
-  findLoginCover,
-  pickLoginCover,
+  resolveLoginCover,
+  resolveMountedLoginCover,
 } from './loginCovers';
 
 /**
@@ -37,8 +37,8 @@ export default function AuthDevHarness() {
     : DEFAULT_LOGIN_COVER_HEADLINE;
   const [coverImage] = useState(() => {
     if (coverParam === 'none') return null;
-    if (coverParam === 'random') return pickLoginCover();
-    return findLoginCover(coverParam) || pickLoginCover();
+    if (coverParam === 'random' || coverParam === '') return resolveMountedLoginCover();
+    return resolveLoginCover(coverParam);
   });
 
   const [mode, setMode] = useState(initialState === 'signup' ? 'signup' : 'signin');

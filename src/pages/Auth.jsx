@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import MagazineCoverView from '../components/auth/MagazineCoverView';
 import {
   DEFAULT_LOGIN_COVER_HEADLINE,
-  pickLoginCover,
+  resolveMountedLoginCover,
 } from '../components/auth/loginCovers';
 import { useAuth } from '../context/AuthContext';
 import { formatAuthError, hasConfirmedSession } from '../lib/authErrors';
@@ -41,7 +41,7 @@ export default function Auth({ pendingTimeoutMs = AUTH_PENDING_TIMEOUT_MS } = {}
   } = useAuth();
 
   const [mode, setMode] = useState('signin');
-  const [coverImage] = useState(() => pickLoginCover());
+  const [coverImage] = useState(() => resolveMountedLoginCover());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);

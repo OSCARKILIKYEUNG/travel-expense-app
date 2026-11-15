@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { palette } from '../../theme/tokens';
-import { DEFAULT_LOGIN_COVER_HEADLINE } from './loginCovers';
+import { DEFAULT_LOGIN_COVER_HEADLINE, findLoginCover } from './loginCovers';
+import { DEFAULT_LOGIN_COVER_ID } from '../../utils/loginCoverPreference';
 import {
   ACCESSIBLE_CROSSFADE_MS,
   FOLD_CLOSE_MS,
@@ -174,6 +175,14 @@ export default function MagazineCoverView({
   onBackFromReset,
 }) {
   const { t, i18n } = useTranslation();
+  const [brokenCoverId, setBrokenCoverId] = useState('');
+  const preferredCoverId = coverImage && typeof coverImage.id === 'string' ? coverImage.id : '';
+  const fallbackCover = brokenCoverId && brokenCoverId === preferredCoverId
+    ? findLoginCover(DEFAULT_LOGIN_COVER_ID)
+    : null;
+  const shownCover = fallbackCover && fallbackCover.id !== preferredCoverId ? fallbackCover : coverImage;
+  const hasCoverImage = Boolean(shownCover && shownCover.src);
+  const scenicInk = Boolean(hasCoverImage && shownCover.variant === 'scenic-ink');
   const isBusy = submitting || turningPage || oauthGoogleLoading;
   const isPendingAuth = (submitting || oauthGoogleLoading) && !turningPage;
   const isOptimisticTurnPending = submitting && turningPage;
@@ -189,12 +198,11 @@ export default function MagazineCoverView({
   const bilingualPlaceholderLabel = currentLang.startsWith('zh')
     ? `${t('auth.sceneryPlaceholderBadge')} · Placeholder — not final artwork`
     : `${t('auth.sceneryPlaceholderBadge')} · 暫代示範插畫（非最終完成圖）`;
-  const hasCoverImage = Boolean(coverImage && coverImage.src);
   const effectiveHeadlineMode =
     hasCoverImage && coverHeadline === 'painted' ? 'painted' : 'html';
   const activeCityHeadline =
-    hasCoverImage && coverImage.city
-      ? String(coverImage.city).toUpperCase()
+    hasCoverImage && shownCover.city
+      ? String(shownCover.city).toUpperCase()
       : 'KAMAKURA';
   const activeStampLabel = hasCoverImage
     ? `${activeCityHeadline} · 01`
@@ -2049,13 +2057,15 @@ export default function MagazineCoverView({
                 data-cut-x-pct={String(geom.cutX)}
                 data-cut-y-pct={String(geom.cutY)}
                 style={isCurlOpening ? { clipPath: 'none' } : undefined}
-                className={surfaceSpringClass}
+                data-cover-variant={scenicInk ? 'scenic-ink' : 'standard'}
+                className={`${surfaceSpringClass}${scenicInk ? ' mc-cover-surface--scenic' : ''}`}
               >
             {hasCoverImage ? (
               <>
+                {scenicInk ? null : (
                 <img
                   data-testid="auth-cover-image-backdrop"
-                  src={coverImage.src}
+                  src={shownCover.src}
                   alt=""
                   aria-hidden="true"
                   decoding="async"
@@ -2063,14 +2073,25 @@ export default function MagazineCoverView({
                   style={{ pointerEvents: 'none' }}
                   className="mc-cover-image-backdrop pointer-events-none select-none"
                 />
+                )}
                 <img
                   data-testid="auth-cover-image"
-                  data-cover-id={coverImage.id}
-                  src={coverImage.src}
-                  alt={coverImage.alt || ''}
+                  data-cover-id={shownCover.id}
+                  data-preferred-cover-id={preferredCoverId || shownCover.id || ''}
+                  data-cover-variant={shownCover.variant || ''}
+                  src={shownCover.src}
+                  alt={shownCover.id
+                    ? t(`auth.coverAlt.${shownCover.id}`, { defaultValue: shownCover.alt || '' })
+                    : (shownCover.alt || '')}
                   decoding="async"
                   draggable={false}
                   style={{ pointerEvents: 'none' }}
+                  onError={() => {
+                    if (!preferredCoverId || preferredCoverId === DEFAULT_LOGIN_COVER_ID) return;
+                    setBrokenCoverId((current) => (
+                      current === preferredCoverId ? current : preferredCoverId
+                    ));
+                  }}
                   className="mc-cover-image pointer-events-none select-none"
                 />
                 {effectiveHeadlineMode === 'html' ? (
@@ -2199,6 +2220,8 @@ export default function MagazineCoverView({
             }}
             className={`mc-login-overlay${
               hasCoverImage ? ' mc-login-overlay--cover-wash' : ''
+            }${
+              scenicInk ? ' mc-login-overlay--scenic-wash' : ''
             }${
               isCurlOpening ? ' mc-login-overlay--curl-clipping' : ''
             } shrink-0 w-full px-3 pt-1.5 pb-1.5 sm:px-4 sm:py-2 text-ink`}

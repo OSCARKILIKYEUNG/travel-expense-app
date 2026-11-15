@@ -1,6 +1,7 @@
 import { CURRENCY_NAMES, DEFAULT_EXCHANGE_RATES, PRESET_TRIPS_DATA } from '../utils/constants';
 import { sanitizeCustomExpenseCategoriesArray } from '../utils/expenseCategories';
 import { normalizeUiLanguage } from '../utils/locale';
+import { normalizeLoginCoverId } from '../utils/loginCoverPreference';
 import { blankRatesForAccounting, getAccountingCode } from '../utils/tripMoney';
 import { FRANKFURTER_SUPPORTED, rebaseRates } from './ExchangeRateService';
 
@@ -38,6 +39,14 @@ function readLogical(logicalKey) {
 
 function writeLogical(logicalKey, data) {
   localStorage.setItem(physicalKey(logicalKey), JSON.stringify(data));
+}
+
+const COVER_PAYLOAD_KEYS = ['loginCoverSrc', 'loginCoverUrl', 'coverImage', 'loginCoverPrompt'];
+
+function omitCoverPayload(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  for (const key of COVER_PAYLOAD_KEYS) delete settings[key];
+  return settings;
 }
 
 function expenseListsEqual(a, b) {
@@ -552,6 +561,7 @@ const DataService = {
           customCurrencyRate: customRate,
           uiLanguage: normalizeUiLanguage(saved.uiLanguage),
           exchangeRatesUpdatedAt: null,
+          loginCoverId: normalizeLoginCoverId(saved.loginCoverId),
         };
         delete migrated.defaultCurrency;
         writeLogical(KEYS.SETTINGS, migrated);
@@ -571,25 +581,31 @@ const DataService = {
       const customExpenseCategories = sanitizeCustomExpenseCategoriesArray(
         latest?.customExpenseCategories,
       );
+      const loginCoverId = normalizeLoginCoverId(latest?.loginCoverId);
       const out = {
         uiLanguage: normalizeUiLanguage(latest?.uiLanguage ?? 'zh-TW'),
         savedAccountingCodes,
         savedTripCurrencies,
         customExpenseCategories,
+        loginCoverId,
         ...(latest?.apiKey != null ? { apiKey: latest.apiKey } : {}),
         ...(latest?.modelName != null ? { modelName: latest.modelName } : {}),
       };
+      const hasCoverPayload = COVER_PAYLOAD_KEYS.some((key) => latest && Object.prototype.hasOwnProperty.call(latest, key));
       if (
         !Array.isArray(latest?.savedAccountingCodes) ||
         !Array.isArray(latest?.savedTripCurrencies) ||
-        JSON.stringify(latest?.customExpenseCategories || []) !== JSON.stringify(customExpenseCategories)
+        JSON.stringify(latest?.customExpenseCategories || []) !== JSON.stringify(customExpenseCategories) ||
+        latest?.loginCoverId !== loginCoverId ||
+        hasCoverPayload
       ) {
-        writeLogical(KEYS.SETTINGS, {
+        writeLogical(KEYS.SETTINGS, omitCoverPayload({
           ...latest,
           savedAccountingCodes,
           savedTripCurrencies,
           customExpenseCategories,
-        });
+          loginCoverId,
+        }));
       }
       return out;
     }
@@ -599,15 +615,21 @@ const DataService = {
       savedAccountingCodes: fromTrips.savedAccountingCodes,
       savedTripCurrencies: fromTrips.savedTripCurrencies,
       customExpenseCategories: [],
+      loginCoverId: normalizeLoginCoverId(undefined),
     };
   },
 
   saveSettings(settings) {
     const prev = readLogical(KEYS.SETTINGS) || {};
-    writeLogical(KEYS.SETTINGS, {
+    const next = {
       ...prev,
       ...settings,
-    });
+    };
+    if (Object.prototype.hasOwnProperty.call(next, 'loginCoverId')) {
+      next.loginCoverId = normalizeLoginCoverId(next.loginCoverId);
+    }
+    omitCoverPayload(next);
+    writeLogical(KEYS.SETTINGS, next);
   },
 
   // ── Settlements (已還錢) ────────────────────────────

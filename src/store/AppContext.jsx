@@ -34,6 +34,7 @@ import {
 } from '../utils/duplicateDecisions';
 import { replaceUndoStorageKey } from '../utils/persistMerge';
 import { syncErrorText } from '../utils/syncNotice';
+import { writeDeviceLoginCoverId } from '../utils/loginCoverPreference';
 
 const AppContext = createContext(null);
 
@@ -125,6 +126,12 @@ function AppProviderInner({ children, userId }) {
     if (i18n.language !== lang) i18n.changeLanguage(lang);
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
   }, [settings.uiLanguage]);
+
+  // Single authenticated owner of the public cover enum. Signed-out Auth reads
+  // this mirror; it does not read scoped account settings.
+  useEffect(() => {
+    writeDeviceLoginCoverId(settings.loginCoverId);
+  }, [settings.loginCoverId]);
 
   const applyBillingSnapshot = useCallback((snapshot) => {
     const requestId = ++billingRequestRef.current;
