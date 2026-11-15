@@ -1025,7 +1025,7 @@ export default function NotebookApp({
                 id: savedId,
                 date: normalizedDate,
                 createdAt: new Date().toISOString(),
-                items: [],
+                items: Array.isArray(data.items) ? data.items : [],
               };
           persistedRecord = savedRecord;
 

@@ -69,7 +69,15 @@ function cardExpense(overrides = {}) {
 }
 
 function rowByName(name) {
-  const row = screen.getAllByTestId('receipt-item-row').find((el) => el.textContent.includes(name));
+  const rows = [
+    ...screen.queryAllByTestId('receipt-item-row'),
+    ...screen.queryAllByTestId('receipt-item-editor-row'),
+  ];
+  const row = rows.find((el) => {
+    const named = el.querySelector('[data-testid="receipt-item-name"]');
+    if (named && named.value === name) return true;
+    return el.textContent.includes(name);
+  });
   expect(row, name).toBeTruthy();
   return row;
 }
@@ -152,14 +160,14 @@ describe('receipt line disclosure', () => {
     expect(panel.hasAttribute('hidden')).toBe(false);
 
     const row = rowByName('茶');
-    expect(row.textContent).toContain('茶');
-    expect(row.textContent).not.toContain('Tea');
-    expect(within(row).getByTestId('receipt-item-price').textContent).toContain('標價');
-    expect(within(row).getByTestId('receipt-item-price').textContent).toContain('EUR 220');
-    expect(within(row).getByTestId('receipt-item-actual').textContent).toContain('實價');
-    expect(within(row).getByTestId('receipt-item-actual').textContent).toContain('EUR 200');
-    expect(within(row).getByTestId('receipt-item-qty').textContent).toContain('×2');
-    expect(within(row).getByTestId('receipt-item-qty').textContent).toContain('數量 2');
+    expect(within(row).getByTestId('receipt-item-name').value).toBe('茶');
+    expect(within(row).getByTestId('receipt-item-name').value).not.toBe('Tea');
+    expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
+    expect(within(row).getByTestId('receipt-item-price-input').value).toBe('220');
+    expect(within(row).getByLabelText(/第1列列印金額（EUR）/)).toBe(within(row).getByTestId('receipt-item-price-input'));
+    expect(within(row).getByTestId('receipt-item-actual-input').value).toBe('200');
+    expect(within(row).getByLabelText(/另外記錄的實付金額（EUR）/)).toBeTruthy();
+    expect(within(row).getByTestId('receipt-item-qty-input').value).toBe('2');
     expect(row.textContent).not.toContain('440');
     expect(row.textContent).not.toContain('400');
     expect(screen.getByTestId('receipt-items-disclaimer').textContent).toContain('明細不一定等於收據總額');
@@ -169,13 +177,14 @@ describe('receipt line disclosure', () => {
 
     fireEvent.change(document.getElementById('ref-currency'), { target: { value: 'HKD' } });
     expect(document.getElementById('ref-currency').value).toBe('HKD');
-    expect(row.textContent).toContain('EUR 220');
+    expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
+    expect(within(row).getByTestId('receipt-item-price-input').value).toBe('220');
     expect(row.textContent).not.toContain('HKD');
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
     fireEvent.change(screen.getByTestId('form-amount'), { target: { value: '500' } });
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('茶')).toBeTruthy();
+    expect(screen.getByDisplayValue('茶')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('form-save'));
     expect(onSave).toHaveBeenCalledTimes(1);
@@ -241,10 +250,12 @@ describe('receipt line disclosure', () => {
     const again = renderForm({ initial });
     fireEvent.click(screen.getByTestId('receipt-items-toggle'));
     const row = rowByName('本體');
-    expect(row.textContent).toContain('EUR 10');
+    expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
+    expect(within(row).getByTestId('receipt-item-price-input').value).toBe('10');
     expect(row.textContent).not.toContain('USD');
     fireEvent.change(document.getElementById('ref-currency'), { target: { value: 'HKD' } });
-    expect(row.textContent).toContain('EUR 10');
+    expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
+    expect(within(row).getByTestId('receipt-item-price-input').value).toBe('10');
     expect(row.textContent).not.toContain('HKD');
     expect(screen.getByTestId('receipt-items-toggle').getAttribute('aria-expanded')).toBe('true');
     again.unmount();
@@ -281,7 +292,7 @@ describe('receipt line disclosure', () => {
     const toggle = screen.getByTestId('receipt-items-toggle');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(toggle);
-    expect(screen.getByText('第一樣')).toBeTruthy();
+    expect(screen.getByDisplayValue('第一樣')).toBeTruthy();
 
     const second = {
       id: 'scan-b',
@@ -307,11 +318,11 @@ describe('receipt line disclosure', () => {
       ),
     );
     expect(screen.getByTestId('receipt-items-toggle').getAttribute('aria-expanded')).toBe('false');
-    expect(document.body.textContent).not.toContain('第一樣');
-    expect(screen.queryByText('第二樣')).toBeNull();
+    expect(screen.queryByDisplayValue('第一樣')).toBeNull();
+    expect(screen.queryByDisplayValue('第二樣')).toBeNull();
     fireEvent.click(screen.getByTestId('receipt-items-toggle'));
-    expect(screen.getByText('第二樣')).toBeTruthy();
-    expect(document.body.textContent).not.toContain('第一樣');
+    expect(screen.getByDisplayValue('第二樣')).toBeTruthy();
+    expect(screen.queryByDisplayValue('第一樣')).toBeNull();
   });
 
   it('uses English aliases and English copy, and shows recorded zero, negative, missing, and explicit quantities only', async () => {
@@ -340,29 +351,32 @@ describe('receipt line disclosure', () => {
       scanState: { status: 'ready', token: 4, draft },
     });
     fireEvent.click(screen.getByTestId('receipt-items-toggle'));
-    expect(rowByName('茶').textContent).not.toContain('Tea');
-    expect(rowByName('零').textContent).toContain('JPY 0');
+    expect(within(rowByName('茶')).getByTestId('receipt-item-name').value).toBe('茶');
+    expect(within(rowByName('零')).getByTestId('receipt-item-price-input').value).toBe('0');
+    expect(within(rowByName('零')).getByTestId('receipt-item-currency').textContent).toBe('JPY');
     expect(within(rowByName('零')).queryByTestId('receipt-item-price-missing')).toBeNull();
-    expect(rowByName('負').textContent).toContain('JPY -30');
-    expect(within(rowByName('壞')).getByTestId('receipt-item-price-missing').textContent).toBe('沒有金額');
+    expect(within(rowByName('負')).getByTestId('receipt-item-price-input').value).toBe('-30');
+    expect(within(rowByName('壞')).getByTestId('receipt-item-price-input').value).toBe('nope');
     expect(within(rowByName('壞')).queryByTestId('receipt-item-price')).toBeNull();
-    expect(within(rowByName('缺')).getByTestId('receipt-item-price-missing').textContent).toBe('沒有金額');
-    expect(rowByName('字串').textContent).toContain('JPY 1,280');
+    expect(within(rowByName('缺')).getByTestId('receipt-item-price-input').value).toBe('');
+    expect(within(rowByName('字串')).getByTestId('receipt-item-price-input').value).toBe('1,280');
     const actual = rowByName('實');
-    expect(within(actual).getByTestId('receipt-item-price').textContent).toContain('JPY 100');
-    expect(within(actual).getByTestId('receipt-item-actual').textContent).toContain('JPY 90');
+    expect(within(actual).getByTestId('receipt-item-price-input').value).toBe('100');
+    expect(within(actual).getByTestId('receipt-item-actual-input').value).toBe('90');
+    expect(within(actual).getByTestId('receipt-item-qty-input').value).toBe('2');
     expect(actual.textContent).not.toContain('200');
     expect(actual.textContent).not.toContain('180');
     const setRow = rowByName('Shorts set x12');
-    expect(within(setRow).queryByTestId('receipt-item-qty')).toBeNull();
-    expect(setRow.textContent).toContain('5,940');
+    expect(within(setRow).queryByTestId('receipt-item-qty-input')).toBeNull();
+    expect(within(setRow).getByTestId('receipt-item-price-input').value).toBe('5940');
     expect(setRow.textContent).not.toContain('71,280');
-    expect(within(rowByName('布林')).getByTestId('receipt-item-price-missing')).toBeTruthy();
-    expect(rowByName('免費字').textContent).toContain('JPY 0');
+    expect(setRow.textContent).not.toContain('71280');
+    expect(within(rowByName('布林')).getByTestId('receipt-item-price-input').value).toBe('');
+    expect(within(rowByName('免費字')).getByTestId('receipt-item-price-input').value).toBe('0');
     view.unmount();
 
     await i18n.changeLanguage('en');
-    renderForm({
+    const englishForm = renderForm({
       scanDraft: draft,
       scanState: { status: 'ready', token: 4, draft },
     });
@@ -372,21 +386,36 @@ describe('receipt line disclosure', () => {
     expect(toggle.textContent).not.toMatch(/[\u3400-\u9fff]/);
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-label')).toBe('Hide receipt details');
-    expect(rowByName('Tea').textContent).toContain('Tea');
-    expect(rowByName('Tea').textContent).not.toContain('茶');
-    expect(rowByName('Actual Tea').textContent).toContain('List price');
-    expect(rowByName('Actual Tea').textContent).toContain('Actual price');
-    expect(within(rowByName('Actual Tea')).getByTestId('receipt-item-qty').textContent).toContain('Qty 2');
+    const englishTea = rowByName('茶');
+    expect(within(englishTea).getByTestId('receipt-item-name').value).toBe('茶');
+    expect(within(englishTea).getByLabelText('Line 1 name')).toBeTruthy();
+    expect(within(englishTea).getByLabelText('Line 1 printed amount (JPY)')).toBeTruthy();
+    expect(englishTea.textContent).not.toMatch(/[\u3400-\u9fff]/);
+    const englishActual = rowByName('實');
+    expect(within(englishActual).getByLabelText('Line 7 separately recorded paid amount (JPY)')).toBeTruthy();
+    expect(within(englishActual).getByLabelText('Line 7 quantity (not multiplied)')).toBeTruthy();
+    expect(englishActual.textContent).not.toMatch(/[\u3400-\u9fff]/);
     expect(screen.getByTestId('receipt-items-disclaimer').textContent).toBe(
       'Line items may not add up to the receipt total.',
     );
     expect(screen.getByTestId('receipt-items-disclaimer').textContent).not.toMatch(/[\u3400-\u9fff]/);
-    expect(within(rowByName('Actual Tea')).getByTestId('receipt-item-price').textContent).not.toMatch(/[\u3400-\u9fff]/);
-    expect(within(rowByName('Actual Tea')).getByTestId('receipt-item-actual').textContent).not.toMatch(/[\u3400-\u9fff]/);
-    expect(rowByName('零').textContent).toContain('零');
+    englishForm.unmount();
+
+    renderCard(cardExpense({
+      id: 'en-card',
+      scanned: true,
+      currency: 'JPY',
+      items: [{ name: '茶', name_en: 'Tea', price: 220, price_actual: 90, qty: 2 }],
+    }));
+    fireEvent.click(screen.getByTestId('receipt-items-toggle'));
+    expect(rowByName('Tea').textContent).toContain('Tea');
+    expect(rowByName('Tea').textContent).not.toContain('茶');
+    expect(rowByName('Tea').textContent).toContain('List price');
+    expect(rowByName('Tea').textContent).toContain('Actual price');
+    expect(within(rowByName('Tea')).getByTestId('receipt-item-qty').textContent).toContain('Qty 2');
   });
 
-  it('expands a scanned record with no usable lines to the empty copy and hides a manual record', () => {
+  it('keeps a blank manual add hidden, can add lines on a saved edit, and does not invent amounts for unusable scan rows', () => {
     renderForm();
     expect(screen.queryByTestId('receipt-items-toggle')).toBeNull();
 
@@ -401,8 +430,35 @@ describe('receipt line disclosure', () => {
         items: [],
       },
     });
-    expect(screen.queryByTestId('receipt-items-toggle')).toBeNull();
+    const manualToggle = screen.getByTestId('receipt-items-toggle');
+    expect(manualToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('receipt-items-empty')).toBeNull();
+    fireEvent.click(manualToggle);
+    expect(screen.getByTestId('receipt-item-add').getAttribute('type')).toBe('button');
+    expect(screen.queryByTestId('receipt-item-editor-row')).toBeNull();
+    expect(screen.queryByTestId('receipt-items-empty')).toBeNull();
     manual.unmount();
+
+    const blankScan = {
+      id: 'blank-scan',
+      store: 'Blank',
+      originalAmount: 80,
+      currency: 'JPY',
+      category: '飲食',
+      date: '2026-10-22',
+      scanned: true,
+      items: [],
+    };
+    const blank = renderForm({
+      scanDraft: blankScan,
+      scanState: { status: 'ready', token: 6, draft: blankScan },
+    });
+    fireEvent.click(screen.getByTestId('receipt-items-toggle'));
+    expect(screen.getByTestId('receipt-items-empty').textContent).toBe('未辨識到明細');
+    expect(screen.queryByTestId('receipt-item-row')).toBeNull();
+    expect(screen.queryByTestId('receipt-item-editor-row')).toBeNull();
+    expect(screen.getByTestId('receipt-items').textContent).not.toContain('JPY 0');
+    blank.unmount();
 
     const emptyDraft = {
       id: 'empty-scan',
@@ -419,10 +475,11 @@ describe('receipt line disclosure', () => {
       scanState: { status: 'ready', token: 5, draft: emptyDraft },
     });
     fireEvent.click(screen.getByTestId('receipt-items-toggle'));
-    expect(screen.getByTestId('receipt-items-empty').textContent).toBe('未辨識到明細');
     expect(screen.queryByTestId('receipt-item-row')).toBeNull();
-    expect(screen.queryByTestId('receipt-items-disclaimer')).toBeNull();
     expect(screen.getByTestId('receipt-items').textContent).not.toContain('JPY 0');
+    const prices = screen.getAllByTestId('receipt-item-price-input').map((input) => input.value);
+    expect(prices).toContain('abc');
+    expect(prices).not.toContain('0');
   });
 
   it('wraps long saved lines outside the torn mask and keeps the menu working', () => {

@@ -360,6 +360,7 @@ export default function ExpenseCard({
         currency={readSourceCurrency(expense)}
         scanned={isKnownScan(expense)}
         identity={expense?.id != null ? String(expense.id) : 'expense'}
+        onEditDetails={() => onEdit(expense)}
       />
 
       {confirm &&

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
+import ReceiptItemsEditor from './ReceiptItemsEditor';
 import {
   formatRecordedAmount,
   normalizeReceiptItemsForDisplay,
@@ -46,12 +47,20 @@ function Chevron({ open }) {
   );
 }
 
-/** Collapsed read-only chevron for scan lines. Caller supplies the source items and currency. */
+/** Collapsed chevron for scan lines. Saved cards stay read-only. The form can pass an editor draft. */
 export default function ReceiptItemsDisclosure({
   items,
   currency = '',
   scanned = false,
   identity = '',
+  editable = false,
+  drafts = null,
+  onDraftsChange,
+  nextRowKey,
+  errors = [],
+  revealToken = 0,
+  onEditDetails,
+  composingRef,
 }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage || i18n.language || 'zh-TW';
@@ -61,13 +70,21 @@ export default function ReceiptItemsDisclosure({
   const buttonId = `${reactId}-button`;
   const [open, setOpen] = useState(false);
   const [seenIdentity, setSeenIdentity] = useState(identity);
+  const [seenReveal, setSeenReveal] = useState(revealToken);
 
   if (seenIdentity !== identity) {
     setSeenIdentity(identity);
     setOpen(false);
   }
 
-  if (!view.show) return null;
+  // A blocked form save can reopen this editor. Saved cards never pass a token.
+  if (seenReveal !== revealToken) {
+    setSeenReveal(revealToken);
+    if (editable && revealToken && Array.isArray(errors) && errors.length) setOpen(true);
+  }
+
+  const editorDrafts = Array.isArray(drafts) ? drafts : [];
+  if (!view.show && !editable) return null;
 
   return (
     <div
@@ -91,6 +108,19 @@ export default function ReceiptItemsDisclosure({
         <Chevron open={open} />
         <span className="min-w-0 break-words" style={wrapStyle}>{t('notebook.receiptItems.toggle')}</span>
       </button>
+      {typeof onEditDetails === 'function' && (
+        <button
+          type="button"
+          data-noswipe
+          data-testid="receipt-items-edit"
+          onClick={onEditDetails}
+          aria-label={t('notebook.receiptItems.editDetailsAria')}
+          className="jr-btn-paper inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm px-3 py-1 text-left font-hand text-sm font-bold text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+          style={{ minHeight: 44, minWidth: 44, maxWidth: '100%', whiteSpace: 'normal' }}
+        >
+          {t('notebook.receiptItems.editDetails')}
+        </button>
+      )}
       <div
         id={panelId}
         role="region"
@@ -100,7 +130,33 @@ export default function ReceiptItemsDisclosure({
         className="min-w-0 max-w-full"
         style={wrapStyle}
       >
-        {!open ? null : view.empty ? (
+        {!open ? null : editable ? (
+          <>
+            {editorDrafts.length === 0 && scanned ? (
+              <p data-testid="receipt-items-empty" className="m-0 break-words px-2 py-1 text-sm text-ink-soft" style={wrapStyle}>
+                {t('notebook.receiptItems.empty')}
+              </p>
+            ) : null}
+            <ReceiptItemsEditor
+              drafts={editorDrafts}
+              currency={currency}
+              errors={errors}
+              onChange={onDraftsChange}
+              nextRowKey={nextRowKey}
+              revealToken={revealToken}
+              composingRef={composingRef}
+            />
+            {editorDrafts.length > 0 ? (
+              <p
+                data-testid="receipt-items-disclaimer"
+                className="m-0 break-words px-0 py-1 font-hand text-meta text-ink-muted"
+                style={wrapStyle}
+              >
+                {t('notebook.receiptItems.notSum')}
+              </p>
+            ) : null}
+          </>
+        ) : view.empty ? (
           <p data-testid="receipt-items-empty" className="m-0 break-words px-2 py-1 text-sm text-ink-soft" style={wrapStyle}>
             {t('notebook.receiptItems.empty')}
           </p>

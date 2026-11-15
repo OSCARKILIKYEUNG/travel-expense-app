@@ -211,8 +211,9 @@ export function fromRefExpense(ref, { existing } = {}) {
         ? String(base.date ?? '')
         : '';
 
+  // Explicit arrays replace stored lines, including []. Omitted or non-array items keep the base.
   const items =
-    Array.isArray(input.items) && (input.items.length > 0 || !Array.isArray(base.items))
+    Object.prototype.hasOwnProperty.call(input, 'items') && Array.isArray(input.items)
       ? input.items
       : Array.isArray(base.items)
         ? base.items

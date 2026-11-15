@@ -10,6 +10,7 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon } from './parts';
 import { formatNotebookDate } from './refLogic';
 import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
+import { commitItemDrafts, createItemDrafts } from './receiptItemDraft';
 import { resolveReceiptItemSource } from './receiptItemsDisplay';
 import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
 
@@ -110,6 +111,23 @@ export default function AddForm({
   });
   const [advanced, setAdvanced] = useState(false);
   const [demoScanned, setDemoScanned] = useState(() => Boolean(startScan && !hasExternalScanner));
+  const [itemBundle, setItemBundle] = useState(() => {
+    const source = resolveReceiptItemSource({
+      initial,
+      scanDraft: activeDraft,
+      scanToken: scanState?.token,
+      demoScanned: Boolean(startScan && !hasExternalScanner),
+    });
+    return {
+      identity: source.identity,
+      sourceCount: source.items.length,
+      drafts: createItemDrafts(source.items, source.identity),
+    };
+  });
+  const [itemErrors, setItemErrors] = useState([]);
+  const [itemReveal, setItemReveal] = useState(0);
+  const rowSeq = useRef(0);
+  const composingRef = useRef(0);
 
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amt = Number(f.amount) || 0;
@@ -255,8 +273,16 @@ export default function AddForm({
 
   const submit = (e) => {
     if (e) e.preventDefault();
+    if (composingRef.current > 0) return;
+    const committed = commitItemDrafts(itemBundle.drafts, { sourceCount: itemBundle.sourceCount });
+    if (!committed.ok) {
+      setItemErrors(committed.errors);
+      setItemReveal((count) => count + 1);
+      return;
+    }
+    if (itemErrors.length) setItemErrors([]);
     if (!valid) return;
-    onSave({
+    const payload = {
       ...f,
       originalAmount: amt,
       hkdAmount: hkd,
@@ -264,6 +290,16 @@ export default function AddForm({
       time: f.time || '',
       payer: f.payer,
       payment: f.payment,
+    };
+    if (committed.dirty) payload.items = committed.items;
+    onSave(payload);
+  };
+
+  const onDraftsChange = (drafts) => {
+    setItemBundle((current) => ({ ...current, drafts }));
+    setItemErrors((existing) => {
+      if (!existing.length) return existing;
+      return commitItemDrafts(drafts, { sourceCount: itemBundle.sourceCount }).errors;
     });
   };
 
@@ -275,6 +311,20 @@ export default function AddForm({
     scanToken: scanState?.token,
     demoScanned: Boolean(demoScanned),
   });
+  if (itemBundle.identity !== itemSource.identity) {
+    setItemBundle({
+      identity: itemSource.identity,
+      sourceCount: itemSource.items.length,
+      drafts: createItemDrafts(itemSource.items, itemSource.identity),
+    });
+    if (itemErrors.length) setItemErrors([]);
+  }
+  const editableItems = itemSource.identity !== 'manual';
+  const nextRowKey = () => {
+    rowSeq.current += 1;
+    const prefix = String(itemSource.identity).replace(/[^A-Za-z0-9_-]/g, '-') || 'items';
+    return `${prefix}-new-${rowSeq.current}`;
+  };
 
   return (
     <form
@@ -343,6 +393,13 @@ export default function AddForm({
         currency={itemSource.currency}
         scanned={itemSource.scanned}
         identity={itemSource.identity}
+        editable={editableItems}
+        drafts={itemBundle.identity === itemSource.identity ? itemBundle.drafts : createItemDrafts(itemSource.items, itemSource.identity)}
+        onDraftsChange={onDraftsChange}
+        nextRowKey={nextRowKey}
+        errors={itemErrors}
+        revealToken={itemReveal}
+        composingRef={composingRef}
       />
 
       {/* Card 1: Amount & currency first */}
