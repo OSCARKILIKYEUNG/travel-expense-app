@@ -3,6 +3,7 @@
  * API 金鑰僅存 GEMINI_API_KEY，不經前端。
  */
 
+import { normalizeIncludedTax } from '../domain/includedTax';
 import i18n from '../i18n';
 import { normalizeDetectedMarket } from '../constants/receiptMarkets';
 import { CURRENCY_NAMES } from '../utils/constants';
@@ -255,6 +256,7 @@ export function buildExpenseFromAI(
   fallbackDate = '',
 ) {
   const receiptType = normalizeReceiptType(result.receipt_type);
+  const includedTax = normalizeIncludedTax(result);
   const rawMarket = result.detected_market ?? result.detectedMarket ?? '';
   const aiDetectedMarket = normalizeDetectedMarket(rawMarket);
   const evRaw = result.market_evidence ?? result.marketEvidence;
@@ -528,6 +530,7 @@ export function buildExpenseFromAI(
     tax,
     taxRefund,
     discount,
+    ...includedTax,
     originalAmount: finalAmount,
     currency,
     hkdAmount: rate > 0 ? finalAmount / rate : finalAmount,

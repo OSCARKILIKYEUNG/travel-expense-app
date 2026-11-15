@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { JournalIcon } from '../../journal/art/core.jsx';
 import { WashBlob, WashiLabel } from '../../journal/art/decor.jsx';
+import { commitIncludedTaxDraft, createIncludedTaxDraft } from '../../domain/includedTax';
 import { scanResultToFormFields } from '../../notebook/useReceiptScan';
 import { formatAccountingAmount } from '../../utils/currency';
 import { normalizeDate } from '../../utils/duplicates';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon } from './parts';
 import { formatNotebookDate } from './refLogic';
+import IncludedTaxSection from './IncludedTaxSection';
 import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
 import { commitItemDrafts, createItemDrafts } from './receiptItemDraft';
 import { resolveReceiptItemSource } from './receiptItemsDisplay';
@@ -127,7 +129,18 @@ export default function AddForm({
   const [itemErrors, setItemErrors] = useState([]);
   const [itemReveal, setItemReveal] = useState(0);
   const rowSeq = useRef(0);
+  const taxRowSeq = useRef(0);
   const composingRef = useRef(0);
+  const taxIdentity = initial
+    ? `edit:${initial.id ?? 'saved'}`
+    : `scan:${scanState?.token ?? activeDraft?.id ?? 'manual'}`;
+  const taxSource = initial || activeDraft || null;
+  const [taxBundle, setTaxBundle] = useState(() => ({
+    identity: taxIdentity,
+    draft: createIncludedTaxDraft(taxSource),
+  }));
+  const [taxErrors, setTaxErrors] = useState([]);
+  const [taxReveal, setTaxReveal] = useState(0);
 
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amt = Number(f.amount) || 0;
@@ -275,12 +288,21 @@ export default function AddForm({
     if (e) e.preventDefault();
     if (composingRef.current > 0) return;
     const committed = commitItemDrafts(itemBundle.drafts, { sourceCount: itemBundle.sourceCount });
-    if (!committed.ok) {
-      setItemErrors(committed.errors);
-      setItemReveal((count) => count + 1);
+    const activeTaxDraft = taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource);
+    const taxCommit = commitIncludedTaxDraft(activeTaxDraft);
+    if (!committed.ok || !taxCommit.ok) {
+      if (!committed.ok) {
+        setItemErrors(committed.errors);
+        setItemReveal((count) => count + 1);
+      }
+      if (!taxCommit.ok) {
+        setTaxErrors(taxCommit.errors);
+        setTaxReveal((count) => count + 1);
+      }
       return;
     }
     if (itemErrors.length) setItemErrors([]);
+    if (taxErrors.length) setTaxErrors([]);
     if (!valid) return;
     const payload = {
       ...f,
@@ -292,6 +314,16 @@ export default function AddForm({
       payment: f.payment,
     };
     if (committed.dirty) payload.items = committed.items;
+    if (Object.prototype.hasOwnProperty.call(taxCommit.patch, 'includedTaxAmount')) {
+      payload.includedTaxAmount = taxCommit.patch.includedTaxAmount;
+    } else {
+      delete payload.includedTaxAmount;
+    }
+    if (Object.prototype.hasOwnProperty.call(taxCommit.patch, 'includedTaxBreakdown')) {
+      payload.includedTaxBreakdown = taxCommit.patch.includedTaxBreakdown;
+    } else {
+      delete payload.includedTaxBreakdown;
+    }
     onSave(payload);
   };
 
@@ -319,6 +351,14 @@ export default function AddForm({
     });
     if (itemErrors.length) setItemErrors([]);
   }
+  if (taxBundle.identity !== taxIdentity) {
+    setTaxBundle({ identity: taxIdentity, draft: createIncludedTaxDraft(taxSource) });
+    if (taxErrors.length) setTaxErrors([]);
+  }
+  const receiptTypeEvidence = String((initial?.receiptType) || (!initial && activeDraft?.receiptType) || '').trim();
+  const subtotalLabel = receiptTypeEvidence === 'tax_inclusive'
+    ? t('notebook.addForm.subtotalInclusiveLabel')
+    : t('notebook.addForm.subtotalLabel');
   const editableItems = itemSource.identity !== 'manual';
   const nextRowKey = () => {
     rowSeq.current += 1;
@@ -399,6 +439,23 @@ export default function AddForm({
         nextRowKey={nextRowKey}
         errors={itemErrors}
         revealToken={itemReveal}
+        composingRef={composingRef}
+      />
+
+      <IncludedTaxSection
+        key={`included:${taxIdentity}`}
+        draft={taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource)}
+        currency={f.currency}
+        errors={taxErrors}
+        revealToken={taxReveal}
+        onChange={(draft) => {
+          setTaxBundle((current) => ({ ...current, identity: taxIdentity, draft }));
+          setTaxErrors((existing) => (existing.length ? commitIncludedTaxDraft(draft).errors : existing));
+        }}
+        nextRowKey={() => {
+          taxRowSeq.current += 1;
+          return `included-tax-new-${taxRowSeq.current}`;
+        }}
         composingRef={composingRef}
       />
 
@@ -714,7 +771,7 @@ export default function AddForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label htmlFor="ref-subtotal" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.subtotalLabel')}
+                    {subtotalLabel}
                   </label>
                   <input
                     id="ref-subtotal"

@@ -1,3 +1,4 @@
+import { normalizeIncludedTax } from '../domain/includedTax';
 import { isValidISODate, parseHHMM } from '../proto/ref/refRules';
 import { normalizeDate } from '../utils/duplicates';
 
@@ -239,6 +240,31 @@ export function fromRefExpense(ref, { existing } = {}) {
     const resolved = resolveNumericField(input[key], base[key]);
     if (resolved !== undefined) {
       merged[key] = resolved;
+    }
+  }
+
+  const includedInput = {};
+  if (Object.prototype.hasOwnProperty.call(input, 'includedTaxAmount')) {
+    includedInput.includedTaxAmount = input.includedTaxAmount;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'includedTaxBreakdown')) {
+    includedInput.includedTaxBreakdown = input.includedTaxBreakdown;
+  }
+  if (Object.keys(includedInput).length) {
+    const included = normalizeIncludedTax(includedInput);
+    if ('includedTaxAmount' in includedInput) {
+      if (Object.prototype.hasOwnProperty.call(included, 'includedTaxAmount')) {
+        merged.includedTaxAmount = included.includedTaxAmount;
+      } else {
+        delete merged.includedTaxAmount;
+      }
+    }
+    if ('includedTaxBreakdown' in includedInput) {
+      if (Object.prototype.hasOwnProperty.call(included, 'includedTaxBreakdown')) {
+        merged.includedTaxBreakdown = included.includedTaxBreakdown;
+      } else {
+        delete merged.includedTaxBreakdown;
+      }
     }
   }
 

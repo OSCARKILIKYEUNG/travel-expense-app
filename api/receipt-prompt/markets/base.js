@@ -72,6 +72,8 @@ has_bundle — 套裝／組合價（通用）
 ■ tax — 收據單列的稅額；外稅時常等於 合計 − 小計。
 ■ total_amount — 顧客**實際支付**（Total / AMOUNT DUE）。
 ■ tax_refund — 若實付低於含稅小計（當場減免）：填 **負數** = total_amount − subtotal；無則 0。同一筆不要再填進 discount。
+■ included_tax_amount（選填，只抄印字）— 已含在 total_amount 裡的消費稅合計。與 tax 分開。沒有印出就省略，不要填 0。印出 0 才填 0。禁止把這個數字加進 total_amount，也禁止用稅率乘金額回推。
+■ included_tax_breakdown（選填，只抄印字）— 各稅率列。每列只可含印出的 rate_percent、target_amount、basis（"gross"／"net"／"unknown"）、included_tax_amount。不要計算、不要補齊、不要加進 tax 或 total_amount。沒有這些列就省略整個欄位。空陣列只代表明確沒有列。
 ■ receipt_tax_exemption_amount（選填，正數）— 收據印製的免稅額／Tax exemption 等展示用數字。
 ■ discount — 一般折扣（Coupon 等），**負數**。即時免稅差額不是折扣。
 ■ 品名 — name = 繁體中文翻譯（顯示用）；original_name = 收據該行印出原文。禁止用「商品A」「Item 1」等代稱；看不清時可見原文放 original_name，禁止臆造。
@@ -87,7 +89,7 @@ JSON 欄位清單
 - receipt_type: 見上（必填）
 - has_bundle: true/false（選填，預設 false）
 - items: [{ "name", "name_en", "original_name", "price", "price_actual"?, "exclude_from_refund_split"? }]
-- subtotal, tax, tax_refund, receipt_tax_exemption_amount, discount, total_amount
+- subtotal, tax, tax_refund, receipt_tax_exemption_amount, discount, total_amount, included_tax_amount, included_tax_breakdown
 - currency: ISO 4217（如 JPY, EUR, USD, TWD）
 - payment_method
 
@@ -102,5 +104,6 @@ JSON 欄位清單
 5. 雙欄定價：相關品項是否填了 price_actual？
 6. category 是否落在「支出類別清單」內？否則改為「其他」。
 7. store 與 items[].name 是否為繁體中文？收據原文是否已放進 store_original／original_name？
+8. included_tax_amount 與 included_tax_breakdown 是否只抄印字？它們不可加進 total_amount，也不可拿去改寫 tax。
 `.trim();
 }

@@ -11,6 +11,7 @@ import {
   placeExpenseActionMenu,
 } from './expenseMenuGeometry';
 import { Icon } from './parts';
+import { IncludedTaxSummary } from './IncludedTaxSection';
 import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
 import { isKnownScan, readSourceCurrency } from './receiptItemsDisplay';
 import { fmtHKD, fmtJPY } from './refLogic';
@@ -361,6 +362,12 @@ export default function ExpenseCard({
         scanned={isKnownScan(expense)}
         identity={expense?.id != null ? String(expense.id) : 'expense'}
         onEditDetails={() => onEdit(expense)}
+      />
+
+      <IncludedTaxSummary
+        includedTaxAmount={expense?.includedTaxAmount}
+        includedTaxBreakdown={expense?.includedTaxBreakdown}
+        currency={readSourceCurrency(expense)}
       />
 
       {confirm &&
