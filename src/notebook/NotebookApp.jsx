@@ -1315,7 +1315,7 @@ export default function NotebookApp({
   const dialogExisting = Array.isArray(rawExpenses) ? rawExpenses : effectiveRawExpenses;
 
   return (
-    <div className="jr-desk min-h-screen text-ink">
+    <div className="jr-notebook-shell jr-desk text-ink">
       {scanner && (
         <input
           ref={scanner.fileInputRef}
@@ -1340,7 +1340,7 @@ export default function NotebookApp({
         onClose={() => finalizeDuplicateDialog({})}
       />
       <Header trip={trip} trips={trips} onSelectTrip={selectTrip} tab={tab} />
-      <main className="mx-auto max-w-5xl pb-24 lg:max-w-6xl lg:pb-10">
+      <main className="jr-notebook-main mx-auto w-full min-w-0 pb-[calc(var(--jr-mobile-nav-clearance)+env(safe-area-inset-bottom,0px))] lg:max-w-6xl lg:pb-10">
         <JournalPage pageNumber={pageNumber} dateLine={dateLine} spread={spread}>
           {body}
         </JournalPage>

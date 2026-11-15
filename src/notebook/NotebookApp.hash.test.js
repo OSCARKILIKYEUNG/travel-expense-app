@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
@@ -6,6 +9,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '../i18n';
 import { createRefTrip } from '../proto/ref/mockRefTrip';
 import NotebookApp from './NotebookApp';
+
+const journalCss = fs.readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../theme/journal.css'),
+  'utf8',
+);
 
 afterEach(() => {
   cleanup();
@@ -88,7 +96,13 @@ describe('NotebookApp D3 desktop navigation at lg', () => {
     expect(desktopNav.className).toContain('hidden');
     expect(desktopNav.className).toContain('lg:flex');
     expect(mobileNav.className).toContain('lg:hidden');
-    expect(main.className).toContain('pb-24');
+    expect(main.className).toContain('jr-notebook-main');
+    expect(main.className).toContain(
+      'pb-[calc(var(--jr-mobile-nav-clearance)+env(safe-area-inset-bottom,0px))]',
+    );
+    expect(main.className).not.toContain('pb-24');
+    expect(journalCss).toContain('--jr-mobile-nav-clearance: calc(6px + 56px)');
+    expect(journalCss).toContain('padding-top: env(safe-area-inset-top, 0px)');
     expect(main.className).toContain('lg:pb-10');
 
     // Logical DOM / tab order: header controls (trip-switcher) → desktop-nav → main

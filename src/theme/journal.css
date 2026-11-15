@@ -148,12 +148,16 @@
   pointer-events: none;
 }
 
-/* Notebook page sheet: single page in hand on mobile (<1024px), open two-page spread book block at lg (>=1024px).
+/* Notebook page sheet: full-bleed below lg (<1024px); open two-page spread at lg (>=1024px).
+ * Mobile drops the asymmetric radius and stacked offset edge shadows.
+ * The lg block below restores the centred spread edges.
  * Never uses overflow:hidden so sticky rails inside children continue to work at lg.
  */
 .jr-page-sheet {
   position: relative;
-  border-radius: 3px 6px 20px 3px;
+  width: 100%;
+  min-height: 100%;
+  border-radius: 0;
   border: 1px solid rgb(var(--c-ink-soft) / 0.58);
   background-color: rgb(var(--c-paper));
   background-image:
@@ -171,12 +175,7 @@
       transparent 1px,
       transparent 16px
     );
-  box-shadow:
-    2px 2px 0 rgb(var(--c-paper-shade)),
-    3px 3px 0 rgb(var(--c-ink-soft) / 0.32),
-    4px 5px 0 rgb(var(--c-paper)),
-    5px 6px 0 rgb(var(--c-ink-soft) / 0.26),
-    0 8px 18px rgb(var(--c-ink) / 0.14);
+  box-shadow: none;
 }
 
 @media (min-width: 1024px) {
@@ -1961,3 +1960,84 @@
     max-height: 72px;
   }
 }
+
+/* mobile-full-bleed-journal
+ * Shared chrome below the Tailwind lg breakpoint (1024px).
+ * Shell min-height is 100vh, then 100dvh. It is a column: the sticky cover
+ * band stays in normal flow, and main fills the rest. The sheet is width
+ * 100% and min-height 100% of that main area, so a short page is still a
+ * full sheet down to the fixed nav. Main padding reserves the nav block
+ * plus safe-area-inset-bottom. The cover band reserves safe-area-inset-top.
+ * Desktop (min-width: 1024px) rules above are not in this block.
+ */
+:root {
+  /* .jr-bottom-nav padding-top 6px + index tab min-h-[56px].
+     The active tab translateY(-2px) stays inside that 6px pad.
+     safe-area-inset-bottom is added on main, matching the nav. */
+  --jr-mobile-nav-clearance: calc(6px + 56px);
+}
+
+.jr-notebook-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (max-width: 1023px) {
+  .jr-notebook-shell {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .jr-notebook-shell > .jr-cover-band {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .jr-notebook-main {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .jr-page-frame {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
+  }
+
+  .jr-page-sheet {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    min-height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .jr-page-sheet > .jr-page-date,
+  .jr-page-sheet > .jr-page-body,
+  .jr-page-sheet > .jr-page-footer {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .jr-page-footer {
+    margin-top: auto;
+  }
+
+  .jr-page-curl {
+    visibility: hidden;
+  }
+
+  .jr-ribbon {
+    top: 0;
+  }
+}
+/* /mobile-full-bleed-journal */

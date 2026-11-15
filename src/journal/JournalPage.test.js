@@ -153,6 +153,72 @@ describe('JournalPage & pageMeta (A4 part a)', () => {
     }
   });
 
+  it('is full-bleed below lg and keeps the desktop spread gutter, padding, and max-width', () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        JournalPage,
+        { pageNumber: 1, dateLine: '2026年10月22日 星期四', spread: 'home' },
+        createElement('div', null, 'Short page'),
+      ),
+    );
+    const frame = html.match(/<div class="([^"]*\bjr-page-frame\b[^"]*)"/)[1];
+    const sheet = html.match(/<div class="([^"]*\bjr-page-sheet\b[^"]*)"/)[1];
+    expect(frame.split(/\s+/).sort()).toEqual(
+      ['jr-desk', 'jr-page-frame', 'lg:px-4', 'lg:py-5', 'w-full'].sort(),
+    );
+    expect(frame).not.toMatch(/(?:^|\s)px-\d/);
+    expect(frame).not.toMatch(/(?:^|\s)py-\d/);
+    expect(sheet.split(/\s+/).sort()).toEqual(
+      ['jr-page-sheet', 'jr-paper', 'lg:max-w-6xl', 'min-h-full', 'mx-auto', 'w-full'].sort(),
+    );
+    expect(sheet).not.toContain('max-w-5xl');
+    expect(SPREAD_GUTTER_CALC.home).toBe(
+      'calc(1rem + (100% - 2rem - 11 * 1.5rem) * 5 / 12 + 4.5 * 1.5rem)',
+    );
+    expect(SPREAD_GUTTER_CALC.ledger).toBe(SPREAD_GUTTER_CALC.home);
+    expect(SPREAD_GUTTER_CALC.half).toBe('50%');
+
+    const css = fs.readFileSync(path.resolve(journalDir, '../theme/journal.css'), 'utf8');
+    const appSrc = fs.readFileSync(path.resolve(journalDir, '../notebook/NotebookApp.jsx'), 'utf8');
+    const desktopSheet = css.match(
+      /@media \(min-width: 1024px\) \{\s*\.jr-page-sheet \{[\s\S]*?\n\s*\}/,
+    )[0];
+    expect(desktopSheet).toContain('border-radius: 4px');
+    expect(desktopSheet).toContain('-3px 3px 0 rgb(var(--c-paper-shade))');
+    expect(desktopSheet).toContain('-5px 5px 0 rgb(var(--c-ink-soft) / 0.28)');
+    expect(desktopSheet).toContain('3px 3px 0 rgb(var(--c-paper-shade))');
+    expect(desktopSheet).toContain('5px 5px 0 rgb(var(--c-ink-soft) / 0.28)');
+    expect(desktopSheet).toContain('0 14px 28px rgb(var(--c-ink-soft) / 0.15)');
+    expect(desktopSheet).toContain('0 4px 8px rgb(var(--c-ink-soft) / 0.1)');
+    expect(desktopSheet).not.toContain('visibility: hidden');
+
+    const mobileStart = css.indexOf('/* mobile-full-bleed-journal');
+    const mobileEnd = css.indexOf('/* /mobile-full-bleed-journal */');
+    expect(mobileStart).toBeGreaterThanOrEqual(0);
+    expect(mobileEnd).toBeGreaterThan(mobileStart);
+    const mobileCss = css.slice(mobileStart, mobileEnd);
+    expect(mobileCss).toContain('--jr-mobile-nav-clearance: calc(6px + 56px)');
+    const shellRule = mobileCss.match(/\.jr-notebook-shell \{[^}]+\}/)[0];
+    const vhAt = shellRule.indexOf('min-height: 100vh');
+    const dvhAt = shellRule.indexOf('min-height: 100dvh');
+    expect(vhAt).toBeGreaterThanOrEqual(0);
+    expect(dvhAt).toBeGreaterThan(vhAt);
+    expect(mobileCss).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(mobileCss).toContain('width: 100%');
+    expect(mobileCss).toContain('min-height: 100%');
+    expect(mobileCss).toContain('max-width: none');
+    expect(mobileCss).toContain('border-radius: 0');
+    expect(mobileCss).toContain('box-shadow: none');
+    expect(mobileCss).toContain('padding: 0');
+    expect(mobileCss).toMatch(/\.jr-page-curl \{[^}]*visibility: hidden/);
+    expect(mobileCss).not.toMatch(/overflow\s*:/);
+    expect(appSrc).toContain(
+      'pb-[calc(var(--jr-mobile-nav-clearance)+env(safe-area-inset-bottom,0px))]',
+    );
+    expect(appSrc).toContain('lg:max-w-6xl lg:pb-10');
+    expect(appSrc).not.toContain('pb-24');
+  });
+
   it('computes formatPageDateLine with trip day inside trip and omits the day part outside the trip', async () => {
     await i18n.changeLanguage('zh-TW');
     const trip = {
@@ -221,7 +287,13 @@ describe('NotebookApp shell + navigation + JournalPage wiring (A4 part b)', () =
     const homeHtml = renderToStaticMarkup(
       createElement(NotebookApp, { trip, today: '2026-10-22', initialHash: '' }),
     );
-    expect(homeHtml).toContain('jr-desk min-h-screen text-ink');
+    expect(homeHtml).toContain('jr-notebook-shell jr-desk text-ink');
+    expect(homeHtml).toContain('jr-page-frame jr-desk w-full lg:px-4 lg:py-5');
+    expect(homeHtml).toContain('jr-page-sheet jr-paper mx-auto w-full min-h-full lg:max-w-6xl');
+    expect(homeHtml).toContain(
+      'pb-[calc(var(--jr-mobile-nav-clearance)+env(safe-area-inset-bottom,0px))]',
+    );
+    expect(homeHtml).toContain('lg:max-w-6xl lg:pb-10');
     expect(homeHtml).toContain('jr-cover-band sticky top-0');
     expect(homeHtml).toContain('jr-cover-stitch');
     expect(homeHtml).toContain('手繪旅費日誌');
@@ -266,6 +338,24 @@ describe('NotebookApp shell + navigation + JournalPage wiring (A4 part b)', () =
     expect(addHtml).not.toContain('data-jr-decor="gutter"');
     expect(addHtml).toContain('2026年10月22日 星期四 · 第5天');
     expect(addHtml).toContain('手繪旅帳 · 第 1 頁');
+
+    for (const html of [homeHtml, ledgerHtml, chartsHtml, dayHtml, settingsHtml, addHtml]) {
+      expect(html).toContain('jr-notebook-shell jr-desk text-ink');
+      expect(html).toContain('jr-page-frame jr-desk w-full lg:px-4 lg:py-5');
+      const frame = html.match(/<div class="(jr-page-frame [^"]*)"/)[1];
+      expect(frame).not.toMatch(/(?:^|\s)px-\d/);
+      expect(frame).not.toMatch(/(?:^|\s)py-\d/);
+      const chromeTags = [
+        ...html.matchAll(
+          /<(?:div|main)\b[^>]*class="[^"]*\b(?:jr-notebook-shell|jr-notebook-main|jr-page-frame|jr-page-sheet|jr-page-body)\b[^"]*"[^>]*>/g,
+        ),
+      ];
+      expect(chromeTags.length).toBeGreaterThanOrEqual(5);
+      for (const tag of chromeTags) {
+        expect(tag[0]).not.toContain('overflow-hidden');
+        expect(tag[0]).not.toContain('overflow-x-hidden');
+      }
+    }
   });
 
   it('removes unused airmail export from src/proto/ref/parts.jsx', () => {

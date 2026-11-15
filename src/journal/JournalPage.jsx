@@ -16,13 +16,17 @@ export const SPREAD_GUTTER_CALC = {
 
 /**
  * Shared notebook page frame (`src/journal/JournalPage.jsx`):
- * - Mobile (<lg): desk background (~8px visible each side), single paper sheet with faint grid,
- *   left stitched/ring binding, top-right stamp ribbon bookmark, bottom-right curled page corner,
- *   hand-lettered dateLine header rule, and page number footer rule with small kraft washi piece.
- * - Desktop (lg >=1024px): centered open two-page journal spread (max-w-6xl), stacked page edges
- *   at both sides, centre-gutter shadow positioned by `spread`, and ribbon hanging near the gutter.
+ * - Mobile (<lg): full-bleed paper sheet. No side, top, or bottom desk gutter.
+ *   Width 100% and min-height 100% of the notebook main, which fills the shell
+ *   under the sticky cover band and above the fixed bottom nav. Left binding,
+ *   ribbon, date-line header, page-number footer, grid, and washi stay.
+ *   The desk-coloured curl is hidden in CSS so it does not read as a hole.
+ * - Desktop (lg >=1024px): centered open two-page journal spread (lg:max-w-6xl),
+ *   lg:px-4 lg:py-5 desk padding, stacked page edges, centre-gutter shadow
+ *   positioned by `spread`, and ribbon hanging near the gutter. Not full-bleed.
  * - Every decorative node is `aria-hidden="true"`, `pointer-events-none`, and has no `data-testid`.
- * - Ancestors of `children` never set `overflow-hidden` so `lg:sticky` rails work unimpeded.
+ * - Ancestors of `children` (this frame, the sheet, the body, and the NotebookApp
+ *   shell/main) never set `overflow-hidden` so `lg:sticky` rails work unimpeded.
  */
 export default function JournalPage({
   children,
@@ -38,9 +42,9 @@ export default function JournalPage({
   const footerText = t('notebook.page.footer', { n: resolvedPage });
 
   return (
-    <div className={`jr-desk w-full px-2 py-2 lg:px-4 lg:py-5 ${className}`.trim()}>
+    <div className={`jr-page-frame jr-desk w-full lg:px-4 lg:py-5 ${className}`.trim()}>
       <div
-        className="jr-page-sheet jr-paper mx-auto max-w-5xl lg:max-w-6xl"
+        className="jr-page-sheet jr-paper mx-auto w-full min-h-full lg:max-w-6xl"
         style={sheetStyle}
       >
         {/* Mobile-only left stitched spine & punched ring holes */}
@@ -131,7 +135,7 @@ export default function JournalPage({
         </div>
 
         {/* Page header: dateLine (font-hand, ink-soft, 14px) + thin ink-soft rule */}
-        <div className="relative z-10 pl-5 pr-9 pt-2.5 lg:px-4 lg:pt-3">
+        <div className="jr-page-date relative z-10 pl-5 pr-9 pt-2.5 lg:px-4 lg:pt-3">
           <div className="flex items-baseline justify-between gap-2 border-b border-ink-soft/40 pb-1.5">
             <p className="min-w-0 truncate font-hand text-sm text-ink-soft">
               {dateLine}
@@ -145,7 +149,7 @@ export default function JournalPage({
         </div>
 
         {/* Page footer: 「手繪旅帳 · 第 N 頁」 above a thin rule with one small kraft washi piece */}
-        <div className="relative z-10 pb-3 pl-5 pr-8 pt-2 lg:px-4 lg:pb-4">
+        <div className="jr-page-footer relative z-10 pb-3 pl-5 pr-8 pt-2 lg:px-4 lg:pb-4">
           <div className="flex items-center justify-between gap-4 border-b border-ink-soft/40 pb-1.5 pt-1">
             <span className="font-hand text-sm text-ink-soft">
               {footerText}
