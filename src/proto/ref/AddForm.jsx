@@ -471,7 +471,7 @@ export default function AddForm({
       />
 
       {/* Card 1: Amount & currency first */}
-      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+      <div className="jr-taped-card jr-stuck-slip relative min-w-0 space-y-3 bg-paper p-3.5">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pb-0.5">
           <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.amountTitle')}
@@ -592,7 +592,7 @@ export default function AddForm({
       </div>
 
       {/* Card 2: Basic info */}
-      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+      <div className="jr-taped-card jr-stuck-slip relative min-w-0 space-y-3 bg-paper p-3.5">
         <div className="flex min-w-0 items-center justify-between gap-2 pb-0.5">
           <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.basicTitle')}
