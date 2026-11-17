@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import AddForm from './AddForm';
 import ExpenseCard from './ExpenseCard';
+import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
 
 const WIDTHS = [320, 390, 430];
 
@@ -493,13 +494,19 @@ describe('receipt line disclosure', () => {
     });
     const plain = cardExpense({ id: 'long-1', scanned: true, items: [] });
     const plainView = renderCard(plain);
-    const plainRow = plainView.container.querySelector('.jr-ticket-row').innerHTML;
+    const plainToggle = plainView.getByTestId('receipt-items-toggle');
+    expect(plainView.container.querySelector('.expense-amt-col').contains(plainToggle)).toBe(true);
+    expect(plainToggle.textContent).not.toContain('收據明細');
+    expect(plainToggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
+    const plainRowText = plainView.container.querySelector('.jr-ticket-row').textContent;
     plainView.unmount();
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
     const { onEdit, onDelete } = renderCard(expense);
     const article = document.querySelector('article.jr-ticket');
-    expect(article.querySelector('.jr-ticket-row').innerHTML).toBe(plainRow);
+    const ticketRow = article.querySelector('.jr-ticket-row');
+    expect(ticketRow.textContent).toBe(plainRowText);
+    expect(ticketRow.textContent).not.toContain(longName);
     expect(article.className).toContain('jr-ticket');
     expect(article.className).not.toContain('jr-torn');
     expect(article.className).not.toContain('expense-row');
@@ -507,8 +514,19 @@ describe('receipt line disclosure', () => {
     const toggle = screen.getByTestId('receipt-items-toggle');
     const panel = document.getElementById(toggle.getAttribute('aria-controls'));
     const inside = article.querySelector('.jr-ticket-inside');
-    expect(inside.contains(toggle)).toBe(true);
+    const amt = article.querySelector('.expense-amt-col');
+    const more = screen.getByRole('button', { name: /更多動作|More actions/ });
+    expect(amt.contains(toggle)).toBe(true);
+    expect(more.parentElement.contains(toggle)).toBe(false);
+    expect(inside.contains(toggle)).toBe(false);
     expect(inside.contains(panel)).toBe(true);
+    expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+    expect(toggle.textContent).not.toContain('收據明細');
+    expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
+    expect(toggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
+    expect(toggle.className.split(/\s+/)).not.toContain('w-full');
+    expect(toggle.style.minHeight).toBe('44px');
+    expect(toggle.style.minWidth).toBe('44px');
     expect(fetchSpy).not.toHaveBeenCalled();
 
     fireEvent.click(toggle);
@@ -625,5 +643,28 @@ describe('receipt line disclosure', () => {
     expect(onEdit).not.toHaveBeenCalled();
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.getByTestId('receipt-items-toggle').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('renders the labeled form toggle by default and has no edit-details button', () => {
+    render(createElement(
+      I18nextProvider,
+      { i18n },
+      createElement(ReceiptItemsDisclosure, {
+        items: [{ name: '茶', price: 10 }],
+        currency: 'JPY',
+        scanned: true,
+        identity: 'direct-form',
+      }),
+    ));
+    const toggle = screen.getByTestId('receipt-items-toggle');
+    expect(toggle.className).toContain('jr-btn-paper');
+    expect(toggle.className.split(/\s+/)).toContain('w-full');
+    expect(toggle.textContent).toContain('收據明細');
+    expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
+    expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+    expect(screen.queryByText('編輯明細')).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('receipt-item-row').textContent).toContain('茶');
+    expect(screen.getByTestId('receipt-items-disclaimer')).toBeTruthy();
   });
 });

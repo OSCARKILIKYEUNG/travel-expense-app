@@ -12,7 +12,7 @@ import {
 import { Icon } from './parts';
 import { IncludedTaxSummary } from './IncludedTaxSection';
 import { SavedAdjustments } from './PaidAmountFormula';
-import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
+import { useSavedReceiptItems } from './ReceiptItemsDisclosure';
 import { isKnownScan, readSourceCurrency } from './receiptItemsDisplay';
 import { fmtHKD, fmtJPY } from './refLogic';
 
@@ -97,6 +97,12 @@ export default function ExpenseCard({
   onDelete,
 }) {
   const { t } = useTranslation();
+  const receiptItems = useSavedReceiptItems({
+    items: expense?.items,
+    currency: readSourceCurrency(expense),
+    scanned: isKnownScan(expense),
+    identity: expense?.id != null ? String(expense.id) : 'expense',
+  });
   const [menu, setMenu] = useState(false);
   const [menuBox, setMenuBox] = useState(null);
   const [confirm, setConfirm] = useState(false);
@@ -240,7 +246,7 @@ export default function ExpenseCard({
           {headLabel}
         </div>
         <div className="jr-ticket-perf" aria-hidden="true" />
-        <div className="jr-ticket-body">
+        <div className="jr-ticket-body min-w-0 max-w-full">
           <div className="jr-ticket-row expense-row">
             <div className="expense-body min-w-0 flex-1">
               <h3 className="expense-title story-critical line-clamp-2 break-words font-display text-sm font-bold leading-snug text-ink lg:line-clamp-1 lg:truncate lg:text-base">
@@ -254,7 +260,7 @@ export default function ExpenseCard({
               )}
             </div>
 
-            <div className="expense-amt-col shrink-0 text-right font-display tabular-nums">
+            <div className="expense-amt-col flex shrink-0 flex-col items-end text-right font-display tabular-nums">
               <p className="expense-amount font-money story-critical whitespace-nowrap text-sm font-bold leading-snug text-ink lg:text-base">
                 {fmtHKD(expense.hkdAmount)}
               </p>
@@ -263,6 +269,7 @@ export default function ExpenseCard({
                   {fmtJPY(expense.originalAmount)}
                 </p>
               )}
+              {receiptItems.toggle}
             </div>
 
             <div className="shrink-0" ref={ref}>
@@ -333,15 +340,8 @@ export default function ExpenseCard({
                 )}
             </div>
           </div>
-          <div className="jr-ticket-inside" data-testid="expense-ticket-inside">
-            <ReceiptItemsDisclosure
-              key={expense?.id != null ? String(expense.id) : 'expense'}
-              items={expense?.items}
-              currency={readSourceCurrency(expense)}
-              scanned={isKnownScan(expense)}
-              identity={expense?.id != null ? String(expense.id) : 'expense'}
-              onEditDetails={() => onEdit(expense)}
-            />
+          <div className="jr-ticket-inside min-w-0 max-w-full" data-testid="expense-ticket-inside">
+            {receiptItems.panel}
             <IncludedTaxSummary
               includedTaxAmount={expense?.includedTaxAmount}
               includedTaxBreakdown={expense?.includedTaxBreakdown}

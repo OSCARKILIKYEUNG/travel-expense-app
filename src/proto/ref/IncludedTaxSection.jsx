@@ -48,20 +48,27 @@ export function IncludedTaxSummary({
   const code = currency ? `${currency} ` : '';
   const mismatch = includedTaxPrintedMismatch({ includedTaxAmount, includedTaxBreakdown: rows });
 
+  const containedStyle = {
+    minWidth: 0,
+    maxWidth: '100%',
+    overflowWrap: 'anywhere',
+    whiteSpace: 'normal',
+  };
+
   return (
-    <div data-testid="included-tax-summary" className="mt-1 min-w-0 max-w-full">
-      <p className="m-0 break-words font-hand text-sm font-bold text-ink">
+    <div data-testid="included-tax-summary" className="mt-1 min-w-0 max-w-full break-words" style={containedStyle}>
+      <p className="m-0 min-w-0 max-w-full break-words font-hand text-sm font-bold text-ink" style={containedStyle}>
         {t('notebook.includedTax.toggle')}
       </p>
       {hasAmount && (
-        <p className="m-0 break-words font-display text-sm tabular-nums text-ink">
+        <p className="m-0 min-w-0 max-w-full break-words font-display text-sm tabular-nums text-ink" style={containedStyle}>
           {t('notebook.includedTax.summaryAmount', { amount: `${code}${formatPrinted(includedTaxAmount)}` })}
         </p>
       )}
       {rows.length > 0 && (
-        <ul className="m-0 list-none p-0">
+        <ul className="m-0 min-w-0 max-w-full list-none p-0" style={containedStyle}>
           {rows.map((row, index) => (
-            <li key={`${index}-${row.ratePercent ?? ''}-${row.targetAmount ?? ''}`} data-testid="included-tax-summary-row" className="break-words font-display text-sm tabular-nums text-ink-soft">
+            <li key={`${index}-${row.ratePercent ?? ''}-${row.targetAmount ?? ''}`} data-testid="included-tax-summary-row" className="min-w-0 max-w-full break-words font-display text-sm tabular-nums text-ink-soft" style={containedStyle}>
               {row.ratePercent != null ? `${formatPrinted(row.ratePercent)}% ` : ''}
               {basisLabel(t, row.basis)}
               {row.targetAmount != null ? ` ${code}${formatPrinted(row.targetAmount)}` : ''}

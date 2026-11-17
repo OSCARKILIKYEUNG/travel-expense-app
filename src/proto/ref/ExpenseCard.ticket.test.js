@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import ExpenseCard, { ExpenseSkeletonRow } from './ExpenseCard';
 
@@ -193,6 +193,118 @@ describe('expense ticket sticker', () => {
     const inside = css.slice(css.indexOf('.jr-ticket-inside {'), css.indexOf('.jr-ticket-inside:not'));
     expect(inside).toContain('dashed');
     expect(inside).toContain('rgb(var(--c-ink-soft) / 0.22)');
+    expect(inside).toContain('min-width: 0');
+    expect(inside).toContain('max-width: 100%');
+    expect(inside).toContain('overflow-wrap: anywhere');
+
+    const amt = css.slice(css.indexOf('.jr-ticket .expense-amt-col'), css.indexOf('.jr-ticket .expense-amount'));
+    expect(amt).toContain('flex-direction: column');
+    expect(amt).toContain('align-items: flex-end');
+    expect(ticket).toContain('min-width: 0');
+    expect(ticket).toContain('max-width: 100%');
+    expect(ticket).toContain('overflow: hidden');
+  });
+
+  it('places a compact chevron under the price and keeps a ZARA refund inside the ticket', () => {
+    const expense = card({
+      id: 'zara',
+      store: '薩拉',
+      place: '東京',
+      category: '購物',
+      assignedTo: '共同',
+      currency: 'JPY',
+      originalAmount: 18732,
+      hkdAmount: 937,
+      taxRefund: -1844,
+      scanned: true,
+      items: [{ name: '外套', price: 18732 }],
+      includedTaxAmount: undefined,
+      includedTaxBreakdown: undefined,
+    });
+    const onEdit = vi.fn();
+    const view = renderCard(expense, { onEdit });
+    const article = view.container.querySelector('article.jr-ticket');
+    const inside = view.container.querySelector('[data-testid="expense-ticket-inside"]');
+    const amt = article.querySelector('.expense-amt-col');
+    const toggle = screen.getByTestId('receipt-items-toggle');
+    const more = screen.getByRole('button', { name: /更多動作/ });
+    const refund = screen.getByTestId('saved-tax-refund');
+
+    expect(view.container.querySelector('[data-testid="expense-ticket-head"]').textContent).toBe('購物 · 共同');
+    expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+    expect(article.textContent).not.toContain('編輯明細');
+    expect(amt.contains(toggle)).toBe(true);
+    expect(more.parentElement.contains(toggle)).toBe(false);
+    expect(amt.querySelector('.expense-amount').compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(amt.querySelector('.expense-amount-sub').compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(toggle.textContent).not.toContain('收據明細');
+    expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
+    expect(toggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
+    expect(toggle.className.split(/\s+/)).not.toContain('w-full');
+    expect(toggle.className).toContain('min-h-11');
+    expect(toggle.className).toContain('min-w-11');
+    expect(toggle.style.minHeight).toBe('44px');
+    expect(toggle.style.minWidth).toBe('44px');
+    expect(toggle.querySelector('svg').getAttribute('class')).toContain('h-4');
+    expect(toggle.querySelector('svg').getAttribute('class')).toContain('w-4');
+    expect(toggle.querySelector('svg').style.transform).toBe('none');
+    expect(screen.getByTestId('receipt-items-panel').hasAttribute('hidden')).toBe(true);
+    expect(inside.contains(refund)).toBe(true);
+    expect(article.contains(refund)).toBe(true);
+    expect(amt.contains(refund)).toBe(false);
+    expect(refund.textContent).toContain('退稅');
+    expect(refund.textContent).toContain('-1844');
+    expect(refund.style.maxWidth).toBe('100%');
+    expect(refund.style.overflowWrap).toBe('anywhere');
+    expect(refund.style.whiteSpace).toBe('normal');
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-label')).toBe('收合收據明細');
+    expect(toggle.querySelector('svg').style.transform).toBe('rotate(90deg)');
+    expect(inside.contains(screen.getByText('外套'))).toBe(true);
+    expect(inside.contains(screen.getByTestId('receipt-items-disclaimer'))).toBe(true);
+    expect(inside.contains(screen.getByTestId('receipt-items'))).toBe(true);
+    expect(inside.contains(refund)).toBe(true);
+    expect(article.contains(refund)).toBe(true);
+    expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: /編輯/ }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit.mock.calls[0][0]).toBe(expense);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps a refund inside the ticket when there is no receipt chevron', () => {
+    const view = renderCard(card({
+      id: 'zara-refund',
+      store: '薩拉',
+      place: '東京',
+      category: '購物',
+      assignedTo: '共同',
+      currency: 'JPY',
+      originalAmount: 18732,
+      hkdAmount: 937,
+      taxRefund: -1844,
+      scanned: false,
+      items: [],
+      includedTaxAmount: undefined,
+      includedTaxBreakdown: undefined,
+    }));
+    const article = view.container.querySelector('article.jr-ticket');
+    const inside = view.container.querySelector('[data-testid="expense-ticket-inside"]');
+    const refund = screen.getByTestId('saved-tax-refund');
+    expect(screen.queryByTestId('receipt-items-toggle')).toBeNull();
+    expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+    expect(article.textContent).not.toContain('編輯明細');
+    expect(article.textContent).not.toContain('收據明細');
+    expect(inside.contains(refund)).toBe(true);
+    expect(article.contains(refund)).toBe(true);
+    expect(refund.textContent).toContain('退稅');
+    expect(refund.textContent).toContain('-1844');
+    expect(inside.className).toContain('min-w-0');
+    expect(inside.className).toContain('max-w-full');
   });
 
   it('uses the English category and shared labels in the header', async () => {

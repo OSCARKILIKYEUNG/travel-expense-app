@@ -52,6 +52,13 @@ export default function PaidAmountFormula({
   );
 }
 
+const containedStyle = {
+  minWidth: 0,
+  maxWidth: '100%',
+  overflowWrap: 'anywhere',
+  whiteSpace: 'normal',
+};
+
 /** Stored refund and discount on a saved card. Included tax is not an input here. */
 export function SavedAdjustments({ taxRefund, discount }) {
   const { t } = useTranslation();
@@ -59,14 +66,14 @@ export function SavedAdjustments({ taxRefund, discount }) {
   const discountText = storedAdjustment(discount);
   if (!refund && !discountText) return null;
   return (
-    <div data-testid="saved-adjustments" className="mt-1 min-w-0 max-w-full">
+    <div data-testid="saved-adjustments" className="mt-1 min-w-0 max-w-full break-words" style={containedStyle}>
       {refund && (
-        <p data-testid="saved-tax-refund" className="m-0 break-words font-display text-sm tabular-nums text-ink">
+        <p data-testid="saved-tax-refund" className="m-0 min-w-0 max-w-full break-words font-display text-sm tabular-nums text-ink" style={containedStyle}>
           {t('notebook.paidFormula.taxRefundLine')} {refund}
         </p>
       )}
       {discountText && (
-        <p data-testid="saved-discount" className="m-0 break-words font-display text-sm tabular-nums text-ink">
+        <p data-testid="saved-discount" className="m-0 min-w-0 max-w-full break-words font-display text-sm tabular-nums text-ink" style={containedStyle}>
           {t('notebook.paidFormula.discountLine')} {discountText}
         </p>
       )}
