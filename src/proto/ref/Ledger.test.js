@@ -878,7 +878,8 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     unmount();
   });
 
-  it('A7d: ExpenseCard allows 2-line title below lg, keeps badge row flex-nowrap with shrink-0, and ChipRow scrolls horizontally on one line', () => {
+  it('A7d: ExpenseCard allows 2-line title below lg, uses a ticket header instead of badge chips, and ChipRow scrolls horizontally on one line', async () => {
+    await i18n.changeLanguage('zh-TW');
     const trip = {
       name: '富士之旅',
       startDate: '2026-10-20',
@@ -911,14 +912,18 @@ describe('Batch 1 diary-style doodles, category stickers, and empty states', () 
     expect(titleH3.className).toContain('break-words');
     expect(titleH3.className.split(/\s+/)).not.toContain('whitespace-nowrap');
 
-    // Badge row is flex-nowrap overflow-hidden and each badge is shrink-0
-    const badgeRow = card.querySelector('.expense-tags') || titleH3.previousElementSibling;
-    expect(badgeRow).toBeTruthy();
-    expect(badgeRow.className).toContain('flex-nowrap');
-    expect(badgeRow.className).toContain('overflow-hidden');
-    for (const badge of badgeRow.children) {
-      expect(badge.className).toContain('shrink-0');
-    }
+    const article = card.querySelector('article');
+    expect(article.className).toContain('jr-ticket');
+    expect(article.className).not.toContain('jr-torn');
+    expect(card.querySelector('.expense-tags')).toBeNull();
+    const head = card.querySelector('.jr-ticket-head');
+    expect(head).toBeTruthy();
+    expect(head.className).toContain('font-hand');
+    expect(head.className).toContain('is-food');
+    expect(head.textContent).toBe('飲食 · 共同');
+    const amount = card.querySelector('.expense-amount');
+    expect(amount.className).not.toContain('truncate');
+    expect(amount.textContent).toContain('256');
 
     // ChipRow is a single horizontal segmented scroll row with shrink-0 chips
     const chipRow = screen.getByRole('group', { name: '篩選人物' });

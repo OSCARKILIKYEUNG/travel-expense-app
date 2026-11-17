@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 /**
  * Ledger expense action menu.
- * The containment test below failed on the pre-fix card: the open menu was
+ * The containment test below failed on the pre-ticket card: the open menu was
  * inside article.jr-torn, whose mask clips paint outside the card.
+ * Expense cards are now article.jr-ticket (overflow clip, no torn mask).
+ * The menu stays a body portal so the ticket cannot clip it. .jr-torn remains
+ * a journal utility and is not applied to these cards.
  * Rectangles are mocked. jsdom does not paint, run native Tab traversal,
  * or reproduce iOS visualViewport behavior.
  * A fixed body portal shares layout-viewport space with the raw trigger
@@ -103,7 +106,7 @@ function rectAt(top, viewportWidth, height = 44) {
 }
 
 function assertMenuOutsideClip(menu) {
-  const articles = document.querySelectorAll('article.jr-torn');
+  const articles = document.querySelectorAll('article.jr-ticket');
   expect(articles.length).toBeGreaterThan(0);
   for (const article of articles) {
     expect(article.contains(menu)).toBe(false);
@@ -192,9 +195,10 @@ describe('expense action menu clipping regression', () => {
     expect(edit.textContent).toContain(i18n.t('expenseCard.edit'));
     expect(remove.textContent).toContain(i18n.t('expenseCard.delete'));
 
-    const article = document.querySelector('article.jr-torn');
+    const article = document.querySelector('article.jr-ticket');
     expect(article).toBeTruthy();
-    expect(article.className).toContain('jr-torn');
+    expect(article.className).toContain('jr-ticket');
+    expect(article.className).not.toContain('jr-torn');
     expect(article.contains(menu)).toBe(false);
     expect(screen.getByTestId('ledger-clip').contains(menu)).toBe(false);
     expect(screen.getByTestId('swipe-clip').contains(menu)).toBe(false);
@@ -550,7 +554,7 @@ describe('expense action menu behavior', () => {
     try {
       fireEvent.click(trigger);
       expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: /編輯|Edit/ }));
-      fireEvent.pointerDown(document.querySelector('article.jr-torn'));
+      fireEvent.pointerDown(document.querySelector('article.jr-ticket'));
       expect(screen.queryByRole('menu')).toBeNull();
       expect(document.activeElement).toBe(trigger);
       expect(focusSpy.mock.calls.at(-1)).toEqual([{ preventScroll: true }]);

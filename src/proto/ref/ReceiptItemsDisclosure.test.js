@@ -482,7 +482,7 @@ describe('receipt line disclosure', () => {
     expect(prices).not.toContain('0');
   });
 
-  it('wraps long saved lines outside the torn mask and keeps the menu working', () => {
+  it('wraps long saved lines inside the ticket and keeps the menu working', () => {
     const longName = `N${'A'.repeat(80)}`;
     const expense = cardExpense({
       id: 'long-1',
@@ -493,20 +493,22 @@ describe('receipt line disclosure', () => {
     });
     const plain = cardExpense({ id: 'long-1', scanned: true, items: [] });
     const plainView = renderCard(plain);
-    const plainArticle = plainView.container.querySelector('article').innerHTML;
+    const plainRow = plainView.container.querySelector('.jr-ticket-row').innerHTML;
     plainView.unmount();
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
     const { onEdit, onDelete } = renderCard(expense);
-    const article = document.querySelector('article.jr-torn');
-    expect(article.innerHTML).toBe(plainArticle);
-    expect(article.className).toContain('jr-torn');
-    expect(article.className).toContain('expense-row');
+    const article = document.querySelector('article.jr-ticket');
+    expect(article.querySelector('.jr-ticket-row').innerHTML).toBe(plainRow);
+    expect(article.className).toContain('jr-ticket');
+    expect(article.className).not.toContain('jr-torn');
+    expect(article.className).not.toContain('expense-row');
 
     const toggle = screen.getByTestId('receipt-items-toggle');
     const panel = document.getElementById(toggle.getAttribute('aria-controls'));
-    expect(article.contains(toggle)).toBe(false);
-    expect(article.contains(panel)).toBe(false);
+    const inside = article.querySelector('.jr-ticket-inside');
+    expect(inside.contains(toggle)).toBe(true);
+    expect(inside.contains(panel)).toBe(true);
     expect(fetchSpy).not.toHaveBeenCalled();
 
     fireEvent.click(toggle);

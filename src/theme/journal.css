@@ -126,6 +126,111 @@
   mask-repeat: no-repeat, repeat-x;
 }
 
+/* Option B expense ticket. Face is cream-soft, brighter than the page.
+ * Straight at rest (no tilt). Add-only sticker-pop animates the wrapper, then settles to 0deg.
+ * No washi, no torn mask. Colours are palette tokens only.
+ */
+.jr-ticket {
+  position: relative;
+  background-color: rgb(var(--c-cream-soft));
+  border: 1px solid rgb(var(--c-ink-soft) / 0.28);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgb(var(--c-ink) / 0.04),
+    0 3px 8px rgb(var(--c-ink) / 0.10);
+}
+
+.jr-ticket.is-highlighted {
+  border-color: rgb(var(--c-route));
+  box-shadow:
+    0 0 0 2px rgb(var(--c-route)),
+    0 1px 0 rgb(var(--c-ink) / 0.04),
+    0 3px 8px rgb(var(--c-ink) / 0.10);
+}
+
+.jr-ticket-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  font-family: "Iansui UI", Huninn, "Noto Sans TC", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+}
+
+.jr-ticket-head.is-food,
+.jr-ticket-head.is-stay {
+  background-color: rgb(var(--c-mustard-soft));
+  color: rgb(var(--c-kraft-ink));
+}
+
+.jr-ticket-head.is-transit {
+  background-color: rgb(var(--c-route-soft));
+  color: rgb(var(--c-route));
+}
+
+.jr-ticket-head.is-shop {
+  background-color: rgb(var(--c-coral-soft));
+  color: rgb(var(--c-stamp));
+}
+
+.jr-ticket-head.is-fun {
+  background-color: rgb(var(--c-sage-soft));
+  color: rgb(var(--c-sage-ink));
+}
+
+.jr-ticket-head.is-other {
+  background-color: rgb(var(--c-paper-shade));
+  color: rgb(var(--c-ink-soft));
+}
+
+.jr-ticket-perf {
+  height: 10px;
+  margin-top: -5px;
+  background:
+    radial-gradient(circle at 8px 0, rgb(var(--c-paper)) 5px, transparent 5.5px) 0 0 / 16px 10px repeat-x,
+    rgb(var(--c-cream-soft));
+  border-bottom: 1px dashed rgb(var(--c-ink-soft) / 0.25);
+}
+
+.jr-ticket-body {
+  padding: 10px 12px 12px;
+}
+
+.jr-ticket .expense-row {
+  padding: 0;
+  min-height: 0;
+  gap: 8px;
+}
+
+.jr-ticket-inside {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgb(var(--c-ink-soft) / 0.22);
+  color: rgb(var(--c-ink-soft));
+  line-height: 1.5;
+}
+
+.jr-ticket-inside:not(:has(*)) {
+  display: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.jr-ticket .expense-amt-col {
+  max-width: none;
+}
+
+.jr-ticket .expense-amount,
+.jr-ticket .expense-amount-sub {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 /* Small pushpin dot pseudo-element in stamp */
 .jr-pin {
   position: relative;
@@ -829,16 +934,24 @@
   margin-top: 2px;
 }
 
-/* 9. Loading skeleton — matches expense-row geometry */
+/* 9. Loading skeleton — ticket header, perforation, and body row */
+.skeleton-ticket-head {
+  min-height: 36px;
+}
+
+.skeleton-ticket-head .skeleton-line {
+  width: 42%;
+  max-width: 148px;
+  height: 12px;
+}
+
 .skeleton-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 10px;
-  min-height: 72px;
-  background-color: rgb(var(--c-paper));
-  border: 1px solid rgb(var(--c-ink-soft) / 0.35);
-  border-radius: 2px;
+  gap: 8px;
+  min-height: 0;
+  background-color: transparent;
+  border: 0;
 }
 
 .skeleton-blob {

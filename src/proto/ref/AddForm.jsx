@@ -11,6 +11,8 @@ import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon } from './parts';
 import { formatNotebookDate } from './refLogic';
 import IncludedTaxSection from './IncludedTaxSection';
+import PaidAmountFormula from './PaidAmountFormula';
+import { readIncludedTaxDisplayAmount } from './paidAmountFormula';
 import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
 import { commitItemDrafts, createItemDrafts } from './receiptItemDraft';
 import { resolveReceiptItemSource } from './receiptItemsDisplay';
@@ -355,10 +357,19 @@ export default function AddForm({
     setTaxBundle({ identity: taxIdentity, draft: createIncludedTaxDraft(taxSource) });
     if (taxErrors.length) setTaxErrors([]);
   }
+  const taxDraft = taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource);
   const receiptTypeEvidence = String((initial?.receiptType) || (!initial && activeDraft?.receiptType) || '').trim();
-  const subtotalLabel = receiptTypeEvidence === 'tax_inclusive'
-    ? t('notebook.addForm.subtotalInclusiveLabel')
-    : t('notebook.addForm.subtotalLabel');
+  const subtotalLabel = receiptTypeEvidence === 'tax_exclusive'
+    ? t('notebook.addForm.subtotalExclusiveLabel')
+    : t('notebook.addForm.subtotalInclusiveLabel');
+  const paidFormula = {
+    subtotal: f.subtotal,
+    taxRefund: f.taxRefund,
+    discount: f.discount,
+    paidAmount: f.amount,
+    includedTaxAmount: readIncludedTaxDisplayAmount(taxDraft),
+    receiptType: receiptTypeEvidence,
+  };
   const editableItems = itemSource.identity !== 'manual';
   const nextRowKey = () => {
     rowSeq.current += 1;
@@ -444,7 +455,7 @@ export default function AddForm({
 
       <IncludedTaxSection
         key={`included:${taxIdentity}`}
-        draft={taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource)}
+        draft={taxDraft}
         currency={f.currency}
         errors={taxErrors}
         revealToken={taxReveal}
@@ -504,6 +515,13 @@ export default function AddForm({
             />
           </div>
         </div>
+
+        {!initial && activeDraft && (
+          <PaidAmountFormula surface="scan" {...paidFormula} />
+        )}
+        {initial && (
+          <PaidAmountFormula surface="edit" {...paidFormula} />
+        )}
 
         {payers.length > 0 && (
           <div className="flex min-w-0 items-center justify-between gap-2 pt-0.5">
@@ -818,6 +836,7 @@ export default function AddForm({
                   />
                 </div>
               </div>
+              <PaidAmountFormula surface="advanced" {...paidFormula} />
               <div>
                 <label htmlFor="ref-note2" className="mb-0.5 block font-hand text-meta text-ink-muted">
                   {t('notebook.addForm.noteLabel')}

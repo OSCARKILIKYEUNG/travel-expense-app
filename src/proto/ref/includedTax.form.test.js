@@ -160,14 +160,14 @@ describe('included tax editor', () => {
     expect(payload.originalAmount).toBe(1015);
   });
 
-  it('uses the inclusive subtotal label only for explicit tax_inclusive evidence', () => {
+  it('uses the tax-included subtotal label by default and keeps additive tax on its own field', () => {
     const draft = { ...lawson(), id: 'scan-label' };
     const inclusive = renderForm({
       scanDraft: draft,
       scanState: { status: 'ready', token: 'scan-label', draft },
     });
     fireEvent.click(screen.getByRole('button', { name: '進階' }));
-    expect(screen.getByText('小計（含稅）')).toBeTruthy();
+    expect(screen.getByText('商品小計（含稅）')).toBeTruthy();
     inclusive.unmount();
 
     renderForm({
@@ -182,9 +182,9 @@ describe('included tax editor', () => {
       },
     });
     fireEvent.click(screen.getByRole('button', { name: '進階' }));
-    expect(screen.getByText('標價小計')).toBeTruthy();
-    expect(screen.queryByText('小計（含稅）')).toBeNull();
-    expect(screen.getByLabelText('消費稅').value).toBe('210');
+    expect(screen.getByText('商品小計（含稅）')).toBeTruthy();
+    expect(screen.queryByText('商品小計（未稅）')).toBeNull();
+    expect(screen.getByLabelText('另加消費稅').value).toBe('210');
   });
 
   it('lets a receipt with unknown metadata be filled in, and a new scan drops the previous metadata', () => {
