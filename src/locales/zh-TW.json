@@ -865,6 +865,7 @@
     },
     "receiptItems": {
       "toggle": "收據明細",
+      "cardTab": "明細",
       "expandAria": "展開收據明細",
       "collapseAria": "收合收據明細",
       "empty": "未辨識到明細",

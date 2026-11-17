@@ -865,6 +865,7 @@
     },
     "receiptItems": {
       "toggle": "Receipt details",
+      "cardTab": "Details",
       "expandAria": "Show receipt details",
       "collapseAria": "Hide receipt details",
       "empty": "No line items recognized",

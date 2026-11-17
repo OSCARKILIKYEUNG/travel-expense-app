@@ -142,6 +142,10 @@ describe('receipt line disclosure', () => {
     expect(toggle.style.minWidth).toBe('44px');
     expect(toggle.className).toContain('min-h-11');
     expect(toggle.className).toContain('min-w-11');
+    expect(toggle.className).toContain('jr-btn-paper');
+    expect(toggle.textContent).toContain('收據明細');
+    expect(screen.queryByTestId('receipt-items-tab')).toBeNull();
+    expect(toggle.querySelector('.jr-receipt-slip')).toBeNull();
     expect(toggle.closest('[data-noswipe]')).toBeTruthy();
     expect(daySwipeWouldStart(toggle)).toBe(false);
 
@@ -385,6 +389,8 @@ describe('receipt line disclosure', () => {
     expect(toggle.getAttribute('aria-label')).toBe('Show receipt details');
     expect(toggle.textContent).toContain('Receipt details');
     expect(toggle.textContent).not.toMatch(/[\u3400-\u9fff]/);
+    expect(screen.queryByTestId('receipt-items-tab')).toBeNull();
+    expect(toggle.querySelector('.jr-receipt-slip')).toBeNull();
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-label')).toBe('Hide receipt details');
     const englishTea = rowByName('茶');
@@ -408,7 +414,18 @@ describe('receipt line disclosure', () => {
       currency: 'JPY',
       items: [{ name: '茶', name_en: 'Tea', price: 220, price_actual: 90, qty: 2 }],
     }));
-    fireEvent.click(screen.getByTestId('receipt-items-toggle'));
+    const cardToggle = screen.getByTestId('receipt-items-toggle');
+    const cardSlip = screen.getByTestId('receipt-items-tab');
+    expect(i18n.t('notebook.receiptItems.cardTab')).toBe('Details');
+    expect(cardSlip.textContent).toBe('Details');
+    expect(cardSlip.className).toContain('font-hand');
+    expect(cardSlip.className).toContain('jr-receipt-slip');
+    expect(cardToggle.contains(cardSlip)).toBe(true);
+    expect(cardSlip.nextElementSibling).toBe(cardToggle.querySelector('svg'));
+    expect(cardToggle.closest('.expense-amt-col')).toBeTruthy();
+    expect(cardToggle.textContent).not.toContain('Receipt details');
+    expect(cardToggle.getAttribute('aria-label')).toBe('Show receipt details');
+    fireEvent.click(cardToggle);
     expect(rowByName('Tea').textContent).toContain('Tea');
     expect(rowByName('Tea').textContent).not.toContain('茶');
     expect(rowByName('Tea').textContent).toContain('List price');
@@ -495,7 +512,11 @@ describe('receipt line disclosure', () => {
     const plain = cardExpense({ id: 'long-1', scanned: true, items: [] });
     const plainView = renderCard(plain);
     const plainToggle = plainView.getByTestId('receipt-items-toggle');
+    const plainSlip = plainView.getByTestId('receipt-items-tab');
     expect(plainView.container.querySelector('.expense-amt-col').contains(plainToggle)).toBe(true);
+    expect(plainToggle.contains(plainSlip)).toBe(true);
+    expect(plainSlip.textContent).toBe('明細');
+    expect(plainSlip.nextElementSibling).toBe(plainToggle.querySelector('svg'));
     expect(plainToggle.textContent).not.toContain('收據明細');
     expect(plainToggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
     const plainRowText = plainView.container.querySelector('.jr-ticket-row').textContent;
@@ -516,17 +537,39 @@ describe('receipt line disclosure', () => {
     const inside = article.querySelector('.jr-ticket-inside');
     const amt = article.querySelector('.expense-amt-col');
     const more = screen.getByRole('button', { name: /更多動作|More actions/ });
+    const slip = screen.getByTestId('receipt-items-tab');
+    expect(i18n.t('notebook.receiptItems.cardTab')).toBe('明細');
+    expect(slip.textContent).toBe('明細');
+    expect(slip.getAttribute('aria-hidden')).toBe('true');
+    expect(slip.className).toContain('font-hand');
+    expect(slip.className).toContain('jr-receipt-slip');
+    expect(slip.className.split(/\s+/)).not.toContain('jr-btn-paper');
+    expect(slip.className.split(/\s+/)).not.toContain('w-full');
+    expect(slip.className).not.toMatch(/jr-washi|jr-torn|jr-tape|airmail/);
+    expect(toggle.contains(slip)).toBe(true);
+    expect(slip.nextElementSibling).toBe(toggle.querySelector('svg'));
     expect(amt.contains(toggle)).toBe(true);
+    expect(amt.contains(slip)).toBe(true);
     expect(more.parentElement.contains(toggle)).toBe(false);
+    expect(more.parentElement.contains(slip)).toBe(false);
     expect(inside.contains(toggle)).toBe(false);
+    expect(inside.contains(slip)).toBe(false);
     expect(inside.contains(panel)).toBe(true);
     expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
+    expect(article.textContent).not.toContain('編輯明細');
     expect(toggle.textContent).not.toContain('收據明細');
+    expect(toggle.textContent).toContain('明細');
     expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
     expect(toggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
     expect(toggle.className.split(/\s+/)).not.toContain('w-full');
+    expect(toggle.className.split(/\s+/)).not.toContain('h-11');
+    expect(toggle.className.split(/\s+/)).not.toContain('w-11');
+    expect(toggle.className).toContain('min-h-11');
+    expect(toggle.className).toContain('min-w-11');
     expect(toggle.style.minHeight).toBe('44px');
     expect(toggle.style.minWidth).toBe('44px');
+    expect(toggle.style.width).toBe('');
+    expect(toggle.style.height).toBe('');
     expect(fetchSpy).not.toHaveBeenCalled();
 
     fireEvent.click(toggle);
@@ -661,6 +704,8 @@ describe('receipt line disclosure', () => {
     expect(toggle.className.split(/\s+/)).toContain('w-full');
     expect(toggle.textContent).toContain('收據明細');
     expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
+    expect(screen.queryByTestId('receipt-items-tab')).toBeNull();
+    expect(toggle.querySelector('.jr-receipt-slip')).toBeNull();
     expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
     expect(screen.queryByText('編輯明細')).toBeNull();
     fireEvent.click(toggle);

@@ -259,6 +259,25 @@
   text-overflow: clip;
 }
 
+/* Saved-card receipt tab: a small paper scrap immediately before the chevron.
+   Separate from the cream-soft ticket. Not a full button shell, not washi, not torn. */
+.jr-receipt-slip {
+  display: inline-block;
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-ink-soft));
+  box-shadow: 1px 1px 0 rgb(var(--c-ink-soft) / 0.22);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-family: "Iansui UI", Huninn, "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transform: rotate(-1.5deg);
+}
+
 /* Small pushpin dot pseudo-element in stamp */
 .jr-pin {
   position: relative;

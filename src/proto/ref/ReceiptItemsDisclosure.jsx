@@ -24,8 +24,6 @@ const frameStyle = {
 const compactHitStyle = {
   minHeight: 44,
   minWidth: 44,
-  width: 44,
-  height: 44,
 };
 
 function amountLabel(code, value) {
@@ -233,7 +231,7 @@ export default function ReceiptItemsDisclosure({
 }
 
 /**
- * Saved ticket only. The chevron is rendered in the amount column.
+ * Saved ticket only. The paper slip and chevron are one control in the amount column.
  * The line list stays in the ticket body and is hidden until opened.
  */
 export function useSavedReceiptItems({ items, currency = '', scanned = false, identity = '' }) {
@@ -257,9 +255,16 @@ export function useSavedReceiptItems({ items, currency = '', scanned = false, id
       aria-controls={panelId}
       aria-label={t(open ? 'notebook.receiptItems.collapseAria' : 'notebook.receiptItems.expandAria')}
       onClick={() => setOpen((value) => !value)}
-      className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center self-end rounded-sm p-0 text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+      className="inline-flex min-h-11 min-w-11 max-w-full shrink-0 items-center justify-center gap-1 self-end rounded-sm px-1 text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
       style={compactHitStyle}
     >
+      <span
+        data-testid="receipt-items-tab"
+        aria-hidden="true"
+        className="jr-receipt-slip font-hand"
+      >
+        {t('notebook.receiptItems.cardTab')}
+      </span>
       <Chevron open={open} />
     </button>
   );

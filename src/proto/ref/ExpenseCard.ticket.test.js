@@ -203,6 +203,15 @@ describe('expense ticket sticker', () => {
     expect(ticket).toContain('min-width: 0');
     expect(ticket).toContain('max-width: 100%');
     expect(ticket).toContain('overflow: hidden');
+
+    const slipRule = css.slice(css.indexOf('.jr-receipt-slip {'), css.indexOf('}', css.indexOf('.jr-receipt-slip {')));
+    expect(slipRule).toContain('rgb(var(--c-paper))');
+    expect(slipRule).toContain('rgb(var(--c-ink-soft))');
+    expect(slipRule).toContain('1px 1px 0 rgb(var(--c-ink-soft) / 0.22)');
+    expect(slipRule).toContain('border-radius: 2px');
+    expect(slipRule).toContain('font-size: 12px');
+    expect(slipRule).toContain('rotate(-1.5deg)');
+    expect(slipRule).not.toMatch(/jr-torn|jr-washi|airmail|jr-btn-paper/);
   });
 
   it('places a compact chevron under the price and keeps a ZARA refund inside the ticket', () => {
@@ -233,18 +242,38 @@ describe('expense ticket sticker', () => {
     expect(view.container.querySelector('[data-testid="expense-ticket-head"]').textContent).toBe('購物 · 共同');
     expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
     expect(article.textContent).not.toContain('編輯明細');
+    const slip = screen.getByTestId('receipt-items-tab');
+    expect(i18n.t('notebook.receiptItems.cardTab')).toBe('明細');
+    expect(i18n.t('notebook.receiptItems.toggle')).toBe('收據明細');
+    expect(slip.textContent).toBe('明細');
+    expect(slip.getAttribute('aria-hidden')).toBe('true');
+    expect(slip.className).toContain('font-hand');
+    expect(slip.className).toContain('jr-receipt-slip');
+    expect(slip.className.split(/\s+/)).not.toContain('jr-btn-paper');
+    expect(slip.className.split(/\s+/)).not.toContain('w-full');
+    expect(slip.className).not.toMatch(/jr-washi|jr-torn|jr-tape|airmail/);
+    expect(toggle.contains(slip)).toBe(true);
+    expect(slip.nextElementSibling).toBe(toggle.querySelector('svg'));
     expect(amt.contains(toggle)).toBe(true);
+    expect(amt.contains(slip)).toBe(true);
     expect(more.parentElement.contains(toggle)).toBe(false);
+    expect(more.parentElement.contains(slip)).toBe(false);
     expect(amt.querySelector('.expense-amount').compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(amt.querySelector('.expense-amount-sub').compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(toggle.textContent).not.toContain('收據明細');
+    expect(toggle.textContent).toContain('明細');
     expect(toggle.getAttribute('aria-label')).toBe('展開收據明細');
     expect(toggle.className.split(/\s+/)).not.toContain('jr-btn-paper');
     expect(toggle.className.split(/\s+/)).not.toContain('w-full');
+    expect(toggle.className.split(/\s+/)).not.toContain('h-11');
+    expect(toggle.className.split(/\s+/)).not.toContain('w-11');
     expect(toggle.className).toContain('min-h-11');
     expect(toggle.className).toContain('min-w-11');
+    expect(toggle.className).toContain('self-end');
     expect(toggle.style.minHeight).toBe('44px');
     expect(toggle.style.minWidth).toBe('44px');
+    expect(toggle.style.width).toBe('');
+    expect(toggle.style.height).toBe('');
     expect(toggle.querySelector('svg').getAttribute('class')).toContain('h-4');
     expect(toggle.querySelector('svg').getAttribute('class')).toContain('w-4');
     expect(toggle.querySelector('svg').style.transform).toBe('none');
@@ -261,6 +290,8 @@ describe('expense ticket sticker', () => {
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(toggle.getAttribute('aria-label')).toBe('收合收據明細');
+    expect(slip.textContent).toBe('明細');
+    expect(slip.nextElementSibling).toBe(toggle.querySelector('svg'));
     expect(toggle.querySelector('svg').style.transform).toBe('rotate(90deg)');
     expect(inside.contains(screen.getByText('外套'))).toBe(true);
     expect(inside.contains(screen.getByTestId('receipt-items-disclaimer'))).toBe(true);
@@ -296,6 +327,7 @@ describe('expense ticket sticker', () => {
     const inside = view.container.querySelector('[data-testid="expense-ticket-inside"]');
     const refund = screen.getByTestId('saved-tax-refund');
     expect(screen.queryByTestId('receipt-items-toggle')).toBeNull();
+    expect(screen.queryByTestId('receipt-items-tab')).toBeNull();
     expect(screen.queryByTestId('receipt-items-edit')).toBeNull();
     expect(article.textContent).not.toContain('編輯明細');
     expect(article.textContent).not.toContain('收據明細');
@@ -311,5 +343,25 @@ describe('expense ticket sticker', () => {
     await i18n.changeLanguage('en');
     const view = renderCard(card({ category: '購物', assignedTo: '共同', items: [], scanned: false }));
     expect(view.container.querySelector('[data-testid="expense-ticket-head"]').textContent).toBe('Shopping · Shared');
+    expect(view.queryByTestId('receipt-items-tab')).toBeNull();
+    view.unmount();
+
+    const withItems = renderCard(card({ category: '購物', assignedTo: '共同' }));
+    const slip = withItems.getByTestId('receipt-items-tab');
+    const toggle = withItems.getByTestId('receipt-items-toggle');
+    expect(i18n.t('notebook.receiptItems.cardTab')).toBe('Details');
+    expect(slip.textContent).toBe('Details');
+    expect(slip.getAttribute('aria-hidden')).toBe('true');
+    expect(slip.className).toContain('font-hand');
+    expect(slip.className).toContain('jr-receipt-slip');
+    expect(toggle.contains(slip)).toBe(true);
+    expect(slip.nextElementSibling).toBe(toggle.querySelector('svg'));
+    expect(withItems.container.querySelector('.expense-amt-col').contains(slip)).toBe(true);
+    expect(toggle.getAttribute('aria-label')).toBe('Show receipt details');
+    expect(toggle.textContent).not.toContain('Receipt details');
+    expect(toggle.style.minHeight).toBe('44px');
+    expect(toggle.style.minWidth).toBe('44px');
+    expect(toggle.style.width).toBe('');
+    expect(toggle.style.height).toBe('');
   });
 });
