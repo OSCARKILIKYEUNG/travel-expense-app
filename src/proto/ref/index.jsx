@@ -269,7 +269,13 @@ export default function RefProto({ onRequestScan, scanState, scanDraft } = {}) {
           date: normalizedDate,
           ...(previousRecord?.createdAt !== undefined ? { createdAt: previousRecord.createdAt } : {}),
         }
-      : { ...data, id: savedId, date: normalizedDate, createdAt: new Date().toISOString(), items: [] };
+      : {
+          ...data,
+          id: savedId,
+          date: normalizedDate,
+          createdAt: new Date().toISOString(),
+          items: Array.isArray(data.items) ? data.items : [],
+        };
 
     const nextLastPayment =
       data.payment === 'cash' || data.payment === 'card' ? data.payment : undefined;

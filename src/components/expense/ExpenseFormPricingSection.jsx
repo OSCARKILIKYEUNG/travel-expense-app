@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import PaidAmountFormula from '../../proto/ref/PaidAmountFormula';
 import { CURRENCY_NAMES } from '../../utils/constants';
 import { inferFixedFeeFromName } from '../../utils/personShare';
 import ConfirmDeleteDialog from '../ui/ConfirmDeleteDialog';
@@ -28,6 +29,9 @@ export default function ExpenseFormPricingSection({
   idPrefix,
 }) {
   const { t } = useTranslation();
+  const subtotalLabel = form?.receiptType === 'tax_exclusive'
+    ? t('editExpense.subtotalExclusive')
+    : t('editExpense.subtotal');
   const newNameRef = useRef(null);
   const newPriceRef = useRef(null);
   const [draftItemAssign, setDraftItemAssign] = useState(() => form.assignedTo || defaultAssignee);
@@ -130,7 +134,7 @@ export default function ExpenseFormPricingSection({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div>
             <label htmlFor={`${idPrefix}-subtotal`} className="block text-meta text-ink-muted mb-0.5">
-              {t('editExpense.subtotal')}
+              {subtotalLabel}
             </label>
             <input
               id={`${idPrefix}-subtotal`}
@@ -183,6 +187,15 @@ export default function ExpenseFormPricingSection({
             />
           </div>
         </div>
+        <PaidAmountFormula
+          surface="legacy"
+          subtotal={form.subtotal}
+          taxRefund={form.taxRefund}
+          discount={form.discount}
+          paidAmount={form.originalAmount}
+          includedTaxAmount={Object.prototype.hasOwnProperty.call(form, 'includedTaxAmount') ? form.includedTaxAmount : undefined}
+          receiptType={form.receiptType}
+        />
         <div className="mt-2 pt-2 border-t border-line/80">
           <label htmlFor={`${idPrefix}-receipt-exemption`} className="block text-meta text-ink-muted mb-0.5">
             {t('editExpense.receiptExemption')}

@@ -3,12 +3,19 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n';
 import { JournalIcon } from '../../journal/art/core.jsx';
 import { WashBlob, WashiLabel } from '../../journal/art/decor.jsx';
+import { commitIncludedTaxDraft, createIncludedTaxDraft } from '../../domain/includedTax';
 import { scanResultToFormFields } from '../../notebook/useReceiptScan';
 import { formatAccountingAmount } from '../../utils/currency';
 import { normalizeDate } from '../../utils/duplicates';
 import { REF_CATEGORIES } from './mockRefTrip';
 import { Icon } from './parts';
 import { formatNotebookDate } from './refLogic';
+import IncludedTaxSection from './IncludedTaxSection';
+import PaidAmountFormula from './PaidAmountFormula';
+import { readIncludedTaxDisplayAmount } from './paidAmountFormula';
+import ReceiptItemsDisclosure from './ReceiptItemsDisclosure';
+import { commitItemDrafts, createItemDrafts } from './receiptItemDraft';
+import { resolveReceiptItemSource } from './receiptItemsDisplay';
 import { defaultPayer, defaultTime, saveBlockReason } from './refRules';
 
 const CATEGORY_WASH_TONE = {
@@ -31,8 +38,9 @@ const CATEGORY_WASH_SHAPE = {
 
 /**
  * Add / edit expense form:
- * - Scan banner at top
- * - 金額與細項 first (big amount + currency + 付款人 + 付款方式), then 基本資料 (店舖, 日期 + 時間, 地點, 類別貼紙 + 分配給, 進階)
+ * - Scan banner at top (add only)
+ * - Amount card first: paid amount, compact tax/subtotal/refund/discount/formula, then receipt lines, then payer/payment
+ * - 基本資料 (店舖, 日期 + 時間, 地點, 類別貼紙 + 分配給, 進階 note)
  * - In-flow save bar sits at the bottom of the form content above BottomNav so no field is ever covered.
  */
 export default function AddForm({
@@ -108,6 +116,34 @@ export default function AddForm({
   });
   const [advanced, setAdvanced] = useState(false);
   const [demoScanned, setDemoScanned] = useState(() => Boolean(startScan && !hasExternalScanner));
+  const [itemBundle, setItemBundle] = useState(() => {
+    const source = resolveReceiptItemSource({
+      initial,
+      scanDraft: activeDraft,
+      scanToken: scanState?.token,
+      demoScanned: Boolean(startScan && !hasExternalScanner),
+    });
+    return {
+      identity: source.identity,
+      sourceCount: source.items.length,
+      drafts: createItemDrafts(source.items, source.identity),
+    };
+  });
+  const [itemErrors, setItemErrors] = useState([]);
+  const [itemReveal, setItemReveal] = useState(0);
+  const rowSeq = useRef(0);
+  const taxRowSeq = useRef(0);
+  const composingRef = useRef(0);
+  const taxIdentity = initial
+    ? `edit:${initial.id ?? 'saved'}`
+    : `scan:${scanState?.token ?? activeDraft?.id ?? 'manual'}`;
+  const taxSource = initial || activeDraft || null;
+  const [taxBundle, setTaxBundle] = useState(() => ({
+    identity: taxIdentity,
+    draft: createIncludedTaxDraft(taxSource),
+  }));
+  const [taxErrors, setTaxErrors] = useState([]);
+  const [taxReveal, setTaxReveal] = useState(0);
 
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const amt = Number(f.amount) || 0;
@@ -253,8 +289,25 @@ export default function AddForm({
 
   const submit = (e) => {
     if (e) e.preventDefault();
+    if (composingRef.current > 0) return;
+    const committed = commitItemDrafts(itemBundle.drafts, { sourceCount: itemBundle.sourceCount });
+    const activeTaxDraft = taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource);
+    const taxCommit = commitIncludedTaxDraft(activeTaxDraft);
+    if (!committed.ok || !taxCommit.ok) {
+      if (!committed.ok) {
+        setItemErrors(committed.errors);
+        setItemReveal((count) => count + 1);
+      }
+      if (!taxCommit.ok) {
+        setTaxErrors(taxCommit.errors);
+        setTaxReveal((count) => count + 1);
+      }
+      return;
+    }
+    if (itemErrors.length) setItemErrors([]);
+    if (taxErrors.length) setTaxErrors([]);
     if (!valid) return;
-    onSave({
+    const payload = {
       ...f,
       originalAmount: amt,
       hkdAmount: hkd,
@@ -262,11 +315,68 @@ export default function AddForm({
       time: f.time || '',
       payer: f.payer,
       payment: f.payment,
+    };
+    if (committed.dirty) payload.items = committed.items;
+    if (Object.prototype.hasOwnProperty.call(taxCommit.patch, 'includedTaxAmount')) {
+      payload.includedTaxAmount = taxCommit.patch.includedTaxAmount;
+    } else {
+      delete payload.includedTaxAmount;
+    }
+    if (Object.prototype.hasOwnProperty.call(taxCommit.patch, 'includedTaxBreakdown')) {
+      payload.includedTaxBreakdown = taxCommit.patch.includedTaxBreakdown;
+    } else {
+      delete payload.includedTaxBreakdown;
+    }
+    onSave(payload);
+  };
+
+  const onDraftsChange = (drafts) => {
+    setItemBundle((current) => ({ ...current, drafts }));
+    setItemErrors((existing) => {
+      if (!existing.length) return existing;
+      return commitItemDrafts(drafts, { sourceCount: itemBundle.sourceCount }).errors;
     });
   };
 
   const eyebrow = t('notebook.addForm.eyebrow');
   const pageTitle = initial ? t('notebook.addForm.editTitle') : t('notebook.addForm.addTitle');
+  const itemSource = resolveReceiptItemSource({
+    initial,
+    scanDraft: activeDraft,
+    scanToken: scanState?.token,
+    demoScanned: Boolean(demoScanned),
+  });
+  if (itemBundle.identity !== itemSource.identity) {
+    setItemBundle({
+      identity: itemSource.identity,
+      sourceCount: itemSource.items.length,
+      drafts: createItemDrafts(itemSource.items, itemSource.identity),
+    });
+    if (itemErrors.length) setItemErrors([]);
+  }
+  if (taxBundle.identity !== taxIdentity) {
+    setTaxBundle({ identity: taxIdentity, draft: createIncludedTaxDraft(taxSource) });
+    if (taxErrors.length) setTaxErrors([]);
+  }
+  const taxDraft = taxBundle.identity === taxIdentity ? taxBundle.draft : createIncludedTaxDraft(taxSource);
+  const receiptTypeEvidence = String((initial?.receiptType) || (!initial && activeDraft?.receiptType) || '').trim();
+  const subtotalLabel = receiptTypeEvidence === 'tax_exclusive'
+    ? t('notebook.addForm.subtotalExclusiveLabel')
+    : t('notebook.addForm.subtotalInclusiveLabel');
+  const paidFormula = {
+    subtotal: f.subtotal,
+    taxRefund: f.taxRefund,
+    discount: f.discount,
+    paidAmount: f.amount,
+    includedTaxAmount: readIncludedTaxDisplayAmount(taxDraft),
+    receiptType: receiptTypeEvidence,
+  };
+  const editableItems = itemSource.identity !== 'manual';
+  const nextRowKey = () => {
+    rowSeq.current += 1;
+    const prefix = String(itemSource.identity).replace(/[^A-Za-z0-9_-]/g, '-') || 'items';
+    return `${prefix}-new-${rowSeq.current}`;
+  };
 
   return (
     <form
@@ -330,7 +440,7 @@ export default function AddForm({
       )}
 
       {/* Card 1: Amount & currency first */}
-      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+      <div className="jr-taped-card jr-stuck-slip relative min-w-0 space-y-3 bg-paper p-3.5">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pb-0.5">
           <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.amountTitle')}
@@ -374,6 +484,94 @@ export default function AddForm({
             />
           </div>
         </div>
+
+        <div className="grid min-w-0 grid-cols-2 gap-2">
+          <div className="min-w-0">
+            <label htmlFor="ref-subtotal" className={label}>
+              {subtotalLabel}
+            </label>
+            <input
+              id="ref-subtotal"
+              type="number"
+              value={f.subtotal}
+              onChange={set('subtotal')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-tax" className={label}>
+              {t('notebook.addForm.taxLabel')}
+            </label>
+            <input
+              id="ref-tax"
+              type="number"
+              value={f.tax}
+              onChange={set('tax')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-refund" className={label}>
+              {t('notebook.addForm.taxRefundLabel')}
+            </label>
+            <input
+              id="ref-refund"
+              type="number"
+              value={f.taxRefund}
+              onChange={set('taxRefund')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-discount" className={label}>
+              {t('notebook.addForm.discountLabel')}
+            </label>
+            <input
+              id="ref-discount"
+              type="number"
+              value={f.discount}
+              onChange={set('discount')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+        </div>
+
+        <IncludedTaxSection
+          key={`included:${taxIdentity}`}
+          draft={taxDraft}
+          currency={f.currency}
+          errors={taxErrors}
+          revealToken={taxReveal}
+          onChange={(draft) => {
+            setTaxBundle((current) => ({ ...current, identity: taxIdentity, draft }));
+            setTaxErrors((existing) => (existing.length ? commitIncludedTaxDraft(draft).errors : existing));
+          }}
+          nextRowKey={() => {
+            taxRowSeq.current += 1;
+            return `included-tax-new-${taxRowSeq.current}`;
+          }}
+          composingRef={composingRef}
+        />
+
+        <PaidAmountFormula
+          surface={initial ? 'edit' : activeDraft ? 'scan' : 'advanced'}
+          {...paidFormula}
+        />
+
+        <ReceiptItemsDisclosure
+          key={itemSource.identity}
+          items={itemSource.items}
+          currency={itemSource.currency}
+          scanned={itemSource.scanned}
+          identity={itemSource.identity}
+          editable={editableItems}
+          drafts={itemBundle.identity === itemSource.identity ? itemBundle.drafts : createItemDrafts(itemSource.items, itemSource.identity)}
+          onDraftsChange={onDraftsChange}
+          nextRowKey={nextRowKey}
+          errors={itemErrors}
+          revealToken={itemReveal}
+          composingRef={composingRef}
+        />
 
         {payers.length > 0 && (
           <div className="flex min-w-0 items-center justify-between gap-2 pt-0.5">
@@ -444,7 +642,7 @@ export default function AddForm({
       </div>
 
       {/* Card 2: Basic info */}
-      <div className="jr-taped-card jr-ruled relative min-w-0 space-y-3 p-3.5">
+      <div className="jr-taped-card jr-stuck-slip relative min-w-0 space-y-3 bg-paper p-3.5">
         <div className="flex min-w-0 items-center justify-between gap-2 pb-0.5">
           <WashiLabel tone="kraft" tilt={-1}>
             {t('notebook.addForm.basicTitle')}
@@ -635,59 +833,6 @@ export default function AddForm({
           </button>
           {advanced && (
             <div className="space-y-2 border-t border-dashed border-ink-soft/35 px-3 pb-3 pt-2">
-              <p className="font-hand text-meta font-bold text-ink-muted">
-                {t('notebook.addForm.taxSectionTitle')}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label htmlFor="ref-subtotal" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.subtotalLabel')}
-                  </label>
-                  <input
-                    id="ref-subtotal"
-                    type="number"
-                    value={f.subtotal}
-                    onChange={set('subtotal')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-tax" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.taxLabel')}
-                  </label>
-                  <input
-                    id="ref-tax"
-                    type="number"
-                    value={f.tax}
-                    onChange={set('tax')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-refund" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.taxRefundLabel')}
-                  </label>
-                  <input
-                    id="ref-refund"
-                    type="number"
-                    value={f.taxRefund}
-                    onChange={set('taxRefund')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-discount" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.discountLabel')}
-                  </label>
-                  <input
-                    id="ref-discount"
-                    type="number"
-                    value={f.discount}
-                    onChange={set('discount')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-              </div>
               <div>
                 <label htmlFor="ref-note2" className="mb-0.5 block font-hand text-meta text-ink-muted">
                   {t('notebook.addForm.noteLabel')}

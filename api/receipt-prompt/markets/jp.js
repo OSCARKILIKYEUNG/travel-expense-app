@@ -27,7 +27,7 @@ export const MARKET_JP = `
 ■ 內稅多稅率（便利商店等，行價已含 8%／10%）：
   - receipt_type 為 "tax_inclusive"。total_amount **錨定「合計」**（LAWSON 範例合計 ¥2,359）。
   - 含稅時 subtotal 也錨定合計，並等於各含稅商品行加總。不要把「対象額」或未稅行加總當成 subtotal。
-  - 底部「内消費税」「(8%)」「(10%)」「対象額」是已含在合計裡的內稅摘要：**不要**當成品項，**不要**把 8% 稅額與 10% 稅額加總後填進 tax 再另加。行加總短於合計時，那是摘要列未被當成商品，不要當成細項與實付不一致。
+  - 底部「内消費税」「(8%)」「(10%)」「対象額」是已含在合計裡的內稅摘要：**不要**當成品項，**不要**把 8% 稅額與 10% 稅額加總後填進 tax 再另加。改抄進 included_tax_amount 與 included_tax_breakdown（只抄印字，不回推）。行加總短於合計時，那是摘要列未被當成商品，不要當成細項與實付不一致。
   - 錯誤例（禁止）：商品行 148+220+398+130+180=1076 當成 subtotal、8%¥20+10%¥72=92 當成 tax。1076+92 不是合計。正確是 subtotal 2359、total_amount 2359；tax 為 0，或只記一筆已含在合計內的內稅摘要。
 
 ■ 套裝：收據上「セット金額」與通用 has_bundle 規則相同（合併一行、不重複列內件）。
@@ -106,5 +106,21 @@ export const MARKET_JP = `
   receipt_type: "tax_inclusive"
   items: [{name:"〈繁中品名〉", original_name:"〈日文印字〉", name_en:"〈英文〉", price:〈該行印字〉}, ...]
   subtotal: 2359, tax: 0, total_amount: 2359, tax_refund: 0
+  included_tax_amount 與 included_tax_breakdown 另抄底部印出的內稅（例如 8% 與 10% 的稅額 ¥20 與 ¥72）。不要把 20 或 72 填進 tax。沒有印出稅基就不要填 target_amount。
   ⚠ 禁止 subtotal 1076、tax 92。禁止 total_amount = subtotal + tax。禁止用「商品A」或稅率類別取代品名。
+
+═══════════════════════════════════════════
+日本範例 F2 — 內稅只抄印字（不另加）
+═══════════════════════════════════════════
+收據印出商品行 199、195、181、440，合計 1015。另印已含消費稅 82：10% 稅基 440、內稅 40；8% 稅基 575、內稅 42。這些數字只可照抄。
+正確輸出：
+  detected_market: "JP"
+  receipt_type: "tax_inclusive"
+  subtotal: 1015, tax: 0, total_amount: 1015, tax_refund: 0
+  included_tax_amount: 82
+  included_tax_breakdown: [
+    {"rate_percent":10,"target_amount":440,"basis":"gross","included_tax_amount":40},
+    {"rate_percent":8,"target_amount":575,"basis":"gross","included_tax_amount":42}
+  ]
+  ⚠ 禁止 total_amount 1097。禁止 subtotal 933。禁止用 10% 或 8% 重算 40 或 42。tax 保持 0，與 included_tax_amount 分開。
 `.trim();

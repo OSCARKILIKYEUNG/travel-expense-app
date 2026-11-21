@@ -1,41 +1,93 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '../../i18n';
-import { CATEGORY_ICON, PinIcon, StarIcon } from '../../journal/art/core.jsx';
-import { WashBlob } from '../../journal/art/decor.jsx';
+import { PinIcon } from '../../journal/art/core.jsx';
 import { runStickerPop } from '../../motion/stickerKeyframes';
+import {
+  EXPENSE_MENU_FALLBACK_HEIGHT,
+  EXPENSE_MENU_FALLBACK_WIDTH,
+  placeExpenseActionMenu,
+} from './expenseMenuGeometry';
 import { Icon } from './parts';
+import { IncludedTaxSummary } from './IncludedTaxSection';
+import { SavedAdjustments } from './PaidAmountFormula';
+import { useSavedReceiptItems } from './ReceiptItemsDisclosure';
+import { isKnownScan, readSourceCurrency } from './receiptItemsDisplay';
 import { fmtHKD, fmtJPY } from './refLogic';
 
-const CATEGORY_WASH_TONE = {
-  飲食: 'wheat',
-  交通: 'sky',
-  購物: 'berry',
-  住宿: 'wheat',
-  娛樂: 'leaf',
-  其他: 'leaf',
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+function readMenuViewport() {
+  const visual = window.visualViewport;
+  return {
+    width: visual?.width || window.innerWidth,
+    height: visual?.height || window.innerHeight,
+    offsetLeft: visual?.offsetLeft || 0,
+    offsetTop: visual?.offsetTop || 0,
+  };
+}
+
+function focusWithoutScroll(element) {
+  element?.focus({ preventScroll: true });
+}
+
+function measureExpenseMenu(button, menuEl) {
+  if (!button || !menuEl) return null;
+  const rect = button.getBoundingClientRect();
+  // Raw layout-space rect. The visible origin is readMenuViewport's offsets.
+  const width = menuEl.offsetWidth || EXPENSE_MENU_FALLBACK_WIDTH;
+  const height = Math.max(menuEl.scrollHeight || 0, menuEl.offsetHeight || 0) || EXPENSE_MENU_FALLBACK_HEIGHT;
+  return placeExpenseActionMenu({
+    trigger: {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    },
+    menu: { width, height },
+    viewport: readMenuViewport(),
+  });
+}
+
+function sameMenuBox(prev, next) {
+  if (!prev) return false;
+  return prev.top === next.top
+    && prev.left === next.left
+    && prev.width === next.width
+    && prev.maxHeight === next.maxHeight
+    && prev.placement === next.placement
+    && prev.measurable === next.measurable
+    && prev.triggerVisible === next.triggerVisible;
+}
+
+const TICKET_HEAD_TONE = {
+  飲食: 'is-food',
+  住宿: 'is-stay',
+  交通: 'is-transit',
+  購物: 'is-shop',
+  娛樂: 'is-fun',
+  其他: 'is-other',
+  未分類: 'is-other',
 };
 
-const CATEGORY_WASH_SHAPE = {
-  飲食: 1,
-  交通: 2,
-  購物: 3,
-  住宿: 1,
-  娛樂: 2,
-  其他: 3,
-};
+function ticketHeadTone(category) {
+  return TICKET_HEAD_TONE[category] || 'is-other';
+}
 
-const JOURNAL_CATEGORY_CHIP = {
-  飲食: 'border-kraft-ink/35 bg-wash-wheat/55 text-kraft-ink',
-  交通: 'border-route/35 bg-wash-sky/75 text-route',
-  購物: 'border-stamp/40 bg-coral-soft text-stamp',
-  住宿: 'border-kraft-ink/35 bg-wash-wheat/55 text-kraft-ink',
-  娛樂: 'border-ink-soft/35 bg-wash-leaf/35 text-ink',
-  其他: 'border-ink-soft/35 bg-wash-leaf/35 text-ink',
-};
+function ticketHeadLabel(t, expense) {
+  const categoryLabel = t(`categories.${expense.category}`, {
+    defaultValue: expense.category || t('categories.其他'),
+  });
+  const assigneeLabel = expense.assignedTo === '共同'
+    ? t('expenseCard.shared')
+    : (expense.assignedTo || '');
+  return assigneeLabel ? `${categoryLabel} · ${assigneeLabel}` : categoryLabel;
+}
 
-/** Compact journal paper note with torn bottom edge, category line icon on wash blob, and ⋯ action menu. */
+/** Ticket/label sticker: category header, perforated stub, store and amounts, details inside. */
 export default function ExpenseCard({
   expense,
   highlighted = false,
@@ -45,12 +97,23 @@ export default function ExpenseCard({
   onDelete,
 }) {
   const { t } = useTranslation();
+  const receiptItems = useSavedReceiptItems({
+    items: expense?.items,
+    currency: readSourceCurrency(expense),
+    scanned: isKnownScan(expense),
+    identity: expense?.id != null ? String(expense.id) : 'expense',
+  });
   const [menu, setMenu] = useState(false);
+  const [menuBox, setMenuBox] = useState(null);
   const [confirm, setConfirm] = useState(false);
   const cardRef = useRef(null);
   const poppedIdRef = useRef(null);
   const ref = useRef(null);
   const moreBtnRef = useRef(null);
+  const menuRef = useRef(null);
+  const editItemRef = useRef(null);
+  const deleteItemRef = useRef(null);
+  const menuId = `expense-actions-${expense.id}`;
 
   useEffect(() => {
     if (!stickerPop) {
@@ -72,22 +135,88 @@ export default function ExpenseCard({
     };
   }, [stickerPop, expense.id, onStickerPlayed]);
 
+  useClientLayoutEffect(() => {
+    if (!menu) return undefined;
+    const apply = () => {
+      const next = measureExpenseMenu(moreBtnRef.current, menuRef.current);
+      if (!next) return 'missing';
+      if (next.measurable && !next.triggerVisible) {
+        const focusInside = menuRef.current?.contains(document.activeElement);
+        setMenu(false);
+        if (focusInside) focusWithoutScroll(moreBtnRef.current);
+        return 'closed';
+      }
+      const el = menuRef.current;
+      if (next.measurable && el) {
+        el.style.top = `${next.top}px`;
+        el.style.left = `${next.left}px`;
+        el.style.width = `${next.width}px`;
+        el.style.maxHeight = `${next.maxHeight}px`;
+      }
+      setMenuBox((prev) => (sameMenuBox(prev, next) ? prev : next));
+      return 'open';
+    };
+    const status = apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('scroll', apply, true);
+    const visual = window.visualViewport;
+    visual?.addEventListener('resize', apply);
+    visual?.addEventListener('scroll', apply);
+    if (status === 'open') focusWithoutScroll(editItemRef.current);
+    return () => {
+      window.removeEventListener('resize', apply);
+      window.removeEventListener('scroll', apply, true);
+      visual?.removeEventListener('resize', apply);
+      visual?.removeEventListener('scroll', apply);
+    };
+  }, [menu]);
+
   useEffect(() => {
     if (!menu) return undefined;
-    const closePointer = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setMenu(false);
+    const closePointer = (event) => {
+      const target = event.target;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      const focusInside = menuRef.current?.contains(document.activeElement);
+      setMenu(false);
+      if (focusInside) focusWithoutScroll(moreBtnRef.current);
     };
-    const closeKey = (e) => {
-      if (e.key === 'Escape') {
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
         setMenu(false);
-        moreBtnRef.current?.focus();
+        focusWithoutScroll(moreBtnRef.current);
+        return;
+      }
+      const menuEl = menuRef.current;
+      const inMenu = Boolean(menuEl && (event.target === menuEl || menuEl.contains(event.target)));
+      if (!inMenu) return;
+      if (event.key === 'Tab') {
+        focusWithoutScroll(moreBtnRef.current);
+        setMenu(false);
+        return;
+      }
+      const items = [editItemRef.current, deleteItemRef.current].filter(Boolean);
+      if (!items.length) return;
+      const current = items.indexOf(document.activeElement);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        focusWithoutScroll(items[(current + 1) % items.length]);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        focusWithoutScroll(items[(current - 1 + items.length) % items.length]);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        focusWithoutScroll(items[0]);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        focusWithoutScroll(items[items.length - 1]);
       }
     };
     document.addEventListener('pointerdown', closePointer);
-    document.addEventListener('keydown', closeKey);
+    document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('pointerdown', closePointer);
-      document.removeEventListener('keydown', closeKey);
+      document.removeEventListener('keydown', onKey);
     };
   }, [menu]);
 
@@ -100,10 +229,8 @@ export default function ExpenseCard({
     return () => document.removeEventListener('keydown', closeKey);
   }, [confirm]);
 
-  const CatIcon = CATEGORY_ICON[expense.category] || StarIcon;
-  const washTone = CATEGORY_WASH_TONE[expense.category] || 'leaf';
-  const washShape = CATEGORY_WASH_SHAPE[expense.category] || 1;
-  const catStyle = JOURNAL_CATEGORY_CHIP[expense.category] || JOURNAL_CATEGORY_CHIP.其他;
+  const headTone = ticketHeadTone(expense.category);
+  const headLabel = ticketHeadLabel(t, expense);
 
   return (
     <div
@@ -114,93 +241,114 @@ export default function ExpenseCard({
       data-highlighted={highlighted ? 'true' : undefined}
       data-sticker-pop={stickerPop ? 'true' : undefined}
     >
-      <article
-        className={`jr-torn expense-row flex min-w-0 items-center gap-2 rounded-sm border px-2.5 pb-3 pt-2.5 transition-colors ${
-          highlighted
-            ? 'border-route bg-route-soft/65 ring-2 ring-route'
-            : 'border-ink-soft/45 bg-paper'
-        }`}
-      >
-        <WashBlob tone={washTone} shape={washShape} className="h-9 w-9 shrink-0 sm:h-10 sm:w-10">
-          <CatIcon className="h-5 w-5 text-ink" />
-        </WashBlob>
-
-        <div className="expense-body min-w-0 flex-1">
-          <h3 className="expense-title story-critical line-clamp-2 break-words text-sm font-bold leading-snug text-ink lg:line-clamp-1 lg:truncate lg:text-base">
-            {expense.store}
-          </h3>
-          {expense.place && (
-            <div className="expense-loc meta-quiet mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs text-ink-muted">
-              <PinIcon className="h-3.5 w-3.5 shrink-0 text-stamp" />
-              <span className="min-w-0 truncate">{expense.place}</span>
+      <article className={`jr-ticket${highlighted ? ' is-highlighted' : ''}`}>
+        <div className={`jr-ticket-head font-hand ${headTone}`} data-testid="expense-ticket-head">
+          {headLabel}
+        </div>
+        <div className="jr-ticket-perf" aria-hidden="true" />
+        <div className="jr-ticket-body min-w-0 max-w-full">
+          <div className="jr-ticket-row expense-row">
+            <div className="expense-body min-w-0 flex-1">
+              <h3 className="expense-title story-critical line-clamp-2 break-words font-display text-sm font-bold leading-snug text-ink lg:line-clamp-1 lg:truncate lg:text-base">
+                {expense.store}
+              </h3>
+              {expense.place && (
+                <div className="expense-loc meta-quiet mt-0.5 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs text-ink-muted">
+                  <PinIcon className="h-3.5 w-3.5 shrink-0 text-stamp" />
+                  <span className="min-w-0 truncate">{expense.place}</span>
+                </div>
+              )}
             </div>
-          )}
-          <div className="expense-tags mt-0.5 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
-            <span
-              className={`expense-tag inline-flex shrink-0 items-center whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-hand text-xs font-bold leading-none ${catStyle}`}
-            >
-              <span className="truncate">
-                {t(`categories.${expense.category}`, { defaultValue: expense.category })}
-              </span>
-            </span>
-            <span className="expense-tag shrink-0 truncate whitespace-nowrap rounded-sm border border-route/30 bg-route-soft px-1.5 py-0.5 font-hand text-xs font-bold leading-none text-route">
-              {expense.assignedTo === '共同' ? t('expenseCard.shared') : expense.assignedTo}
-            </span>
+
+            <div className="expense-amt-col flex shrink-0 flex-col items-end text-right font-display tabular-nums">
+              <p className="expense-amount font-money story-critical whitespace-nowrap text-sm font-bold leading-snug text-ink lg:text-base">
+                {fmtHKD(expense.hkdAmount)}
+              </p>
+              {expense.currency !== 'HKD' && (
+                <p className="expense-amount-sub font-money meta-quiet whitespace-nowrap text-xs text-ink-muted">
+                  {fmtJPY(expense.originalAmount)}
+                </p>
+              )}
+              {receiptItems.toggle}
+            </div>
+
+            <div className="shrink-0" ref={ref}>
+              <button
+                ref={moreBtnRef}
+                type="button"
+                aria-label={t('notebook.expenseCard.moreActionsAria')}
+                aria-haspopup="menu"
+                aria-expanded={menu}
+                aria-controls={menu ? menuId : undefined}
+                onClick={() => setMenu((v) => !v)}
+                className="-mr-1.5 flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-sm text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
+              >
+                {Icon.dots()}
+              </button>
+              {menu &&
+                createPortal(
+                  // Body portal escapes the ticket's overflow clip. z-40 paints above the z-30 cover band and bottom nav; confirm dialogs stay at z-50.
+                  <div
+                    ref={menuRef}
+                    id={menuId}
+                    role="menu"
+                    aria-orientation="vertical"
+                    data-expense-menu="true"
+                    data-placement={menuBox?.placement || 'below'}
+                    data-measured={menuBox?.measurable ? 'true' : 'false'}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    style={
+                      menuBox?.measurable
+                        ? {
+                            top: `${menuBox.top}px`,
+                            left: `${menuBox.left}px`,
+                            width: `${menuBox.width}px`,
+                            maxHeight: `${menuBox.maxHeight}px`,
+                          }
+                        : undefined
+                    }
+                    className="fixed z-40 w-32 overflow-x-hidden overflow-y-auto rounded-sm border border-ink-soft/60 bg-paper shadow-lg"
+                  >
+                    <button
+                      ref={editItemRef}
+                      type="button"
+                      role="menuitem"
+                      tabIndex={-1}
+                      onClick={() => {
+                        setMenu(false);
+                        onEdit(expense);
+                      }}
+                      className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
+                    >
+                      {Icon.pencil()} {t('expenseCard.edit')}
+                    </button>
+                    <button
+                      ref={deleteItemRef}
+                      type="button"
+                      role="menuitem"
+                      tabIndex={-1}
+                      onClick={() => {
+                        setMenu(false);
+                        setConfirm(true);
+                      }}
+                      className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap border-t border-ink-soft/25 px-3 py-2.5 text-sm text-stamp hover:bg-coral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp"
+                    >
+                      {Icon.trash()} {t('expenseCard.delete')}
+                    </button>
+                  </div>,
+                  document.body,
+                )}
+            </div>
           </div>
-        </div>
-
-        <div className="expense-amt-col max-w-[38%] shrink-0 text-right font-display tabular-nums sm:max-w-[40%]">
-          <p className="expense-amount font-money story-critical truncate whitespace-nowrap text-sm font-bold leading-snug text-ink lg:text-base">
-            {fmtHKD(expense.hkdAmount)}
-          </p>
-          {expense.currency !== 'HKD' && (
-            <p className="expense-amount-sub font-money meta-quiet truncate whitespace-nowrap text-xs text-ink-muted">
-              {fmtJPY(expense.originalAmount)}
-            </p>
-          )}
-        </div>
-
-        <div className="shrink-0" ref={ref}>
-          <button
-            ref={moreBtnRef}
-            type="button"
-            aria-label={t('notebook.expenseCard.moreActionsAria')}
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            onClick={() => setMenu((v) => !v)}
-            className="-mr-1.5 flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-sm text-ink-soft hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
-          >
-            {Icon.dots()}
-          </button>
-          {menu && (
-            <div
-              role="menu"
-              className="absolute right-1 top-12 z-30 w-32 overflow-hidden rounded-sm border border-ink-soft/60 bg-paper shadow-lg"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  onEdit(expense);
-                }}
-                className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm text-ink hover:bg-paper-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
-              >
-                {Icon.pencil()} {t('expenseCard.edit')}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  setConfirm(true);
-                }}
-                className="flex min-h-11 w-full items-center gap-2 whitespace-nowrap border-t border-ink-soft/25 px-3 py-2.5 text-sm text-stamp hover:bg-coral-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp"
-              >
-                {Icon.trash()} {t('expenseCard.delete')}
-              </button>
-            </div>
-          )}
+          <div className="jr-ticket-inside min-w-0 max-w-full" data-testid="expense-ticket-inside">
+            {receiptItems.panel}
+            <IncludedTaxSummary
+              includedTaxAmount={expense?.includedTaxAmount}
+              includedTaxBreakdown={expense?.includedTaxBreakdown}
+              currency={readSourceCurrency(expense)}
+            />
+            <SavedAdjustments taxRefund={expense?.taxRefund} discount={expense?.discount} />
+          </div>
         </div>
       </article>
 
@@ -282,16 +430,23 @@ export function Chip({ active, onClick, children, testid }) {
   );
 }
 
-/** Loading skeleton row matching ExpenseCard geometry (checklist 9). */
+/** Loading skeleton matching the ticket sticker (header, perforation, body). */
 export function ExpenseSkeletonRow({ wide = true }) {
   return (
-    <div className="skeleton-row" aria-hidden="true" data-testid="expense-skeleton-row">
-      <div className="skeleton-blob skeleton-icon" />
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className={`skeleton-blob skeleton-line ${wide ? 'w-80' : 'w-60'}`} />
+    <div className="jr-ticket skeleton-ticket" aria-hidden="true" data-testid="expense-skeleton-row">
+      <div className="jr-ticket-head is-other skeleton-ticket-head">
         <div className="skeleton-blob skeleton-line w-40" />
       </div>
-      <div className="skeleton-blob skeleton-amt" />
+      <div className="jr-ticket-perf" />
+      <div className="jr-ticket-body">
+        <div className="skeleton-row">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className={`skeleton-blob skeleton-line ${wide ? 'w-80' : 'w-60'}`} />
+            <div className="skeleton-blob skeleton-line w-40" />
+          </div>
+          <div className="skeleton-blob skeleton-amt" />
+        </div>
+      </div>
     </div>
   );
 }

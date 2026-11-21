@@ -80,7 +80,7 @@ function useMobileLedgerTools() {
   return isMobile;
 }
 
-/** Honest minimal skeleton matching real expense-row geometry when a loading lifecycle is active. */
+/** Honest minimal skeleton matching ticket sticker geometry when a loading lifecycle is active. */
 export function LedgerSkeleton() {
   return (
     <section

@@ -199,6 +199,25 @@ describe('refDataAdapter — toRefExpense & fromRefExpense round-trip', () => {
     const cleared = fromRefExpense({ ...ref, time: '' }, { existing: legacyAiExpense });
     expect(cleared.time).toBe('');
   });
+
+  it('replaces items when the caller supplies an array, including empty, and preserves them when omitted', () => {
+    const baseItems = legacyAiExpense.items;
+    const replaced = fromRefExpense({ store: '新店', items: [] }, { existing: legacyAiExpense });
+    expect(replaced.items).toEqual([]);
+    expect(replaced.items).not.toBe(baseItems);
+    expect(baseItems).toHaveLength(1);
+
+    const omitted = fromRefExpense({ store: '新店' }, { existing: legacyAiExpense });
+    expect(omitted.items).toBe(baseItems);
+
+    const invalid = fromRefExpense({ store: '新店', items: null }, { existing: legacyAiExpense });
+    expect(invalid.items).toBe(baseItems);
+
+    const nextItems = [{ name: '新列', price: 2, sku: 'n' }];
+    const swapped = fromRefExpense({ items: nextItems }, { existing: legacyAiExpense });
+    expect(swapped.items).toBe(nextItems);
+    expect(legacyAiExpense.items).toBe(baseItems);
+  });
 });
 
 describe('refDataAdapter — ensureTripShape, deriveEndDate, toRefTrip', () => {

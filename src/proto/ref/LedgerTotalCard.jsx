@@ -178,7 +178,7 @@ export default function LedgerTotalCard({
       data-testid="ledger-total-card"
       data-variant="a"
       aria-label={ariaLabel}
-      className="jr-taped-card jr-grid relative min-w-0 px-3.5 pb-2.5 pt-2.5"
+      className="jr-taped-card jr-stuck-slip jr-grid relative min-w-0 px-3.5 pb-2.5 pt-2.5"
     >
       <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
         <WashiLabel tilt={-1}>
