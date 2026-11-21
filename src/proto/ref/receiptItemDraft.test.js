@@ -154,7 +154,7 @@ describe('receipt item drafts', () => {
       '1.5',
     );
     const saved = commitItemDrafts(withQty, { sourceCount: 0 });
-    expect(saved.items).toEqual([{ name: '  兩件  ', price: -2, quantity: 1.5 }]);
+    expect(saved.items).toEqual([{ name: '  兩件  ', price: -2 }]);
   });
 
   it('blocks a new or dirty incomplete price instead of coercing it to zero', () => {

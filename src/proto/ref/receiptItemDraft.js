@@ -91,7 +91,7 @@ export function createEmptyRowDraft(key) {
       name: textField(''),
       price: textField(''),
       priceActual: { ...textField(''), present: false },
-      quantity: { ...textField(''), present: true },
+      quantity: { ...textField(''), present: false },
     },
   };
 }

@@ -91,10 +91,7 @@ describe('receipt tax display', () => {
     renderForm();
     expect(screen.queryByTestId('paid-formula-scan')).toBeNull();
     expect(screen.queryByTestId('paid-formula-edit')).toBeNull();
-    expect(screen.queryByTestId('paid-formula-advanced')).toBeNull();
     expect(screen.getByText('已含消費稅（不另加）')).toBeTruthy();
-
-    openAdvanced();
     expect(screen.getByText('商品小計（含稅）')).toBeTruthy();
     expect(screen.queryByText('商品小計（未稅）')).toBeNull();
     expect(screen.getByLabelText('另加消費稅')).toBeTruthy();
@@ -130,11 +127,10 @@ describe('receipt tax display', () => {
     expect(within(scan).getByTestId('paid-formula-values').textContent).not.toContain('另加');
     expect(screen.queryByTestId('paid-formula-edit')).toBeNull();
 
-    openAdvanced();
     expect(screen.getByText('商品小計（未稅）')).toBeTruthy();
     expect(screen.queryByText('商品小計（含稅）')).toBeNull();
     expect(screen.getByLabelText('另加消費稅').value).toBe('268');
-    expect(within(screen.getByTestId('paid-formula-advanced')).getByTestId('paid-formula-equation').textContent).toBe(EQUATION_ZH);
+    expect(within(screen.getByTestId('paid-formula-scan')).getByTestId('paid-formula-equation').textContent).toBe(EQUATION_ZH);
   });
 
   it('shows the paid formula on a saved edit, with included tax outside the sum', () => {
@@ -158,9 +154,6 @@ describe('receipt tax display', () => {
     expect(within(edit).getByTestId('paid-formula-included-note').textContent).toContain('不加進實付');
     expect(screen.getByTestId('form-amount').value).toBe('1015');
 
-    openAdvanced();
-    const advanced = screen.getByTestId('paid-formula-advanced');
-    expect(within(advanced).getByTestId('paid-formula-values').textContent).not.toContain('82');
     expect(screen.getByLabelText('商品小計（含稅）').value).toBe('1015');
     expect(screen.queryByText('商品小計（未稅）')).toBeNull();
   });
@@ -177,9 +170,8 @@ describe('receipt tax display', () => {
     expect(within(scan).getByTestId('paid-formula-included-note').textContent).toContain('82');
     expect(screen.getByTestId('form-amount').value).toBe('1015');
 
-    openAdvanced();
     fireEvent.change(screen.getByLabelText('商品小計（含稅）'), { target: { value: '933' } });
-    fireEvent.change(screen.getByLabelText('退稅'), { target: { value: '-30' } });
+    fireEvent.change(screen.getByLabelText('退稅優惠'), { target: { value: '-30' } });
     fireEvent.change(screen.getByLabelText('折扣'), { target: { value: '-10' } });
     const values = within(screen.getByTestId('paid-formula-scan')).getByTestId('paid-formula-values').textContent;
     expect(values).toContain('933');
@@ -292,7 +284,6 @@ describe('receipt tax display', () => {
         date: '2026-10-22',
       },
     });
-    openAdvanced();
     expect(screen.getByText('商品小計（未稅）')).toBeTruthy();
     expect(screen.getByLabelText('另加消費稅').value).toBe('268');
     expect(within(screen.getByTestId('paid-formula-edit')).getByTestId('paid-formula-values').textContent).not.toContain('另加');
@@ -399,7 +390,6 @@ describe('receipt tax display', () => {
     expect(within(scan).getByTestId('paid-formula-values').textContent).not.toContain('82');
     expect(within(scan).getByTestId('paid-formula-included-note').textContent).toContain('Included tax 82');
     expect(within(scan).getByTestId('paid-formula-included-note').textContent).toContain('not added');
-    openAdvanced();
     expect(screen.getByText('Item subtotal (tax included)')).toBeTruthy();
     expect(screen.getByLabelText('Added tax')).toBeTruthy();
     expect(screen.getByText('Included tax (not added)')).toBeTruthy();
@@ -418,7 +408,6 @@ describe('receipt tax display', () => {
         date: '2026-10-22',
       },
     });
-    openAdvanced();
     expect(screen.getByText('Item subtotal (before tax)')).toBeTruthy();
     expect(screen.queryByText('Item subtotal (tax included)')).toBeNull();
     expect(within(screen.getByTestId('paid-formula-edit')).getByTestId('paid-formula-equation').textContent).toBe(EQUATION_EN);

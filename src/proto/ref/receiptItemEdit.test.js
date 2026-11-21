@@ -118,7 +118,7 @@ describe('editable receipt lines', () => {
     expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
     fireEvent.change(document.getElementById('ref-currency'), { target: { value: 'HKD' } });
     expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
-    expect(within(row).getByLabelText(/列印金額（EUR）/)).toBeTruthy();
+    expect(within(row).getByLabelText('金額')).toBeTruthy();
 
     fireEvent.change(within(row).getByTestId('receipt-item-name'), { target: { value: '焙茶' } });
     fireEvent.click(toggle);
@@ -281,7 +281,7 @@ describe('editable receipt lines', () => {
     expect(document.activeElement).toBe(added);
     fireEvent.change(added, { target: { value: '新列' } });
     fireEvent.change(within(editorRows()[1]).getByTestId('receipt-item-price-input'), { target: { value: '-2' } });
-    fireEvent.change(within(editorRows()[1]).getByTestId('receipt-item-qty-input'), { target: { value: '1.5' } });
+    expect(within(editorRows()[1]).queryByTestId('receipt-item-qty-input')).toBeNull();
     fireEvent.click(within(editorRows()[0]).getByTestId('receipt-item-remove'));
     expect(editorRows()).toHaveLength(1);
     expect(document.activeElement).toBe(screen.getByTestId('receipt-item-name'));
@@ -429,14 +429,13 @@ describe('editable receipt lines', () => {
     const english = scanForm([]);
     openItems();
     fireEvent.click(screen.getByTestId('receipt-item-add'));
-    fireEvent.change(screen.getByTestId('receipt-item-qty-input'), { target: { value: '0' } });
+    expect(screen.queryByTestId('receipt-item-qty-input')).toBeNull();
     fireEvent.click(screen.getByTestId('form-save'));
     expect(english.onSave).not.toHaveBeenCalled();
     expect(screen.getByText('Enter a name for this line').textContent).not.toMatch(/[\u3400-\u9fff]/);
-    expect(screen.getByText('Quantity must be a positive number, or blank to clear').textContent).not.toMatch(/[\u3400-\u9fff]/);
+    expect(screen.getByText('Enter the printed amount for this line').textContent).not.toMatch(/[\u3400-\u9fff]/);
     fireEvent.change(screen.getByTestId('receipt-item-name'), { target: { value: 'Zero' } });
     fireEvent.change(screen.getByTestId('receipt-item-price-input'), { target: { value: '0' } });
-    fireEvent.change(screen.getByTestId('receipt-item-qty-input'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('form-save'));
     expect(english.onSave.mock.calls[0][0].items).toEqual([{ name: 'Zero', price: 0 }]);
   });

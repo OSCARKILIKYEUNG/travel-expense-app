@@ -169,9 +169,9 @@ describe('receipt line disclosure', () => {
     expect(within(row).getByTestId('receipt-item-name').value).not.toBe('Tea');
     expect(within(row).getByTestId('receipt-item-currency').textContent).toBe('EUR');
     expect(within(row).getByTestId('receipt-item-price-input').value).toBe('220');
-    expect(within(row).getByLabelText(/第1列列印金額（EUR）/)).toBe(within(row).getByTestId('receipt-item-price-input'));
+    expect(within(row).getByLabelText('金額')).toBe(within(row).getByTestId('receipt-item-price-input'));
     expect(within(row).getByTestId('receipt-item-actual-input').value).toBe('200');
-    expect(within(row).getByLabelText(/另外記錄的實付金額（EUR）/)).toBeTruthy();
+    expect(within(row).getByLabelText('實付金額')).toBeTruthy();
     expect(within(row).getByTestId('receipt-item-qty-input').value).toBe('2');
     expect(row.textContent).not.toContain('440');
     expect(row.textContent).not.toContain('400');
@@ -203,6 +203,41 @@ describe('receipt line disclosure', () => {
     expect(payload.subtotal).toBe('490');
     expect(payload.currency).toBe('HKD');
     expect(items[0].price).toBe(220);
+  });
+
+  it('hides a row actual-paid field when it is absent or equal to the printed amount', () => {
+    const draft = {
+      id: 'equal-actual',
+      store: 'Shop',
+      originalAmount: 300,
+      currency: 'JPY',
+      category: '購物',
+      date: '2026-10-22',
+      items: [
+        { name: '同額', price: 100, price_actual: 100 },
+        { name: '標價', price: 80 },
+        { name: '差額', price: 120, price_actual: 90 },
+      ],
+    };
+    const { onSave } = renderForm({
+      scanDraft: draft,
+      scanState: { status: 'ready', token: 21, draft },
+    });
+    fireEvent.click(screen.getByTestId('receipt-items-toggle'));
+    const same = rowByName('同額');
+    const listOnly = rowByName('標價');
+    const distinct = rowByName('差額');
+    expect(within(same).queryByTestId('receipt-item-actual-input')).toBeNull();
+    expect(within(listOnly).queryByTestId('receipt-item-actual-input')).toBeNull();
+    expect(within(distinct).getByTestId('receipt-item-actual-input').value).toBe('90');
+    expect(within(same).getByLabelText('名稱')).toBeTruthy();
+    expect(within(same).getByLabelText('金額')).toBeTruthy();
+    expect(within(same).getByTestId('receipt-item-remove').textContent).toBe('移除');
+    expect(screen.queryByText(/第\d+列/)).toBeNull();
+    fireEvent.click(screen.getByTestId('form-save'));
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.originalAmount).toBe(300);
+    expect(payload.items).toBeUndefined();
   });
 
   it('keeps an existing edit record ahead of a stale draft and does not alter its save payload', () => {
@@ -395,12 +430,12 @@ describe('receipt line disclosure', () => {
     expect(toggle.getAttribute('aria-label')).toBe('Hide receipt details');
     const englishTea = rowByName('茶');
     expect(within(englishTea).getByTestId('receipt-item-name').value).toBe('茶');
-    expect(within(englishTea).getByLabelText('Line 1 name')).toBeTruthy();
-    expect(within(englishTea).getByLabelText('Line 1 printed amount (JPY)')).toBeTruthy();
+    expect(within(englishTea).getByLabelText('Name')).toBeTruthy();
+    expect(within(englishTea).getByLabelText('Amount')).toBeTruthy();
     expect(englishTea.textContent).not.toMatch(/[\u3400-\u9fff]/);
     const englishActual = rowByName('實');
-    expect(within(englishActual).getByLabelText('Line 7 separately recorded paid amount (JPY)')).toBeTruthy();
-    expect(within(englishActual).getByLabelText('Line 7 quantity (not multiplied)')).toBeTruthy();
+    expect(within(englishActual).getByLabelText('Amount paid')).toBeTruthy();
+    expect(within(englishActual).getByLabelText('Qty')).toBeTruthy();
     expect(englishActual.textContent).not.toMatch(/[\u3400-\u9fff]/);
     expect(screen.getByTestId('receipt-items-disclaimer').textContent).toBe(
       'Line items may not add up to the receipt total.',

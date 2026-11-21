@@ -21,6 +21,9 @@ const buttonStyle = {
   minWidth: 44,
 };
 
+const fieldClass =
+  'box-border min-h-11 w-full min-w-0 max-w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-ink';
+
 function rowCurrency(row, receiptCurrency) {
   const raw = row?.raw;
   if (raw && typeof raw === 'object') {
@@ -32,6 +35,18 @@ function rowCurrency(row, receiptCurrency) {
 
 function fieldError(errors, key, field) {
   return errors.find((error) => error.key === key && error.field === field) || null;
+}
+
+function hasDistinctActual(row) {
+  const actual = row?.fields?.priceActual;
+  if (!actual?.present) return false;
+  const printedText = String(row.fields?.price?.text ?? '').trim();
+  const actualText = String(actual.text ?? '').trim();
+  if (actualText === '') return true;
+  const printed = Number(printedText);
+  const paid = Number(actualText);
+  if (Number.isFinite(printed) && Number.isFinite(paid)) return paid !== printed;
+  return actualText !== printedText;
 }
 
 const ERROR_FIELD_ID = {
@@ -124,29 +139,28 @@ export default function ReceiptItemsEditor({
 
   return (
     <div data-noswipe data-testid="receipt-item-editor" className="min-w-0 max-w-full" style={wrapStyle}>
-      <ul data-testid="receipt-item-editor-list" className="m-0 list-none p-0" style={wrapStyle}>
-        {list.map((row, index) => {
-          const n = index + 1;
+      <ul data-testid="receipt-item-editor-list" className="m-0 list-none space-y-2 p-0" style={wrapStyle}>
+        {list.map((row) => {
           if (row.kind === 'passthrough') {
             return (
               <li
                 key={row.key}
                 data-noswipe
                 data-testid="receipt-item-preserved"
-                className="min-w-0 max-w-full py-1"
+                className="flex min-w-0 max-w-full items-center gap-2 py-1"
                 style={wrapStyle}
               >
-                <p className="m-0 break-words text-sm text-ink-soft" style={wrapStyle}>
-                  {t('notebook.receiptItems.preserved', { n })}
+                <p className="m-0 min-w-0 flex-1 break-words text-sm text-ink-soft" style={wrapStyle}>
+                  {t('notebook.receiptItems.preserved')}
                 </p>
                 <button
                   type="button"
                   data-testid="receipt-item-remove"
                   onClick={() => removeRow(row.key)}
-                  className="mt-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm border border-ink-soft px-3 py-2 text-left font-hand text-sm font-bold text-ink"
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-ink-soft px-3 py-2 text-left font-hand text-sm font-bold text-ink"
                   style={buttonStyle}
                 >
-                  {t('notebook.receiptItems.removeRow', { n })}
+                  {t('notebook.receiptItems.removeRow')}
                 </button>
               </li>
             );
@@ -161,77 +175,92 @@ export default function ReceiptItemsEditor({
           const actualError = fieldError(errors, row.key, 'priceActual');
           const qtyError = fieldError(errors, row.key, 'quantity');
           const amountLabel = code
-            ? t('notebook.receiptItems.printedAmountLabel', { n, currency: code })
-            : t('notebook.receiptItems.printedAmountLabelPlain', { n });
+            ? t('notebook.receiptItems.printedAmountLabel', { currency: code })
+            : t('notebook.receiptItems.printedAmountLabelPlain');
+          const showActual = hasDistinctActual(row);
+          const showQty = Boolean(row.fields.quantity.present);
           return (
             <li
               key={row.key}
               data-noswipe
               data-testid="receipt-item-editor-row"
-              className="min-w-0 max-w-full space-y-2 py-2"
+              className="min-w-0 max-w-full space-y-1 py-1"
               style={wrapStyle}
             >
-              <div className="min-w-0" style={wrapStyle}>
-                <label htmlFor={nameId} className="mb-1 block break-words font-hand text-sm font-bold text-ink-soft" style={wrapStyle}>
-                  {t('notebook.receiptItems.nameLabel', { n })}
-                </label>
-                <input
-                  id={nameId}
-                  data-testid="receipt-item-name"
-                  type="text"
-                  autoComplete="off"
-                  value={row.fields.name.text}
-                  onChange={changeField(row.key, 'name')}
-                  onKeyDown={onRowKeyDown}
-                  {...compositionHandlers}
-                  aria-invalid={nameError ? 'true' : 'false'}
-                  aria-describedby={nameError ? `${nameId}-error` : undefined}
-                  className="box-border min-h-11 w-full min-w-0 max-w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-ink"
-                  style={inputStyle}
-                />
-                {nameError && (
-                  <p id={`${nameId}-error`} role="alert" className="m-0 mt-1 break-words text-sm text-stamp" style={wrapStyle}>
-                    {t(`notebook.receiptItems.${nameError.code}`)}
+              <div className="flex min-w-0 items-start gap-2">
+                <div className="min-w-0 flex-1" style={wrapStyle}>
+                  <label htmlFor={nameId} className="sr-only">
+                    {t('notebook.receiptItems.nameLabel')}
+                  </label>
+                  <input
+                    id={nameId}
+                    data-testid="receipt-item-name"
+                    type="text"
+                    autoComplete="off"
+                    placeholder={t('notebook.receiptItems.namePlaceholder')}
+                    value={row.fields.name.text}
+                    onChange={changeField(row.key, 'name')}
+                    onKeyDown={onRowKeyDown}
+                    {...compositionHandlers}
+                    aria-invalid={nameError ? 'true' : 'false'}
+                    aria-describedby={nameError ? `${nameId}-error` : undefined}
+                    className={fieldClass}
+                    style={inputStyle}
+                  />
+                  {nameError && (
+                    <p id={`${nameId}-error`} role="alert" className="m-0 mt-1 break-words text-sm text-stamp" style={wrapStyle}>
+                      {t(`notebook.receiptItems.${nameError.code}`)}
+                    </p>
+                  )}
+                </div>
+                <div className="w-24 shrink-0 sm:w-28" style={wrapStyle}>
+                  <label htmlFor={priceId} className="sr-only">
+                    {amountLabel}
+                  </label>
+                  {code ? (
+                    <span data-testid="receipt-item-currency" className="sr-only">
+                      {code}
+                    </span>
+                  ) : null}
+                  <p id={`${priceId}-hint`} className="sr-only">
+                    {t('notebook.receiptItems.printedAmountHint')}
                   </p>
-                )}
+                  <input
+                    id={priceId}
+                    data-testid="receipt-item-price-input"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder={t('notebook.receiptItems.amountPlaceholder')}
+                    value={row.fields.price.text}
+                    onChange={changeField(row.key, 'price')}
+                    onKeyDown={onRowKeyDown}
+                    {...compositionHandlers}
+                    aria-invalid={priceError ? 'true' : 'false'}
+                    aria-describedby={priceError ? `${priceId}-error` : `${priceId}-hint`}
+                    className={`${fieldClass} font-display tabular-nums`}
+                    style={inputStyle}
+                  />
+                  {priceError && (
+                    <p id={`${priceId}-error`} role="alert" className="m-0 mt-1 break-words text-sm text-stamp" style={wrapStyle}>
+                      {t(`notebook.receiptItems.${priceError.code}`)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  data-testid="receipt-item-remove"
+                  onClick={() => removeRow(row.key)}
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-ink-soft px-3 py-2 text-left font-hand text-sm font-bold text-ink"
+                  style={buttonStyle}
+                >
+                  {t('notebook.receiptItems.removeRow')}
+                </button>
               </div>
-              <div className="min-w-0" style={wrapStyle}>
-                <label htmlFor={priceId} className="mb-1 block break-words font-hand text-sm font-bold text-ink-soft" style={wrapStyle}>
-                  {amountLabel}
-                </label>
-                {code ? (
-                  <span data-testid="receipt-item-currency" className="sr-only">
-                    {code}
-                  </span>
-                ) : null}
-                <p id={`${priceId}-hint`} className="sr-only">
-                  {t('notebook.receiptItems.printedAmountHint')}
-                </p>
-                <input
-                  id={priceId}
-                  data-testid="receipt-item-price-input"
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={row.fields.price.text}
-                  onChange={changeField(row.key, 'price')}
-                  onKeyDown={onRowKeyDown}
-                  {...compositionHandlers}
-                  aria-invalid={priceError ? 'true' : 'false'}
-                  aria-describedby={priceError ? `${priceId}-error` : `${priceId}-hint`}
-                  className="box-border min-h-11 w-full min-w-0 max-w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-ink"
-                  style={inputStyle}
-                />
-                {priceError && (
-                  <p id={`${priceId}-error`} role="alert" className="m-0 mt-1 break-words text-sm text-stamp" style={wrapStyle}>
-                    {t(`notebook.receiptItems.${priceError.code}`)}
-                  </p>
-                )}
-              </div>
-              {row.fields.priceActual.present && (
+              {showActual && (
                 <div className="min-w-0" style={wrapStyle}>
-                  <label htmlFor={actualId} className="mb-1 block break-words font-hand text-sm font-bold text-ink-soft" style={wrapStyle}>
-                    {t('notebook.receiptItems.actualAmountLabel', { n, currency: code })}
+                  <label htmlFor={actualId} className="mb-1 block font-hand text-sm font-bold text-ink-soft">
+                    {t('notebook.receiptItems.actualAmountLabel', { currency: code })}
                   </label>
                   <input
                     id={actualId}
@@ -245,7 +274,7 @@ export default function ReceiptItemsEditor({
                     {...compositionHandlers}
                     aria-invalid={actualError ? 'true' : 'false'}
                     aria-describedby={actualError ? `${actualId}-error` : undefined}
-                    className="box-border min-h-11 w-full min-w-0 max-w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-ink"
+                    className={`${fieldClass} font-display tabular-nums`}
                     style={inputStyle}
                   />
                   {actualError && (
@@ -255,10 +284,10 @@ export default function ReceiptItemsEditor({
                   )}
                 </div>
               )}
-              {row.fields.quantity.present && (
+              {showQty && (
                 <div className="min-w-0" style={wrapStyle}>
-                  <label htmlFor={qtyId} className="mb-1 block break-words font-hand text-sm font-bold text-ink-soft" style={wrapStyle}>
-                    {t('notebook.receiptItems.quantityLabel', { n })}
+                  <label htmlFor={qtyId} className="mb-1 block font-hand text-sm font-bold text-ink-soft">
+                    {t('notebook.receiptItems.quantityLabel')}
                   </label>
                   <input
                     id={qtyId}
@@ -272,7 +301,7 @@ export default function ReceiptItemsEditor({
                     {...compositionHandlers}
                     aria-invalid={qtyError ? 'true' : 'false'}
                     aria-describedby={qtyError ? `${qtyId}-error` : undefined}
-                    className="box-border min-h-11 w-full min-w-0 max-w-full rounded-sm border border-ink-soft bg-paper px-3 py-2 text-ink"
+                    className={`${fieldClass} font-display tabular-nums`}
                     style={inputStyle}
                   />
                   {qtyError && (
@@ -282,15 +311,6 @@ export default function ReceiptItemsEditor({
                   )}
                 </div>
               )}
-              <button
-                type="button"
-                data-testid="receipt-item-remove"
-                onClick={() => removeRow(row.key)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm border border-ink-soft px-3 py-2 text-left font-hand text-sm font-bold text-ink"
-                style={buttonStyle}
-              >
-                {t('notebook.receiptItems.removeRow', { n })}
-              </button>
             </li>
           );
         })}

@@ -137,8 +137,10 @@ export function withIncludedTaxAmountText(draft, text) {
   const nextText = String(text ?? '');
   const current = draft.amount;
   let mode = 'value';
-  if (current.mode === 'cleared' && nextText.trim() === '') mode = 'cleared';
-  else if (current.mode === 'unknown' && nextText.trim() === '' && current.initial === '') mode = 'unknown';
+  if (nextText.trim() === '') {
+    if (current.mode === 'unknown' && current.initial === '') mode = 'unknown';
+    else mode = 'cleared';
+  }
   return {
     ...draft,
     amount: { ...current, text: nextText, mode },

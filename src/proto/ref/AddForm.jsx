@@ -38,8 +38,9 @@ const CATEGORY_WASH_SHAPE = {
 
 /**
  * Add / edit expense form:
- * - Scan banner at top
- * - 金額與細項 first (big amount + currency + 付款人 + 付款方式), then 基本資料 (店舖, 日期 + 時間, 地點, 類別貼紙 + 分配給, 進階)
+ * - Scan banner at top (add only)
+ * - Amount card first: paid amount, compact tax/subtotal/refund/discount/formula, then receipt lines, then payer/payment
+ * - 基本資料 (店舖, 日期 + 時間, 地點, 類別貼紙 + 分配給, 進階 note)
  * - In-flow save bar sits at the bottom of the form content above BottomNav so no field is ever covered.
  */
 export default function AddForm({
@@ -438,38 +439,6 @@ export default function AddForm({
         </div>
       )}
 
-      <ReceiptItemsDisclosure
-        key={itemSource.identity}
-        items={itemSource.items}
-        currency={itemSource.currency}
-        scanned={itemSource.scanned}
-        identity={itemSource.identity}
-        editable={editableItems}
-        drafts={itemBundle.identity === itemSource.identity ? itemBundle.drafts : createItemDrafts(itemSource.items, itemSource.identity)}
-        onDraftsChange={onDraftsChange}
-        nextRowKey={nextRowKey}
-        errors={itemErrors}
-        revealToken={itemReveal}
-        composingRef={composingRef}
-      />
-
-      <IncludedTaxSection
-        key={`included:${taxIdentity}`}
-        draft={taxDraft}
-        currency={f.currency}
-        errors={taxErrors}
-        revealToken={taxReveal}
-        onChange={(draft) => {
-          setTaxBundle((current) => ({ ...current, identity: taxIdentity, draft }));
-          setTaxErrors((existing) => (existing.length ? commitIncludedTaxDraft(draft).errors : existing));
-        }}
-        nextRowKey={() => {
-          taxRowSeq.current += 1;
-          return `included-tax-new-${taxRowSeq.current}`;
-        }}
-        composingRef={composingRef}
-      />
-
       {/* Card 1: Amount & currency first */}
       <div className="jr-taped-card jr-stuck-slip relative min-w-0 space-y-3 bg-paper p-3.5">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pb-0.5">
@@ -516,12 +485,93 @@ export default function AddForm({
           </div>
         </div>
 
-        {!initial && activeDraft && (
-          <PaidAmountFormula surface="scan" {...paidFormula} />
-        )}
-        {initial && (
-          <PaidAmountFormula surface="edit" {...paidFormula} />
-        )}
+        <div className="grid min-w-0 grid-cols-2 gap-2">
+          <div className="min-w-0">
+            <label htmlFor="ref-subtotal" className={label}>
+              {subtotalLabel}
+            </label>
+            <input
+              id="ref-subtotal"
+              type="number"
+              value={f.subtotal}
+              onChange={set('subtotal')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-tax" className={label}>
+              {t('notebook.addForm.taxLabel')}
+            </label>
+            <input
+              id="ref-tax"
+              type="number"
+              value={f.tax}
+              onChange={set('tax')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-refund" className={label}>
+              {t('notebook.addForm.taxRefundLabel')}
+            </label>
+            <input
+              id="ref-refund"
+              type="number"
+              value={f.taxRefund}
+              onChange={set('taxRefund')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="ref-discount" className={label}>
+              {t('notebook.addForm.discountLabel')}
+            </label>
+            <input
+              id="ref-discount"
+              type="number"
+              value={f.discount}
+              onChange={set('discount')}
+              className={`${field} font-display tabular-nums`}
+            />
+          </div>
+        </div>
+
+        <IncludedTaxSection
+          key={`included:${taxIdentity}`}
+          draft={taxDraft}
+          currency={f.currency}
+          errors={taxErrors}
+          revealToken={taxReveal}
+          onChange={(draft) => {
+            setTaxBundle((current) => ({ ...current, identity: taxIdentity, draft }));
+            setTaxErrors((existing) => (existing.length ? commitIncludedTaxDraft(draft).errors : existing));
+          }}
+          nextRowKey={() => {
+            taxRowSeq.current += 1;
+            return `included-tax-new-${taxRowSeq.current}`;
+          }}
+          composingRef={composingRef}
+        />
+
+        <PaidAmountFormula
+          surface={initial ? 'edit' : activeDraft ? 'scan' : 'advanced'}
+          {...paidFormula}
+        />
+
+        <ReceiptItemsDisclosure
+          key={itemSource.identity}
+          items={itemSource.items}
+          currency={itemSource.currency}
+          scanned={itemSource.scanned}
+          identity={itemSource.identity}
+          editable={editableItems}
+          drafts={itemBundle.identity === itemSource.identity ? itemBundle.drafts : createItemDrafts(itemSource.items, itemSource.identity)}
+          onDraftsChange={onDraftsChange}
+          nextRowKey={nextRowKey}
+          errors={itemErrors}
+          revealToken={itemReveal}
+          composingRef={composingRef}
+        />
 
         {payers.length > 0 && (
           <div className="flex min-w-0 items-center justify-between gap-2 pt-0.5">
@@ -783,60 +833,6 @@ export default function AddForm({
           </button>
           {advanced && (
             <div className="space-y-2 border-t border-dashed border-ink-soft/35 px-3 pb-3 pt-2">
-              <p className="font-hand text-meta font-bold text-ink-muted">
-                {t('notebook.addForm.taxSectionTitle')}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label htmlFor="ref-subtotal" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {subtotalLabel}
-                  </label>
-                  <input
-                    id="ref-subtotal"
-                    type="number"
-                    value={f.subtotal}
-                    onChange={set('subtotal')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-tax" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.taxLabel')}
-                  </label>
-                  <input
-                    id="ref-tax"
-                    type="number"
-                    value={f.tax}
-                    onChange={set('tax')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-refund" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.taxRefundLabel')}
-                  </label>
-                  <input
-                    id="ref-refund"
-                    type="number"
-                    value={f.taxRefund}
-                    onChange={set('taxRefund')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ref-discount" className="mb-0.5 block font-hand text-meta text-ink-muted">
-                    {t('notebook.addForm.discountLabel')}
-                  </label>
-                  <input
-                    id="ref-discount"
-                    type="number"
-                    value={f.discount}
-                    onChange={set('discount')}
-                    className={`${field} font-display tabular-nums`}
-                  />
-                </div>
-              </div>
-              <PaidAmountFormula surface="advanced" {...paidFormula} />
               <div>
                 <label htmlFor="ref-note2" className="mb-0.5 block font-hand text-meta text-ink-muted">
                   {t('notebook.addForm.noteLabel')}

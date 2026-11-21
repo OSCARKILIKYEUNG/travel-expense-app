@@ -80,8 +80,9 @@ describe('included tax editor', () => {
     const amount = screen.getByTestId('included-tax-amount');
     expect(amount.value).toBe('82');
     expect(amount.style.fontSize).toBe('16px');
-    expect(screen.getByTestId('included-tax-clear-amount').style.minHeight).toBe('44px');
-    expect(screen.getByLabelText('已含消費稅合計')).toBe(amount);
+    expect(amount.style.minHeight).toBe('44px');
+    expect(screen.getByLabelText('已含消費稅（不另加）')).toBe(amount);
+    expect(screen.getByText('只顯示，不加進實付')).toBeTruthy();
     expect(screen.getAllByTestId('included-tax-row-tax')[0].value).toBe('40');
     expect(screen.getAllByTestId('included-tax-row-tax')[1].value).toBe('42');
 
@@ -137,21 +138,20 @@ describe('included tax editor', () => {
     expect(draft.includedTaxBreakdown[0].includedTaxAmount).toBe(40);
   });
 
-  it('opens a collapsed invalid amount and keeps a cleared edit from restoring printed rows', () => {
+  it('keeps an invalid amount visible and lets emptying the field clear printed tax without restoring rows', () => {
     const draft = { ...lawson(), id: 'scan-clear' };
     const { onSave } = renderForm({
       scanDraft: draft,
       scanState: { status: 'ready', token: 'scan-clear', draft },
     });
     fireEvent.change(screen.getByTestId('included-tax-amount'), { target: { value: 'abc' } });
-    fireEvent.click(screen.getByTestId('included-tax-toggle'));
-    expect(screen.queryByTestId('included-tax-amount')).toBeNull();
+    expect(screen.getByTestId('included-tax-amount')).toBeTruthy();
     fireEvent.click(screen.getByTestId('form-save'));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByTestId('included-tax-panel')).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toContain('數字');
 
-    fireEvent.click(screen.getByTestId('included-tax-clear-amount'));
+    fireEvent.change(screen.getByTestId('included-tax-amount'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('included-tax-clear-rows'));
     fireEvent.click(screen.getByTestId('form-save'));
     const payload = onSave.mock.calls[0][0];
@@ -166,7 +166,6 @@ describe('included tax editor', () => {
       scanDraft: draft,
       scanState: { status: 'ready', token: 'scan-label', draft },
     });
-    fireEvent.click(screen.getByRole('button', { name: '進階' }));
     expect(screen.getByText('商品小計（含稅）')).toBeTruthy();
     inclusive.unmount();
 
@@ -181,7 +180,6 @@ describe('included tax editor', () => {
         category: '飲食',
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: '進階' }));
     expect(screen.getByText('商品小計（含稅）')).toBeTruthy();
     expect(screen.queryByText('商品小計（未稅）')).toBeNull();
     expect(screen.getByLabelText('另加消費稅').value).toBe('210');
@@ -198,7 +196,6 @@ describe('included tax editor', () => {
         category: '飲食',
       },
     });
-    fireEvent.click(screen.getByTestId('included-tax-toggle'));
     expect(screen.getByTestId('included-tax-amount').dataset.mode).toBe('unknown');
     fireEvent.change(screen.getByTestId('included-tax-amount'), { target: { value: '0' } });
     fireEvent.click(screen.getByTestId('form-save'));
@@ -222,7 +219,6 @@ describe('included tax editor', () => {
       scanDraft: next,
       scanState: { status: 'ready', token: 'new-scan', draft: next },
     }, view.onSave, view.onCancel));
-    fireEvent.click(screen.getByTestId('included-tax-toggle'));
     expect(screen.getByTestId('included-tax-amount').value).toBe('');
     expect(screen.getByTestId('included-tax-amount').dataset.mode).toBe('unknown');
     fireEvent.click(screen.getByTestId('form-save'));
@@ -230,6 +226,36 @@ describe('included tax editor', () => {
     expect(payload.includedTaxAmount).toBeUndefined();
     expect(payload.includedTaxBreakdown).toBeUndefined();
     expect(payload.originalAmount).toBe(1015);
+  });
+
+  it('puts paid amount first and keeps LAWSON included tax visible when subtotal equals paid', () => {
+    const draft = { ...lawson(), id: 'scan-order' };
+    const { onSave } = renderForm({
+      scanDraft: draft,
+      scanState: { status: 'ready', token: 'scan-order', draft },
+    });
+    const amount = screen.getByTestId('form-amount');
+    const included = screen.getByTestId('included-tax');
+    const items = screen.getByTestId('receipt-items');
+    expect(amount.value).toBe('1015');
+    expect(amount.compareDocumentPosition(included) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(amount.compareDocumentPosition(items) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('included-tax-amount').value).toBe('82');
+    expect(screen.getAllByTestId('included-tax-row-tax')[0].value).toBe('40');
+    expect(screen.getAllByTestId('included-tax-row-tax')[1].value).toBe('42');
+    expect(screen.getByLabelText('商品小計（含稅）').value).toBe('1015');
+    expect(screen.getByText('只顯示，不加進實付')).toBeTruthy();
+    expect(screen.queryByText('已含消費稅合計')).toBeNull();
+    expect(screen.queryByText('清除已含消費稅')).toBeNull();
+    fireEvent.click(screen.getByTestId('form-save'));
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.originalAmount).toBe(1015);
+    expect(payload.includedTaxAmount).toBe(82);
+    expect(payload.includedTaxBreakdown).toEqual([
+      { ratePercent: 10, targetAmount: 440, basis: 'gross', includedTaxAmount: 40 },
+      { ratePercent: 8, targetAmount: 575, basis: 'gross', includedTaxAmount: 42 },
+    ]);
+    expect(payload.tax).not.toBe(82);
   });
 
   it('shows stored summary text in zh-TW and en without treating it as an added charge', async () => {

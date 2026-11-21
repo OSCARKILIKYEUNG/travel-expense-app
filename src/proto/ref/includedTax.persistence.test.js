@@ -207,7 +207,7 @@ describe('included tax roundtrip', () => {
       },
     });
     expect((await screen.findByTestId('included-tax-amount')).value).toBe('82');
-    fireEvent.click(screen.getByTestId('included-tax-clear-amount'));
+    fireEvent.change(screen.getByTestId('included-tax-amount'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('included-tax-clear-rows'));
     fireEvent.click(screen.getByTestId('form-save'));
     expect(prepared.record.includedTaxAmount).toBeNull();
@@ -234,7 +234,6 @@ describe('included tax roundtrip', () => {
       onCancel: () => {},
       onSave: () => {},
     })));
-    fireEvent.click(screen.getByTestId('included-tax-toggle'));
     expect(screen.getByTestId('included-tax-amount').value).toBe('');
     expect(screen.getByTestId('included-tax-amount').dataset.mode).toBe('cleared');
     expect(screen.queryByTestId('included-tax-row')).toBeNull();
