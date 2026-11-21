@@ -98,6 +98,43 @@ afterEach(async () => {
 });
 
 describe('receipt line disclosure', () => {
+  it('marks each saved receipt item once, with its price under the name and aggregate notes outside the list', () => {
+    const names = ['西裝外套', '防風外套', '襯衫外套', 'GB 佣金'];
+    renderCard(cardExpense({
+      items: names.map((name, index) => ({ name, price: (index + 1) * 100 })),
+      taxRefund: -30,
+      includedTaxAmount: 82,
+    }));
+    fireEvent.click(screen.getByTestId('receipt-items-toggle'));
+    const list = screen.getByTestId('receipt-items-list');
+    expect(list.tagName).toBe('UL');
+    expect(list.classList.contains('list-disc')).toBe(true);
+    expect(list.classList.contains('list-outside')).toBe(true);
+    expect(list.classList.contains('pl-4')).toBe(true);
+    expect(list.classList.contains('list-none')).toBe(false);
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(names.length);
+    rows.forEach((row, index) => {
+      expect(row.parentElement).toBe(list);
+      expect(row.tagName).toBe('LI');
+      const lines = row.querySelectorAll(':scope > p');
+      expect(lines).toHaveLength(2);
+      expect(lines[0].textContent).toBe(names[index]);
+      expect(lines[1].textContent).toBe(`JPY ${(index + 1) * 100}`);
+      expect(row.textContent).not.toMatch(/[•●]/);
+      expect(row.style.overflowWrap).toBe('anywhere');
+      expect(row.style.whiteSpace).toBe('normal');
+    });
+    for (const note of [
+      screen.getByTestId('receipt-items-disclaimer'),
+      screen.getByTestId('saved-tax-refund'),
+      screen.getByTestId('included-tax-summary'),
+    ]) {
+      expect(list.contains(note)).toBe(false);
+      expect(note.closest('li')).toBeNull();
+    }
+  });
+
   it('shows an active raw scan draft, not the summary mapper, and keeps save math untouched', () => {
     const items = Object.freeze([
       Object.freeze({

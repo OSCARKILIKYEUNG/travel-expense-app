@@ -81,7 +81,7 @@ function ReadOnlyReceiptItems({ view, currency, t }) {
   }
   return (
     <>
-      <ul data-testid="receipt-items-list" className="m-0 list-none p-0">
+      <ul data-testid="receipt-items-list" className="m-0 list-outside list-disc py-0 pl-4 pr-0">
         {view.rows.map((row) => {
           const code = row.currency || currency || '';
           return (
